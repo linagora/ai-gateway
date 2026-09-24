@@ -31,7 +31,7 @@ Légende : 🧑 = point d'arrêt, action ou information attendue de l'utilisateu
 
 ```bash
 scp infra/scripts/bootstrap-host.sh ia-host:/tmp/
-ssh ia-host 'sudo ADMIN_SSH_CIDR="<cidr ou vide>" bash /tmp/bootstrap-host.sh'
+ssh ia-host 'sudo ADMIN_SSH_CIDR="<CIDR séparés par des espaces, ou vide>" bash /tmp/bootstrap-host.sh'
 ```
 ⚠️ Le script autorise SSH **avant** d'activer ufw. Après exécution, **ouvrir une nouvelle connexion** (`ssh ia-host true`) avant de fermer quoi que ce soit.
 

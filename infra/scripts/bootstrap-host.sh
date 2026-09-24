@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Préparation du serveur (Ubuntu 24.04 / Debian 12). Idempotent. À lancer avec sudo.
-# Usage : sudo ADMIN_SSH_CIDR="x.x.x.x/32" bash bootstrap-host.sh
-# ADMIN_SSH_CIDR : IP autorisées en SSH (laisser vide = SSH ouvert à tous, déconseillé).
+# Usage : sudo ADMIN_SSH_CIDR="x.x.x.x/32 y.y.y.y/32" bash bootstrap-host.sh
+# ADMIN_SSH_CIDR : IP/CIDR autorisées en SSH, séparées par des espaces (vide = SSH ouvert à tous, déconseillé).
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
 
@@ -39,7 +39,11 @@ systemctl restart docker
 [ -n "${SUDO_USER:-}" ] && usermod -aG docker "$SUDO_USER" || true
 
 echo "== Pare-feu (SSH d'abord !)"
-if [ -n "${ADMIN_SSH_CIDR:-}" ]; then ufw allow from "$ADMIN_SSH_CIDR" to any port 22 proto tcp; else ufw allow 22/tcp; fi
+if [ -n "${ADMIN_SSH_CIDR:-}" ]; then
+  for cidr in $ADMIN_SSH_CIDR; do ufw allow from "$cidr" to any port 22 proto tcp; done
+else
+  ufw allow 22/tcp
+fi
 ufw allow 80/tcp
 ufw allow 443/tcp
 ufw allow 443/udp
