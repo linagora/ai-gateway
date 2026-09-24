@@ -151,3 +151,37 @@ function withDefaults(params: ApprovalInput, settings: SettingValues): ApprovalI
     tpmLimit: params.tpmLimit ?? num(settings.default_tpm),
   };
 }
+
+/** F-31 : refuse une demande ; le motif est obligatoire et visible du demandeur. */
+export async function refuseRequest(deps: AdminDeps, actor: SessionUser, id: string, comment: string): Promise<void> {
+  requireAdmin(actor);
+  const request = await deps.db.accessRequest.findUnique({ where: { id } });
+  if (!request) throw new PortalError("introuvable", "Demande introuvable.");
+  await transitionRequest(deps.db, request, "REFUSEE", {
+    comment,
+    data: { decidedBy: actor.uid, decidedAt: new Date(), decisionComment: comment.trim() },
+  });
+}
+
+/** F-31 : renvoie la demande au demandeur pour qu'il la complète (statut A_COMPLETER). */
+export async function requestCompletion(deps: AdminDeps, actor: SessionUser, id: string, comment: string): Promise<void> {
+  requireAdmin(actor);
+  const request = await deps.db.accessRequest.findUnique({ where: { id } });
+  if (!request) throw new PortalError("introuvable", "Demande introuvable.");
+  await transitionRequest(deps.db, request, "A_COMPLETER", {
+    data: { decidedBy: actor.uid, decidedAt: new Date(), decisionComment: comment.trim() || null },
+  });
+}
+
+/**
+ * F-22 : approuve une demande d'adhésion en ajoutant le demandeur à l'équipe dans LiteLLM.
+ * LiteLLM d'abord : en cas d'échec, la demande reste SOUMISE et peut être rejouée.
+ */
+export async function approveTeamJoinRequest(deps: AdminDeps, actor: SessionUser, id: string): Promise<void> {
+  requireAdmin(actor);
+  const request = await deps.db.accessRequest.findUnique({ where: { id } });
+  if (!request || request.kind !== "ADHESION_EQUIPE") throw new PortalError("introuvable", "Demande d'adhésion introuvable.");
+  if (request.status !== "SOUMISE") throw new PortalError("transition_interdite", "Cette demande a déjà été traitée.");
+  await deps.litellm.addTeamMember(request.teamId, request.requesterUid);
+  await transitionRequest(deps.db, request, "APPROUVEE", { data: { decidedBy: actor.uid, decidedAt: new Date() } });
+}

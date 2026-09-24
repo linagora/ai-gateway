@@ -40,6 +40,23 @@ export interface RequestSummary {
 
 /** F-20 : enregistre une demande de clé au statut SOUMISE. */
 export async function createKeyRequest(deps: RequestDeps, user: SessionUser, input: KeyRequestInput): Promise<{ id: string }> {
+  const fields = await validateKeyRequest(deps, user, input);
+  const created = await deps.db.accessRequest.create({
+    data: { kind: "CLE", requesterUid: user.uid, requesterEmail: user.email, ...fields },
+  });
+  return { id: created.id };
+}
+
+/** F-24 : le demandeur complète une demande renvoyée par l'admin ; elle repasse en SOUMISE. */
+export async function completeRequest(deps: RequestDeps, user: SessionUser, id: string, input: KeyRequestInput): Promise<void> {
+  const request = await deps.db.accessRequest.findUnique({ where: { id } });
+  if (!request || request.requesterUid !== user.uid || request.kind !== "CLE") throw new PortalError("introuvable", "Demande introuvable.");
+  const fields = await validateKeyRequest(deps, user, input);
+  await transitionRequest(deps.db, request, "SOUMISE", { data: fields });
+}
+
+/** F-20, F-21, règle 3 : saisie validée, engagement coché, équipe existante, contrôles de politique passés. */
+async function validateKeyRequest(deps: RequestDeps, user: SessionUser, input: KeyRequestInput) {
   const data = keyRequestInputSchema.parse(input);
   if (!data.commitment) {
     throw new PortalError("engagement_requis", "Engagez-vous à ne pas soumettre de données d'un niveau supérieur à celui déclaré.");
@@ -48,23 +65,17 @@ export async function createKeyRequest(deps: RequestDeps, user: SessionUser, inp
   if (!team) throw new PortalError("introuvable", "Équipe introuvable.");
   const verdict = await evaluateKeyRequest(deps, { requesterUid: user.uid, teamId: team.teamId, dataLevel: data.dataLevel, models: data.models });
   if (!verdict.ok) throw new PolicyViolationError(verdict.checks.filter((c) => !c.ok));
-  const created = await deps.db.accessRequest.create({
-    data: {
-      kind: "CLE",
-      requesterUid: user.uid,
-      requesterEmail: user.email,
-      teamId: team.teamId,
-      teamAlias: team.teamAlias,
-      dataLevel: data.dataLevel,
-      models: data.models,
-      justification: data.justification,
-      project: data.project,
-      keyType: data.keyType,
-      requestedBudget: data.requestedBudget,
-      requestedDays: data.requestedDays,
-    },
-  });
-  return { id: created.id };
+  return {
+    teamId: team.teamId,
+    teamAlias: team.teamAlias,
+    dataLevel: data.dataLevel,
+    models: data.models,
+    justification: data.justification,
+    project: data.project,
+    keyType: data.keyType,
+    requestedBudget: data.requestedBudget,
+    requestedDays: data.requestedDays,
+  };
 }
 
 export const teamJoinInputSchema = z.object({

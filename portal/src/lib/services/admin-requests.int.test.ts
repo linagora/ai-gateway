@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
-import { approveKeyRequest, getRequestReview, listPendingRequests } from "./admin-requests";
+import { approveKeyRequest, approveTeamJoinRequest, getRequestReview, listPendingRequests, refuseRequest, requestCompletion } from "./admin-requests";
 import { saveCatalogEntry } from "./catalog";
-import { createKeyRequest, type KeyRequestInput } from "./requests";
+import { completeRequest, createKeyRequest, createTeamJoinRequest, type KeyRequestInput, listMyRequests } from "./requests";
 import { saveSettings } from "./settings";
 
 const admin = { uid: "jdupont", email: "jdupont@linagora.com", name: "Jeanne Dupont", isAdmin: true };
@@ -90,5 +90,48 @@ describe("approbation (F-31)", () => {
     const { id } = await createKeyRequest(deps, demandeur, demande);
     await approveKeyRequest(deps, admin, id, { ...parametres, budget: null, budgetDuration: null, days: null });
     expect((await getRequestReview(deps, admin, id)).approved).toMatchObject({ budget: 25, budgetDuration: "30d", days: 90 });
+  });
+});
+
+describe("refus (F-31)", () => {
+  test("refuser sans motif est impossible", async () => {
+    const { id } = await createKeyRequest(deps, demandeur, demande);
+    await expect(refuseRequest(deps, admin, id, " ")).rejects.toMatchObject({ code: "motif_obligatoire" });
+  });
+
+  test("le demandeur voit le refus et son motif dans Mes demandes", async () => {
+    const { id } = await createKeyRequest(deps, demandeur, demande);
+    await refuseRequest(deps, admin, id, "Utilisez l'équipe du projet");
+    expect(await listMyRequests(deps, demandeur)).toMatchObject([{ id, status: "REFUSEE", decisionComment: "Utilisez l'équipe du projet" }]);
+  });
+
+  test("une demande déjà approuvée ne peut plus être refusée", async () => {
+    const { id } = await createKeyRequest(deps, demandeur, demande);
+    await approveKeyRequest(deps, admin, id, parametres);
+    await expect(refuseRequest(deps, admin, id, "Trop tard")).rejects.toMatchObject({ code: "transition_interdite" });
+  });
+});
+
+describe("demande de complément (F-31, F-24)", () => {
+  test("la demande revient au demandeur avec le commentaire de l'admin", async () => {
+    const { id } = await createKeyRequest(deps, demandeur, demande);
+    await requestCompletion(deps, admin, id, "Précisez le projet");
+    expect(await listMyRequests(deps, demandeur)).toMatchObject([{ id, status: "A_COMPLETER", decisionComment: "Précisez le projet" }]);
+  });
+
+  test("la demande complétée repasse en SOUMISE avec les nouvelles informations", async () => {
+    const { id } = await createKeyRequest(deps, demandeur, demande);
+    await requestCompletion(deps, admin, id, "Précisez le projet");
+    await completeRequest(deps, demandeur, id, { ...demande, project: "comptes-rendus-codir" });
+    expect(await getRequestReview(deps, admin, id)).toMatchObject({ status: "SOUMISE", project: "comptes-rendus-codir" });
+  });
+});
+
+describe("adhésion à une équipe (F-22)", () => {
+  test("approuver une demande d'adhésion ajoute le demandeur à l'équipe dans LiteLLM", async () => {
+    litellm.withTeam({ teamId: "equipe-data", teamAlias: "Data", models: ["mistral-small"], memberUids: ["jdupont"] });
+    const { id } = await createTeamJoinRequest(deps, demandeur, { teamId: "equipe-data", justification: "Projet d'analyse" });
+    await approveTeamJoinRequest(deps, admin, id);
+    expect((await litellm.getTeam("equipe-data"))?.memberUids).toContain("mmaudet");
   });
 });
