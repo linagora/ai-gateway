@@ -92,7 +92,9 @@ Vérifier dans les logs LiteLLM l'absence du message « Cannot apply server_root
 - un modèle OpenRouter N1 ou N2 ;
 - le modèle N3 **Qwen3.8 sur l'endpoint OVHcloud** (`openai/<modèle>` + `api_base` = `OVH_QWEN_API_BASE`), après un test direct de l'endpoint (`curl <api_base>/models`).
 
-Chaque modèle reçoit dans `model_info` : `input_cost_per_token` et `output_cost_per_token` **en EUR**, `pricing_currency: EUR` (et `fx_rate_usd_eur` pour les tarifs convertis), `data_level`, `hosting`.
+Chaque modèle reçoit :
+- dans **`litellm_params`** : `input_cost_per_token` et `output_cost_per_token` **en EUR**. Depuis LiteLLM 1.10x, les prix placés dans `model_info` sont considérés comme dérivés de la table de coûts publique et **supprimés à l'enregistrement** ; `/model/info` les recopie ensuite dans `model_info` pour l'affichage ;
+- dans **`model_info`** : `pricing_currency: EUR` (et `fx_rate_usd_eur` pour les tarifs convertis), `data_level`, `hosting`.
 
 **Test de bout en bout par l'API admin** (depuis le serveur, réseau interne, sans afficher la clé maître) :
 ```bash

@@ -28,9 +28,10 @@ litellm_settings:
 #       api_key: os.environ/OPENROUTER_API_KEY
 #       # N2 : restreindre le routage OpenRouter aux fournisseurs sans collecte/conservation
 #       # (paramètre "provider" d'OpenRouter — syntaxe exacte à vérifier dans la doc LiteLLM/OpenRouter)
-#     model_info:
+#       # Prix : dans litellm_params (LiteLLM ≥ 1.10x supprime les prix placés dans model_info)
 #       input_cost_per_token: 0.00000009    # EUR par token (prix USD × fx_rate_usd_eur)
 #       output_cost_per_token: 0.00000028
+#     model_info:
 #       pricing_currency: EUR               # obligatoire pour être visible dans le portail
 #       fx_rate_usd_eur: 0.92               # taux interne, revu chaque trimestre
 #       data_level: N2                      # recopié depuis le portail (source de vérité)
@@ -41,9 +42,9 @@ litellm_settings:
 #       model: openai/Qwen3.8-27B
 #       api_base: os.environ/OVH_QWEN_API_BASE    # https://oai.endpoints.kepler.ai.cloud.ovh.net/v1
 #       api_key: os.environ/OVH_QWEN_API_KEY
-#     model_info:
 #       input_cost_per_token: 0.0000004           # 0,40 € HT / Mtoken (tarif public OVH, validé le 2026-09-24)
 #       output_cost_per_token: 0.0000027          # 2,70 € HT / Mtoken
+#     model_info:
 #       pricing_currency: EUR
 #       data_level: N3
 #       hosting: INTERNE_OVH
