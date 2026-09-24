@@ -96,6 +96,8 @@ Chaque modèle reçoit :
 - dans **`litellm_params`** : `input_cost_per_token` et `output_cost_per_token` **en EUR**. Depuis LiteLLM 1.10x, les prix placés dans `model_info` sont considérés comme dérivés de la table de coûts publique et **supprimés à l'enregistrement** ; `/model/info` les recopie ensuite dans `model_info` pour l'affichage ;
 - dans **`model_info`** : `pricing_currency: EUR` (et `fx_rate_usd_eur` pour les tarifs convertis), `data_level`, `hosting`.
 
+Déclaration possible par l'API (exemple : `scripts/smoke-test.py` pour le test, `POST /model/new` pour la création). Test de bout en bout réutilisable : `docker compose exec -T litellm python3 - <model_name> < scripts/smoke-test.py` (équipe et clé de test, critère 1, complétion, dépense au tarif EUR, révocation → 401, nettoyage).
+
 **Test de bout en bout par l'API admin** (depuis le serveur, réseau interne, sans afficher la clé maître) :
 ```bash
 ssh ia-host 'cd /opt/linagora-ia && MK=$(grep ^LITELLM_MASTER_KEY= .env | cut -d= -f2-) && \
