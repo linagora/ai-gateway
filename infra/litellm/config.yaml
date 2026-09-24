@@ -1,0 +1,49 @@
+# LiteLLM Proxy — configuration (édition communautaire)
+# Les modèles sont gérés depuis l'UI admin (STORE_MODEL_IN_DB=True) : pas de redéploiement
+# pour ajouter un modèle ou changer un tarif. Ce fichier ne porte que les réglages globaux.
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+  store_model_in_db: true
+  # Ne jamais stocker le contenu des prompts/réponses dans les logs de dépense (RGPD)
+  store_prompts_in_spend_logs: false
+  # Détail par requête conservé 90 jours ; les tables agrégées Daily* gardent l'historique
+  maximum_spend_logs_retention_period: "90d"
+  maximum_spend_logs_cleanup_cron: "0 3 * * *"
+
+litellm_settings:
+  drop_params: true
+  # --- Phase 2 : Langfuse ------------------------------------------------------
+  # success_callback: ["langfuse"]
+  # failure_callback: ["langfuse"]
+  # turn_off_message_logging: true     # métadonnées seulement, tant que la politique RGPD n'est pas validée
+  # (variables LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY / LANGFUSE_HOST à ajouter au service litellm)
+
+# Exemple de déclaration (à reproduire plutôt via l'UI admin) :
+# model_list:
+#   - model_name: mistral-small            # nom exposé aux utilisateurs
+#     litellm_params:
+#       model: openrouter/mistralai/mistral-small-3.2-24b-instruct
+#       api_key: os.environ/OPENROUTER_API_KEY
+#       # N2 : restreindre le routage OpenRouter aux fournisseurs sans collecte/conservation
+#       # (paramètre "provider" d'OpenRouter — syntaxe exacte à vérifier dans la doc LiteLLM/OpenRouter)
+#     model_info:
+#       input_cost_per_token: 0.00000009    # EUR par token (prix USD × fx_rate_usd_eur)
+#       output_cost_per_token: 0.00000028
+#       pricing_currency: EUR               # obligatoire pour être visible dans le portail
+#       fx_rate_usd_eur: 0.92               # taux interne, revu chaque trimestre
+#       data_level: N2                      # recopié depuis le portail (source de vérité)
+#       hosting: UE
+#
+#   - model_name: qwen3.8                  # N3 — endpoint OVHcloud (paramètres fournis par Linagora)
+#     litellm_params:
+#       model: openai/<nom-du-modele-chez-OVH>   # ou le fournisseur OVHcloud natif de LiteLLM s'il existe
+#       api_base: os.environ/OVH_QWEN_API_BASE    # URL OpenAI-compatible, se terminant en général par /v1
+#       api_key: os.environ/OVH_QWEN_API_KEY
+#     model_info:
+#       input_cost_per_token: <tarif EUR / token>
+#       output_cost_per_token: <tarif EUR / token>
+#       pricing_currency: EUR
+#       data_level: N3
+#       hosting: INTERNE_OVH

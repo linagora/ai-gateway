@@ -1,0 +1,9 @@
+.env
+.env.*
+!.env.example
+!infra/.env.example
+node_modules/
+.next/
+dist/
+*.dump
+*.log

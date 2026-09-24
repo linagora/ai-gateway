@@ -1,0 +1,169 @@
+# Passerelle IA Linagora — /opt/linagora-ia/docker-compose.yml
+# Seul Caddy publie des ports (80/443). Tout le reste est sur le réseau interne.
+# Rappel : les ports publiés par Docker contournent ufw — ne JAMAIS ajouter de "ports:" ailleurs.
+#
+# Démarrage phase 1 : docker compose up -d
+# Avec le portail (jalon J3) : docker compose --profile portal up -d
+
+name: linagora-ia
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+services:
+  caddy:
+    image: ${CADDY_IMAGE}
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN_PORTAL: ${DOMAIN_PORTAL}
+      DOMAIN_API: ${DOMAIN_API}
+      ACME_EMAIL: ${ACME_EMAIL}
+      ADMIN_ALLOWED_IPS: ${ADMIN_ALLOWED_IPS}
+      LANGFUSE_UPSTREAM: ${LANGFUSE_UPSTREAM:-}
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - litellm
+    mem_limit: 256m
+    logging: *default-logging
+
+  postgres:
+    image: ${POSTGRES_IMAGE}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      LITELLM_DB_PASSWORD: ${LITELLM_DB_PASSWORD}
+      PORTAL_DB_PASSWORD: ${PORTAL_DB_PASSWORD}
+      SUPERSET_DB_PASSWORD: ${SUPERSET_DB_PASSWORD}
+      REPORTING_RO_PASSWORD: ${REPORTING_RO_PASSWORD}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    shm_size: 256m
+    mem_limit: 2g
+    logging: *default-logging
+
+  litellm:
+    image: ${LITELLM_IMAGE}
+    restart: unless-stopped
+    command: ["--config", "/app/config.yaml", "--port", "4000", "--num_workers", "2"]
+    environment:
+      DATABASE_URL: postgresql://litellm:${LITELLM_DB_PASSWORD}@postgres:5432/litellm
+      STORE_MODEL_IN_DB: "True"
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      LITELLM_SALT_KEY: ${LITELLM_SALT_KEY}
+      # Tout LiteLLM (UI + API) est servi sous /admin ; Caddy préfixe /admin pour ai-api.
+      SERVER_ROOT_PATH: /admin
+      PROXY_BASE_URL: https://${DOMAIN_PORTAL}
+      UI_USERNAME: ${UI_USERNAME}
+      UI_PASSWORD: ${UI_PASSWORD}
+      GENERIC_CLIENT_ID: ${GENERIC_CLIENT_ID}
+      GENERIC_CLIENT_SECRET: ${GENERIC_CLIENT_SECRET}
+      GENERIC_AUTHORIZATION_ENDPOINT: ${GENERIC_AUTHORIZATION_ENDPOINT}
+      GENERIC_TOKEN_ENDPOINT: ${GENERIC_TOKEN_ENDPOINT}
+      GENERIC_USERINFO_ENDPOINT: ${GENERIC_USERINFO_ENDPOINT}
+      GENERIC_SCOPE: ${GENERIC_SCOPE}
+      GENERIC_USER_ID_ATTRIBUTE: ${GENERIC_USER_ID_ATTRIBUTE}
+      GENERIC_USER_EMAIL_ATTRIBUTE: ${GENERIC_USER_EMAIL_ATTRIBUTE}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OVH_QWEN_API_BASE: ${OVH_QWEN_API_BASE}
+      OVH_QWEN_API_KEY: ${OVH_QWEN_API_KEY}
+    volumes:
+      - ./litellm/config.yaml:/app/config.yaml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:4000/admin/health/liveliness')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    mem_limit: 3g
+    logging: *default-logging
+
+  redis:
+    image: ${REDIS_IMAGE}
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    mem_limit: 384m
+    logging: *default-logging
+
+  superset:
+    build:
+      context: ./superset
+      args:
+        SUPERSET_BASE_IMAGE: ${SUPERSET_BASE_IMAGE}
+    image: linagora-ia/superset:local
+    restart: unless-stopped
+    environment:
+      SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
+      SUPERSET_APP_ROOT: /stats
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY}
+      SUPERSET_DATABASE_URI: postgresql+psycopg2://superset:${SUPERSET_DB_PASSWORD}@postgres:5432/superset
+      SUPERSET_OIDC_CLIENT_ID: ${SUPERSET_OIDC_CLIENT_ID}
+      SUPERSET_OIDC_CLIENT_SECRET: ${SUPERSET_OIDC_CLIENT_SECRET}
+      OIDC_ISSUER: ${OIDC_ISSUER}
+      REDIS_HOST: redis
+    volumes:
+      - ./superset/superset_config.py:/app/pythonpath/superset_config.py:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    mem_limit: 2g
+    logging: *default-logging
+
+  portal:
+    profiles: ["portal"]
+    build:
+      context: ./portal
+    image: linagora-ia/portal:local
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://portal:${PORTAL_DB_PASSWORD}@postgres:5432/portal
+      LITELLM_BASE_URL: http://litellm:4000/admin
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      PUBLIC_API_BASE_URL: https://${DOMAIN_API}/v1
+      AUTH_URL: https://${DOMAIN_PORTAL}
+      AUTH_SECRET: ${AUTH_SECRET}
+      AUTH_TRUST_HOST: "true"
+      OIDC_ISSUER: ${OIDC_ISSUER}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
+      PORTAL_ADMIN_UIDS: ${PORTAL_ADMIN_UIDS}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_FROM: ${SMTP_FROM}
+      ADMIN_NOTIFICATION_EMAILS: ${ADMIN_NOTIFICATION_EMAILS}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      litellm:
+        condition: service_healthy
+    mem_limit: 768m
+    logging: *default-logging
+
+volumes:
+  pg_data:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,72 @@
+{
+	email {$ACME_EMAIL}
+}
+
+(securite) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}
+
+# =============================================================================
+# ai-api.linagora.com — endpoint OpenAI-compatible : routes d'inférence UNIQUEMENT
+# LiteLLM tourne avec SERVER_ROOT_PATH=/admin : on préfixe donc /admin en interne.
+# Le client, lui, utilise https://ai-api.linagora.com/v1
+# =============================================================================
+{$DOMAIN_API} {
+	import securite
+	@inference path /v1/* /chat/completions /completions /embeddings /models /responses /health/liveliness
+	handle @inference {
+		rewrite * /admin{uri}
+		reverse_proxy litellm:4000 {
+			flush_interval -1
+		}
+	}
+	# Toute route d'administration (/key/*, /user/*, /team/*, /model/*, /ui…) est invisible ici
+	handle {
+		respond "Not Found" 404
+	}
+}
+
+# =============================================================================
+# ai-gateway.linagora.com — portail (racine), /admin (LiteLLM), /stats (Superset),
+# /traces (Langfuse, phase 2). Chemins réservés : le portail ne doit JAMAIS
+# utiliser /admin, /stats, /static ni /traces.
+# =============================================================================
+{$DOMAIN_PORTAL} {
+	import securite
+
+	# --- /admin : UI + API d'administration LiteLLM (IP filtrées + SSO admin)
+	@admin path /admin /admin/*
+	handle @admin {
+		@interdit not remote_ip {$ADMIN_ALLOWED_IPS}
+		respond @interdit "Forbidden" 403
+		@racine path /admin /admin/
+		redir @racine /admin/ui/ 302
+		reverse_proxy litellm:4000
+	}
+
+	# --- /stats : Superset (SUPERSET_APP_ROOT=/stats, préfixe conservé)
+	# /static/* : contournement du bug Superset (assets servis hors préfixe) — à retirer
+	# si la version déployée sert correctement /stats/static/*
+	@stats path /stats /stats/* /static/*
+	handle @stats {
+		reverse_proxy superset:8088
+	}
+
+	# --- /traces : Langfuse (phase 2, seconde instance, image web construite avec
+	# NEXT_PUBLIC_BASE_PATH=/traces). Décommenter et définir LANGFUSE_UPSTREAM
+	# (adresse privée, ex. http://10.0.0.12:3000 via le réseau privé OVH).
+	# @traces path /traces /traces/*
+	# handle @traces {
+	# 	reverse_proxy {$LANGFUSE_UPSTREAM}
+	# }
+
+	# --- Tout le reste : Portail Linagora
+	handle {
+		reverse_proxy portal:3000
+	}
+}
