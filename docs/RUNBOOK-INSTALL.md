@@ -149,8 +149,8 @@ Critères d'acceptation 1, 2, 3, 7, 9 du PRD §9. Mettre à jour `docs/INSTALL-L
 
 ```bash
 rsync -av --delete --exclude node_modules --exclude .next --exclude '.env*' portal/ ia-host:/opt/linagora-ia/portal/
-ssh ia-host 'cd /opt/linagora-ia && docker compose --profile portal build portal && \
-  docker compose --profile portal run --rm portal npx prisma migrate deploy && \
+ssh ia-host 'cd /opt/linagora-ia && docker compose --profile portal build portal portal-migrate && \
+  docker compose --profile portal run --rm portal-migrate && \
   docker compose --profile portal up -d portal'
 ```
 **Contrôle** : critères 4, 5, 6, 8 du PRD §9.
