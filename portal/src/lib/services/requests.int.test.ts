@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
 import { saveCatalogEntry } from "./catalog";
-import { cancelRequest, createKeyRequest, type KeyRequestInput, listMyRequests } from "./requests";
+import { cancelRequest, createKeyRequest, createTeamJoinRequest, type KeyRequestInput, listMyRequests } from "./requests";
 
 const admin = { uid: "jdupont", email: "jdupont@linagora.com", name: "Jeanne Dupont", isAdmin: true };
 const demandeur = { uid: "mmaudet", email: "mmaudet@linagora.com", name: "Michel-Marie Maudet", isAdmin: false };
@@ -60,6 +60,21 @@ describe("demandes de clé (F-20 à F-24)", () => {
   test("un utilisateur ne voit pas les demandes des autres", async () => {
     await createKeyRequest(deps, demandeur, demande);
     expect(await listMyRequests(deps, { ...demandeur, uid: "pmartin", email: "pmartin@linagora.com" })).toEqual([]);
+  });
+});
+
+describe("demandes d'adhésion à une équipe (F-22)", () => {
+  beforeEach(() => {
+    litellm.withTeam({ teamId: "equipe-data", teamAlias: "Data", models: ["mistral-small"], memberUids: ["jdupont"] });
+  });
+
+  test("une demande d'adhésion est enregistrée et apparaît dans Mes demandes", async () => {
+    await createTeamJoinRequest(deps, demandeur, { teamId: "equipe-data", justification: "Rejoindre le projet d'analyse" });
+    expect(await listMyRequests(deps, demandeur)).toMatchObject([{ kind: "ADHESION_EQUIPE", teamAlias: "Data", status: "SOUMISE" }]);
+  });
+
+  test("un membre de l'équipe ne peut pas demander à la rejoindre", async () => {
+    await expect(createTeamJoinRequest(deps, demandeur, { teamId: "equipe-rd", justification: "…" })).rejects.toMatchObject({ code: "deja_membre" });
   });
 });
 

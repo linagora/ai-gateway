@@ -3,6 +3,7 @@ import type { PolicyCheck } from "./policy";
 /** Erreur métier ou d'autorisation levée par les cas d'usage ; les Server Actions l'affichent. */
 export type PortalErrorCode =
   | "controles_en_echec"
+  | "deja_membre"
   | "engagement_requis"
   | "interdit"
   | "introuvable"

@@ -68,6 +68,33 @@ export async function createKeyRequest(deps: RequestDeps, user: SessionUser, inp
   return { id: created.id };
 }
 
+export const teamJoinInputSchema = z.object({
+  teamId: z.string().min(1),
+  justification: z.string().trim().min(1),
+});
+
+export type TeamJoinInput = z.infer<typeof teamJoinInputSchema>;
+
+/** F-22 : demande d'ajout à une équipe existante, validée par un admin. */
+export async function createTeamJoinRequest(deps: RequestDeps, user: SessionUser, input: TeamJoinInput): Promise<{ id: string }> {
+  const data = teamJoinInputSchema.parse(input);
+  const team = await deps.litellm.getTeam(data.teamId);
+  if (!team) throw new PortalError("introuvable", "Équipe introuvable.");
+  if (team.memberUids.includes(user.uid)) throw new PortalError("deja_membre", `Vous êtes déjà membre de l'équipe ${team.teamAlias}.`);
+  const created = await deps.db.accessRequest.create({
+    data: {
+      kind: "ADHESION_EQUIPE",
+      requesterUid: user.uid,
+      requesterEmail: user.email,
+      teamId: team.teamId,
+      teamAlias: team.teamAlias,
+      models: [],
+      justification: data.justification,
+    },
+  });
+  return { id: created.id };
+}
+
 /** F-24 : le demandeur annule sa demande. Pour un autre utilisateur, la demande n'existe pas. */
 export async function cancelRequest(deps: RequestDeps, user: SessionUser, id: string): Promise<void> {
   const request = await deps.db.accessRequest.findUnique({ where: { id } });
