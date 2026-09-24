@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Préparation du serveur (Ubuntu 24.04 / Debian 12). Idempotent. À lancer avec sudo.
+# Préparation du serveur (Ubuntu 24.04 / Debian 12 / Debian 13). Idempotent. À lancer avec sudo.
 # Usage : sudo ADMIN_SSH_CIDR="x.x.x.x/32 y.y.y.y/32" bash bootstrap-host.sh
 # ADMIN_SSH_CIDR : IP/CIDR autorisées en SSH, séparées par des espaces (vide = SSH ouvert à tous, déconseillé).
 set -euo pipefail
@@ -10,7 +10,8 @@ APT_OPTS=(-o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold)
 echo "== Mises à jour et paquets de base"
 apt-get update -y
 apt-get "${APT_OPTS[@]}" upgrade -y
-apt-get "${APT_OPTS[@]}" install -y ca-certificates curl gnupg ufw fail2ban unattended-upgrades rsync jq
+# cron : absent des images cloud Debian 13, nécessaire aux sauvegardes et à la tâche quotidienne du portail
+apt-get "${APT_OPTS[@]}" install -y ca-certificates curl gnupg ufw fail2ban unattended-upgrades rsync jq cron
 
 echo "== Mises à jour de sécurité automatiques"
 dpkg-reconfigure -f noninteractive unattended-upgrades

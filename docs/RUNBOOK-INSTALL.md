@@ -25,7 +25,7 @@ Légende : 🧑 = point d'arrêt, action ou information attendue de l'utilisateu
    - taux interne USD→EUR pour convertir les tarifs OpenRouter ;
    - paramètres SMTP.
 
-**Contrôle** : `ssh ia-host 'hostname; . /etc/os-release; echo $PRETTY_NAME; nproc; free -h; df -h /'` → 4 vCPU, ~15 Go RAM, ~100 Go disque, Ubuntu 24.04 ou Debian 12.
+**Contrôle** : `ssh ia-host 'hostname; . /etc/os-release; echo $PRETTY_NAME; nproc; free -h; df -h /'` → 4 vCPU, ~15 Go RAM, ~100 Go disque, Ubuntu 24.04, Debian 12 ou Debian 13.
 
 ## Phase 1 — Préparation du serveur
 
@@ -37,7 +37,7 @@ ssh ia-host 'sudo ADMIN_SSH_CIDR="<CIDR séparés par des espaces, ou vide>" bas
 
 **Contrôles** :
 ```bash
-ssh ia-host 'docker version --format "{{.Server.Version}}" && docker compose version && sudo ufw status && swapon --show && systemctl is-active fail2ban'
+ssh ia-host 'docker version --format "{{.Server.Version}}" && docker compose version && sudo ufw status && sudo swapon --show && systemctl is-active fail2ban'
 ```
 
 ## Phase 2 — DNS (🧑)
