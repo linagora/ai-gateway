@@ -1,0 +1,98 @@
+import Link from "next/link";
+import { HOSTING_LABELS, LEVEL_DESCRIPTIONS, LEVEL_LABELS } from "@/lib/labels";
+import { listCatalog } from "@/lib/services/catalog";
+import { getDeps, requireUser } from "@/lib/session";
+import { euros, Notice } from "../../components";
+
+/** F-10 à F-12 : catalogue des modèles visibles, filtrable par niveau, fournisseur et catégorie. */
+export default async function CataloguePage(props: PageProps<"/catalogue">) {
+  await requireUser();
+  const searchParams = await props.searchParams;
+  const pick = (name: string) => (typeof searchParams[name] === "string" ? (searchParams[name] as string) : "");
+  const [level, provider, category] = [pick("niveau"), pick("fournisseur"), pick("categorie")];
+
+  const catalog = await listCatalog(getDeps());
+  const items = catalog.filter(
+    (m) => (!level || m.dataLevel === level) && (!provider || m.provider === provider) && (!category || m.category === category),
+  );
+  const providers = [...new Set(catalog.map((m) => m.provider).filter(Boolean))] as string[];
+  const categories = [...new Set(catalog.map((m) => m.category).filter(Boolean))] as string[];
+
+  return (
+    <>
+      <h1>Catalogue des modèles</h1>
+      <Notice searchParams={searchParams} />
+      <form className="flex flex-wrap items-end gap-4" method="get">
+        <label>
+          Niveau de données
+          <select name="niveau" defaultValue={level}>
+            <option value="">Tous</option>
+            {(["N1", "N2", "N3"] as const).map((l) => (
+              <option key={l} value={l}>
+                {LEVEL_LABELS[l]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Fournisseur
+          <select name="fournisseur" defaultValue={provider}>
+            <option value="">Tous</option>
+            {providers.map((p) => (
+              <option key={p}>{p}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Catégorie
+          <select name="categorie" defaultValue={category}>
+            <option value="">Toutes</option>
+            {categories.map((c) => (
+              <option key={c}>{c}</option>
+            ))}
+          </select>
+        </label>
+        <button type="submit">Filtrer</button>
+      </form>
+
+      <table className="mt-6">
+        <thead>
+          <tr>
+            <th>Modèle</th>
+            <th>Niveau max.</th>
+            <th>Hébergement</th>
+            <th>Prix entrée / sortie (par million de jetons)</th>
+            <th>Contexte max.</th>
+            <th>Description</th>
+            <th />
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((m) => (
+            <tr key={m.modelName}>
+              <td>
+                <strong>{m.displayName}</strong>
+                <br />
+                <code>{m.modelName}</code> · {m.provider ?? "—"} {m.category && `· ${m.category}`}
+              </td>
+              <td title={LEVEL_DESCRIPTIONS[m.dataLevel]}>{LEVEL_LABELS[m.dataLevel]}</td>
+              <td>{HOSTING_LABELS[m.hosting as keyof typeof HOSTING_LABELS] ?? m.hosting}</td>
+              <td>
+                {euros(m.inputPricePerMillion)} / {euros(m.outputPricePerMillion)}
+              </td>
+              <td>{m.maxInputTokens?.toLocaleString("fr-FR") ?? "—"}</td>
+              <td>
+                {m.description}
+                {m.useCases && <p className="text-sm text-neutral-600">Cas d&apos;usage : {m.useCases}</p>}
+              </td>
+              <td>
+                <Link href={`/demandes/nouvelle?modele=${encodeURIComponent(m.modelName)}`}>Demander l&apos;accès</Link>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {items.length === 0 && <p className="mt-4">Aucun modèle ne correspond à ces critères.</p>}
+    </>
+  );
+}

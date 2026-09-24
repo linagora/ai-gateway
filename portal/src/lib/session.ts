@@ -1,5 +1,5 @@
 import "server-only";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { auth } from "@/auth";
 import { type SessionUser, toPortalUser } from "@/lib/auth-user";
@@ -20,6 +20,13 @@ export const getCurrentUser = cache(async (): Promise<SessionUser | null> => {
 export async function requireUser(): Promise<SessionUser> {
   const user = await getCurrentUser();
   if (!user) redirect("/api/auth/signin");
+  return user;
+}
+
+/** Pages de gestion : réservées aux admins ; pour les autres, la page n'existe pas (404). */
+export async function requireAdminPage(): Promise<SessionUser> {
+  const user = await requireUser();
+  if (!user.isAdmin) notFound();
   return user;
 }
 

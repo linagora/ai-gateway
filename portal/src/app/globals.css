@@ -1,26 +1,61 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Styles de base volontairement sobres (V1) ; le graphisme sera repris plus tard. */
+@layer base {
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: #171717;
+    background: #ffffff;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+  h2 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 1.5rem 0 0.75rem;
+  }
+  a {
+    color: #1d4ed8;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+  th,
+  td {
+    border-bottom: 1px solid #e5e5e5;
+    padding: 0.4rem 0.5rem;
+    text-align: left;
+    vertical-align: top;
+  }
+  label {
+    display: block;
+    margin-top: 0.75rem;
+    font-weight: 500;
+  }
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    display: block;
+    width: 100%;
+    max-width: 32rem;
+    border: 1px solid #a3a3a3;
+    border-radius: 0.25rem;
+    padding: 0.3rem 0.5rem;
+  }
+  button {
+    margin-top: 0.75rem;
+    border: 1px solid #1d4ed8;
+    border-radius: 0.25rem;
+    padding: 0.3rem 0.9rem;
+    background: #1d4ed8;
+    color: #ffffff;
+  }
+  fieldset {
+    margin-top: 0.75rem;
+  }
 }
