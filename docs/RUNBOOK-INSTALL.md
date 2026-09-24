@@ -63,7 +63,7 @@ Autre possibilité : `ssh -t ia-host 'nano /opt/linagora-ia/.env'`, à condition
 
 ## Phase 4 — Choix et vérification des versions
 
-1. LiteLLM : identifier le dernier tag **`vX.Y.Z-stable`** sur `ghcr.io/berriai/litellm` (page Releases GitHub de BerriAI/litellm). Installer cosign sur le serveur (binaire de release GitHub sigstore/cosign, vérifier la somme SHA256), puis :
+1. LiteLLM : identifier la dernière version stable **`vX.Y.Z`** sur `ghcr.io/berriai/litellm` (page Releases GitHub de BerriAI/litellm : release sans suffixe `-rc` / `-dev`, publiée depuis une branche `stable/X.Y.x` ; le suffixe `-stable` n'est plus utilisé depuis mai 2026). Installer cosign sur le serveur (binaire de release GitHub sigstore/cosign, vérifier la somme SHA256), puis :
    ```bash
    cosign verify \
      --key https://raw.githubusercontent.com/BerriAI/litellm/0112e53046018d726492c814b3644b7d376029d0/cosign.pub \
