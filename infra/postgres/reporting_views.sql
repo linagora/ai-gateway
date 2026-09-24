@@ -24,9 +24,17 @@ UNION ALL
  WHERE token NOT IN (SELECT token FROM "LiteLLM_VerificationToken")
  ORDER BY token, deleted_at DESC);
 
+-- Équipes actives + supprimées (même raison que v_keys)
 CREATE OR REPLACE VIEW reporting.v_teams AS
-SELECT team_id, team_alias, models, max_budget, spend, budget_duration, blocked, created_at
-FROM "LiteLLM_TeamTable";
+SELECT team_id, team_alias, models, max_budget, spend, budget_duration, blocked, created_at,
+       false AS deleted
+FROM "LiteLLM_TeamTable"
+UNION ALL
+(SELECT DISTINCT ON (team_id) team_id, team_alias, models, max_budget, spend, budget_duration, blocked, created_at,
+        true
+ FROM "LiteLLM_DeletedTeamTable"
+ WHERE team_id NOT IN (SELECT team_id FROM "LiteLLM_TeamTable")
+ ORDER BY team_id, deleted_at DESC);
 
 CREATE OR REPLACE VIEW reporting.v_users AS
 SELECT user_id, user_email, user_alias, user_role, teams, spend, created_at
