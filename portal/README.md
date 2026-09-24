@@ -1,36 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Portail Linagora
 
-## Getting Started
+Portail des clés d'API IA : catalogue des modèles, demandes validées par les administrateurs, classification des
+données N1 / N2 / N3. Spécification : [`docs/PRD.md`](../docs/PRD.md) et [`docs/PORTAL-BRIEF.md`](../docs/PORTAL-BRIEF.md).
 
-First, run the development server:
+Stack : Next.js 16 (App Router, Server Actions), TypeScript strict, Auth.js 5 (OIDC LemonLDAP::NG), Prisma 7
+(PostgreSQL), zod, Vitest, Playwright.
+
+## Environnement de développement
+
+Tout tourne en local, sans aucune donnée ni clé de production.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+docker compose -f dev/docker-compose.yml up -d   # Postgres, LiteLLM (même version que la prod), OIDC simulé
+./dev/seed-litellm.sh                            # 3 modèles à réponses simulées + équipe « R&D »
+cp .env.example .env                             # valeurs de développement
+npm install
+npx prisma generate && npx prisma migrate deploy
+npm run dev                                      # http://localhost:3100
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Connexion : le fournisseur OIDC simulé demande un utilisateur (l'uid) et des claims, par exemple
+`{"email": "mmaudet@linagora.com", "name": "Michel-Marie Maudet"}`. `mmaudet` est admin (`PORTAL_ADMIN_UIDS`).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Tests
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Commande | Contenu |
+|---|---|
+| `npm test` | Tests unitaires : règles métier (`src/lib/policy.ts`), conversion des claims OIDC, provisionnement |
+| `npm run test:int` | Tests d'intégration : client LiteLLM contre le LiteLLM de dev (contrat), cas d'usage contre la base `portal_test` |
+| `npm run test:e2e` | Parcours complet dans un navigateur (Playwright) : catalogue, adhésion, demande, refus du critère 5, approbation |
 
-## Learn More
+Les tests d'intégration et de bout en bout nécessitent l'environnement de développement démarré.
 
-To learn more about Next.js, take a look at the following resources:
+## Organisation
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Chemin | Rôle |
+|---|---|
+| `src/lib/policy.ts` | Règles métier pures (brief §4) |
+| `src/lib/litellm/client.ts` | Client typé de l'API d'administration LiteLLM (serveur uniquement) |
+| `src/lib/services/` | Cas d'usage : provisionnement, catalogue, demandes, validation, valeurs par défaut |
+| `src/lib/session.ts` | Utilisateur courant et dépendances réelles (couche d'accès aux données) |
+| `src/auth.ts`, `src/proxy.ts` | Auth.js (OIDC) et vérification optimiste de la session |
+| `src/app/` | Pages (interface minimale V1) et Server Actions |
+| `prisma/` | Schéma et migrations de la base `portal` |
+| `dev/` | Environnement de développement local |
+| `e2e/` | Tests Playwright |
