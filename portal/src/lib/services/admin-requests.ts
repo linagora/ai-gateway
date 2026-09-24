@@ -1,0 +1,153 @@
+import { z } from "zod";
+import type { SessionUser } from "@/lib/auth-user";
+import type { Db } from "@/lib/db";
+import { PolicyViolationError, PortalError } from "@/lib/errors";
+import type { LiteLLMClient } from "@/lib/litellm/client";
+import type { DataLevel, PolicyCheck, RequestStatus } from "@/lib/policy";
+import { requireAdmin } from "@/lib/rbac";
+import { evaluateKeyRequest, transitionRequest } from "./requests";
+import { readSettings, type SettingValues } from "./settings";
+
+interface AdminDeps {
+  db: Db;
+  litellm: LiteLLMClient;
+}
+
+/** Ligne de la file de validation (F-30). */
+export interface PendingRequest {
+  id: string;
+  kind: "CLE" | "ADHESION_EQUIPE";
+  requesterUid: string;
+  teamAlias: string;
+  dataLevel: DataLevel | null;
+  models: string[];
+  project: string | null;
+  status: RequestStatus;
+  createdAt: Date;
+}
+
+/** F-30 : demandes en attente, de la plus ancienne à la plus récente. */
+export async function listPendingRequests(deps: AdminDeps, actor: SessionUser): Promise<PendingRequest[]> {
+  requireAdmin(actor);
+  const rows = await deps.db.accessRequest.findMany({ where: { status: "SOUMISE" }, orderBy: { createdAt: "asc" } });
+  return rows.map((r) => ({
+    id: r.id,
+    kind: r.kind,
+    requesterUid: r.requesterUid,
+    teamAlias: r.teamAlias,
+    dataLevel: r.dataLevel,
+    models: r.models,
+    project: r.project,
+    status: r.status,
+    createdAt: r.createdAt,
+  }));
+}
+
+/** Fiche de validation (F-32) : la demande et ses contrôles, rejoués avec l'état actuel (règle 4). */
+export interface RequestReview extends PendingRequest {
+  requesterEmail: string;
+  teamId: string;
+  justification: string;
+  keyType: "PERSONNELLE" | "SERVICE" | null;
+  requestedBudget: number | null;
+  requestedDays: number | null;
+  decidedBy: string | null;
+  decisionComment: string | null;
+  /** Paramètres figés à l'approbation (F-40), null tant que la demande n'est pas approuvée. */
+  approved: ApprovalInput | null;
+  checks: PolicyCheck[];
+}
+
+export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: string): Promise<RequestReview> {
+  requireAdmin(actor);
+  const r = await deps.db.accessRequest.findUnique({ where: { id } });
+  if (!r) throw new PortalError("introuvable", "Demande introuvable.");
+  const checks =
+    r.kind === "CLE" && r.dataLevel
+      ? (await evaluateKeyRequest(deps, { requesterUid: r.requesterUid, teamId: r.teamId, dataLevel: r.dataLevel, models: r.models })).checks
+      : [];
+  return {
+    id: r.id,
+    kind: r.kind,
+    requesterUid: r.requesterUid,
+    requesterEmail: r.requesterEmail,
+    teamId: r.teamId,
+    teamAlias: r.teamAlias,
+    dataLevel: r.dataLevel,
+    models: r.models,
+    project: r.project,
+    justification: r.justification,
+    keyType: r.keyType,
+    requestedBudget: r.requestedBudget?.toNumber() ?? null,
+    requestedDays: r.requestedDays,
+    status: r.status,
+    createdAt: r.createdAt,
+    decidedBy: r.decidedBy,
+    decisionComment: r.decisionComment,
+    approved: r.decidedAt && r.approvedModels.length
+      ? {
+          models: r.approvedModels,
+          budget: r.approvedBudget?.toNumber() ?? null,
+          budgetDuration: r.budgetDuration,
+          days: r.approvedDays,
+          rpmLimit: r.rpmLimit,
+          tpmLimit: r.tpmLimit,
+        }
+      : null,
+    checks,
+  };
+}
+
+/** Paramètres de la clé fixés par l'admin (F-31). Durées au format LiteLLM : 30d, 12h… */
+export const approvalInputSchema = z.object({
+  models: z.array(z.string().min(1)),
+  budget: z.number().positive().nullable(),
+  budgetDuration: z.string().regex(/^\d+[smhd]$/).nullable(),
+  days: z.number().int().positive().nullable(),
+  rpmLimit: z.number().int().positive().nullable(),
+  tpmLimit: z.number().int().positive().nullable(),
+});
+
+export type ApprovalInput = z.infer<typeof approvalInputSchema>;
+
+/** F-31 : approuve une demande de clé en figeant ses paramètres (statut APPROUVEE). */
+export async function approveKeyRequest(deps: AdminDeps, actor: SessionUser, id: string, input: ApprovalInput): Promise<void> {
+  requireAdmin(actor);
+  const params = withDefaults(approvalInputSchema.parse(input), await readSettings(deps.db));
+  if (params.budget === null || params.budgetDuration === null || params.days === null) {
+    throw new PortalError(
+      "parametre_manquant",
+      "Budget, période du budget et durée de validité sont obligatoires : saisissez-les ou configurez des valeurs par défaut.",
+    );
+  }
+  const request = await deps.db.accessRequest.findUnique({ where: { id } });
+  if (!request || request.kind !== "CLE" || !request.dataLevel) throw new PortalError("introuvable", "Demande de clé introuvable.");
+  const draft = { requesterUid: request.requesterUid, teamId: request.teamId, dataLevel: request.dataLevel, models: params.models };
+  const verdict = await evaluateKeyRequest(deps, draft);
+  if (!verdict.ok) throw new PolicyViolationError(verdict.checks.filter((c) => !c.ok));
+  await transitionRequest(deps.db, request, "APPROUVEE", {
+    data: {
+      approvedModels: params.models,
+      approvedBudget: params.budget,
+      budgetDuration: params.budgetDuration,
+      approvedDays: params.days,
+      rpmLimit: params.rpmLimit,
+      tpmLimit: params.tpmLimit,
+      decidedBy: actor.uid,
+      decidedAt: new Date(),
+    },
+  });
+}
+
+/** Règle 7 : les paramètres non saisis prennent les valeurs par défaut configurées (F-51). */
+function withDefaults(params: ApprovalInput, settings: SettingValues): ApprovalInput {
+  const num = (value: string | undefined) => (value === undefined ? null : Number(value));
+  return {
+    models: params.models,
+    budget: params.budget ?? num(settings.default_budget),
+    budgetDuration: params.budgetDuration ?? settings.default_budget_duration ?? null,
+    days: params.days ?? num(settings.default_days),
+    rpmLimit: params.rpmLimit ?? num(settings.default_rpm),
+    tpmLimit: params.tpmLimit ?? num(settings.default_tpm),
+  };
+}

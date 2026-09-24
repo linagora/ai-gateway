@@ -4,7 +4,7 @@ import type { Db } from "@/lib/db";
 import type { LiteLLMClient } from "@/lib/litellm/client";
 import { PolicyViolationError, PortalError } from "@/lib/errors";
 import type { Prisma } from "@/generated/prisma/client";
-import { type CatalogModel, checkKeyRequest, checkTransition, type DataLevel, type RequestStatus } from "@/lib/policy";
+import { type CatalogModel, checkKeyRequest, checkTransition, type DataLevel, type KeyRequestDraft, type PolicyVerdict, type RequestStatus } from "@/lib/policy";
 
 interface RequestDeps {
   db: Db;
@@ -46,8 +46,7 @@ export async function createKeyRequest(deps: RequestDeps, user: SessionUser, inp
   }
   const team = await deps.litellm.getTeam(data.teamId);
   if (!team) throw new PortalError("introuvable", "Équipe introuvable.");
-  const draft = { requesterUid: user.uid, teamId: team.teamId, dataLevel: data.dataLevel, models: data.models };
-  const verdict = checkKeyRequest(draft, team, await loadPolicyCatalog(deps.db));
+  const verdict = await evaluateKeyRequest(deps, { requesterUid: user.uid, teamId: team.teamId, dataLevel: data.dataLevel, models: data.models });
   if (!verdict.ok) throw new PolicyViolationError(verdict.checks.filter((c) => !c.ok));
   const created = await deps.db.accessRequest.create({
     data: {
@@ -123,10 +122,14 @@ const TRANSITION_MESSAGES = {
   motif_obligatoire: "Un motif est obligatoire.",
 } as const;
 
-/** Catalogue enrichi, tel que la politique le voit (niveau et visibilité de chaque modèle). */
-async function loadPolicyCatalog(db: Db): Promise<CatalogModel[]> {
-  const entries = await db.catalogEntry.findMany({ select: { modelName: true, dataLevel: true, visible: true } });
-  return entries;
+/**
+ * Règles 3 et 4 : contrôles d'une demande avec l'état ACTUEL de l'équipe et du catalogue.
+ * Une équipe supprimée depuis n'a plus de membres : le contrôle d'appartenance échoue.
+ */
+export async function evaluateKeyRequest(deps: RequestDeps, draft: KeyRequestDraft): Promise<PolicyVerdict> {
+  const team = (await deps.litellm.getTeam(draft.teamId)) ?? { teamId: draft.teamId, models: [], memberUids: [] };
+  const catalog: CatalogModel[] = await deps.db.catalogEntry.findMany({ select: { modelName: true, dataLevel: true, visible: true } });
+  return checkKeyRequest(draft, team, catalog);
 }
 
 /** F-24 : demandes de l'utilisateur, les plus récentes d'abord. */

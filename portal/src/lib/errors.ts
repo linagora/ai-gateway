@@ -8,6 +8,7 @@ export type PortalErrorCode =
   | "interdit"
   | "introuvable"
   | "motif_obligatoire"
+  | "parametre_manquant"
   | "tarif_eur_manquant"
   | "transition_interdite";
 
