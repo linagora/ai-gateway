@@ -56,7 +56,7 @@ Le script liste les variables `__ASK__` restantes. L'agent renseigne celles qui 
 ```bash
 ssh -t ia-host 'nano /opt/linagora-ia/.env'
 ```
-**Contrôle** (sans afficher de valeur) : `ssh ia-host "grep -cE '__(ASK|GENERATE)' /opt/linagora-ia/.env"` → `0` avant la phase 5 (les secrets OIDC peuvent attendre les phases 6 et 7 ; les laisser à `__ASK__` jusque-là).
+**Contrôle** (sans afficher de valeur) : `ssh ia-host "grep -cE '^[A-Z0-9_]+=.*__(ASK|GENERATE)' /opt/linagora-ia/.env"` → `0` avant la phase 5 (les secrets OIDC peuvent attendre les phases 6 et 7 ; les laisser à `__ASK__` jusque-là).
 
 ## Phase 4 — Choix et vérification des versions
 
