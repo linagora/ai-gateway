@@ -4,11 +4,13 @@
 # ADMIN_SSH_CIDR : IP/CIDR autorisées en SSH, séparées par des espaces (vide = SSH ouvert à tous, déconseillé).
 set -euo pipefail
 export DEBIAN_FRONTEND=noninteractive
+# En cas de conflit sur un fichier de configuration, garder la version locale sans poser de question
+APT_OPTS=(-o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold)
 
 echo "== Mises à jour et paquets de base"
 apt-get update -y
-apt-get upgrade -y
-apt-get install -y ca-certificates curl gnupg ufw fail2ban unattended-upgrades rsync jq
+apt-get "${APT_OPTS[@]}" upgrade -y
+apt-get "${APT_OPTS[@]}" install -y ca-certificates curl gnupg ufw fail2ban unattended-upgrades rsync jq
 
 echo "== Mises à jour de sécurité automatiques"
 dpkg-reconfigure -f noninteractive unattended-upgrades
@@ -29,7 +31,7 @@ if ! command -v docker >/dev/null 2>&1; then
   echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/${ID} ${VERSION_CODENAME} stable" \
     > /etc/apt/sources.list.d/docker.list
   apt-get update -y
-  apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  apt-get "${APT_OPTS[@]}" install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 fi
 cat > /etc/docker/daemon.json <<'JSON'
 { "log-driver": "json-file", "log-opts": { "max-size": "20m", "max-file": "5" } }
