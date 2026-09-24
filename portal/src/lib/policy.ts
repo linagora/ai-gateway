@@ -1,0 +1,101 @@
+/** Règles métier du portail (brief §4). Fonctions pures, sans accès réseau ni base. */
+
+/** Niveau de sensibilité des données (PRD §5) : N1 public < N2 interne < N3 confidentiel. */
+export type DataLevel = "N1" | "N2" | "N3";
+
+const LEVEL_RANK: Record<DataLevel, number> = { N1: 1, N2: 2, N3: 3 };
+
+/** Règle 1 : un utilisateur est admin si son uid figure dans PORTAL_ADMIN_UIDS. */
+export function isAdmin(uid: string, adminUids: readonly string[]): boolean {
+  return adminUids.includes(uid);
+}
+
+/** Utilisateur connecté, tel que la politique le voit. */
+export interface PortalUser {
+  uid: string;
+  isAdmin: boolean;
+}
+
+/** Règle 2 : un utilisateur ne voit et ne modifie que ses demandes ; un admin voit tout. */
+export function canAccessRequest(user: PortalUser, request: { requesterUid: string }): boolean {
+  return user.isAdmin || request.requesterUid === user.uid;
+}
+
+/** Un modèle peut traiter des données jusqu'à son propre niveau (PRD §5). */
+export function modelAcceptsLevel(modelLevel: DataLevel, requestedLevel: DataLevel): boolean {
+  return LEVEL_RANK[modelLevel] >= LEVEL_RANK[requestedLevel];
+}
+
+/** Modèle du catalogue enrichi, tel que la politique le voit. */
+export interface CatalogModel {
+  modelName: string;
+  dataLevel: DataLevel;
+  visible: boolean;
+}
+
+/** Équipe LiteLLM, réduite à ce dont la politique a besoin. */
+export interface TeamForPolicy {
+  teamId: string;
+  models: readonly string[];
+  memberUids: readonly string[];
+}
+
+/** Paramètres d'une demande de clé, à la soumission ou tels que modifiés par l'admin. */
+export interface KeyRequestDraft {
+  requesterUid: string;
+  teamId: string;
+  dataLevel: DataLevel;
+  models: readonly string[];
+}
+
+export type PolicyCheckId = "membre_equipe" | "modeles_presents" | "modeles_equipe" | "niveau_modeles" | "modeles_visibles";
+
+/** Un contrôle, affiché ✔/✘ sur la fiche de validation ; `offending` liste les éléments en cause. */
+export interface PolicyCheck {
+  id: PolicyCheckId;
+  ok: boolean;
+  offending: string[];
+}
+
+export interface PolicyVerdict {
+  ok: boolean;
+  checks: PolicyCheck[];
+}
+
+/** Règle 3 : contrôles d'une demande de clé, rejoués à la soumission, à l'approbation et à la génération. */
+export function checkKeyRequest(draft: KeyRequestDraft, team: TeamForPolicy, catalog: readonly CatalogModel[]): PolicyVerdict {
+  const checks: PolicyCheck[] = [
+    check("membre_equipe", team.memberUids.includes(draft.requesterUid) ? [] : [draft.requesterUid]),
+    { id: "modeles_presents", ok: draft.models.length > 0, offending: [] },
+    check("modeles_equipe", draft.models.filter((m) => !team.models.includes(m))),
+    // Un modèle absent du catalogue est signalé par le contrôle de visibilité, pas ici.
+    check("niveau_modeles", draft.models.filter((m) => {
+      const entry = catalog.find((c) => c.modelName === m);
+      return entry !== undefined && !modelAcceptsLevel(entry.dataLevel, draft.dataLevel);
+    })),
+    check("modeles_visibles", draft.models.filter((m) => !catalog.some((c) => c.modelName === m && c.visible))),
+  ];
+  return { ok: checks.every((c) => c.ok), checks };
+}
+
+function check(id: PolicyCheckId, offending: string[]): PolicyCheck {
+  return { id, ok: offending.length === 0, offending };
+}
+
+export type RequestStatus = "SOUMISE" | "A_COMPLETER" | "APPROUVEE" | "REFUSEE" | "ANNULEE" | "CLE_EMISE" | "EXPIREE" | "REVOQUEE";
+
+/** Règle 5 : seules ces transitions sont autorisées ; les autres statuts sont finaux. */
+const ALLOWED_TRANSITIONS: Partial<Record<RequestStatus, readonly RequestStatus[]>> = {
+  SOUMISE: ["APPROUVEE", "REFUSEE", "A_COMPLETER", "ANNULEE"],
+  A_COMPLETER: ["SOUMISE", "ANNULEE"],
+  APPROUVEE: ["CLE_EMISE", "EXPIREE"],
+  CLE_EMISE: ["REVOQUEE", "EXPIREE"],
+};
+
+export type TransitionCheck = { ok: true } | { ok: false; reason: "transition_interdite" | "motif_obligatoire" };
+
+export function checkTransition(from: RequestStatus, to: RequestStatus, options: { comment?: string } = {}): TransitionCheck {
+  if (!ALLOWED_TRANSITIONS[from]?.includes(to)) return { ok: false, reason: "transition_interdite" };
+  if (to === "REFUSEE" && !options.comment?.trim()) return { ok: false, reason: "motif_obligatoire" };
+  return { ok: true };
+}
