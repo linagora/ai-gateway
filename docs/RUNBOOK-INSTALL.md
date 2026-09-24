@@ -124,7 +124,7 @@ ssh ia-host 'cd /opt/linagora-ia && docker compose up -d litellm'
    ```bash
    ssh ia-host 'cd /opt/linagora-ia && docker compose exec -T postgres psql -U litellm -d litellm -v ON_ERROR_STOP=1 -f - < postgres/reporting_views.sql'
    ```
-   Contrôle : `docker compose exec -T postgres psql -U reporting_ro -d litellm -c "select count(*) from v_requests"` fonctionne, et `select count(*) from \"LiteLLM_SpendLogs\"` est **refusé**.
+   Contrôle : `docker compose exec -T postgres psql -U reporting_ro -d litellm -c "select count(*) from v_requests"` fonctionne, et `select count(*) from public.\"LiteLLM_SpendLogs\"` est **refusé** (« permission denied » ; préciser le schéma `public`, sinon l'erreur est « does not exist » car le `search_path` de `reporting_ro` se limite à `reporting`).
 2. Superset :
    ```bash
    ssh ia-host 'cd /opt/linagora-ia && docker compose build superset && \
