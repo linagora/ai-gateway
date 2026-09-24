@@ -16,12 +16,13 @@ SELECT token AS key_hash, key_alias, user_id, team_id, models, max_budget, spend
        false AS deleted
 FROM "LiteLLM_VerificationToken"
 UNION ALL
-SELECT DISTINCT ON (token) token, key_alias, user_id, team_id, models, max_budget, spend,
-       expires, blocked, created_at,
-       metadata->>'data_level', metadata->>'project', metadata->>'request_id', metadata->>'key_type',
-       true
-FROM "LiteLLM_DeletedVerificationToken"
-WHERE token NOT IN (SELECT token FROM "LiteLLM_VerificationToken");
+(SELECT DISTINCT ON (token) token, key_alias, user_id, team_id, models, max_budget, spend,
+        expires, blocked, created_at,
+        metadata->>'data_level', metadata->>'project', metadata->>'request_id', metadata->>'key_type',
+        true
+ FROM "LiteLLM_DeletedVerificationToken"
+ WHERE token NOT IN (SELECT token FROM "LiteLLM_VerificationToken")
+ ORDER BY token, deleted_at DESC);
 
 CREATE OR REPLACE VIEW reporting.v_teams AS
 SELECT team_id, team_alias, models, max_budget, spend, budget_duration, blocked, created_at
