@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, test } from "vitest";
+import { TEST_LITELLM_BASE_URL, TEST_LITELLM_MASTER_KEY } from "@/test/config";
 import { createLiteLLMClient } from "./client";
 
 // Contrat vérifié contre le LiteLLM de dev (même version que la production) : npm run test:int
-const baseUrl = process.env.LITELLM_TEST_BASE_URL ?? "";
-const masterKey = process.env.LITELLM_TEST_MASTER_KEY ?? "";
+const baseUrl = TEST_LITELLM_BASE_URL;
+const masterKey = TEST_LITELLM_MASTER_KEY;
 const client = createLiteLLMClient({ baseUrl, masterKey });
 
 const uniqueId = (prefix: string) => `${prefix}-${randomUUID().slice(0, 8)}`;
