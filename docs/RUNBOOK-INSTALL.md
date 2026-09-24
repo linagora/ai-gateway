@@ -52,10 +52,11 @@ L'utilisateur crée des enregistrements **A** (et AAAA si IPv6) vers l'IP de l'i
 rsync -av --exclude '.env' infra/ ia-host:/opt/linagora-ia/
 ssh ia-host 'chmod +x /opt/linagora-ia/scripts/*.sh /opt/linagora-ia/postgres/init/*.sh && /opt/linagora-ia/scripts/gen-secrets.sh'
 ```
-Le script liste les variables `__ASK__` restantes. L'agent renseigne celles qui ne sont pas secrètes (domaines, IP, uid, SMTP_HOST…) avec `sed -i` sur le serveur. Pour les **secrets fournis par l'utilisateur** (clé OpenRouter, `OVH_QWEN_API_BASE` / `OVH_QWEN_API_KEY`, secrets des clients OIDC, mot de passe SMTP) : 🧑 l'utilisateur les saisit lui-même :
+Le script liste les variables `__ASK__` restantes. L'agent renseigne celles qui ne sont pas secrètes (domaines, IP, uid, SMTP_HOST…) avec `sed -i` sur le serveur. Pour les **secrets fournis par l'utilisateur** (clé OpenRouter, `OVH_QWEN_API_BASE` / `OVH_QWEN_API_KEY`, secrets des clients OIDC, mot de passe SMTP) : 🧑 l'utilisateur les saisit lui-même, une variable à la fois, en saisie masquée (la valeur n'apparaît ni à l'écran, ni dans `ps`, ni dans l'historique) :
 ```bash
-ssh -t ia-host 'nano /opt/linagora-ia/.env'
+ssh -t ia-host '/opt/linagora-ia/scripts/set-env-var.sh OPENROUTER_API_KEY'
 ```
+Autre possibilité : `ssh -t ia-host 'nano /opt/linagora-ia/.env'`, à condition que l'agent ne modifie pas le fichier au même moment.
 **Contrôle** (sans afficher de valeur) : `ssh ia-host "grep -cE '^[A-Z0-9_]+=.*__(ASK|GENERATE)' /opt/linagora-ia/.env"` → `0` avant la phase 5 (les secrets OIDC peuvent attendre les phases 6 et 7 ; les laisser à `__ASK__` jusque-là).
 
 ## Phase 4 — Choix et vérification des versions
