@@ -36,14 +36,14 @@ litellm_settings:
 #       data_level: N2                      # recopié depuis le portail (source de vérité)
 #       hosting: UE
 #
-#   - model_name: qwen3.8                  # N3 — endpoint OVHcloud (paramètres fournis par Linagora)
+#   - model_name: qwen3.8                  # N3 — endpoint OVHcloud (déclaré en base le 2026-09-24)
 #     litellm_params:
-#       model: openai/<nom-du-modele-chez-OVH>   # ou le fournisseur OVHcloud natif de LiteLLM s'il existe
-#       api_base: os.environ/OVH_QWEN_API_BASE    # URL OpenAI-compatible, se terminant en général par /v1
+#       model: openai/Qwen3.8-27B
+#       api_base: os.environ/OVH_QWEN_API_BASE    # https://oai.endpoints.kepler.ai.cloud.ovh.net/v1
 #       api_key: os.environ/OVH_QWEN_API_KEY
 #     model_info:
-#       input_cost_per_token: <tarif EUR / token>
-#       output_cost_per_token: <tarif EUR / token>
+#       input_cost_per_token: 0.0000004           # 0,40 € HT / Mtoken (tarif public OVH, validé le 2026-09-24)
+#       output_cost_per_token: 0.0000027          # 2,70 € HT / Mtoken
 #       pricing_currency: EUR
 #       data_level: N3
 #       hosting: INTERNE_OVH
