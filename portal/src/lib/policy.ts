@@ -67,7 +67,7 @@ export function checkKeyRequest(draft: KeyRequestDraft, team: TeamForPolicy, cat
   const checks: PolicyCheck[] = [
     check("membre_equipe", team.memberUids.includes(draft.requesterUid) ? [] : [draft.requesterUid]),
     { id: "modeles_presents", ok: draft.models.length > 0, offending: [] },
-    check("modeles_equipe", draft.models.filter((m) => !team.models.includes(m))),
+    check("modeles_equipe", teamAllowsAllModels(team) ? [] : draft.models.filter((m) => !team.models.includes(m))),
     // Un modèle absent du catalogue est signalé par le contrôle de visibilité, pas ici.
     check("niveau_modeles", draft.models.filter((m) => {
       const entry = catalog.find((c) => c.modelName === m);
@@ -76,6 +76,14 @@ export function checkKeyRequest(draft: KeyRequestDraft, team: TeamForPolicy, cat
     check("modeles_visibles", draft.models.filter((m) => !catalog.some((c) => c.modelName === m && c.visible))),
   ];
   return { ok: checks.every((c) => c.ok), checks };
+}
+
+/**
+ * Sémantique LiteLLM (vérifiée sur la 1.102.1) : une équipe sans liste de modèles, ou contenant
+ * « all-proxy-models », a accès à tous les modèles. Les niveaux et la visibilité restent contrôlés.
+ */
+function teamAllowsAllModels(team: TeamForPolicy): boolean {
+  return team.models.length === 0 || team.models.includes("all-proxy-models");
 }
 
 function check(id: PolicyCheckId, offending: string[]): PolicyCheck {

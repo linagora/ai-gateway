@@ -86,6 +86,14 @@ describe("checkKeyRequest", () => {
     ]);
   });
 
+  test("une équipe sans liste de modèles les autorise tous, comme dans LiteLLM", () => {
+    expect(checkKeyRequest(draft, { ...team, models: [] }, catalog).ok).toBe(true);
+  });
+
+  test("la valeur all-proxy-models de LiteLLM autorise tous les modèles", () => {
+    expect(checkKeyRequest(draft, { ...team, models: ["all-proxy-models"] }, catalog).ok).toBe(true);
+  });
+
   test("une demande sans modèle est refusée", () => {
     expect(failedChecks({ ...draft, models: [] })).toEqual([{ id: "modeles_presents", offending: [] }]);
   });
