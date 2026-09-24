@@ -64,6 +64,46 @@ export async function listCatalog(deps: CatalogDeps): Promise<CatalogItem[]> {
   });
 }
 
+/** Ligne du catalogue d'administration : un modèle de LiteLLM et son enrichissement éventuel. */
+export interface AdminCatalogItem {
+  modelName: string;
+  provider: string | null;
+  hasEuroPricing: boolean;
+  inputPricePerMillion: number | null;
+  outputPricePerMillion: number | null;
+  entry: CatalogEntryInput | null;
+}
+
+/** F-50 : tous les modèles déclarés dans LiteLLM, enrichis ou non, par ordre alphabétique. */
+export async function listCatalogForAdmin(deps: CatalogDeps, actor: SessionUser): Promise<AdminCatalogItem[]> {
+  requireAdmin(actor);
+  const [models, entries] = await Promise.all([deps.litellm.listModels(), deps.db.catalogEntry.findMany()]);
+  return models
+    .map((model) => {
+      const entry = entries.find((e) => e.modelName === model.modelName);
+      return {
+        modelName: model.modelName,
+        provider: model.provider,
+        hasEuroPricing: hasEuroPricing(model),
+        inputPricePerMillion: model.inputCostPerToken === null ? null : perMillion(model.inputCostPerToken),
+        outputPricePerMillion: model.outputCostPerToken === null ? null : perMillion(model.outputCostPerToken),
+        entry: entry
+          ? {
+              modelName: entry.modelName,
+              displayName: entry.displayName,
+              description: entry.description,
+              useCases: entry.useCases,
+              category: entry.category,
+              hosting: entry.hosting as CatalogEntryInput["hosting"],
+              dataLevel: entry.dataLevel,
+              visible: entry.visible,
+            }
+          : null,
+      };
+    })
+    .sort((a, b) => a.modelName.localeCompare(b.modelName));
+}
+
 /** F-50 : crée ou met à jour l'enrichissement d'un modèle. */
 export async function saveCatalogEntry(deps: CatalogDeps, actor: SessionUser, input: CatalogEntryInput): Promise<void> {
   requireAdmin(actor);

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
-import { type CatalogEntryInput, listCatalog, saveCatalogEntry } from "./catalog";
+import { type CatalogEntryInput, listCatalog, listCatalogForAdmin, saveCatalogEntry } from "./catalog";
 
 beforeEach(resetDb);
 
@@ -48,6 +48,17 @@ describe("catalogue des utilisateurs (F-10)", () => {
     const litellm = new FakeLiteLLM().withModel({ modelName: "qwen3.8" });
     await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, visible: false });
     expect(await listCatalog({ db: testDb, litellm })).toEqual([]);
+  });
+});
+
+describe("catalogue d'administration (F-50)", () => {
+  test("l'admin voit tous les modèles de LiteLLM, enrichis ou non, avec l'état de leur tarif", async () => {
+    const litellm = new FakeLiteLLM().withModel({ modelName: "qwen3.8" }).withModel({ modelName: "modele-sans-tarif", pricingCurrency: null });
+    await saveCatalogEntry({ db: testDb, litellm }, admin, qwen);
+    expect(await listCatalogForAdmin({ db: testDb, litellm }, admin)).toMatchObject([
+      { modelName: "modele-sans-tarif", hasEuroPricing: false, entry: null },
+      { modelName: "qwen3.8", hasEuroPricing: true, entry: { displayName: "Qwen 3.8 27B", dataLevel: "N3", visible: true } },
+    ]);
   });
 });
 

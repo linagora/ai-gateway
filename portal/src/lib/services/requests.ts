@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
-import type { LiteLLMClient } from "@/lib/litellm/client";
+import type { LiteLLMClient, LiteLLMTeamSummary } from "@/lib/litellm/client";
 import { PolicyViolationError, PortalError } from "@/lib/errors";
 import type { Prisma } from "@/generated/prisma/client";
 import { type CatalogModel, checkKeyRequest, checkTransition, type DataLevel, type KeyRequestDraft, type PolicyVerdict, type RequestStatus } from "@/lib/policy";
@@ -156,4 +156,15 @@ export async function listMyRequests(deps: RequestDeps, user: SessionUser): Prom
     decisionComment: r.decisionComment,
     createdAt: r.createdAt,
   }));
+}
+
+/** F-20 : équipes dont l'utilisateur est membre (source de vérité : LiteLLM). */
+export async function listMyTeams(deps: RequestDeps, user: SessionUser): Promise<LiteLLMTeamSummary[]> {
+  return (await deps.litellm.getUser(user.uid))?.teams ?? [];
+}
+
+/** F-22 : équipes existantes que l'utilisateur peut demander à rejoindre. */
+export async function listJoinableTeams(deps: RequestDeps, user: SessionUser): Promise<LiteLLMTeamSummary[]> {
+  const mine = new Set((await listMyTeams(deps, user)).map((t) => t.teamId));
+  return (await deps.litellm.listTeams()).filter((t) => !mine.has(t.teamId)).sort((a, b) => a.teamAlias.localeCompare(b.teamAlias));
 }

@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
 import { saveCatalogEntry } from "./catalog";
-import { cancelRequest, createKeyRequest, createTeamJoinRequest, type KeyRequestInput, listMyRequests } from "./requests";
+import { provisionUser } from "./provisioning";
+import { cancelRequest, createKeyRequest, createTeamJoinRequest, type KeyRequestInput, listJoinableTeams, listMyRequests, listMyTeams } from "./requests";
 
 const admin = { uid: "jdupont", email: "jdupont@linagora.com", name: "Jeanne Dupont", isAdmin: true };
 const demandeur = { uid: "mmaudet", email: "mmaudet@linagora.com", name: "Michel-Marie Maudet", isAdmin: false };
@@ -60,6 +61,21 @@ describe("demandes de clé (F-20 à F-24)", () => {
   test("un utilisateur ne voit pas les demandes des autres", async () => {
     await createKeyRequest(deps, demandeur, demande);
     expect(await listMyRequests(deps, { ...demandeur, uid: "pmartin", email: "pmartin@linagora.com" })).toEqual([]);
+  });
+});
+
+describe("équipes proposées dans les formulaires", () => {
+  beforeEach(async () => {
+    litellm.withTeam({ teamId: "equipe-data", teamAlias: "Data", models: ["mistral-small"], memberUids: ["jdupont"] });
+    await provisionUser(deps, demandeur);
+  });
+
+  test("une demande de clé propose les équipes dont l'utilisateur est membre (F-20)", async () => {
+    expect(await listMyTeams(deps, demandeur)).toEqual([{ teamId: "equipe-rd", teamAlias: "R&D", models: ["mistral-small", "qwen3.8"] }]);
+  });
+
+  test("une demande d'adhésion propose les autres équipes (F-22)", async () => {
+    expect((await listJoinableTeams(deps, demandeur)).map((t) => t.teamId)).toEqual(["equipe-data"]);
   });
 });
 
