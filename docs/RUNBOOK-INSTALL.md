@@ -57,6 +57,8 @@ Le script liste les variables `__ASK__` restantes. L'agent renseigne celles qui 
 ssh -t ia-host '/opt/linagora-ia/scripts/set-env-var.sh OPENROUTER_API_KEY'
 ```
 Autre possibilité : `ssh -t ia-host 'nano /opt/linagora-ia/.env'`, à condition que l'agent ne modifie pas le fichier au même moment.
+
+⚠️ Les variables du `.env` sont figées à la création d'un conteneur : après toute modification, recréer les services concernés (`docker compose up -d litellm`, par exemple), sinon ils gardent l'ancienne valeur.
 **Contrôle** (sans afficher de valeur) : `ssh ia-host "grep -cE '^[A-Z0-9_]+=.*__(ASK|GENERATE)' /opt/linagora-ia/.env"` → `0` avant la phase 5 (les secrets OIDC peuvent attendre les phases 6 et 7 ; les laisser à `__ASK__` jusque-là).
 
 ## Phase 4 — Choix et vérification des versions
