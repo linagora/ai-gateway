@@ -1,0 +1,10 @@
+# LiteLLM de développement : mêmes réglages globaux que la production (infra/litellm/config.yaml).
+# Les modèles de test sont créés en base par dev/seed-litellm.sh (réponses simulées, aucun appel externe).
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/DATABASE_URL
+  store_model_in_db: true
+  store_prompts_in_spend_logs: false
+
+litellm_settings:
+  drop_params: true

@@ -1,0 +1,49 @@
+# Environnement de développement du portail : Postgres + LiteLLM, aux mêmes versions (digest) que la
+# production. Clés et mots de passe FACTICES, propres au poste : n'y mettre aucun secret réel.
+# Ports publiés sur 127.0.0.1 uniquement.
+#   docker compose -f dev/docker-compose.yml up -d
+#   LiteLLM : http://127.0.0.1:54400/admin (préfixe /admin comme en production)
+#   Postgres : 127.0.0.1:55432 (bases litellm, portal, portal_test)
+name: portail-dev
+
+services:
+  postgres:
+    image: postgres:16.15@sha256:1a6ab3f5345eb6dbe04a1349529caabdb0ab09293a09590fad07b2246bfa4b54
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: dev
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+      - pg_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  litellm:
+    image: ghcr.io/berriai/litellm:v1.102.1@sha256:87f34979b9f8cb274fac90ca8a4fdda07d8480de22755562a26adeb95ce20d02
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
+    environment:
+      DATABASE_URL: postgresql://postgres:dev@postgres:5432/litellm
+      STORE_MODEL_IN_DB: "True"
+      LITELLM_MASTER_KEY: sk-dev-master-key
+      LITELLM_SALT_KEY: sk-dev-salt-key
+      SERVER_ROOT_PATH: /admin
+    volumes:
+      - ./litellm-config.yaml:/app/config.yaml:ro
+    ports:
+      - "127.0.0.1:54400:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import urllib.request; urllib.request.urlopen('http://localhost:4000/admin/health/liveliness')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  pg_dev:
