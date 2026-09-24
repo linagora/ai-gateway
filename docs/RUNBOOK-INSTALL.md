@@ -140,7 +140,7 @@ ssh ia-host 'cd /opt/linagora-ia && docker compose up -d litellm'
    ssh ia-host '(sudo crontab -l 2>/dev/null; echo "30 2 * * * /opt/linagora-ia/scripts/backup.sh >> /var/log/linagora-ia-backup.log 2>&1") | sort -u | sudo crontab - && sudo /opt/linagora-ia/scripts/backup.sh'
    ```
    🧑 Copie hors instance : créer un conteneur OVH Object Storage + identifiants S3, configurer `rclone` et décommenter la ligne dans `backup.sh`.
-   **Contrôle** : restaurer `litellm-*.dump` dans une base temporaire (`createdb restore_test && pg_restore -d restore_test …`), compter les lignes de `LiteLLM_VerificationToken`, supprimer la base de test (confirmation demandée).
+   **Contrôle** : `ssh ia-host 'sudo /opt/linagora-ia/scripts/restore-test.sh'` — restaure la dernière sauvegarde (rôles + base `litellm`) dans un conteneur Postgres jetable et sans réseau, affiche les volumes à côté de ceux de la production, vérifie les vues de reporting avec `reporting_ro`, puis supprime le conteneur. Le Postgres de production n'est jamais touché (aucune base de test à supprimer). Note : les images cloud Debian 13 n'ont pas `cron` ; `bootstrap-host.sh` l'installe.
 
 ## Phase 8 — Recette socle
 Critères d'acceptation 1, 2, 3, 7, 9 du PRD §9. Mettre à jour `docs/INSTALL-LOG.md`.
