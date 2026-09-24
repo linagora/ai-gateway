@@ -31,15 +31,21 @@ CREATE OR REPLACE VIEW reporting.v_users AS
 SELECT user_id, user_email, user_alias, user_role, teams, spend, created_at
 FROM "LiteLLM_UserTable";
 
+-- Prix : dans litellm_params (LiteLLM ≥ 1.10x supprime ceux placés dans model_info). Dans
+-- litellm_params, les nombres sont stockés en clair mais les chaînes (modèle fournisseur, URL,
+-- clé) sont chiffrées : le modèle fournisseur réel se lit dans v_requests (LiteLLM_SpendLogs).
+-- Conversion défensive : une valeur non numérique donne NULL au lieu de casser toutes les vues.
 CREATE OR REPLACE VIEW reporting.v_models AS
 SELECT model_id, model_name,
-       litellm_params->>'model'          AS provider_model,
        model_info->>'data_level'         AS data_level,
        model_info->>'hosting'            AS hosting,
-       (model_info->>'input_cost_per_token')::numeric  AS input_cost_per_token,
-       (model_info->>'output_cost_per_token')::numeric AS output_cost_per_token,
+       CASE WHEN litellm_params->>'input_cost_per_token' ~ '^[0-9.eE+-]+$'
+            THEN (litellm_params->>'input_cost_per_token')::numeric END  AS input_cost_per_token,
+       CASE WHEN litellm_params->>'output_cost_per_token' ~ '^[0-9.eE+-]+$'
+            THEN (litellm_params->>'output_cost_per_token')::numeric END AS output_cost_per_token,
        model_info->>'pricing_currency'   AS pricing_currency,
-       (model_info->>'fx_rate_usd_eur')::numeric AS fx_rate_usd_eur,
+       CASE WHEN model_info->>'fx_rate_usd_eur' ~ '^[0-9.eE+-]+$'
+            THEN (model_info->>'fx_rate_usd_eur')::numeric END AS fx_rate_usd_eur,
        blocked
 FROM "LiteLLM_ProxyModelTable";
 
