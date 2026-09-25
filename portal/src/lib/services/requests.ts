@@ -23,6 +23,7 @@ export const keyRequestInputSchema = z.object({
   models: z.array(z.string().min(1)),
   justification: z.string().trim().min(1),
   project: z.string().trim().nullable(),
+  /** Budget souhaité : plus demandé au salarié ; un renouvellement reprend celui de la clé d'origine. */
   requestedBudget: z.number().positive().nullable(),
   requestedDays: z.number().int().positive().nullable(),
   commitment: z.boolean(),

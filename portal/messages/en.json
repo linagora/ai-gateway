@@ -316,7 +316,6 @@
     "aucunModeleNiveau": "No model in the catalogue accepts this level yet.",
     "motif": "Reason",
     "projet": "Project or deal",
-    "budget": "Requested budget (€)",
     "duree": "Requested duration (days)",
     "engagement": "I commit to not submitting data above the declared level (Experimental level: public data only).",
     "envoyer": "Send request",

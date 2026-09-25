@@ -36,8 +36,9 @@ test("les champs obligatoires d'un salarié portent une petite étoile rouge, ex
     "Motif",
     expect.stringMatching(/^Je m'engage/),
   ]);
-  // Le salarié ne précise plus de type de clé.
+  // Le salarié ne précise ni type de clé ni budget : l'admin fixe le budget à l'approbation.
   await expect(page.getByLabel("Type de clé")).toHaveCount(0);
+  await expect(page.getByLabel(/Budget souhaité/)).toHaveCount(0);
 });
 
 test("en anglais, l'explication des étoiles est traduite", async ({ browser }) => {
