@@ -523,6 +523,18 @@
     "rappelExpiration": {
       "sujet": "Reminder: your key {alias} expires soon",
       "corps": "Your API key {alias} expires on {date, date, long}. To keep using it, request its renewal in “My keys”."
+    },
+    "cleRevoquee": {
+      "sujet": "Your key {alias} has been revoked",
+      "corps": "An administrator revoked your API key {alias}: the gateway now refuses it. To get a new key, request its renewal in “My keys”."
+    },
+    "cleBloquee": {
+      "sujet": "Your key {alias} is blocked",
+      "corps": "An administrator blocked your API key {alias}: the gateway refuses it until it is unblocked. For more information, write to the portal administrators."
+    },
+    "cleDebloquee": {
+      "sujet": "Your key {alias} is unblocked",
+      "corps": "An administrator unblocked your API key {alias}: it works again."
     }
   }
 }

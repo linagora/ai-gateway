@@ -6,7 +6,7 @@ import type { DataLevel, RequestStatus } from "@/lib/policy";
 import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
 import { markExpired } from "./echeances";
-import { type NotificationDeps, notifyExpiryReminder, notifyPickupReminder } from "./notifications";
+import { type NotificationDeps, notifyAdminKeyAction, notifyExpiryReminder, notifyPickupReminder } from "./notifications";
 import { ownKeyToRenew, transitionRequest } from "./requests";
 import { readSettings } from "./settings";
 
@@ -235,6 +235,10 @@ export async function revokeKey(deps: KeyDeps, user: SessionUser, requestId: str
   await deleteFromGateway(deps.litellm, request.keyTokenId);
   await transitionRequest(deps.db, request, "REVOQUEE");
   await recordAudit(deps.db, { actorUid: user.uid, action: "KEY_REVOKED", targetId: request.id, details: { alias: request.keyAlias } });
+  // Le titulaire est prévenu d'une révocation qu'il n'a pas faite lui-même.
+  if (user.uid !== request.requesterUid && request.keyAlias) {
+    await notifyAdminKeyAction(deps, { to: request.requesterEmail, alias: request.keyAlias, action: "revocation" });
+  }
 }
 
 /**
@@ -324,6 +328,7 @@ async function changeBlocking(deps: KeyDeps, actor: SessionUser, requestId: stri
     throw new PortalError("passerelle_indisponible", bloquer ? "Le blocage de la clé a échoué." : "Le déblocage de la clé a échoué.");
   }
   await recordAudit(deps.db, { actorUid: actor.uid, action: bloquer ? "KEY_BLOCKED" : "KEY_UNBLOCKED", targetId: request.id, details: { alias: request.keyAlias } });
+  if (request.keyAlias) await notifyAdminKeyAction(deps, { to: request.requesterEmail, alias: request.keyAlias, action: bloquer ? "blocage" : "deblocage" });
 }
 
 /** Supprime une clé de la passerelle ; une clé qu'elle ne connaît déjà plus (supprimée depuis la console) est acquise. */

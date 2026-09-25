@@ -436,3 +436,43 @@ describe("tâche quotidienne : échéances et rappels (ticket #25)", () => {
     expect((await listAudit(testDb)).map((e) => [e.actorUid, e.action, e.targetId])).toContainEqual(["systeme", "KEY_EXPIRED", id]);
   });
 });
+
+describe("courriels des actions d'un admin sur une clé (ticket #26)", () => {
+  let mailer: FakeMailer;
+  const avecCourriel = () => ({ ...deps, mailer, portalUrl: "https://portail.test" });
+
+  beforeEach(() => {
+    mailer = new FakeMailer();
+  });
+
+  test("révocation, blocage et déblocage par un admin envoient chacun un courriel au titulaire", async () => {
+    const bloquee = await demandeApprouvee();
+    await pickUpKey(deps, titulaire, bloquee);
+    const revoquee = await demandeApprouvee();
+    await pickUpKey(deps, titulaire, revoquee);
+    const alias = (id: string) => `mmaudet-r-d-compte-rendu-hebdo-${id.slice(-4)}`;
+
+    await blockKey(avecCourriel(), admin, bloquee);
+    await unblockKey(avecCourriel(), admin, bloquee);
+    await revokeKey(avecCourriel(), admin, revoquee);
+    expect(mailer.outbox.map((c) => [c.to, c.subject])).toEqual([
+      [["mmaudet@linagora.com"], `Votre clé ${alias(bloquee)} est bloquée / Your key ${alias(bloquee)} is blocked`],
+      [["mmaudet@linagora.com"], `Votre clé ${alias(bloquee)} est débloquée / Your key ${alias(bloquee)} is unblocked`],
+      [["mmaudet@linagora.com"], `Votre clé ${alias(revoquee)} a été révoquée / Your key ${alias(revoquee)} has been revoked`],
+    ]);
+    expect(mailer.outbox[2].text).toContain("Un administrateur a révoqué votre clé d'API");
+    expect(mailer.outbox[2].text).toContain("https://portail.test/cles");
+  });
+
+  test("les actions du titulaire sur ses propres clés n'envoient aucun courriel", async () => {
+    const id = await demandeApprouvee();
+    await pickUpKey(avecCourriel(), titulaire, id);
+    await replaceKey(avecCourriel(), titulaire, id);
+    const brouillon = await renewalDraft(avecCourriel(), titulaire, id);
+    const { id: renouvelee } = await createKeyRequest(deps, titulaire, { ...demande, ...brouillon, justification: "Renouvellement", commitment: true, renewsRequestId: id });
+    await approveKeyRequest(deps, admin, renouvelee, { models: ["mistral-small"], budget: 15, budgetDuration: "30d", days: 60, rpmLimit: null, tpmLimit: null });
+    await pickUpKey(avecCourriel(), titulaire, renouvelee);
+    await revokeKey(avecCourriel(), titulaire, renouvelee);
+    expect(mailer.outbox).toEqual([]);
+  });
+});

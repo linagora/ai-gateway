@@ -523,6 +523,18 @@
     "rappelExpiration": {
       "sujet": "Rappel : votre clé {alias} expire bientôt",
       "corps": "Votre clé d'API {alias} expire le {date, date, long}. Pour continuer à l'utiliser, demandez son renouvellement dans « Mes clés »."
+    },
+    "cleRevoquee": {
+      "sujet": "Votre clé {alias} a été révoquée",
+      "corps": "Un administrateur a révoqué votre clé d'API {alias} : la passerelle la refuse désormais. Pour obtenir une nouvelle clé, demandez son renouvellement dans « Mes clés »."
+    },
+    "cleBloquee": {
+      "sujet": "Votre clé {alias} est bloquée",
+      "corps": "Un administrateur a bloqué votre clé d'API {alias} : la passerelle la refuse jusqu'à son déblocage. Pour en savoir plus, écrivez aux administrateurs du portail."
+    },
+    "cleDebloquee": {
+      "sujet": "Votre clé {alias} est débloquée",
+      "corps": "Un administrateur a débloqué votre clé d'API {alias} : elle fonctionne à nouveau."
     }
   }
 }

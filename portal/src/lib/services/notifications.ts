@@ -131,3 +131,16 @@ export async function notifyExpiryReminder(deps: NotificationDeps, avis: { to: s
   );
   await envoyer(deps, [avis.to], message);
 }
+
+/** Action d'un admin sur la clé d'un titulaire : révocation, blocage ou déblocage (jamais pour ses propres actions). */
+export async function notifyAdminKeyAction(
+  deps: NotificationDeps,
+  avis: { to: string; alias: string; action: "revocation" | "blocage" | "deblocage" },
+): Promise<void> {
+  const cle = { revocation: "cleRevoquee", blocage: "cleBloquee", deblocage: "cleDebloquee" }[avis.action] as "cleRevoquee" | "cleBloquee" | "cleDebloquee";
+  const message = bilingue(
+    (t) => ({ sujet: t(`courriels.${cle}.sujet`, { alias: avis.alias }), corps: t(`courriels.${cle}.corps`, { alias: avis.alias }) }),
+    lienVers(deps, "/cles"),
+  );
+  await envoyer(deps, [avis.to], message);
+}
