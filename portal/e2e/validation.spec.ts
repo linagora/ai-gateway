@@ -40,7 +40,7 @@ test("l'admin rattache à une autre équipe la clé demandée pour R&D, et y ajo
   const page = await context.newPage();
   await page.goto("/demandes/nouvelle");
   await page.getByLabel("Équipe").selectOption({ label: "R&D" });
-  await page.getByRole("radio", { name: /^N1 — Public/ }).check();
+  await page.getByRole("radio", { name: /^N1 Public/ }).check();
   await page.getByLabel(/Modèle public/).check();
   await page.getByLabel("Motif").fill("Veille technologique");
   await page.getByLabel(/Je m'engage/).check();
@@ -55,7 +55,7 @@ test("l'admin rattache à une autre équipe la clé demandée pour R&D, et y ajo
   await expect(admin.getByRole("status")).toHaveText("Demande approuvée.");
 
   await page.goto("/demandes");
-  await expect(page.getByRole("row", { name: /Clé d'API.*LPS Paris.*N1 — Public.*dev-public.*Approuvée/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Clé d'API.*LPS Paris.*N1 Public.*dev-public.*Approuvée/ })).toBeVisible();
   await page.goto("/demandes/nouvelle");
   await expect(page.getByLabel("Équipe")).toContainText("LPS Paris");
 });

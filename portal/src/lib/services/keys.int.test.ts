@@ -631,7 +631,7 @@ describe("rappels d'expiration un mois, sept jours et la veille, selon la durée
     expect(mailer.outbox[0].text).toContain("expire dans un mois, le 30 décembre 2026");
     expect(mailer.outbox[0].text).toContain("expires in a month, on December 30, 2026");
     expect(mailer.outbox[0].text).toContain(`Bonjour Michel-Marie Maudet,\n\nVotre clé d'API mmaudet-r-d-compte-rendu-hebdo-${id.slice(-4)} expire dans un mois`);
-    expect(mailer.outbox[0].text).toContain("- Équipe : R&D\n- Niveau de confidentialité : N2 — Interne\n- Modèles : mistral-small");
+    expect(mailer.outbox[0].text).toContain("- Équipe : R&D\n- Niveau de confidentialité : N2 Interne\n- Modèles : mistral-small");
     expect(mailer.outbox[0].text).toContain("https://portail.test/cles");
     await chaqueMatin("2026-12-01", "2026-12-22");
     expect(delais()).toEqual(["dans un mois"]);

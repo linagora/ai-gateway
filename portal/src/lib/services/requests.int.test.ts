@@ -164,14 +164,14 @@ describe("notification des admins (ticket #23)", () => {
       [
         "Michel-Marie Maudet (mmaudet@linagora.com) a déposé une demande de clé d'API :",
         "- Équipe : R&D",
-        "- Niveau de confidentialité : N2 — Interne",
+        "- Niveau de confidentialité : N2 Interne",
         "- Modèles : mistral-small, qwen3.8",
         "- Projet : compte-rendu",
         "- Motif : Assistant de rédaction des comptes rendus",
         "- Durée souhaitée : 3 mois",
       ].join("\n"),
     );
-    expect(courriel.text).toContain("Michel-Marie Maudet (mmaudet@linagora.com) submitted an API key request:\n- Team: R&D\n- Confidentiality level: N2 — Internal");
+    expect(courriel.text).toContain("Michel-Marie Maudet (mmaudet@linagora.com) submitted an API key request:\n- Team: R&D\n- Confidentiality level: N2 Internal");
     expect(courriel.text).toContain(`https://portail.test/gestion/demandes/${id}`);
     expect(courriel.text.indexOf("a déposé")).toBeLessThan(courriel.text.indexOf("submitted"));
   });

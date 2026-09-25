@@ -89,7 +89,7 @@ test.describe("vue d'ensemble des niveaux (ticket #5)", () => {
     const context = await connecter(browser, salarie);
     const page = await context.newPage();
     await page.goto("/catalogue");
-    for (const nom of ["N1 — Public", "N2 — Interne", "N3 — Confidentiel", "Expérimental (bêta)"]) {
+    for (const nom of ["N1 Public", "N2 Interne", "N3 Confidentiel", "Expérimental (bêta)"]) {
       await expect(carte(page, nom)).toContainText("Vous pouvez y confier");
       await expect(carte(page, nom)).toContainText("Jamais");
     }
@@ -97,7 +97,7 @@ test.describe("vue d'ensemble des niveaux (ticket #5)", () => {
     const anglais = await connecter(browser, salarie, "en-US");
     const pageEn = await anglais.newPage();
     await pageEn.goto("/catalogue");
-    for (const nom of ["N1 — Public", "N2 — Internal", "N3 — Confidential", "Experimental (beta)"]) {
+    for (const nom of ["N1 Public", "N2 Internal", "N3 Confidential", "Experimental (beta)"]) {
       await expect(carte(pageEn, nom)).toContainText("You may entrust");
     }
     await anglais.close();
@@ -123,9 +123,9 @@ test.describe("vue d'ensemble des niveaux (ticket #5)", () => {
     const page = await context.newPage();
     await page.goto("/catalogue");
     // Données de démonstration : prix mixtes 0,175 € (public, expérimental), 0,30 € (interne), 0,975 € (confidentiel).
-    await expect(carte(page, "N1 — Public")).toContainText(/3 modèles.*à partir de 0,175\s€/);
-    await expect(carte(page, "N2 — Interne")).toContainText(/2 modèles.*à partir de 0,30\s€/);
-    await expect(carte(page, "N3 — Confidentiel")).toContainText(/1 modèle.*à partir de 0,975\s€/);
+    await expect(carte(page, "N1 Public")).toContainText(/3 modèles.*à partir de 0,175\s€/);
+    await expect(carte(page, "N2 Interne")).toContainText(/2 modèles.*à partir de 0,30\s€/);
+    await expect(carte(page, "N3 Confidentiel")).toContainText(/1 modèle.*à partir de 0,975\s€/);
     await expect(carte(page, "Expérimental (bêta)")).toContainText(/1 modèle.*à partir de 0,175\s€/);
     await context.close();
   });
@@ -134,10 +134,10 @@ test.describe("vue d'ensemble des niveaux (ticket #5)", () => {
     const context = await connecter(browser, salarie);
     const page = await context.newPage();
     await page.goto("/catalogue");
-    await carte(page, "N2 — Interne").getByRole("link", { name: "Demander une clé de ce niveau" }).click();
-    await expect(page.getByRole("radio", { name: /^N2 — Interne/ })).toBeChecked();
+    await carte(page, "N2 Interne").getByRole("link", { name: "Demander une clé de ce niveau" }).click();
+    await expect(page.getByRole("radio", { name: /^N2 Interne/ })).toBeChecked();
     await page.goto("/catalogue");
-    await carte(page, "N3 — Confidentiel").getByRole("link", { name: "Voir les modèles" }).click();
+    await carte(page, "N3 Confidentiel").getByRole("link", { name: "Voir les modèles" }).click();
     await expect(page).toHaveURL(/\/catalogue\/n3$/);
     await context.close();
   });
@@ -168,8 +168,8 @@ test.describe("page d'un niveau (ticket #7)", () => {
     const context = await connecter(browser, salarie);
     const page = await context.newPage();
     await page.goto("/catalogue");
-    await page.getByRole("region", { name: "N2 — Interne" }).getByRole("link", { name: "Voir les modèles" }).click();
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("N2 — Interne");
+    await page.getByRole("region", { name: "N2 Interne" }).getByRole("link", { name: "Voir les modèles" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("N2 Interne");
     await expect(modele(page, "Modèle interne")).toContainText("Mistral AI · UE");
     await expect(modele(page, "Modèle interne")).not.toContainText("Accepte jusqu'à");
     await expect(modele(page, "Modèle confidentiel")).toContainText("Accepte jusqu'à N3");
@@ -214,7 +214,7 @@ test.describe("page d'un niveau (ticket #7)", () => {
     const context = await connecter(browser, salarie, "en-US");
     const page = await context.newPage();
     await page.goto("/catalogue/n2");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("N2 — Internal");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("N2 Internal");
     await expect(modele(page, "Modèle interne")).toContainText("Modèle de démonstration N2");
     await expect(modele(page, /Modèle confidentiel|Confidential model/)).toContainText("Accepts up to N3");
     await context.close();
@@ -394,7 +394,7 @@ test.describe("sélection de modèles et demande préremplie (ticket #10)", () =
     await bouton(page).click();
 
     await expect(page).toHaveURL(/\/demandes\/nouvelle\?/);
-    await expect(page.getByRole("radio", { name: /^N2 — Interne/ })).toBeChecked();
+    await expect(page.getByRole("radio", { name: /^N2 Interne/ })).toBeChecked();
     await expect(page.getByLabel(/Modèle interne/)).toBeChecked();
     await expect(page.getByLabel(/Modèle confidentiel/)).toBeChecked();
     await expect(page.getByLabel(/Modèle public/)).toHaveCount(0);
@@ -404,7 +404,7 @@ test.describe("sélection de modèles et demande préremplie (ticket #10)", () =
     await page.getByRole("button", { name: "Envoyer la demande" }).click();
     await expect(page.getByRole("status")).toHaveText("Demande envoyée aux administrateurs.");
     // Modèles dans l'ordre du formulaire, par nom affiché.
-    await expect(page.getByRole("row", { name: /Clé d'API.*R&D.*N2 — Interne.*dev-confidentiel, dev-interne.*Soumise/ })).toBeVisible();
+    await expect(page.getByRole("row", { name: /Clé d'API.*R&D.*N2 Interne.*dev-confidentiel, dev-interne.*Soumise/ })).toBeVisible();
     await context.close();
   });
 
@@ -433,9 +433,9 @@ test.describe("sélection de modèles et demande préremplie (ticket #10)", () =
     await expect(page.getByText("Choisissez d'abord le niveau de confidentialité")).toBeVisible();
     expect(await proposes()).toEqual([]);
     for (const [niveau, attendus] of [
-      [/^N3 — Confidentiel/, ["dev-confidentiel"]],
-      [/^N2 — Interne/, ["dev-confidentiel", "dev-interne"]],
-      [/^N1 — Public/, ["dev-confidentiel", "dev-interne", "dev-public"]],
+      [/^N3 Confidentiel/, ["dev-confidentiel"]],
+      [/^N2 Interne/, ["dev-confidentiel", "dev-interne"]],
+      [/^N1 Public/, ["dev-confidentiel", "dev-interne", "dev-public"]],
       [/^Expérimental/, ["dev-experimental"]],
     ] as const) {
       await page.getByRole("radio", { name: niveau }).check();
@@ -448,7 +448,7 @@ test.describe("sélection de modèles et demande préremplie (ticket #10)", () =
     const context = await connecter(browser, salarie);
     const page = await context.newPage();
     await page.goto("/demandes/nouvelle?niveau=N3&modeles=dev-public");
-    await expect(page.getByRole("radio", { name: /^N3 — Confidentiel/ })).toBeChecked();
+    await expect(page.getByRole("radio", { name: /^N3 Confidentiel/ })).toBeChecked();
     await expect(page.getByLabel(/Modèle public/)).toHaveCount(0);
     // Envoyé quand même, par une requête forgée, le modèle N1 est refusé par le serveur.
     await ajouterAuFormulaire(page, "models", "dev-public");

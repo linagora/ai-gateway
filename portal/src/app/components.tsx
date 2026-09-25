@@ -114,7 +114,7 @@ export async function ChoixDuree({ name, valeur }: { name: string; valeur: numbe
   const domaine = await getTranslations("domaine");
   return (
     <select name={name} defaultValue={valeur ?? ""}>
-      {valeur === null && <option value="">—</option>}
+      {valeur === null && <option value="">{domaine("choisirDuree")}</option>}
       {optionsDuree(valeur).map((jours) => (
         <option key={jours} value={jours}>
           {libelleDuree(domaine, jours)}
@@ -124,19 +124,22 @@ export async function ChoixDuree({ name, valeur }: { name: string; valeur: numbe
   );
 }
 
-/** Dépense d'une clé sur son budget ; une dépense non nulle de moins d'un centime s'affiche comme telle. */
+/**
+ * Dépense d'une clé sur son budget, ou « sans plafond » si la clé n'en a pas ; une dépense non nulle de moins d'un
+ * centime s'affiche comme telle.
+ */
 export async function DepenseSurBudget({ spend, maxBudget }: { spend: number; maxBudget: number | null }) {
   const [{ euros }, t] = await Promise.all([formats(), getTranslations("cles")]);
-  return <>{t("depenseSur", { depense: spend > 0 && spend < 0.01 ? t("moinsDunCentime") : euros(spend), budget: euros(maxBudget) })}</>;
+  const depense = spend > 0 && spend < 0.01 ? t("moinsDunCentime") : euros(spend);
+  return <>{maxBudget === null ? t("depenseSansPlafond", { depense }) : t("depenseSur", { depense, budget: euros(maxBudget) })}</>;
 }
 
 /** Montants, nombres et dates au format de la langue de la requête (1 234,56 € en français, €1,234.56 en anglais). */
 export async function formats() {
   const format = await getFormatter();
   return {
-    euros: (valeur: number | null) =>
-      valeur === null ? "—" : format.number(valeur, { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 4 }),
-    nombre: (valeur: number | null) => (valeur === null ? "—" : format.number(valeur)),
+    euros: (valeur: number) => format.number(valeur, { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 4 }),
+    nombre: (valeur: number) => format.number(valeur),
     date: (valeur: Date) => format.dateTime(valeur, { dateStyle: "short", timeStyle: "short" }),
   };
 }

@@ -56,8 +56,8 @@ export default async function GestionClesPage(props: PageProps<"/gestion/cles">)
                   <td>{d.teamAlias}</td>
                   <td>{domaine(`niveaux.${d.dataLevel}`)}</td>
                   <td>{d.models.join(", ")}</td>
-                  <td>{d.approvedAt ? date(d.approvedAt) : "—"}</td>
-                  <td>{d.pickupDeadline ? date(d.pickupDeadline) : "—"}</td>
+                  <td>{d.approvedAt ? date(d.approvedAt) : ""}</td>
+                  <td>{d.pickupDeadline ? date(d.pickupDeadline) : ""}</td>
                 </tr>
               ))}
             </tbody>
@@ -92,7 +92,7 @@ export default async function GestionClesPage(props: PageProps<"/gestion/cles">)
                   </td>
                   <td>{k.teamAlias}</td>
                   <td>{domaine(`niveaux.${k.dataLevel}`)}</td>
-                  <td>{k.gatewayState ? <DepenseSurBudget spend={k.gatewayState.spend} maxBudget={k.gatewayState.maxBudget} /> : "—"}</td>
+                  <td>{k.gatewayState ? <DepenseSurBudget spend={k.gatewayState.spend} maxBudget={k.gatewayState.maxBudget} /> : ""}</td>
                   <td>{k.expiresAt ? date(k.expiresAt) : domaine("durees.0")}</td>
                   <td>
                     {domaine(`statuts.${k.status}`)}

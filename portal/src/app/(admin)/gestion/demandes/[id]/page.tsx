@@ -58,7 +58,7 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
     <>
       <AdminNav />
       <h1>
-        {domaine(`typesDemande.${review.kind}`)} — {review.requesterUid}
+        {t("titre", { type: domaine(`typesDemande.${review.kind}`), uid: review.requesterUid })}
       </h1>
       <Notice searchParams={searchParams} />
       {review.renewal && (
@@ -81,14 +81,17 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
         {review.kind === "CLE" && (
           <>
             <dt>{t("niveau")}</dt>
-            <dd>{review.dataLevel ? domaine(`niveaux.${review.dataLevel}`) : "—"}</dd>
+            <dd>{review.dataLevel ? domaine(`niveaux.${review.dataLevel}`) : domaine("nonRenseigne")}</dd>
             <dt>{t("modeles")}</dt>
             <dd>{review.models.join(", ")}</dd>
             <dt>{t("projet")}</dt>
-            <dd>{review.project ?? "—"}</dd>
+            <dd>{review.project ?? domaine("nonRenseigne")}</dd>
             <dt>{t("budgetDuree")}</dt>
+            {/* Le budget n'est plus demandé au salarié : seul un renouvellement reprend celui de la clé d'origine. */}
             <dd>
-              {euros(review.requestedBudget)} / {review.requestedDays !== null ? libelleDuree(domaine, review.requestedDays) : "—"}
+              {[review.requestedBudget !== null ? euros(review.requestedBudget) : null, review.requestedDays !== null ? libelleDuree(domaine, review.requestedDays) : null]
+                .filter(Boolean)
+                .join(" / ") || domaine("nonRenseigne")}
             </dd>
           </>
         )}

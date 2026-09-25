@@ -79,7 +79,7 @@ export async function demandeApprouvee(browser: Browser, page: Page, salarie: Pe
   await ajouterAEquipe(salarie.uid, "R&D");
   await page.goto("/demandes/nouvelle");
   await page.getByLabel("Équipe").selectOption({ label: "R&D" });
-  await page.getByRole("radio", { name: /^N1 — Public/ }).check();
+  await page.getByRole("radio", { name: /^N1 Public/ }).check();
   await page.getByLabel(/Modèle public/).check();
   await page.getByLabel("Motif").fill("Essai des clés");
   await page.getByLabel("Projet ou affaire").fill(projet);

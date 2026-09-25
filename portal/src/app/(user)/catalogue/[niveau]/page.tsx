@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
-import { CAPABILITIES, type Capability } from "@/lib/litellm/client";
+import { CAPABILITIES, type Capability, type ExecutionRegion } from "@/lib/litellm/client";
 import type { Langue } from "@/lib/langue";
 import { levelCriteria, levelFromSegment, levelPageHref, levelSegment, sortParam } from "@/lib/level-routes";
 import { LEVEL_SORTS, levelModels, modelDetail, type PriceTier, RECHERCHE_MINIMUM } from "@/lib/services/catalog";
@@ -43,6 +43,9 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
     modeleOuvert ? modelDetail(getDeps(), { level, modelName: modeleOuvert, language }) : null,
   ]);
   const pageSansCritere = `/catalogue/${levelSegment(level)}`;
+  /** « Éditeur · zone d'exécution », sans la partie inconnue. */
+  const editeurEtZone = (m: { publisher: string | null; executionRegion: ExecutionRegion | null }) =>
+    [m.publisher, m.executionRegion && domaine(`zones.${m.executionRegion}`)].filter(Boolean).join(" · ");
 
   return (
     <>
@@ -115,9 +118,7 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
                     {m.displayName}
                   </Link>
                 </h2>
-                <p className="text-sm">
-                  {m.publisher ?? "—"} · {m.executionRegion ? domaine(`zones.${m.executionRegion}`) : "—"}
-                </p>
+                <p className="text-sm">{editeurEtZone(m)}</p>
                 <code className="text-xs break-all text-neutral-600">{m.modelName}</code>
                 {m.recommendedFor.length > 0 && (
                   <p className="self-start rounded bg-amber-100 px-2 text-sm font-medium">
@@ -192,9 +193,7 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
           <h2 id="detail-titre" className="my-0">
             {detail.displayName}
           </h2>
-          <p className="text-sm">
-            {detail.publisher ?? "—"} · {detail.executionRegion ? domaine(`zones.${detail.executionRegion}`) : "—"}
-          </p>
+          <p className="text-sm">{editeurEtZone(detail)}</p>
           <code className="text-xs break-all text-neutral-600">{detail.modelName}</code>
           {detail.acceptsUpTo && (
             <p className={`self-start rounded border-2 px-2 text-sm ${COULEURS_NIVEAUX[detail.acceptsUpTo]}`}>{t("accepteJusqua", { niveau: detail.acceptsUpTo })}</p>
@@ -202,7 +201,7 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
           <h3 className="mt-3 font-medium">{detailT("description")}</h3>
           <p className="whitespace-pre-line">{detail.longDescription}</p>
           <h3 className="mt-3 font-medium">{detailT("hebergeurs")}</h3>
-          <p>{detail.hosts.join(", ") || "—"}</p>
+          <p>{detail.hosts.join(", ") || domaine("nonRenseigne")}</p>
           <h3 className="mt-3 font-medium">{detailT("limites")}</h3>
           <p className="whitespace-pre-line">{detail.limitations ?? detailT("aucuneLimite")}</p>
           {detail.apiKind === "decision" && (

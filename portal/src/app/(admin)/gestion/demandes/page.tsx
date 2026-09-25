@@ -36,8 +36,8 @@ export default async function PendingRequestsPage(props: PageProps<"/gestion/dem
               <td>{r.requesterUid}</td>
               <td>{domaine(`typesDemande.${r.kind}`)}</td>
               <td>{r.teamAlias}</td>
-              <td>{r.dataLevel ? domaine(`niveaux.${r.dataLevel}`) : "—"}</td>
-              <td>{r.models.join(", ") || "—"}</td>
+              <td>{r.dataLevel ? domaine(`niveaux.${r.dataLevel}`) : ""}</td>
+              <td>{r.models.join(", ")}</td>
               <td>{r.project ?? ""}</td>
               <td>
                 <Link href={`/gestion/demandes/${r.id}`}>{t("examiner")}</Link>
@@ -73,9 +73,9 @@ export default async function PendingRequestsPage(props: PageProps<"/gestion/dem
                   <td>{r.requesterUid}</td>
                   <td>{domaine(`typesDemande.${r.kind}`)}</td>
                   <td>{r.teamAlias}</td>
-                  <td>{r.dataLevel ? domaine(`niveaux.${r.dataLevel}`) : "—"}</td>
+                  <td>{r.dataLevel ? domaine(`niveaux.${r.dataLevel}`) : ""}</td>
                   <td>{domaine(`statuts.${r.status}`)}</td>
-                  <td>{r.decidedBy ? [r.decidedBy, r.decisionComment].filter(Boolean).join(" : ") : "—"}</td>
+                  <td>{r.decidedBy ? [r.decidedBy, r.decisionComment].filter(Boolean).join(" : ") : ""}</td>
                   <td>
                     <Link href={`/gestion/demandes/${r.id}`}>{t("archive.voir")}</Link>
                   </td>

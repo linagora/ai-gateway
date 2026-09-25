@@ -130,7 +130,7 @@ test("un admin voit toutes les clés émises et révoque celle d'un salarié (ti
   await admin.goto("/gestion/demandes");
   await admin.getByRole("navigation", { name: "Administration" }).getByRole("link", { name: /^Clés/ }).click();
   await expect(admin.getByRole("heading", { level: 1 })).toHaveText("Clés d'API");
-  const ligne = admin.getByRole("row", { name: new RegExp(`${salarie.uid}.*${salarie.uid}-r-d-essai-gestion-.*R&D.*N1 — Public.*sur 5,00 €.*Clé émise`) });
+  const ligne = admin.getByRole("row", { name: new RegExp(`${salarie.uid}.*${salarie.uid}-r-d-essai-gestion-.*R&D.*N1 Public.*sur 5,00 €.*Clé émise`) });
   await ligne.getByText("Révoquer").click();
   await ligne.getByRole("button", { name: "Confirmer la révocation" }).click();
   await expect(admin.getByRole("status")).toHaveText("Clé révoquée.");
@@ -174,7 +174,7 @@ test("le titulaire renouvelle sa clé : demande préremplie, validée, et l'anci
 
   await origine.getByRole("link", { name: "Renouveler" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(`Renouveler la clé ${alias}`);
-  await expect(page.getByRole("radio", { name: /^N1 — Public/ })).toBeChecked();
+  await expect(page.getByRole("radio", { name: /^N1 Public/ })).toBeChecked();
   await expect(page.getByLabel(/Modèle public/)).toBeChecked();
   await expect(page.getByLabel("Projet ou affaire")).toHaveValue("Essai renouvellement");
   await page.getByLabel("Motif").fill("Renouvellement");
@@ -203,7 +203,7 @@ test("la durée se choisit dans une liste ; une clé qui n'expire jamais l'indiq
   const duree = page.getByLabel("Durée souhaitée");
   await expect(duree.locator("option")).toHaveText(["24 heures", "1 semaine", "1 mois", "3 mois", "6 mois", "1 an", "N'expire jamais"]);
   await page.getByLabel("Équipe").selectOption({ label: "R&D" });
-  await page.getByRole("radio", { name: /^N1 — Public/ }).check();
+  await page.getByRole("radio", { name: /^N1 Public/ }).check();
   await page.getByLabel(/Modèle public/).check();
   await page.getByLabel("Motif").fill("Intégration continue");
   await duree.selectOption({ label: "N'expire jamais" });

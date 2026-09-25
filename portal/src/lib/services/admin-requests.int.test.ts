@@ -303,7 +303,7 @@ describe("courriels des décisions au demandeur (ticket #24)", () => {
       [
         "Votre demande de clé d'API pour l'équipe R&D est approuvée. Paramètres de votre clé :",
         "- Équipe : R&D",
-        "- Niveau de confidentialité : N2 — Interne",
+        "- Niveau de confidentialité : N2 Interne",
         "- Modèles accordés : mistral-small",
       ].join("\n"),
     );

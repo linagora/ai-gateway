@@ -37,17 +37,21 @@ export default async function AdminCataloguePage(props: PageProps<"/gestion/cata
           </p>
           <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-4 text-sm" aria-label={t("faits")}>
             <dt className="font-medium">{t("editeur")}</dt>
-            <dd>{m.publisher ?? "—"}</dd>
+            <dd>{m.publisher ?? domaine("nonRenseigne")}</dd>
             <dt className="font-medium">{t("fournisseur")}</dt>
-            <dd>{m.supplier ?? "—"}</dd>
+            <dd>{m.supplier ?? domaine("nonRenseigne")}</dd>
             <dt className="font-medium">{t("hebergeurs")}</dt>
-            <dd>{m.hosts.join(", ") || "—"}</dd>
+            <dd>{m.hosts.join(", ") || domaine("nonRenseigne")}</dd>
             <dt className="font-medium">{t("zone")}</dt>
-            <dd>{m.executionRegion ? domaine(`zones.${m.executionRegion}`) : "—"}</dd>
+            <dd>{m.executionRegion ? domaine(`zones.${m.executionRegion}`) : domaine("nonRenseigne")}</dd>
             <dt className="font-medium">{t("prix")}</dt>
-            <dd>{m.hasEuroPricing ? `${euros(m.inputPricePerMillion)} / ${euros(m.outputPricePerMillion)}` : t("sansTarif")}</dd>
+            <dd>
+              {m.hasEuroPricing && m.inputPricePerMillion !== null && m.outputPricePerMillion !== null
+                ? `${euros(m.inputPricePerMillion)} / ${euros(m.outputPricePerMillion)}`
+                : t("sansTarif")}
+            </dd>
             <dt className="font-medium">{t("contexte")}</dt>
-            <dd>{m.maxInputTokens ? t("jetons", { nombre: nombre(m.maxInputTokens) }) : "—"}</dd>
+            <dd>{m.maxInputTokens ? t("jetons", { nombre: nombre(m.maxInputTokens) }) : domaine("nonRenseigne")}</dd>
             <dt className="font-medium">{t("capacites")}</dt>
             <dd>{m.capabilities.map((c) => domaine(`capacites.${c}`)).join(", ") || t("aucune")}</dd>
           </dl>

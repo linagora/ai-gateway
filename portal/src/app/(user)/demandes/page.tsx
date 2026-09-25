@@ -38,8 +38,8 @@ export default async function MyRequestsPage(props: PageProps<"/demandes">) {
               <td>{date(r.createdAt)}</td>
               <td>{domaine(`typesDemande.${r.kind}`)}</td>
               <td>{r.teamAlias}</td>
-              <td>{r.dataLevel ? domaine(`niveaux.${r.dataLevel}`) : "—"}</td>
-              <td>{r.models.join(", ") || "—"}</td>
+              <td>{r.dataLevel ? domaine(`niveaux.${r.dataLevel}`) : ""}</td>
+              <td>{r.models.join(", ")}</td>
               <td>{domaine(`statuts.${r.status}`)}</td>
               <td>{r.decisionComment ?? ""}</td>
               <td>

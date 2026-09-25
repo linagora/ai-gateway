@@ -27,9 +27,9 @@
   },
   "domaine": {
     "niveaux": {
-      "N1": "N1 — Public",
-      "N2": "N2 — Interne",
-      "N3": "N3 — Confidentiel",
+      "N1": "N1 Public",
+      "N2": "N2 Interne",
+      "N3": "N3 Confidentiel",
       "EXP": "Expérimental (bêta)"
     },
     "zones": {
@@ -74,7 +74,9 @@
       "365": "1 an",
       "0": "N'expire jamais"
     },
-    "dureeEnJours": "{nombre, plural, one {# jour} other {# jours}}"
+    "dureeEnJours": "{nombre, plural, one {# jour} other {# jours}}",
+    "nonRenseigne": "Non renseigné",
+    "choisirDuree": "Choisir une durée"
   },
   "avis": {
     "succes": {
@@ -389,6 +391,7 @@
       }
     },
     "fiche": {
+      "titre": "{type} pour {uid}",
       "statut": "Statut",
       "soumise": "Soumise le",
       "demandeur": "Demandeur",
@@ -509,6 +512,7 @@
     "catalogue": "Voir le catalogue",
     "depense": "Dépense",
     "depenseSur": "{depense} sur {budget}",
+    "depenseSansPlafond": "{depense} (sans plafond)",
     "moinsDunCentime": "moins de 0,01 €",
     "remiseAZero": "Remise à zéro du budget",
     "infoIndisponible": "Dépense et budget indisponibles pour l'instant : la passerelle ne répond pas.",

@@ -27,9 +27,9 @@
   },
   "domaine": {
     "niveaux": {
-      "N1": "N1 — Public",
-      "N2": "N2 — Internal",
-      "N3": "N3 — Confidential",
+      "N1": "N1 Public",
+      "N2": "N2 Internal",
+      "N3": "N3 Confidential",
       "EXP": "Experimental (beta)"
     },
     "zones": {
@@ -74,7 +74,9 @@
       "365": "1 year",
       "0": "Never expires"
     },
-    "dureeEnJours": "{nombre, plural, one {# day} other {# days}}"
+    "dureeEnJours": "{nombre, plural, one {# day} other {# days}}",
+    "nonRenseigne": "Not specified",
+    "choisirDuree": "Choose a duration"
   },
   "avis": {
     "succes": {
@@ -389,6 +391,7 @@
       }
     },
     "fiche": {
+      "titre": "{type} for {uid}",
       "statut": "Status",
       "soumise": "Submitted on",
       "demandeur": "Requester",
@@ -509,6 +512,7 @@
     "catalogue": "See the catalog",
     "depense": "Spend",
     "depenseSur": "{depense} of {budget}",
+    "depenseSansPlafond": "{depense} (no limit)",
     "moinsDunCentime": "less than €0.01",
     "remiseAZero": "Budget reset",
     "infoIndisponible": "Spend and budget unavailable for now: the gateway is not responding.",
