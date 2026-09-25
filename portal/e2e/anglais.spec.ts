@@ -3,14 +3,23 @@ import { ADMIN, ajouterAEquipe, connecter, enrichirModele } from "./outils";
 
 /*
  * Ticket #13 : un parcours complet en anglais ne montre aucun texte en français, hors contenus saisis par
- * l'admin (fiches des modèles de démonstration, en français seulement). Il couvre la connexion, le catalogue,
- * la page d'un niveau, le détail, la sélection, la demande et la validation admin.
+ * l'admin (fiches des modèles de démonstration, en français seulement) et identifiants (uid, alias, noms de
+ * modèles). Il couvre la connexion, le catalogue, la page d'un niveau, le détail, la sélection, la demande et
+ * la validation admin.
  */
 const suffixe = Date.now().toString(36);
 const salarie = { uid: `anglais-${suffixe}`, email: `anglais-${suffixe}@example.org`, name: `Employee ${suffixe}` };
 
-/** Contenus saisis par l'admin, en français seulement, et nom de la langue française dans le sélecteur. */
-const AUTORISES = [/Modèle (public|interne|confidentiel|expérimental)/g, /Modèle de démonstration (N1|N2|N3|EXP)(, à réponses simulées\.)?/g, /Français/g];
+/**
+ * Contenus saisis par l'admin, en français seulement ; nom de la langue française dans le sélecteur ; identifiants
+ * techniques, en minuscules reliées par des tirets (uid « cles-sans-expiration-… », alias, noms de modèles).
+ */
+const AUTORISES = [
+  /Modèle (public|interne|confidentiel|expérimental)/g,
+  /Modèle de démonstration (N1|N2|N3|EXP)(, à réponses simulées\.)?/g,
+  /Français/g,
+  /(?<!\p{L})[a-z0-9]+(?:-[a-z0-9]+)+(?!\p{L})/gu,
+];
 
 /** Lettres et mots propres au français. */
 const FRANCAIS =
