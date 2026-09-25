@@ -196,18 +196,23 @@ export type ResultatRetrait = { ok: true; cle: string; alias: string } | { ok: f
  */
 export async function retirerCleAction(requestId: string): Promise<ResultatRetrait> {
   const user = await requireUser();
-  return afficherUneFois(() => pickUpKey(getDeps(), user, requestId));
+  return afficherUneFois(requestId, (id) => pickUpKey(getDeps(), user, id));
 }
 
 /** F-41 : remplacement d'une clé perdue ; la nouvelle clé s'affiche une seule fois, comme au retrait. */
 export async function remplacerCleAction(requestId: string): Promise<ResultatRetrait> {
   const user = await requireUser();
-  return afficherUneFois(() => replaceKey(getDeps(), user, requestId));
+  return afficherUneFois(requestId, (id) => replaceKey(getDeps(), user, id));
 }
 
-async function afficherUneFois(generer: () => Promise<{ key: string; alias: string }>): Promise<ResultatRetrait> {
+/** Identifiant de demande (cuid) : l'argument d'une Server Action peut être n'importe quelle valeur. */
+const identifiantDemande = z.cuid();
+
+async function afficherUneFois(requestId: unknown, generer: (id: string) => Promise<{ key: string; alias: string }>): Promise<ResultatRetrait> {
+  const id = identifiantDemande.safeParse(requestId);
+  if (!id.success) return { ok: false, erreur: "introuvable", details: { objet: "demande_cle" } };
   try {
-    const { key, alias } = await generer();
+    const { key, alias } = await generer(id.data);
     return { ok: true, cle: key, alias };
   } catch (e) {
     if (e instanceof PortalError) return { ok: false, erreur: e.code, details: e.params };
