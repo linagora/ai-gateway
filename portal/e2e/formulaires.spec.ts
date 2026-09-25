@@ -64,7 +64,7 @@ test("les formulaires des admins signalent aussi leurs champs obligatoires", asy
   await ajouterAEquipe(salarie.uid, "R&D");
   await page.goto("/demandes/nouvelle");
   await page.getByLabel("Équipe").selectOption({ label: "R&D" });
-  await page.getByRole("radio", { name: /^N1 — Public/ }).check();
+  await page.getByRole("radio", { name: /^N1 Public/ }).check();
   await page.getByLabel(/Modèle public/).check();
   await page.getByLabel("Motif").fill("Essai des champs obligatoires");
   await page.getByLabel(/Je m'engage/).check();

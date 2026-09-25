@@ -24,6 +24,8 @@ test("le titulaire retire sa clé, la voit une seule fois, et elle fonctionne au
   await demandeApprouvee(browser, page, salarie, "Essai retrait");
 
   await page.goto("/demandes");
+  // Une pastille du menu signale la clé approuvée à retirer.
+  await expect(page.getByRole("link", { name: /^Mes clés \(1 clé à retirer\)$/ })).toBeVisible();
   await page.getByRole("row", { name: /Clé d'API.*Approuvée/ }).getByRole("link", { name: "Retirer ma clé" }).click();
   await expect(page).toHaveURL(/\/cles$/);
   const aRetirer = page.getByRole("region", { name: "À retirer" });
@@ -43,6 +45,13 @@ test("le titulaire retire sa clé, la voit une seule fois, et elle fonctionne au
   await expect(carte).toContainText("Clé émise");
   await page.reload();
   expect(await page.content()).not.toContain(cle);
+  await expect(page.getByRole("link", { name: "Mes clés", exact: true })).toBeVisible();
+  // La carte donne l'adresse de l'API (endpoint), celle des exemples d'appel.
+  await expect(carte).toContainText("Adresse de l'API");
+  await expect(carte).toContainText("http://127.0.0.1:54400/admin/v1");
+  // Le bouton de copie est centré verticalement sur l'adresse.
+  const [adresse, copier] = await Promise.all([carte.locator("dd code").first().boundingBox(), carte.getByRole("button", { name: "Copier l'adresse" }).boundingBox()]);
+  expect(Math.abs(adresse!.y + adresse!.height / 2 - (copier!.y + copier!.height / 2))).toBeLessThanOrEqual(2);
 
   // Ticket #16 : la dépense de l'appel apparaît (LiteLLM la compte en quelques secondes), avec le budget approuvé.
   await expect(async () => {
@@ -119,9 +128,9 @@ test("un admin voit toutes les clés émises et révoque celle d'un salarié (ti
 
   const admin = await (await connecter(browser, ADMIN)).newPage();
   await admin.goto("/gestion/demandes");
-  await admin.getByRole("navigation", { name: "Administration" }).getByRole("link", { name: "Clés", exact: true }).click();
-  await expect(admin.getByRole("heading", { level: 1 })).toHaveText("Clés émises");
-  const ligne = admin.getByRole("row", { name: new RegExp(`${salarie.uid}.*${salarie.uid}-r-d-essai-gestion-.*R&D.*N1 — Public.*sur 5,00 €.*Clé émise`) });
+  await admin.getByRole("navigation", { name: "Administration" }).getByRole("link", { name: /^Clés/ }).click();
+  await expect(admin.getByRole("heading", { level: 1 })).toHaveText("Clés d'API");
+  const ligne = admin.getByRole("row", { name: new RegExp(`${salarie.uid}.*${salarie.uid}-r-d-essai-gestion-.*R&D.*N1 Public.*sur 5,00 €.*Clé émise`) });
   await ligne.getByText("Révoquer").click();
   await ligne.getByRole("button", { name: "Confirmer la révocation" }).click();
   await expect(admin.getByRole("status")).toHaveText("Clé révoquée.");
@@ -165,7 +174,7 @@ test("le titulaire renouvelle sa clé : demande préremplie, validée, et l'anci
 
   await origine.getByRole("link", { name: "Renouveler" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(`Renouveler la clé ${alias}`);
-  await expect(page.getByRole("radio", { name: /^N1 — Public/ })).toBeChecked();
+  await expect(page.getByRole("radio", { name: /^N1 Public/ })).toBeChecked();
   await expect(page.getByLabel(/Modèle public/)).toBeChecked();
   await expect(page.getByLabel("Projet ou affaire")).toHaveValue("Essai renouvellement");
   await page.getByLabel("Motif").fill("Renouvellement");
@@ -194,7 +203,7 @@ test("la durée se choisit dans une liste ; une clé qui n'expire jamais l'indiq
   const duree = page.getByLabel("Durée souhaitée");
   await expect(duree.locator("option")).toHaveText(["24 heures", "1 semaine", "1 mois", "3 mois", "6 mois", "1 an", "N'expire jamais"]);
   await page.getByLabel("Équipe").selectOption({ label: "R&D" });
-  await page.getByRole("radio", { name: /^N1 — Public/ }).check();
+  await page.getByRole("radio", { name: /^N1 Public/ }).check();
   await page.getByLabel(/Modèle public/).check();
   await page.getByLabel("Motif").fill("Intégration continue");
   await duree.selectOption({ label: "N'expire jamais" });

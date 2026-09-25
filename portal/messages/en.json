@@ -12,7 +12,10 @@
     "nouvelleDemande": "New request",
     "gestion": "Administration",
     "deconnexion": "Sign out",
-    "mesCles": "My keys"
+    "mesCles": "My keys",
+    "aRetirer": "{nombre, plural, one {# key to pick up} other {# keys to pick up}}",
+    "aCompleter": "{nombre, plural, one {# request to complete} other {# requests to complete}}",
+    "aValider": "{nombre, plural, one {# request to review} other {# requests to review}}"
   },
   "accueil": {
     "bonjour": "Hello {nom}",
@@ -24,9 +27,9 @@
   },
   "domaine": {
     "niveaux": {
-      "N1": "N1 — Public",
-      "N2": "N2 — Internal",
-      "N3": "N3 — Confidential",
+      "N1": "N1 Public",
+      "N2": "N2 Internal",
+      "N3": "N3 Confidential",
       "EXP": "Experimental (beta)"
     },
     "zones": {
@@ -71,7 +74,9 @@
       "365": "1 year",
       "0": "Never expires"
     },
-    "dureeEnJours": "{nombre, plural, one {# day} other {# days}}"
+    "dureeEnJours": "{nombre, plural, one {# day} other {# days}}",
+    "nonRenseigne": "Not specified",
+    "choisirDuree": "Choose a duration"
   },
   "avis": {
     "succes": {
@@ -92,6 +97,7 @@
     "erreurs": {
       "controles_en_echec": "The request does not comply with the model access policy. Failed checks: {controles}.",
       "deja_membre": "You are already a member of the {equipe} team.",
+      "demande_en_cours": "You already have a pending access request for the {equipe} team.",
       "engagement_requis": "Commit to not submitting data above the declared level.",
       "interdit": "Administrators only.",
       "introuvable": "{objet, select, modele {Model {modele} is not declared in the gateway.} equipe {Team not found.} demande_adhesion {Access request not found.} demande_cle {Key request not found.} other {Request not found.}}",
@@ -334,7 +340,7 @@
   },
   "adhesion": {
     "titre": "Ask to join a team",
-    "aucuneEquipe": "No other team exists yet: contact an administrator.",
+    "aucuneEquipe": "No team to join for now: you are a member of the other teams, or your access request is pending (see “My requests”).",
     "equipe": "Team",
     "motif": "Reason",
     "envoyer": "Send request"
@@ -356,7 +362,9 @@
       "demandes": "Requests",
       "catalogue": "Catalog",
       "parametres": "Default values",
-      "cles": "Keys"
+      "cles": "Keys",
+      "aValider": "{nombre, plural, one {# request to review} other {# requests to review}}",
+      "aRetirer": "{nombre, plural, one {# key to pick up} other {# keys to pick up}}"
     },
     "file": {
       "titre": "Requests awaiting validation",
@@ -370,9 +378,20 @@
         "projet": "Project"
       },
       "examiner": "Review",
-      "aucune": "No pending request."
+      "aucune": "No pending request.",
+      "archive": {
+        "titre": "Archive: processed requests",
+        "aucune": "No processed request yet.",
+        "colonnes": {
+          "date": "Last update",
+          "statut": "Status",
+          "decision": "Decision"
+        },
+        "voir": "View"
+      }
     },
     "fiche": {
+      "titre": "{type} for {uid}",
       "statut": "Status",
       "soumise": "Submitted on",
       "demandeur": "Requester",
@@ -418,7 +437,7 @@
       "enregistrer": "Save"
     },
     "cles": {
-      "titre": "Issued keys",
+      "titre": "API keys",
       "aucune": "No key has been picked up yet.",
       "colonnes": {
         "titulaire": "Holder",
@@ -433,7 +452,24 @@
       "revocationAvertissement": "The gateway will refuse the key within seconds. Revocation cannot be undone.",
       "confirmerRevocation": "Confirm revocation",
       "bloquer": "Block",
-      "debloquer": "Unblock"
+      "debloquer": "Unblock",
+      "aRetirer": {
+        "titre": "Approved keys, waiting for pickup by the employee",
+        "colonnes": {
+          "modeles": "Models",
+          "approuvee": "Approved on",
+          "echeance": "Pickup deadline"
+        }
+      },
+      "actives": "Active keys",
+      "aucuneActive": "No active key.",
+      "archive": {
+        "titre": "Archive: revoked or expired keys",
+        "aucune": "No revoked or expired key.",
+        "colonnes": {
+          "emise": "Issued on"
+        }
+      }
     }
   },
   "introuvable": {
@@ -476,6 +512,7 @@
     "catalogue": "See the catalog",
     "depense": "Spend",
     "depenseSur": "{depense} of {budget}",
+    "depenseSansPlafond": "{depense} (no limit)",
     "moinsDunCentime": "less than €0.01",
     "remiseAZero": "Budget reset",
     "infoIndisponible": "Spend and budget unavailable for now: the gateway is not responding.",
@@ -506,7 +543,10 @@
       "examen": "An administrator reviews your request; an email tells you as soon as it is approved.",
       "examenLien": "Track my requests",
       "retrait": "Come back here to generate your key: it is shown only once, copy it right away."
-    }
+    },
+    "adresseApi": "API address",
+    "copierAdresse": "Copy the address",
+    "adresseCopiee": "Address copied"
   },
   "courriels": {
     "lien": "Link: {url}",

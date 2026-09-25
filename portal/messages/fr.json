@@ -12,7 +12,10 @@
     "nouvelleDemande": "Nouvelle demande",
     "gestion": "Gestion",
     "deconnexion": "Se déconnecter",
-    "mesCles": "Mes clés"
+    "mesCles": "Mes clés",
+    "aRetirer": "{nombre, plural, one {# clé à retirer} other {# clés à retirer}}",
+    "aCompleter": "{nombre, plural, one {# demande à compléter} other {# demandes à compléter}}",
+    "aValider": "{nombre, plural, one {# demande à valider} other {# demandes à valider}}"
   },
   "accueil": {
     "bonjour": "Bonjour {nom}",
@@ -24,9 +27,9 @@
   },
   "domaine": {
     "niveaux": {
-      "N1": "N1 — Public",
-      "N2": "N2 — Interne",
-      "N3": "N3 — Confidentiel",
+      "N1": "N1 Public",
+      "N2": "N2 Interne",
+      "N3": "N3 Confidentiel",
       "EXP": "Expérimental (bêta)"
     },
     "zones": {
@@ -71,7 +74,9 @@
       "365": "1 an",
       "0": "N'expire jamais"
     },
-    "dureeEnJours": "{nombre, plural, one {# jour} other {# jours}}"
+    "dureeEnJours": "{nombre, plural, one {# jour} other {# jours}}",
+    "nonRenseigne": "Non renseigné",
+    "choisirDuree": "Choisir une durée"
   },
   "avis": {
     "succes": {
@@ -92,6 +97,7 @@
     "erreurs": {
       "controles_en_echec": "La demande ne respecte pas la politique d'accès aux modèles. Contrôles en échec : {controles}.",
       "deja_membre": "Vous êtes déjà membre de l'équipe {equipe}.",
+      "demande_en_cours": "Vous avez déjà une demande d'accès en cours pour l'équipe {equipe}.",
       "engagement_requis": "Engagez-vous à ne pas soumettre de données d'un niveau supérieur à celui déclaré.",
       "interdit": "Action réservée aux administrateurs.",
       "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} other {Demande introuvable.}}",
@@ -334,7 +340,7 @@
   },
   "adhesion": {
     "titre": "Demander à rejoindre une équipe",
-    "aucuneEquipe": "Aucune autre équipe n'existe pour l'instant : contactez un administrateur.",
+    "aucuneEquipe": "Aucune équipe à rejoindre pour l'instant : vous êtes membre des autres équipes, ou votre demande d'accès est en cours (voir « Mes demandes »).",
     "equipe": "Équipe",
     "motif": "Motif",
     "envoyer": "Envoyer la demande"
@@ -356,7 +362,9 @@
       "demandes": "Demandes",
       "catalogue": "Catalogue",
       "parametres": "Valeurs par défaut",
-      "cles": "Clés"
+      "cles": "Clés",
+      "aValider": "{nombre, plural, one {# demande à valider} other {# demandes à valider}}",
+      "aRetirer": "{nombre, plural, one {# clé à retirer} other {# clés à retirer}}"
     },
     "file": {
       "titre": "Demandes en attente de validation",
@@ -370,9 +378,20 @@
         "projet": "Projet"
       },
       "examiner": "Examiner",
-      "aucune": "Aucune demande en attente."
+      "aucune": "Aucune demande en attente.",
+      "archive": {
+        "titre": "Archive : demandes traitées",
+        "aucune": "Aucune demande traitée pour l'instant.",
+        "colonnes": {
+          "date": "Dernière mise à jour",
+          "statut": "Statut",
+          "decision": "Décision"
+        },
+        "voir": "Voir"
+      }
     },
     "fiche": {
+      "titre": "{type} pour {uid}",
       "statut": "Statut",
       "soumise": "Soumise le",
       "demandeur": "Demandeur",
@@ -418,7 +437,7 @@
       "enregistrer": "Enregistrer"
     },
     "cles": {
-      "titre": "Clés émises",
+      "titre": "Clés d'API",
       "aucune": "Aucune clé n'a encore été retirée.",
       "colonnes": {
         "titulaire": "Titulaire",
@@ -433,7 +452,24 @@
       "revocationAvertissement": "La passerelle refusera la clé dans les secondes qui suivent. La révocation est définitive.",
       "confirmerRevocation": "Confirmer la révocation",
       "bloquer": "Bloquer",
-      "debloquer": "Débloquer"
+      "debloquer": "Débloquer",
+      "aRetirer": {
+        "titre": "Clés approuvées, à retirer par le salarié",
+        "colonnes": {
+          "modeles": "Modèles",
+          "approuvee": "Approuvée le",
+          "echeance": "Échéance de retrait"
+        }
+      },
+      "actives": "Clés actives",
+      "aucuneActive": "Aucune clé active.",
+      "archive": {
+        "titre": "Archive : clés révoquées ou expirées",
+        "aucune": "Aucune clé révoquée ou expirée.",
+        "colonnes": {
+          "emise": "Émise le"
+        }
+      }
     }
   },
   "introuvable": {
@@ -476,6 +512,7 @@
     "catalogue": "Voir le catalogue",
     "depense": "Dépense",
     "depenseSur": "{depense} sur {budget}",
+    "depenseSansPlafond": "{depense} (sans plafond)",
     "moinsDunCentime": "moins de 0,01 €",
     "remiseAZero": "Remise à zéro du budget",
     "infoIndisponible": "Dépense et budget indisponibles pour l'instant : la passerelle ne répond pas.",
@@ -506,7 +543,10 @@
       "examen": "Un administrateur examine votre demande ; un courriel vous prévient dès qu'elle est approuvée.",
       "examenLien": "Suivre mes demandes",
       "retrait": "Revenez ici pour générer votre clé : elle ne s'affiche qu'une seule fois, copiez-la aussitôt."
-    }
+    },
+    "adresseApi": "Adresse de l'API",
+    "copierAdresse": "Copier l'adresse",
+    "adresseCopiee": "Adresse copiée"
   },
   "courriels": {
     "lien": "Lien : {url}",

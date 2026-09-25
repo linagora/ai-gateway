@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
-import { expect, test } from "@playwright/test";
-import { connecter } from "./outils";
+import { expect, type Page, test } from "@playwright/test";
+import { ADMIN, ajouterAEquipe, connecter } from "./outils";
 
 /* Charte Linagora légère (ticket #4). */
 const suffixe = Date.now().toString(36);
@@ -45,13 +45,62 @@ test("les quatre couleurs de niveau sont définies une seule fois, lisibles sur 
   expect(couleurs.every((c) => /^#[0-9a-f]{6}$/.test(c))).toBe(true);
   expect(new Set(couleurs).size).toBe(4);
   for (const couleur of couleurs) expect(contrasteSurBlanc(couleur)).toBeGreaterThanOrEqual(4.5);
-  for (const [i, nom] of ["N1 — Public", "N2 — Interne", "N3 — Confidentiel", "Expérimental (bêta)"].entries()) {
+  for (const [i, nom] of ["N1 Public", "N2 Interne", "N3 Confidentiel", "Expérimental (bêta)"].entries()) {
     await expect(page.getByRole("region", { name: nom })).toHaveCSS("border-left-color", rgb(couleurs[i]));
   }
   await page.goto("/catalogue/n3");
   await expect(page.getByRole("main").locator("header")).toHaveCSS("border-left-color", rgb(couleurs[2]));
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("N3 — Confidentiel");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("N3 Confidentiel");
   await context.close();
+});
+
+/** Lignes du texte visible de la page (titre compris) qui contiennent un tiret quadratin. */
+async function lignesAvecTiretQuadratin(page: Page): Promise<string[]> {
+  const texte = await page.evaluate(() => [document.title, document.body.innerText].join("\n"));
+  return texte.split("\n").filter((ligne) => ligne.includes("—"));
+}
+
+test("aucune page n'affiche de tiret quadratin, même quand une valeur manque", async ({ browser }) => {
+  // Une demande de clé sans projet ni budget, et une demande d'accès à une équipe, sans niveau ni modèles.
+  const redacteur = { uid: `tirets-${suffixe}`, email: `tirets-${suffixe}@example.org`, name: `Rédacteur ${suffixe}` };
+  await ajouterAEquipe(redacteur.uid, "R&D");
+  const page = await (await connecter(browser, redacteur)).newPage();
+  await page.goto("/demandes/nouvelle");
+  await page.getByLabel("Équipe").selectOption({ label: "R&D" });
+  await page.getByRole("radio", { name: /^N1 Public/ }).check();
+  await page.getByLabel(/Modèle public/).check();
+  await page.getByLabel("Motif").fill("Contrôle typographique");
+  await page.getByLabel(/Je m'engage/).check();
+  await page.getByRole("button", { name: "Envoyer la demande" }).click();
+  await expect(page.getByRole("status")).toHaveText("Demande envoyée aux administrateurs.");
+  await page.goto("/demandes/adhesion");
+  await page.getByLabel("Équipe").selectOption({ label: "LPS Paris" });
+  await page.getByLabel("Motif").fill("Contrôle typographique");
+  await page.getByRole("button", { name: "Envoyer la demande" }).click();
+  await expect(page.getByRole("status")).toHaveText("Demande d'accès envoyée.");
+
+  const admin = await (await connecter(browser, ADMIN)).newPage();
+  for (const [onglet, chemin] of [
+    [page, "/catalogue"],
+    [page, "/catalogue/n1"],
+    [page, "/catalogue/n1?modele=dev-public"],
+    [page, "/demandes/nouvelle"],
+    [page, "/demandes"],
+    [page, "/cles"],
+    [admin, "/gestion/demandes"],
+    [admin, "/gestion/cles"],
+    [admin, "/gestion/catalogue"],
+    [admin, "/gestion/parametres"],
+  ] as const) {
+    await onglet.goto(chemin);
+    expect(await lignesAvecTiretQuadratin(onglet), chemin).toEqual([]);
+  }
+  for (const type of ["Clé d'API", "Accès à une équipe"]) {
+    await admin.goto("/gestion/demandes");
+    await admin.getByRole("row", { name: new RegExp(`${redacteur.uid}.*${type}`) }).getByRole("link", { name: "Examiner" }).click();
+    await expect(admin.getByRole("heading", { level: 1 })).toHaveText(`${type} pour ${redacteur.uid}`);
+    expect(await lignesAvecTiretQuadratin(admin), type).toEqual([]);
+  }
 });
 
 test("l'onglet affiche l'icône de linagora.ai, y compris avant la connexion", async ({ page, request }) => {

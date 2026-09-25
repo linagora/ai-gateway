@@ -2,10 +2,19 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
 import { FakeMailer } from "@/test/fake-mailer";
-import { approveKeyRequest, approveTeamJoinRequest, getRequestReview, listPendingRequests, refuseRequest, requestCompletion } from "./admin-requests";
+import {
+  approveKeyRequest,
+  approveTeamJoinRequest,
+  countAdminPending,
+  getRequestReview,
+  listPendingRequests,
+  listProcessedRequests,
+  refuseRequest,
+  requestCompletion,
+} from "./admin-requests";
 import { listAudit } from "./audit";
 import { saveCatalogEntry } from "./catalog";
-import { completeRequest, createKeyRequest, createTeamJoinRequest, type KeyRequestInput, listMyRequests } from "./requests";
+import { cancelRequest, completeRequest, createKeyRequest, createTeamJoinRequest, type KeyRequestInput, listMyRequests } from "./requests";
 import { saveSettings } from "./settings";
 
 const admin = { uid: "jdupont", email: "jdupont@linagora.com", name: "Jeanne Dupont", isAdmin: true };
@@ -47,6 +56,32 @@ describe("file de validation (F-30)", () => {
 
   test("un salarié n'accède pas à la file de validation", async () => {
     await expect(listPendingRequests(deps, demandeur)).rejects.toMatchObject({ code: "interdit" });
+    await expect(listProcessedRequests(deps, demandeur)).rejects.toMatchObject({ code: "interdit" });
+    await expect(countAdminPending(deps, demandeur)).rejects.toMatchObject({ code: "interdit" });
+  });
+
+  test("les pastilles du menu comptent les demandes à valider et les clés approuvées qui attendent leur retrait", async () => {
+    await createKeyRequest(deps, demandeur, demande);
+    const approuvee = await createKeyRequest(deps, collegue, { ...demande, project: "veille" });
+    await approveKeyRequest(deps, admin, approuvee.id, parametres);
+    const refusee = await createKeyRequest(deps, collegue, { ...demande, project: "essai" });
+    await refuseRequest(deps, admin, refusee.id, "Hors périmètre");
+    expect(await countAdminPending(deps, admin)).toEqual({ demandes: 1, clesARetirer: 1 });
+  });
+
+  test("l'archive donne les demandes déjà traitées, la plus récente d'abord, avec la décision", async () => {
+    const enAttente = await createKeyRequest(deps, demandeur, demande);
+    const refusee = await createKeyRequest(deps, collegue, { ...demande, project: "essai" });
+    await refuseRequest(deps, admin, refusee.id, "Hors périmètre");
+    const annulee = await createKeyRequest(deps, demandeur, { ...demande, project: "abandon" });
+    await cancelRequest(deps, demandeur, annulee.id);
+    const archive = await listProcessedRequests(deps, admin);
+    expect(archive.map((r) => [r.id, r.status])).toEqual([
+      [annulee.id, "ANNULEE"],
+      [refusee.id, "REFUSEE"],
+    ]);
+    expect(archive.find((r) => r.id === refusee.id)).toMatchObject({ decidedBy: "jdupont", decisionComment: "Hors périmètre", requesterUid: "pmartin" });
+    expect(archive.map((r) => r.id)).not.toContain(enAttente.id);
   });
 });
 
@@ -181,6 +216,25 @@ describe("demande d'accès à une équipe (F-22)", () => {
     expect((await listMyRequests(deps, demandeur)).find((r) => r.id === id)).toMatchObject({ teamAlias: "LPS Paris", status: "APPROUVEE" });
   });
 
+  test("approuver la demande d'un salarié déjà membre de l'équipe l'approuve, sans nouvel ajout dans LiteLLM", async () => {
+    litellm.withTeam({ teamId: "equipe-data", teamAlias: "Data", models: [], memberUids: [] });
+    const { id } = await createTeamJoinRequest(deps, demandeur, { teamId: "equipe-data", justification: "Projet d'analyse" });
+    // Ajouté entre-temps, par une autre demande ou depuis la console de LiteLLM.
+    await litellm.addTeamMember("equipe-data", "mmaudet");
+    await approveTeamJoinRequest(deps, admin, id);
+    expect((await listMyRequests(deps, demandeur)).find((r) => r.id === id)).toMatchObject({ status: "APPROUVEE" });
+    expect((await litellm.getTeam("equipe-data"))?.memberUids.filter((uid) => uid === "mmaudet")).toHaveLength(1);
+  });
+
+  test("si la passerelle échoue à l'ajout, l'admin voit une indisponibilité et la demande reste à traiter", async () => {
+    litellm.withTeam({ teamId: "equipe-data", teamAlias: "Data", models: [], memberUids: [] });
+    const { id } = await createTeamJoinRequest(deps, demandeur, { teamId: "equipe-data", justification: "Projet d'analyse" });
+    litellm.panne = true;
+    await expect(approveTeamJoinRequest(deps, admin, id)).rejects.toMatchObject({ code: "passerelle_indisponible" });
+    litellm.panne = false;
+    expect((await listMyRequests(deps, demandeur)).find((r) => r.id === id)).toMatchObject({ status: "SOUMISE" });
+  });
+
   test("une équipe d'affectation inconnue est refusée, et la demande reste à traiter", async () => {
     litellm.withTeam({ teamId: "equipe-data", teamAlias: "Data", models: [], memberUids: [] });
     const { id } = await createTeamJoinRequest(deps, demandeur, { teamId: "equipe-data", justification: "Projet d'analyse" });
@@ -249,7 +303,7 @@ describe("courriels des décisions au demandeur (ticket #24)", () => {
       [
         "Votre demande de clé d'API pour l'équipe R&D est approuvée. Paramètres de votre clé :",
         "- Équipe : R&D",
-        "- Niveau de confidentialité : N2 — Interne",
+        "- Niveau de confidentialité : N2 Interne",
         "- Modèles accordés : mistral-small",
       ].join("\n"),
     );

@@ -17,7 +17,7 @@ test("une nouvelle demande de clé est notifiée aux admins par un courriel bili
   await ajouterAEquipe(salarie.uid, "R&D");
   await page.goto("/demandes/nouvelle");
   await page.getByLabel("Équipe").selectOption({ label: "R&D" });
-  await page.getByRole("radio", { name: /^N1 — Public/ }).check();
+  await page.getByRole("radio", { name: /^N1 Public/ }).check();
   await page.getByLabel(/Modèle public/).check();
   await page.getByLabel("Motif").fill("Essai des courriels");
   await page.getByLabel(/Je m'engage/).check();
@@ -29,8 +29,8 @@ test("une nouvelle demande de clé est notifiée aux admins par un courriel bili
   expect(courriel.to).toEqual(["admins-e2e@example.org"]);
   expect(courriel.subject).toBe(`[AI GATEWAY] Nouvelle demande de clé d'API de ${salarie.name} / New API key request from ${salarie.name}`);
   const texte = courriel.text.replaceAll("\r\n", "\n");
-  expect(texte).toContain(`${salarie.name} (${salarie.email}) a déposé une demande de clé d'API :\n- Équipe : R&D\n- Niveau de confidentialité : N1 — Public\n- Modèles : dev-public`);
-  expect(texte).toContain(`${salarie.name} (${salarie.email}) submitted an API key request:\n- Team: R&D\n- Confidentiality level: N1 — Public`);
+  expect(texte).toContain(`${salarie.name} (${salarie.email}) a déposé une demande de clé d'API :\n- Équipe : R&D\n- Niveau de confidentialité : N1 Public\n- Modèles : dev-public`);
+  expect(texte).toContain(`${salarie.name} (${salarie.email}) submitted an API key request:\n- Team: R&D\n- Confidentiality level: N1 Public`);
   expect(texte).toMatch(/Lien : http:\/\/localhost:3100\/gestion\/demandes\/\w+/);
 });
 
@@ -44,7 +44,7 @@ test("le demandeur reçoit l'approbation de sa demande, avec l'échéance de ret
   expect(courriel.subject).toBe("[AI GATEWAY] Votre demande de clé est approuvée / Your key request is approved");
   const texte = courriel.text.replaceAll("\r\n", "\n");
   expect(texte).toContain(`Bonjour ${salarie.name},`);
-  expect(texte).toContain("Votre demande de clé d'API pour l'équipe R&D est approuvée. Paramètres de votre clé :\n- Équipe : R&D\n- Niveau de confidentialité : N1 — Public\n- Modèles accordés : dev-public");
+  expect(texte).toContain("Votre demande de clé d'API pour l'équipe R&D est approuvée. Paramètres de votre clé :\n- Équipe : R&D\n- Niveau de confidentialité : N1 Public\n- Modèles accordés : dev-public");
   expect(texte).toMatch(/Retirez votre clé avant le \d{1,2} \S+ \d{4} dans « Mes clés » : elle ne s'affichera qu'une seule fois\./);
   expect(texte).toContain("Lien : http://localhost:3100/cles");
   expect(courriel.text).not.toMatch(/sk-/);

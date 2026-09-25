@@ -50,9 +50,12 @@ export class FakeLiteLLM implements LiteLLMClient {
   }
 
   async addTeamMember(teamId: string, userId: string): Promise<void> {
+    if (this.panne) throw new Error("LiteLLM injoignable");
     const team = this.teams.get(teamId);
     if (!team) throw new Error(`équipe inconnue : ${teamId}`);
-    if (!team.memberUids.includes(userId)) team.memberUids.push(userId);
+    // Comme LiteLLM 1.102.1 : un membre déjà présent est refusé (HTTP 400 « User already in team »).
+    if (team.memberUids.includes(userId)) throw new Error("User already in team.");
+    team.memberUids.push(userId);
   }
 
   async getTeam(teamId: string): Promise<LiteLLMTeam | null> {

@@ -20,7 +20,7 @@ const LANGUES = [
     adhesionEnvoyee: "Demande d'accès envoyée.",
     demandeEnvoyee: "Demande envoyée aux administrateurs.",
     voirModeles: "Voir les modèles",
-    niveaux: { N2: "N2 — Interne", N3: "N3 — Confidentiel", EXP: "Expérimental (bêta)" },
+    niveaux: { N2: "N2 Interne", N3: "N3 Confidentiel", EXP: "Expérimental (bêta)" },
     niveauRefuse: "Les modèles acceptent le niveau de confidentialité déclaré (dev-interne)",
     cle: "Clé d'API",
     soumise: "Soumise",
@@ -45,7 +45,7 @@ const LANGUES = [
     adhesionEnvoyee: "Access request sent.",
     demandeEnvoyee: "Request sent to the administrators.",
     voirModeles: "See the models",
-    niveaux: { N2: "N2 — Internal", N3: "N3 — Confidential", EXP: "Experimental (beta)" },
+    niveaux: { N2: "N2 Internal", N3: "N3 Confidential", EXP: "Experimental (beta)" },
     niveauRefuse: "The models accept the declared confidentiality level (dev-interne)",
     cle: "API key",
     soumise: "Submitted",
@@ -190,7 +190,8 @@ test("un admin anglophone voit la file des demandes et les valeurs par défaut e
   const page = await (await connecter(browser, admin, "en-US")).newPage();
   await page.goto("/gestion/demandes");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Requests awaiting validation");
-  await expect(page.getByRole("columnheader", { name: "Requester" })).toBeVisible();
+  await expect(page.getByRole("table").first().getByRole("columnheader", { name: "Requester" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Archive: processed requests" })).toBeVisible();
   await page.goto("/gestion/parametres");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Default key values");
   await expect(page.getByLabel("Default budget (€)")).toBeVisible();

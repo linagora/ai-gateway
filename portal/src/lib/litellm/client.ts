@@ -214,7 +214,7 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
     const parsed = errorSchema.safeParse(data);
     const detail = parsed.success ? parsed.data.error.message : `réponse inattendue`;
     // Chemin sans paramètres : ni identifiant ni secret dans les messages d'erreur.
-    throw new LiteLLMError(status, `LiteLLM ${method} ${path.split("?")[0]} : HTTP ${status} — ${detail}`);
+    throw new LiteLLMError(status, `LiteLLM ${method} ${path.split("?")[0]} : HTTP ${status} (${detail})`);
   }
 
   return {

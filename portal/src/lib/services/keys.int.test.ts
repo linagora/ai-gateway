@@ -8,7 +8,7 @@ import { approveKeyRequest, getRequestReview, refuseRequest } from "./admin-requ
 import { listAudit } from "./audit";
 import { saveCatalogEntry } from "./catalog";
 import { runDailyTask } from "./echeances";
-import { blockKey, listAllKeys, listMyKeys, pickUpKey, renewalDraft, replaceKey, revokeKey, unblockKey } from "./keys";
+import { blockKey, listAllKeys, listKeysToPickUp, listMyKeys, pickUpKey, renewalDraft, replaceKey, revokeKey, unblockKey } from "./keys";
 import { createKeyRequest, type KeyRequestInput, listMyRequests } from "./requests";
 import { saveSettings } from "./settings";
 
@@ -142,6 +142,22 @@ describe("dépense, budget et exemple d'appel dans « Mes clés » (ticket #16)"
       budgetResetAt: new Date(maintenant.getTime() + 30 * JOUR),
       blocked: false,
     });
+  });
+
+  test("« Mes clés » présente les clés actives d'abord, puis les révoquées ou expirées, les plus récentes en premier", async () => {
+    const retirer = async (projet: string, heures: number) => {
+      const id = await demandeApprouvee({ project: projet });
+      maintenant = new Date(Date.parse("2026-10-01T09:00:00Z") + heures * 3_600_000);
+      await pickUpKey(deps, titulaire, id);
+      return id;
+    };
+    const ancienne = await retirer("Ancienne", 1);
+    await revokeKey(deps, titulaire, ancienne);
+    const active1 = await retirer("Active un", 2);
+    const revoquee = await retirer("Révoquée", 3);
+    await revokeKey(deps, titulaire, revoquee);
+    const active2 = await retirer("Active deux", 4);
+    expect((await listMyKeys(deps, titulaire)).keys.map((k) => k.requestId)).toEqual([active2, active1, revoquee, ancienne]);
   });
 
   test("une passerelle injoignable n'empêche pas « Mes clés » : seules les valeurs lues dans la passerelle manquent", async () => {
@@ -287,6 +303,16 @@ describe("« Gestion — Clés » et révocation par un admin (ticket #19)", () 
       gatewayState: { spend: 1.25, maxBudget: 15, blocked: false },
     });
     expect(cles.find((k) => k.requestId === idCollegue)).toMatchObject({ holderUid: "pmartin", gatewayState: { spend: 0, maxBudget: 10 } });
+  });
+
+  test("les admins voient les clés approuvées qui attendent leur retrait, avec l'échéance de retrait", async () => {
+    const id = await demandeApprouvee();
+    const retiree = await demandeApprouvee({ project: "Déjà retirée" });
+    await pickUpKey(deps, titulaire, retiree);
+    expect(await listKeysToPickUp(deps, admin)).toEqual([
+      expect.objectContaining({ requestId: id, holderUid: "mmaudet", teamAlias: "R&D", pickupDeadline: new Date("2026-10-15T09:00:00Z") }),
+    ]);
+    await expect(listKeysToPickUp(deps, titulaire)).rejects.toMatchObject({ code: "interdit" });
   });
 
   test("un salarié n'accède pas à la liste des clés", async () => {
@@ -605,7 +631,7 @@ describe("rappels d'expiration un mois, sept jours et la veille, selon la durée
     expect(mailer.outbox[0].text).toContain("expire dans un mois, le 30 décembre 2026");
     expect(mailer.outbox[0].text).toContain("expires in a month, on December 30, 2026");
     expect(mailer.outbox[0].text).toContain(`Bonjour Michel-Marie Maudet,\n\nVotre clé d'API mmaudet-r-d-compte-rendu-hebdo-${id.slice(-4)} expire dans un mois`);
-    expect(mailer.outbox[0].text).toContain("- Équipe : R&D\n- Niveau de confidentialité : N2 — Interne\n- Modèles : mistral-small");
+    expect(mailer.outbox[0].text).toContain("- Équipe : R&D\n- Niveau de confidentialité : N2 Interne\n- Modèles : mistral-small");
     expect(mailer.outbox[0].text).toContain("https://portail.test/cles");
     await chaqueMatin("2026-12-01", "2026-12-22");
     expect(delais()).toEqual(["dans un mois"]);

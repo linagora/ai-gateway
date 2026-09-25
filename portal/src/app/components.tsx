@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import { DUREES_VALIDITE, optionsDuree } from "@/lib/durees";
-import { getCurrentUser } from "@/lib/session";
+import { countAdminPending } from "@/lib/services/admin-requests";
+import { getCurrentUser, getDeps } from "@/lib/session";
 import { changerLangueAction, signOutAction } from "./actions";
+import { Pastille } from "./pastille";
 
 /** Sélecteur FR | EN : chaque langue est nommée dans sa propre langue. */
 export async function SelecteurLangue() {
@@ -33,9 +35,15 @@ export async function SelecteurLangue() {
 export async function UserMenu() {
   const [user, t] = await Promise.all([getCurrentUser(), getTranslations("entete")]);
   if (!user) return null;
+  const aValider = user.isAdmin ? (await countAdminPending(getDeps(), user)).demandes : 0;
   return (
     <div className="ml-auto flex items-center gap-4">
-      {user.isAdmin && <Link href="/gestion/demandes">{t("gestion")}</Link>}
+      {user.isAdmin && (
+        <Link href="/gestion/demandes">
+          {t("gestion")}
+          <Pastille nombre={aValider} libelle={t("aValider", { nombre: aValider })} />
+        </Link>
+      )}
       <span>{user.name}</span>
       <form action={signOutAction}>
         <button type="submit" className="mt-0 border-neutral-400 bg-white text-neutral-800 hover:bg-neutral-100">
@@ -93,7 +101,7 @@ function parametresErreur(lire: (nom: string) => string | null, t: Awaited<Retur
 /** Explication des étoiles, en tête d'un formulaire qui a des champs obligatoires. */
 export async function ExplicationObligatoires() {
   const t = await getTranslations("formulaire");
-  return <p className="text-sm text-neutral-600">{t.rich("obligatoires", { etoile: (etoile) => <span className="obligatoire">{etoile}</span> })}</p>;
+  return <p className="mt-4 text-sm text-neutral-600">{t.rich("obligatoires", { etoile: (etoile) => <span className="obligatoire">{etoile}</span> })}</p>;
 }
 
 /** Nom d'une durée de validité : « 3 mois », « N'expire jamais », ou « 60 jours » pour une durée hors liste. */
@@ -106,7 +114,7 @@ export async function ChoixDuree({ name, valeur }: { name: string; valeur: numbe
   const domaine = await getTranslations("domaine");
   return (
     <select name={name} defaultValue={valeur ?? ""}>
-      {valeur === null && <option value="">—</option>}
+      {valeur === null && <option value="">{domaine("choisirDuree")}</option>}
       {optionsDuree(valeur).map((jours) => (
         <option key={jours} value={jours}>
           {libelleDuree(domaine, jours)}
@@ -116,19 +124,22 @@ export async function ChoixDuree({ name, valeur }: { name: string; valeur: numbe
   );
 }
 
-/** Dépense d'une clé sur son budget ; une dépense non nulle de moins d'un centime s'affiche comme telle. */
+/**
+ * Dépense d'une clé sur son budget, ou « sans plafond » si la clé n'en a pas ; une dépense non nulle de moins d'un
+ * centime s'affiche comme telle.
+ */
 export async function DepenseSurBudget({ spend, maxBudget }: { spend: number; maxBudget: number | null }) {
   const [{ euros }, t] = await Promise.all([formats(), getTranslations("cles")]);
-  return <>{t("depenseSur", { depense: spend > 0 && spend < 0.01 ? t("moinsDunCentime") : euros(spend), budget: euros(maxBudget) })}</>;
+  const depense = spend > 0 && spend < 0.01 ? t("moinsDunCentime") : euros(spend);
+  return <>{maxBudget === null ? t("depenseSansPlafond", { depense }) : t("depenseSur", { depense, budget: euros(maxBudget) })}</>;
 }
 
 /** Montants, nombres et dates au format de la langue de la requête (1 234,56 € en français, €1,234.56 en anglais). */
 export async function formats() {
   const format = await getFormatter();
   return {
-    euros: (valeur: number | null) =>
-      valeur === null ? "—" : format.number(valeur, { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 4 }),
-    nombre: (valeur: number | null) => (valeur === null ? "—" : format.number(valeur)),
+    euros: (valeur: number) => format.number(valeur, { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 4 }),
+    nombre: (valeur: number) => format.number(valeur),
     date: (valeur: Date) => format.dateTime(valeur, { dateStyle: "short", timeStyle: "short" }),
   };
 }

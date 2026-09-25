@@ -49,9 +49,12 @@ export function NiveauEtModeles(props: {
           <Obligatoire />
         </legend>
         {props.niveaux.map((n) => (
-          <label key={n.niveau} className="font-normal">
-            <input type="radio" name="dataLevel" value={n.niveau} required checked={niveau === n.niveau} onChange={() => setNiveau(n.niveau)} /> {n.libelle} —{" "}
-            {n.definition}
+          <label key={n.niveau} className="flex items-baseline gap-2 font-normal">
+            <input type="radio" name="dataLevel" value={n.niveau} required checked={niveau === n.niveau} onChange={() => setNiveau(n.niveau)} />
+            <span>
+              {n.libelle}
+              <span className="block text-sm text-neutral-600">{n.definition}</span>
+            </span>
           </label>
         ))}
       </fieldset>

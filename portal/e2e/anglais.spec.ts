@@ -3,14 +3,23 @@ import { ADMIN, ajouterAEquipe, connecter, enrichirModele } from "./outils";
 
 /*
  * Ticket #13 : un parcours complet en anglais ne montre aucun texte en français, hors contenus saisis par
- * l'admin (fiches des modèles de démonstration, en français seulement). Il couvre la connexion, le catalogue,
- * la page d'un niveau, le détail, la sélection, la demande et la validation admin.
+ * l'admin (fiches des modèles de démonstration, en français seulement) et identifiants (uid, alias, noms de
+ * modèles). Il couvre la connexion, le catalogue, la page d'un niveau, le détail, la sélection, la demande et
+ * la validation admin.
  */
 const suffixe = Date.now().toString(36);
 const salarie = { uid: `anglais-${suffixe}`, email: `anglais-${suffixe}@example.org`, name: `Employee ${suffixe}` };
 
-/** Contenus saisis par l'admin, en français seulement, et nom de la langue française dans le sélecteur. */
-const AUTORISES = [/Modèle (public|interne|confidentiel|expérimental)/g, /Modèle de démonstration (N1|N2|N3|EXP)(, à réponses simulées\.)?/g, /Français/g];
+/**
+ * Contenus saisis par l'admin, en français seulement ; nom de la langue française dans le sélecteur ; identifiants
+ * techniques, en minuscules reliées par des tirets (uid « cles-sans-expiration-… », alias, noms de modèles).
+ */
+const AUTORISES = [
+  /Modèle (public|interne|confidentiel|expérimental)/g,
+  /Modèle de démonstration (N1|N2|N3|EXP)(, à réponses simulées\.)?/g,
+  /Français/g,
+  /(?<!\p{L})[a-z0-9]+(?:-[a-z0-9]+)+(?!\p{L})/gu,
+];
 
 /** Lettres et mots propres au français. */
 const FRANCAIS =
@@ -62,8 +71,8 @@ test("un parcours complet en anglais, de la connexion à la validation admin, ne
   await page.getByRole("navigation").getByRole("link", { name: "Catalog" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Model catalog");
   await sansFrancais(page, "catalogue");
-  await page.getByRole("region", { name: "N2 — Internal" }).getByRole("link", { name: "See the models" }).click();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("N2 — Internal");
+  await page.getByRole("region", { name: "N2 Internal" }).getByRole("link", { name: "See the models" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("N2 Internal");
   await sansFrancais(page, "page d'un niveau");
   await page.getByRole("article", { name: "Modèle interne" }).getByRole("link", { name: "Modèle interne" }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
@@ -87,7 +96,7 @@ test("un parcours complet en anglais, de la connexion à la validation admin, ne
   await admin.goto("/gestion/demandes");
   await sansFrancais(admin, "file des demandes");
   await admin.getByRole("row", { name: new RegExp(`${salarie.uid}.*API key`) }).getByRole("link", { name: "Review" }).click();
-  await expect(admin.getByRole("heading", { level: 1 })).toHaveText(`API key — ${salarie.uid}`);
+  await expect(admin.getByRole("heading", { level: 1 })).toHaveText(`API key for ${salarie.uid}`);
   await sansFrancais(admin, "fiche de validation");
   await admin.getByRole("button", { name: "Approve", exact: true }).click();
   await expect(admin.getByRole("status")).toHaveText("Request approved.");
