@@ -188,6 +188,12 @@ ssh ia-host 'cd /opt/linagora-ia && docker compose --profile portal build portal
 ```
 **Contrôle** : critères 4, 5, 6, 8 du PRD §9, puis contrôles du point de contrôle (phase 6), qui devient actif avec le portail.
 
+**Courriels** (spécification #14) : le portail envoie ses notifications et ses rappels, bilingues, par le serveur SMTP de `.env`. Sans `SMTP_HOST` ou sans `SMTP_FROM`, il n'envoie rien et tout le reste fonctionne ; un échec d'envoi est journalisé sans bloquer l'action.
+- 🧑 Valeurs à fournir : `SMTP_HOST`, `SMTP_PORT` (465 : TLS implicite ; 587 : STARTTLS), `SMTP_USER`, `SMTP_FROM` (ex. `Portail IA Linagora <portail-ia@linagora.com>`), `ADMIN_NOTIFICATION_EMAILS` (admins à notifier, séparés par des virgules). L'agent les renseigne avec `sed -i` sur le serveur.
+- 🧑 Le mot de passe est saisi par l'utilisateur lui-même, en masqué : `ssh -t ia-host '/opt/linagora-ia/scripts/set-env-var.sh SMTP_PASSWORD'`.
+- Prise en compte : `docker compose --profile portal up -d portal` (recrée le conteneur avec les nouvelles variables).
+- **Contrôle** : déposer une demande de test ; les admins reçoivent « Nouvelle demande de clé d'API / New API key request ». Sinon : `docker compose logs portal | grep "Courriel non envoyé"`.
+
 ## Phase 10 — Langfuse (phase 2, seconde instance recommandée)
 
 - Nouvelle instance (B2-15 ou plus), phases 0 et 1 identiques, reliée à la première par le **réseau privé OVH (vRack)** ; aucun port Langfuse exposé publiquement (ufw : autoriser le port web uniquement depuis l'IP privée de la première instance).
