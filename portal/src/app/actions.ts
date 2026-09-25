@@ -155,7 +155,6 @@ export async function saveSettingsAction(formData: FormData): Promise<void> {
 
 // --- outils ---
 
-/** Exécute le cas d'usage ; en cas d'erreur métier, revient sur `errorPath` avec le message. */
 /** Clés des messages de succès, traduites par l'avis (dictionnaires, espace « avis.succes »). */
 type CleSucces =
   | "demandeEnvoyee"
@@ -169,6 +168,7 @@ type CleSucces =
   | "complementDemande"
   | "parametresEnregistres";
 
+/** Exécute le cas d'usage ; en cas d'erreur métier, revient sur `errorPath` avec le message. */
 async function run(errorPath: string, action: () => Promise<unknown>, success: { path: string; message: CleSucces }): Promise<void> {
   let erreur: URLSearchParams | null = null;
   try {

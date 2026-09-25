@@ -38,7 +38,6 @@ enum KeyType {
   SERVICE
 }
 
-/// Enrichissement d'un modèle LiteLLM (model_name).
 /// Cas d'usage d'un modèle : liste fermée commune à tous les modèles, libellés dans les dictionnaires.
 enum UseCase {
   WRITING
