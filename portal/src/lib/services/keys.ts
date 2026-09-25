@@ -297,7 +297,9 @@ export async function replaceKey(deps: KeyDeps, user: SessionUser, requestId: st
   }
   const { count } = await deps.db.accessRequest.updateMany({
     where: { id: request.id, status: "CLE_EMISE", keyTokenId: request.keyTokenId },
-    data: { keyTokenId: nouvelle.tokenId, keyAlias: nouvelle.alias, keyIssuedAt: maintenant, keyExpiresAt: nouvelle.expiresAt, keyReplacements: { increment: 1 } },
+    // La date d'expiration d'origine est conservée telle quelle : LiteLLM applique la durée restante à sa propre
+    // horloge, un instant plus tard, et son échéance ne diffère que d'une seconde environ.
+    data: { keyTokenId: nouvelle.tokenId, keyAlias: nouvelle.alias, keyIssuedAt: maintenant, keyReplacements: { increment: 1 } },
   });
   if (count === 0) {
     await retirerLaNouvelle();
