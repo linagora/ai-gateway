@@ -21,10 +21,94 @@
     "suivre": "Suivre mes demandes",
     "valider": "Valider les demandes (administrateurs)"
   },
-  "catalogue": {
+  "domaine": {
+    "niveaux": {
+      "N1": "N1 — Public",
+      "N2": "N2 — Interne",
+      "N3": "N3 — Confidentiel",
+      "EXP": "Expérimental (bêta)"
+    },
     "zones": {
       "UE": "UE",
       "HORS_UE": "Hors UE"
+    },
+    "casUsage": {
+      "WRITING": "Rédaction et synthèse",
+      "CODING": "Code",
+      "DOCUMENT_ANALYSIS": "Analyse de documents longs",
+      "TRANSLATION": "Traduction",
+      "EXTRACTION": "Extraction et classement",
+      "REASONING": "Raisonnement et analyse",
+      "STRUCTURED_DECISIONS": "Décision structurée"
+    },
+    "capacites": {
+      "images": "Images",
+      "audio_video": "Audio et vidéo",
+      "raisonnement": "Raisonnement"
     }
+  },
+  "avis": {
+    "succes": {
+      "demandeEnvoyee": "Demande envoyée aux administrateurs.",
+      "demandeResoumise": "Demande complétée et resoumise.",
+      "adhesionEnvoyee": "Demande d'adhésion envoyée.",
+      "demandeAnnulee": "Demande annulée.",
+      "catalogueMisAJour": "Catalogue mis à jour.",
+      "demandeApprouvee": "Demande approuvée.",
+      "adhesionApprouvee": "Adhésion approuvée : le demandeur a été ajouté à l'équipe.",
+      "demandeRefusee": "Demande refusée.",
+      "complementDemande": "Demande renvoyée au demandeur pour complément.",
+      "parametresEnregistres": "Paramètres enregistrés."
+    },
+    "erreurs": {
+      "controles_en_echec": "La demande ne respecte pas la politique d'accès aux modèles. Contrôles en échec : {controles}.",
+      "deja_membre": "Vous êtes déjà membre de l'équipe {equipe}.",
+      "engagement_requis": "Engagez-vous à ne pas soumettre de données d'un niveau supérieur à celui déclaré.",
+      "interdit": "Action réservée aux administrateurs.",
+      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'adhésion introuvable.} demande_cle {Demande de clé introuvable.} other {Demande introuvable.}}",
+      "motif_obligatoire": "Un motif est obligatoire.",
+      "parametre_manquant": "Budget, période du budget et durée de validité sont obligatoires : saisissez-les ou configurez des valeurs par défaut.",
+      "recommandation_hors_cas_usage": "Une recommandation ne peut porter que sur un cas d'usage coché.",
+      "tarif_eur_manquant": "Le modèle {modele} n'a pas de tarif en euros : il ne peut pas être rendu visible.",
+      "transition_interdite": "{cas, select, modifiee {La demande a été modifiée entre-temps ; rechargez la page.} traitee {Cette demande a déjà été traitée.} other {Cette action n'est pas possible au statut actuel de la demande.}}",
+      "saisie_invalide": "Saisie invalide : vérifiez les champs {champs}.",
+      "inconnue": "Une erreur est survenue."
+    },
+    "controles": {
+      "membre_equipe": "Le demandeur est membre de l'équipe",
+      "modeles_presents": "Au moins un modèle est demandé",
+      "modeles_equipe": "Les modèles sont autorisés pour l'équipe",
+      "niveau_modeles": "Les modèles acceptent le niveau de confidentialité déclaré",
+      "modeles_visibles": "Les modèles sont visibles au catalogue"
+    }
+  },
+  "gestionCatalogue": {
+    "titre": "Gestion du catalogue",
+    "introduction": "Chaque modèle déclaré dans la passerelle reçoit ici sa fiche : textes en français (obligatoires, sauf les limites) et en anglais (facultatifs, le français s'affiche à défaut), cas d'usage et recommandations. Les faits techniques viennent de la passerelle.",
+    "faits": "Faits techniques (déclarés par la passerelle)",
+    "editeur": "Éditeur",
+    "fournisseur": "Fournisseur",
+    "hebergeurs": "Hébergeurs",
+    "zone": "Zone d'exécution",
+    "prix": "Prix entrée / sortie (par million de jetons)",
+    "contexte": "Contexte",
+    "jetons": "{nombre} jetons",
+    "capacites": "Capacités",
+    "aucune": "aucune",
+    "sansTarif": "Pas de tarif en euros : ce modèle ne peut pas être rendu visible.",
+    "nomFr": "Nom affiché (français)",
+    "nomEn": "Nom affiché (anglais)",
+    "courteFr": "Description courte (français)",
+    "courteEn": "Description courte (anglais)",
+    "longueFr": "Description longue (français)",
+    "longueEn": "Description longue (anglais)",
+    "limitesFr": "Limites connues (français)",
+    "limitesEn": "Limites connues (anglais)",
+    "casUsage": "Cas d'usage",
+    "recommandePour": "Recommandé pour",
+    "niveau": "Niveau maximal",
+    "visible": "Visible des salariés",
+    "enregistrer": "Enregistrer",
+    "aucunModele": "Aucun modèle n'est déclaré dans la passerelle."
   }
 }

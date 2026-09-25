@@ -20,9 +20,9 @@ beforeEach(async () => {
     .withModel({ modelName: "qwen3.8" })
     .withTeam({ teamId: "equipe-rd", teamAlias: "R&D", models: ["mistral-small", "qwen3.8"], memberUids: ["mmaudet", "pmartin"] });
   deps = { db: testDb, litellm };
-  const entry = { description: "…", useCases: null, category: "texte", hosting: "UE" as const, visible: true };
-  await saveCatalogEntry(deps, admin, { ...entry, modelName: "mistral-small", displayName: "Mistral Small", dataLevel: "N2" });
-  await saveCatalogEntry(deps, admin, { ...entry, modelName: "qwen3.8", displayName: "Qwen 3.8", dataLevel: "N3" });
+  const entry = { shortDescriptionFr: "…", longDescriptionFr: "…", useCases: [], recommendedFor: [], visible: true };
+  await saveCatalogEntry(deps, admin, { ...entry, modelName: "mistral-small", displayNameFr: "Mistral Small", dataLevel: "N2" });
+  await saveCatalogEntry(deps, admin, { ...entry, modelName: "qwen3.8", displayNameFr: "Qwen 3.8", dataLevel: "N3" });
 });
 
 const demande: KeyRequestInput = {
@@ -52,8 +52,8 @@ describe("file de validation (F-30)", () => {
 describe("fiche de validation (F-32)", () => {
   test("les contrôles sont rejoués avec l'état actuel du catalogue", async () => {
     const { id } = await createKeyRequest(deps, demandeur, demande);
-    const entry = { description: "…", useCases: null, category: "texte", hosting: "UE" as const };
-    await saveCatalogEntry(deps, admin, { ...entry, modelName: "qwen3.8", displayName: "Qwen 3.8", dataLevel: "N3", visible: false });
+    const entry = { shortDescriptionFr: "…", longDescriptionFr: "…", useCases: [], recommendedFor: [] };
+    await saveCatalogEntry(deps, admin, { ...entry, modelName: "qwen3.8", displayNameFr: "Qwen 3.8", dataLevel: "N3", visible: false });
     const review = await getRequestReview(deps, admin, id);
     expect(review.checks.filter((c) => !c.ok)).toEqual([{ id: "modeles_visibles", ok: false, offending: ["qwen3.8"] }]);
   });

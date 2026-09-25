@@ -21,10 +21,94 @@
     "suivre": "Track my requests",
     "valider": "Review requests (administrators)"
   },
-  "catalogue": {
+  "domaine": {
+    "niveaux": {
+      "N1": "N1 — Public",
+      "N2": "N2 — Internal",
+      "N3": "N3 — Confidential",
+      "EXP": "Experimental (beta)"
+    },
     "zones": {
       "UE": "EU",
       "HORS_UE": "Outside the EU"
+    },
+    "casUsage": {
+      "WRITING": "Writing & summarizing",
+      "CODING": "Coding",
+      "DOCUMENT_ANALYSIS": "Long-document analysis",
+      "TRANSLATION": "Translation",
+      "EXTRACTION": "Extraction & classification",
+      "REASONING": "Reasoning & analysis",
+      "STRUCTURED_DECISIONS": "Structured decisions"
+    },
+    "capacites": {
+      "images": "Images",
+      "audio_video": "Audio & video",
+      "raisonnement": "Reasoning"
     }
+  },
+  "avis": {
+    "succes": {
+      "demandeEnvoyee": "Request sent to the administrators.",
+      "demandeResoumise": "Request completed and resubmitted.",
+      "adhesionEnvoyee": "Membership request sent.",
+      "demandeAnnulee": "Request cancelled.",
+      "catalogueMisAJour": "Catalog updated.",
+      "demandeApprouvee": "Request approved.",
+      "adhesionApprouvee": "Membership approved: the requester has been added to the team.",
+      "demandeRefusee": "Request refused.",
+      "complementDemande": "Request sent back to the requester for more information.",
+      "parametresEnregistres": "Settings saved."
+    },
+    "erreurs": {
+      "controles_en_echec": "The request does not comply with the model access policy. Failed checks: {controles}.",
+      "deja_membre": "You are already a member of the {equipe} team.",
+      "engagement_requis": "Commit to not submitting data above the declared level.",
+      "interdit": "Administrators only.",
+      "introuvable": "{objet, select, modele {Model {modele} is not declared in the gateway.} equipe {Team not found.} demande_adhesion {Membership request not found.} demande_cle {Key request not found.} other {Request not found.}}",
+      "motif_obligatoire": "A reason is required.",
+      "parametre_manquant": "Budget, budget period and validity are required: enter them or configure default values.",
+      "recommandation_hors_cas_usage": "A recommendation can only apply to a checked use case.",
+      "tarif_eur_manquant": "Model {modele} has no price in euros: it cannot be made visible.",
+      "transition_interdite": "{cas, select, modifiee {The request was modified in the meantime; reload the page.} traitee {This request has already been processed.} other {This action is not possible in the current status of the request.}}",
+      "saisie_invalide": "Invalid input: check the fields {champs}.",
+      "inconnue": "An error occurred."
+    },
+    "controles": {
+      "membre_equipe": "The requester is a member of the team",
+      "modeles_presents": "At least one model is requested",
+      "modeles_equipe": "The models are allowed for the team",
+      "niveau_modeles": "The models accept the declared confidentiality level",
+      "modeles_visibles": "The models are visible in the catalog"
+    }
+  },
+  "gestionCatalogue": {
+    "titre": "Catalog management",
+    "introduction": "Each model declared in the gateway gets its sheet here: texts in French (required, except limitations) and in English (optional, French is shown instead), use cases and recommendations. Technical facts come from the gateway.",
+    "faits": "Technical facts (declared by the gateway)",
+    "editeur": "Publisher",
+    "fournisseur": "Supplier",
+    "hebergeurs": "Hosts",
+    "zone": "Execution region",
+    "prix": "Input / output price (per million tokens)",
+    "contexte": "Context",
+    "jetons": "{nombre} tokens",
+    "capacites": "Capabilities",
+    "aucune": "none",
+    "sansTarif": "No price in euros: this model cannot be made visible.",
+    "nomFr": "Display name (French)",
+    "nomEn": "Display name (English)",
+    "courteFr": "Short description (French)",
+    "courteEn": "Short description (English)",
+    "longueFr": "Long description (French)",
+    "longueEn": "Long description (English)",
+    "limitesFr": "Known limitations (French)",
+    "limitesEn": "Known limitations (English)",
+    "casUsage": "Use cases",
+    "recommandePour": "Our pick for",
+    "niveau": "Maximum level",
+    "visible": "Visible to employees",
+    "enregistrer": "Save",
+    "aucunModele": "No model is declared in the gateway."
   }
 }

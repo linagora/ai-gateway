@@ -27,10 +27,11 @@ export const ADMIN: Personne = { uid: "mmaudet", email: "mmaudet@linagora.com", 
 export async function enrichirModele(page: Page, modele: { nom: string; nomAffiche: string; niveau: string }): Promise<void> {
   await page.goto("/gestion/catalogue");
   const section = page.locator("section").filter({ has: page.locator("code", { hasText: new RegExp(`^${modele.nom}$`) }) });
-  await section.getByLabel("Nom affiché").fill(modele.nomAffiche);
-  await section.getByLabel("Description").fill(`Modèle de démonstration ${modele.niveau}`);
-  await section.getByLabel("Niveau maximal de données").selectOption(modele.niveau);
-  await section.getByLabel("Visible des utilisateurs").check();
+  await section.getByLabel("Nom affiché (français)").fill(modele.nomAffiche);
+  await section.getByLabel("Description courte (français)").fill(`Modèle de démonstration ${modele.niveau}`);
+  await section.getByLabel("Description longue (français)").fill(`Modèle de démonstration ${modele.niveau}, à réponses simulées.`);
+  await section.getByLabel("Niveau maximal").selectOption(modele.niveau);
+  await section.getByLabel("Visible des salariés").check();
   await section.getByRole("button", { name: "Enregistrer" }).click();
   await expect(page.getByRole("status")).toHaveText("Catalogue mis à jour.");
 }

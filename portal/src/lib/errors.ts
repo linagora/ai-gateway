@@ -1,6 +1,9 @@
 import type { PolicyCheck } from "./policy";
 
-/** Erreur métier ou d'autorisation levée par les cas d'usage ; les Server Actions l'affichent. */
+/**
+ * Erreur métier ou d'autorisation levée par les cas d'usage. L'interface la traduit d'après son code
+ * et ses paramètres (dictionnaires, espace « avis.erreurs ») ; le message reste pour les journaux.
+ */
 export type PortalErrorCode =
   | "controles_en_echec"
   | "deja_membre"
@@ -9,6 +12,7 @@ export type PortalErrorCode =
   | "introuvable"
   | "motif_obligatoire"
   | "parametre_manquant"
+  | "recommandation_hors_cas_usage"
   | "tarif_eur_manquant"
   | "transition_interdite";
 
@@ -16,6 +20,7 @@ export class PortalError extends Error {
   constructor(
     readonly code: PortalErrorCode,
     message: string,
+    readonly params: Record<string, string> = {},
   ) {
     super(message);
     this.name = "PortalError";

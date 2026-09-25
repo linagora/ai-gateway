@@ -1,4 +1,5 @@
 import { type Browser, expect, type Page, test } from "@playwright/test";
+import { enrichirModele } from "./outils";
 
 /*
  * Parcours principal (PRD §9, critères 4, 5 et 6 jusqu'à l'approbation) avec deux sessions :
@@ -25,9 +26,6 @@ async function login(browser: Browser, user: typeof admin): Promise<Page> {
   return page;
 }
 
-function modelSection(page: Page, modelName: string) {
-  return page.locator("section").filter({ has: page.locator("code", { hasText: new RegExp(`^${modelName}$`) }) });
-}
 
 test.beforeAll(async ({ browser }) => {
   adminPage = await login(browser, admin);
@@ -35,20 +33,13 @@ test.beforeAll(async ({ browser }) => {
 });
 
 test("un admin enrichit le catalogue et fixe les valeurs par défaut", async () => {
-  for (const [modelName, displayName, level] of [
+  for (const [nom, nomAffiche, niveau] of [
     ["dev-public", "Modèle public", "N1"],
     ["dev-interne", "Modèle interne", "N2"],
     ["dev-confidentiel", "Modèle confidentiel", "N3"],
     ["dev-experimental", "Modèle expérimental", "EXP"],
   ]) {
-    await adminPage.goto("/gestion/catalogue");
-    const section = modelSection(adminPage, modelName);
-    await section.getByLabel("Nom affiché").fill(displayName);
-    await section.getByLabel("Description").fill(`Modèle de démonstration ${level}`);
-    await section.getByLabel("Niveau maximal de données").selectOption(level);
-    await section.getByLabel("Visible des utilisateurs").check();
-    await section.getByRole("button", { name: "Enregistrer" }).click();
-    await expect(adminPage.getByRole("status")).toHaveText("Catalogue mis à jour.");
+    await enrichirModele(adminPage, { nom, nomAffiche, niveau });
   }
   await adminPage.goto("/gestion/parametres");
   await adminPage.getByLabel("Budget par défaut (€)").fill("10");
@@ -94,7 +85,7 @@ test("critère 5 : une demande N3 incluant un modèle N2 est refusée côté ser
   await salariePage.getByLabel("Motif").fill("Analyse de contrats");
   await salariePage.getByLabel(/Je m'engage/).check();
   await salariePage.getByRole("button", { name: "Envoyer la demande" }).click();
-  await expect(salariePage.getByRole("main").getByRole("alert")).toContainText("Les modèles acceptent le niveau de données déclaré (dev-interne)");
+  await expect(salariePage.getByRole("main").getByRole("alert")).toContainText("Les modèles acceptent le niveau de confidentialité déclaré (dev-interne)");
 });
 
 test("un admin approuve la demande N2 et le salarié la voit approuvée", async () => {

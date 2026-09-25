@@ -61,7 +61,7 @@ export interface RequestReview extends PendingRequest {
 export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: string): Promise<RequestReview> {
   requireAdmin(actor);
   const r = await deps.db.accessRequest.findUnique({ where: { id } });
-  if (!r) throw new PortalError("introuvable", "Demande introuvable.");
+  if (!r) throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
   const checks =
     r.kind === "CLE" && r.dataLevel
       ? (await evaluateKeyRequest(deps, { requesterUid: r.requesterUid, teamId: r.teamId, dataLevel: r.dataLevel, models: r.models })).checks
@@ -121,7 +121,7 @@ export async function approveKeyRequest(deps: AdminDeps, actor: SessionUser, id:
     );
   }
   const request = await deps.db.accessRequest.findUnique({ where: { id } });
-  if (!request || request.kind !== "CLE" || !request.dataLevel) throw new PortalError("introuvable", "Demande de clé introuvable.");
+  if (!request || request.kind !== "CLE" || !request.dataLevel) throw new PortalError("introuvable", "Demande de clé introuvable.", { objet: "demande_cle" });
   const draft = { requesterUid: request.requesterUid, teamId: request.teamId, dataLevel: request.dataLevel, models: params.models };
   const verdict = await evaluateKeyRequest(deps, draft);
   if (!verdict.ok) throw new PolicyViolationError(verdict.checks.filter((c) => !c.ok));
@@ -156,7 +156,7 @@ function withDefaults(params: ApprovalInput, settings: SettingValues): ApprovalI
 export async function refuseRequest(deps: AdminDeps, actor: SessionUser, id: string, comment: string): Promise<void> {
   requireAdmin(actor);
   const request = await deps.db.accessRequest.findUnique({ where: { id } });
-  if (!request) throw new PortalError("introuvable", "Demande introuvable.");
+  if (!request) throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
   await transitionRequest(deps.db, request, "REFUSEE", {
     comment,
     data: { decidedBy: actor.uid, decidedAt: new Date(), decisionComment: comment.trim() },
@@ -167,7 +167,7 @@ export async function refuseRequest(deps: AdminDeps, actor: SessionUser, id: str
 export async function requestCompletion(deps: AdminDeps, actor: SessionUser, id: string, comment: string): Promise<void> {
   requireAdmin(actor);
   const request = await deps.db.accessRequest.findUnique({ where: { id } });
-  if (!request) throw new PortalError("introuvable", "Demande introuvable.");
+  if (!request) throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
   await transitionRequest(deps.db, request, "A_COMPLETER", {
     data: { decidedBy: actor.uid, decidedAt: new Date(), decisionComment: comment.trim() || null },
   });
@@ -180,8 +180,8 @@ export async function requestCompletion(deps: AdminDeps, actor: SessionUser, id:
 export async function approveTeamJoinRequest(deps: AdminDeps, actor: SessionUser, id: string): Promise<void> {
   requireAdmin(actor);
   const request = await deps.db.accessRequest.findUnique({ where: { id } });
-  if (!request || request.kind !== "ADHESION_EQUIPE") throw new PortalError("introuvable", "Demande d'adhésion introuvable.");
-  if (request.status !== "SOUMISE") throw new PortalError("transition_interdite", "Cette demande a déjà été traitée.");
+  if (!request || request.kind !== "ADHESION_EQUIPE") throw new PortalError("introuvable", "Demande d'adhésion introuvable.", { objet: "demande_adhesion" });
+  if (request.status !== "SOUMISE") throw new PortalError("transition_interdite", "Cette demande a déjà été traitée.", { cas: "traitee" });
   await deps.litellm.addTeamMember(request.teamId, request.requesterUid);
   await transitionRequest(deps.db, request, "APPROUVEE", { data: { decidedBy: actor.uid, decidedAt: new Date() } });
 }

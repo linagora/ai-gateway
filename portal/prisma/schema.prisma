@@ -39,19 +39,37 @@ enum KeyType {
 }
 
 /// Enrichissement d'un modèle LiteLLM (model_name).
+/// Cas d'usage d'un modèle : liste fermée commune à tous les modèles, libellés dans les dictionnaires.
+enum UseCase {
+  WRITING
+  CODING
+  DOCUMENT_ANALYSIS
+  TRANSLATION
+  EXTRACTION
+  REASONING
+  STRUCTURED_DECISIONS
+}
+
+/// Fiche d'un modèle LiteLLM (model_name), saisie par l'admin : textes en français (obligatoires,
+/// sauf les limites) et en anglais (facultatifs, repli sur le français), cas d'usage et recommandations.
+/// Les faits techniques (éditeur, zone, capacités, prix…) viennent de la passerelle.
 model CatalogEntry {
-  modelName   String    @id
-  displayName String
-  description String
-  useCases    String?
-  /// texte, code, vision, embeddings…
-  category    String?
-  /// INTERNE | UE | HORS_UE
-  hosting     String
-  dataLevel   DataLevel
-  visible     Boolean   @default(false)
-  updatedAt   DateTime  @updatedAt
-  updatedBy   String
+  modelName          String    @id
+  displayNameFr      String
+  displayNameEn      String?
+  shortDescriptionFr String
+  shortDescriptionEn String?
+  longDescriptionFr  String
+  longDescriptionEn  String?
+  limitationsFr      String?
+  limitationsEn      String?
+  useCases           UseCase[] @default([])
+  /// sous-ensemble de useCases
+  recommendedFor     UseCase[] @default([])
+  dataLevel          DataLevel
+  visible            Boolean   @default(false)
+  updatedAt          DateTime  @updatedAt
+  updatedBy          String
 }
 
 model AccessRequest {

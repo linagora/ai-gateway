@@ -28,3 +28,34 @@ test("le catalogue montre l'éditeur et la zone d'exécution, jamais le fourniss
   await expect(page.getByRole("main")).not.toContainText("openai");
   await context.close();
 });
+
+test("l'admin complète une fiche en anglais, coche ses cas d'usage et voit les faits techniques (ticket #6)", async ({ browser }) => {
+  const context = await connecter(browser, ADMIN);
+  const page = await context.newPage();
+  await page.goto("/gestion/catalogue");
+  const fiche = () => page.locator("section").filter({ has: page.locator("code", { hasText: /^dev-confidentiel$/ }) });
+  await expect(fiche()).toContainText("Alibaba (Qwen)");
+  await expect(fiche()).toContainText("OVHcloud");
+  await fiche().getByLabel("Nom affiché (anglais)").fill("Confidential model");
+  await fiche().getByRole("group", { name: "Cas d'usage" }).getByLabel("Rédaction et synthèse").check();
+  await fiche().getByRole("group", { name: "Recommandé pour" }).getByLabel("Rédaction et synthèse").check();
+  await fiche().getByRole("button", { name: "Enregistrer" }).click();
+  await expect(page.getByRole("status")).toHaveText("Catalogue mis à jour.");
+  await expect(fiche().getByLabel("Nom affiché (anglais)")).toHaveValue("Confidential model");
+  await expect(fiche().getByRole("group", { name: "Recommandé pour" }).getByLabel("Rédaction et synthèse")).toBeChecked();
+
+  // Une recommandation pour un cas d'usage non coché est refusée.
+  await fiche().getByRole("group", { name: "Recommandé pour" }).getByLabel("Code").check();
+  await fiche().getByRole("button", { name: "Enregistrer" }).click();
+  await expect(page.getByRole("main").getByRole("alert")).toContainText("cas d'usage coché");
+  await context.close();
+
+  const anglais = await connecter(browser, ADMIN, "en-US");
+  const pageEn = await anglais.newPage();
+  await pageEn.goto("/gestion/catalogue");
+  const ficheEn = pageEn.locator("section").filter({ has: pageEn.locator("code", { hasText: /^dev-confidentiel$/ }) });
+  await expect(ficheEn.getByLabel("Display name (English)")).toHaveValue("Confidential model");
+  await ficheEn.getByRole("button", { name: "Save" }).click();
+  await expect(pageEn.getByRole("status")).toHaveText("Catalog updated.");
+  await anglais.close();
+});

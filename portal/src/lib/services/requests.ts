@@ -50,7 +50,7 @@ export async function createKeyRequest(deps: RequestDeps, user: SessionUser, inp
 /** F-24 : le demandeur complète une demande renvoyée par l'admin ; elle repasse en SOUMISE. */
 export async function completeRequest(deps: RequestDeps, user: SessionUser, id: string, input: KeyRequestInput): Promise<void> {
   const request = await deps.db.accessRequest.findUnique({ where: { id } });
-  if (!request || request.requesterUid !== user.uid || request.kind !== "CLE") throw new PortalError("introuvable", "Demande introuvable.");
+  if (!request || request.requesterUid !== user.uid || request.kind !== "CLE") throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
   const fields = await validateKeyRequest(deps, user, input);
   await transitionRequest(deps.db, request, "SOUMISE", { data: fields });
 }
@@ -62,7 +62,7 @@ async function validateKeyRequest(deps: RequestDeps, user: SessionUser, input: K
     throw new PortalError("engagement_requis", "Engagez-vous à ne pas soumettre de données d'un niveau supérieur à celui déclaré.");
   }
   const team = await deps.litellm.getTeam(data.teamId);
-  if (!team) throw new PortalError("introuvable", "Équipe introuvable.");
+  if (!team) throw new PortalError("introuvable", "Équipe introuvable.", { objet: "equipe" });
   const verdict = await evaluateKeyRequest(deps, { requesterUid: user.uid, teamId: team.teamId, dataLevel: data.dataLevel, models: data.models });
   if (!verdict.ok) throw new PolicyViolationError(verdict.checks.filter((c) => !c.ok));
   return {
@@ -89,8 +89,8 @@ export type TeamJoinInput = z.infer<typeof teamJoinInputSchema>;
 export async function createTeamJoinRequest(deps: RequestDeps, user: SessionUser, input: TeamJoinInput): Promise<{ id: string }> {
   const data = teamJoinInputSchema.parse(input);
   const team = await deps.litellm.getTeam(data.teamId);
-  if (!team) throw new PortalError("introuvable", "Équipe introuvable.");
-  if (team.memberUids.includes(user.uid)) throw new PortalError("deja_membre", `Vous êtes déjà membre de l'équipe ${team.teamAlias}.`);
+  if (!team) throw new PortalError("introuvable", "Équipe introuvable.", { objet: "equipe" });
+  if (team.memberUids.includes(user.uid)) throw new PortalError("deja_membre", `Vous êtes déjà membre de l'équipe ${team.teamAlias}.`, { equipe: team.teamAlias });
   const created = await deps.db.accessRequest.create({
     data: {
       kind: "ADHESION_EQUIPE",
@@ -108,7 +108,7 @@ export async function createTeamJoinRequest(deps: RequestDeps, user: SessionUser
 /** F-24 : le demandeur annule sa demande. Pour un autre utilisateur, la demande n'existe pas. */
 export async function cancelRequest(deps: RequestDeps, user: SessionUser, id: string): Promise<void> {
   const request = await deps.db.accessRequest.findUnique({ where: { id } });
-  if (!request || request.requesterUid !== user.uid) throw new PortalError("introuvable", "Demande introuvable.");
+  if (!request || request.requesterUid !== user.uid) throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
   await transitionRequest(deps.db, request, "ANNULEE");
 }
 
@@ -125,7 +125,7 @@ export async function transitionRequest(
   const check = checkTransition(request.status, to, { comment: options.comment });
   if (!check.ok) throw new PortalError(check.reason, TRANSITION_MESSAGES[check.reason]);
   const { count } = await db.accessRequest.updateMany({ where: { id: request.id, status: request.status }, data: { ...options.data, status: to } });
-  if (count === 0) throw new PortalError("transition_interdite", "La demande a été modifiée entre-temps ; rechargez la page.");
+  if (count === 0) throw new PortalError("transition_interdite", "La demande a été modifiée entre-temps ; rechargez la page.", { cas: "modifiee" });
 }
 
 const TRANSITION_MESSAGES = {

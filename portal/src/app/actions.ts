@@ -6,9 +6,9 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { signOut } from "@/auth";
 import { PolicyViolationError, PortalError } from "@/lib/errors";
-import { CHECK_LABELS } from "@/lib/labels";
 import { COOKIE_LANGUE, LANGUES, type Langue } from "@/lib/langue";
 import type { DataLevel } from "@/lib/policy";
+import type { UseCase } from "@/lib/use-cases";
 import {
   approveKeyRequest,
   approveTeamJoinRequest,
@@ -52,7 +52,7 @@ export async function createKeyRequestAction(formData: FormData): Promise<void> 
       if (completing) await completeRequest(getDeps(), user, completing, input);
       else await createKeyRequest(getDeps(), user, input);
     },
-    { path: "/demandes", message: completing ? "Demande complétée et resoumise." : "Demande envoyée aux administrateurs." },
+    { path: "/demandes", message: completing ? "demandeResoumise" : "demandeEnvoyee" },
   );
 }
 
@@ -61,13 +61,13 @@ export async function createTeamJoinRequestAction(formData: FormData): Promise<v
   await run(
     "/demandes/adhesion",
     () => createTeamJoinRequest(getDeps(), user, { teamId: text(formData, "teamId"), justification: text(formData, "justification") }),
-    { path: "/demandes", message: "Demande d'adhésion envoyée." },
+    { path: "/demandes", message: "adhesionEnvoyee" },
   );
 }
 
 export async function cancelRequestAction(formData: FormData): Promise<void> {
   const user = await requireUser();
-  await run("/demandes", () => cancelRequest(getDeps(), user, text(formData, "id")), { path: "/demandes", message: "Demande annulée." });
+  await run("/demandes", () => cancelRequest(getDeps(), user, text(formData, "id")), { path: "/demandes", message: "demandeAnnulee" });
 }
 
 export async function saveCatalogEntryAction(formData: FormData): Promise<void> {
@@ -77,15 +77,21 @@ export async function saveCatalogEntryAction(formData: FormData): Promise<void> 
     () =>
       saveCatalogEntry(getDeps(), user, {
         modelName: text(formData, "modelName"),
-        displayName: text(formData, "displayName"),
-        description: text(formData, "description"),
-        useCases: optionalText(formData, "useCases"),
-        category: optionalText(formData, "category"),
-        hosting: text(formData, "hosting") as "INTERNE" | "UE" | "HORS_UE",
+        displayNameFr: text(formData, "displayNameFr"),
+        displayNameEn: optionalText(formData, "displayNameEn"),
+        shortDescriptionFr: text(formData, "shortDescriptionFr"),
+        shortDescriptionEn: optionalText(formData, "shortDescriptionEn"),
+        longDescriptionFr: text(formData, "longDescriptionFr"),
+        longDescriptionEn: optionalText(formData, "longDescriptionEn"),
+        limitationsFr: optionalText(formData, "limitationsFr"),
+        limitationsEn: optionalText(formData, "limitationsEn"),
+        // Valeurs contrôlées par le service (liste fermée des cas d'usage).
+        useCases: formData.getAll("useCases").map(String) as UseCase[],
+        recommendedFor: formData.getAll("recommendedFor").map(String) as UseCase[],
         dataLevel: text(formData, "dataLevel") as DataLevel,
         visible: formData.get("visible") === "on",
       }),
-    { path: "/gestion/catalogue", message: "Catalogue mis à jour." },
+    { path: "/gestion/catalogue", message: "catalogueMisAJour" },
   );
 }
 
@@ -103,7 +109,7 @@ export async function approveKeyRequestAction(formData: FormData): Promise<void>
         rpmLimit: optionalNumber(formData, "rpmLimit"),
         tpmLimit: optionalNumber(formData, "tpmLimit"),
       }),
-    { path: "/gestion/demandes", message: "Demande approuvée." },
+    { path: "/gestion/demandes", message: "demandeApprouvee" },
   );
 }
 
@@ -112,7 +118,7 @@ export async function approveTeamJoinRequestAction(formData: FormData): Promise<
   const id = text(formData, "id");
   await run(`/gestion/demandes/${id}`, () => approveTeamJoinRequest(getDeps(), user, id), {
     path: "/gestion/demandes",
-    message: "Adhésion approuvée : le demandeur a été ajouté à l'équipe.",
+    message: "adhesionApprouvee",
   });
 }
 
@@ -121,7 +127,7 @@ export async function refuseRequestAction(formData: FormData): Promise<void> {
   const id = text(formData, "id");
   await run(`/gestion/demandes/${id}`, () => refuseRequest(getDeps(), user, id, text(formData, "comment")), {
     path: "/gestion/demandes",
-    message: "Demande refusée.",
+    message: "demandeRefusee",
   });
 }
 
@@ -130,7 +136,7 @@ export async function requestCompletionAction(formData: FormData): Promise<void>
   const id = text(formData, "id");
   await run(`/gestion/demandes/${id}`, () => requestCompletion(getDeps(), user, id, text(formData, "comment")), {
     path: "/gestion/demandes",
-    message: "Demande renvoyée au demandeur pour complément.",
+    message: "complementDemande",
   });
 }
 
@@ -138,31 +144,47 @@ export async function saveSettingsAction(formData: FormData): Promise<void> {
   const user = await requireUser();
   const keys = ["default_budget", "default_budget_duration", "default_days", "default_rpm", "default_tpm", "pickup_days"] as const;
   const values = Object.fromEntries(keys.flatMap((k) => (optionalText(formData, k) ? [[k, optionalText(formData, k)]] : [])));
-  await run("/gestion/parametres", () => saveSettings(getDeps(), user, values), { path: "/gestion/parametres", message: "Paramètres enregistrés." });
+  await run("/gestion/parametres", () => saveSettings(getDeps(), user, values), { path: "/gestion/parametres", message: "parametresEnregistres" });
 }
 
 // --- outils ---
 
 /** Exécute le cas d'usage ; en cas d'erreur métier, revient sur `errorPath` avec le message. */
-async function run(errorPath: string, action: () => Promise<unknown>, success: { path: string; message: string }): Promise<void> {
-  let error: string | null = null;
+/** Clés des messages de succès, traduites par l'avis (dictionnaires, espace « avis.succes »). */
+type CleSucces =
+  | "demandeEnvoyee"
+  | "demandeResoumise"
+  | "adhesionEnvoyee"
+  | "demandeAnnulee"
+  | "catalogueMisAJour"
+  | "demandeApprouvee"
+  | "adhesionApprouvee"
+  | "demandeRefusee"
+  | "complementDemande"
+  | "parametresEnregistres";
+
+async function run(errorPath: string, action: () => Promise<unknown>, success: { path: string; message: CleSucces }): Promise<void> {
+  let erreur: URLSearchParams | null = null;
   try {
     await action();
   } catch (e) {
-    error = describeError(e);
+    erreur = describeError(e);
   }
   // redirect() lève une exception de navigation : il doit rester hors du try/catch.
-  if (error) redirect(`${errorPath}?erreur=${encodeURIComponent(error)}`);
+  if (erreur) redirect(`${errorPath}?${erreur}`);
   revalidatePath(success.path);
-  redirect(`${success.path}?ok=${encodeURIComponent(success.message)}`);
+  redirect(`${success.path}?ok=${success.message}`);
 }
 
-function describeError(e: unknown): string {
+/** Erreur → paramètres d'adresse : code, paramètres (JSON) et, pour la politique, contrôles en échec. */
+function describeError(e: unknown): URLSearchParams {
   if (e instanceof PolicyViolationError) {
-    return `${e.message} Contrôles en échec : ${e.failedChecks.map((c) => `${CHECK_LABELS[c.id]}${c.offending.length ? ` (${c.offending.join(", ")})` : ""}`).join(" ; ")}.`;
+    return new URLSearchParams({ erreur: e.code, controles: e.failedChecks.map((c) => `${c.id}:${c.offending.join(",")}`).join(";") });
   }
-  if (e instanceof PortalError) return e.message;
-  if (e instanceof z.ZodError) return `Saisie invalide : ${e.issues.map((i) => `${i.path.join(".")} ${i.message}`).join(" ; ")}.`;
+  if (e instanceof PortalError) return new URLSearchParams({ erreur: e.code, details: JSON.stringify(e.params) });
+  if (e instanceof z.ZodError) {
+    return new URLSearchParams({ erreur: "saisie_invalide", details: JSON.stringify({ champs: e.issues.map((i) => i.path.join(".")).join(", ") }) });
+  }
   throw e;
 }
 

@@ -9,14 +9,91 @@ const admin = { uid: "mmaudet", email: "mmaudet@linagora.com", name: "Michel-Mar
 
 const qwen: CatalogEntryInput = {
   modelName: "qwen3.8",
-  displayName: "Qwen 3.8 27B",
-  description: "Modèle généraliste hébergé par OVHcloud",
-  useCases: "Synthèse de documents confidentiels",
-  category: "texte",
-  hosting: "UE",
+  displayNameFr: "Qwen 3.8 27B",
+  displayNameEn: null,
+  shortDescriptionFr: "Modèle généraliste hébergé par OVHcloud",
+  shortDescriptionEn: null,
+  longDescriptionFr: "Modèle ouvert généraliste, hébergé en France par OVHcloud, pour les données confidentielles.",
+  longDescriptionEn: null,
+  limitationsFr: null,
+  limitationsEn: null,
+  useCases: ["WRITING", "DOCUMENT_ANALYSIS"],
+  recommendedFor: ["WRITING"],
   dataLevel: "N3",
   visible: true,
 };
+
+describe("fiche de modèle bilingue (ticket #6)", () => {
+  test("l'admin enregistre une fiche avec ses seuls textes français, puis la complète en anglais", async () => {
+    const litellm = new FakeLiteLLM().withModel({ modelName: "qwen3.8" });
+    await saveCatalogEntry({ db: testDb, litellm }, admin, qwen);
+    expect((await listCatalogForAdmin({ db: testDb, litellm }, admin))[0].entry).toMatchObject({ displayNameFr: "Qwen 3.8 27B", displayNameEn: null });
+    await saveCatalogEntry({ db: testDb, litellm }, admin, {
+      ...qwen,
+      displayNameEn: "Qwen 3.8 27B",
+      shortDescriptionEn: "General-purpose model hosted by OVHcloud",
+      longDescriptionEn: "Open general-purpose model, hosted in France by OVHcloud, for confidential data.",
+    });
+    expect((await listCatalogForAdmin({ db: testDb, litellm }, admin))[0].entry).toMatchObject({
+      displayNameFr: "Qwen 3.8 27B",
+      displayNameEn: "Qwen 3.8 27B",
+      shortDescriptionEn: "General-purpose model hosted by OVHcloud",
+      useCases: ["WRITING", "DOCUMENT_ANALYSIS"],
+      recommendedFor: ["WRITING"],
+    });
+  });
+});
+
+describe("validation de la fiche (ticket #6)", () => {
+  const litellm = () => new FakeLiteLLM().withModel({ modelName: "qwen3.8" });
+
+  test("une recommandation pour un cas d'usage non coché est refusée", async () => {
+    await expect(saveCatalogEntry({ db: testDb, litellm: litellm() }, admin, { ...qwen, useCases: ["WRITING"], recommendedFor: ["CODING"] })).rejects.toMatchObject({
+      code: "recommandation_hors_cas_usage",
+    });
+  });
+
+  test("une fiche sans nom affiché ou sans description courte en français est refusée", async () => {
+    await expect(saveCatalogEntry({ db: testDb, litellm: litellm() }, admin, { ...qwen, displayNameFr: "  " })).rejects.toThrow();
+    await expect(saveCatalogEntry({ db: testDb, litellm: litellm() }, admin, { ...qwen, shortDescriptionFr: "" })).rejects.toThrow();
+  });
+
+  test("un cas d'usage hors de la liste fermée est refusé", async () => {
+    await expect(
+      saveCatalogEntry({ db: testDb, litellm: litellm() }, admin, { ...qwen, useCases: ["POESIE" as never], recommendedFor: [] }),
+    ).rejects.toThrow();
+  });
+});
+
+describe("faits techniques pour l'admin (ticket #6)", () => {
+  test("l'admin voit les faits techniques déclarés par la passerelle, fournisseur compris", async () => {
+    const litellm = new FakeLiteLLM().withModel({
+      modelName: "qwen3.8",
+      supplier: "OVHcloud",
+      publisher: "Alibaba (Qwen)",
+      hosts: ["OVHcloud"],
+      executionRegion: "UE",
+      capabilities: ["images", "raisonnement"],
+      inputCostPerToken: 0.0000004,
+      outputCostPerToken: 0.0000027,
+      maxInputTokens: 262144,
+    });
+    expect(await listCatalogForAdmin({ db: testDb, litellm }, admin)).toMatchObject([
+      {
+        modelName: "qwen3.8",
+        supplier: "OVHcloud",
+        publisher: "Alibaba (Qwen)",
+        hosts: ["OVHcloud"],
+        executionRegion: "UE",
+        capabilities: ["images", "raisonnement"],
+        inputPricePerMillion: 0.4,
+        outputPricePerMillion: 2.7,
+        maxInputTokens: 262144,
+        entry: null,
+      },
+    ]);
+  });
+});
 
 describe("catalogue des utilisateurs (F-10)", () => {
   test("un modèle déclaré dans LiteLLM mais non enrichi n'est pas visible", async () => {
@@ -41,12 +118,10 @@ describe("catalogue des utilisateurs (F-10)", () => {
         modelName: "qwen3.8",
         displayName: "Qwen 3.8 27B",
         description: "Modèle généraliste hébergé par OVHcloud",
-        useCases: "Synthèse de documents confidentiels",
-        category: "texte",
+        useCases: ["WRITING", "DOCUMENT_ANALYSIS"],
         publisher: null,
         executionRegion: "UE",
         dataLevel: "N3",
-        hosting: "UE",
         inputPricePerMillion: 0.4,
         outputPricePerMillion: 2.7,
         maxInputTokens: 128000,
@@ -67,7 +142,7 @@ describe("catalogue d'administration (F-50)", () => {
     await saveCatalogEntry({ db: testDb, litellm }, admin, qwen);
     expect(await listCatalogForAdmin({ db: testDb, litellm }, admin)).toMatchObject([
       { modelName: "modele-sans-tarif", hasEuroPricing: false, entry: null },
-      { modelName: "qwen3.8", hasEuroPricing: true, entry: { displayName: "Qwen 3.8 27B", dataLevel: "N3", visible: true } },
+      { modelName: "qwen3.8", hasEuroPricing: true, entry: { displayNameFr: "Qwen 3.8 27B", dataLevel: "N3", visible: true } },
     ]);
   });
 });
