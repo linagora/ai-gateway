@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { PortalError } from "@/lib/errors";
 import type { Langue } from "@/lib/langue";
+import { modelAcceptsLevel } from "@/lib/policy";
 import { getRequestReview } from "@/lib/services/admin-requests";
 import { listCatalog } from "@/lib/services/catalog";
 import { readSettings } from "@/lib/services/settings";
@@ -131,12 +132,14 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
                 {t("modelesAccordes")}
                 <Obligatoire />
               </legend>
-              {catalog.map((m) => (
-                <label key={m.modelName} className="font-normal">
-                  <input type="checkbox" name="models" value={m.modelName} defaultChecked={review.models.includes(m.modelName)} /> {m.displayName}{" "}
-                  ({domaine(`niveaux.${m.dataLevel}`)})
-                </label>
-              ))}
+              {catalog
+                .filter((m) => review.dataLevel && modelAcceptsLevel(m.dataLevel, review.dataLevel))
+                .map((m) => (
+                  <label key={m.modelName} className="font-normal">
+                    <input type="checkbox" name="models" value={m.modelName} defaultChecked={review.models.includes(m.modelName)} /> {m.displayName}{" "}
+                    ({domaine(`niveaux.${m.dataLevel}`)})
+                  </label>
+                ))}
             </fieldset>
             <label>
               {t("budget")}

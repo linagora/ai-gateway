@@ -150,6 +150,10 @@ for (const T of LANGUES) {
     test("un admin approuve la demande N2 et le salarié la voit approuvée", async () => {
       await validation.goto("/gestion/demandes");
       await validation.getByRole("row", { name: new RegExp(`${salarie.uid}.*${T.cle}`) }).getByRole("link", { name: T.admin.examiner }).click();
+      // Seuls les modèles qui acceptent le niveau N2 de la demande peuvent être accordés.
+      const accordables = validation.locator('input[name="models"]');
+      await expect(accordables).toHaveCount(2);
+      expect((await accordables.evaluateAll((cases) => cases.map((c) => (c as HTMLInputElement).value))).sort()).toEqual(["dev-confidentiel", "dev-interne"]);
       await expect(validation.getByText("✘")).toHaveCount(0);
       await validation.getByRole("button", { name: T.admin.approuver, exact: true }).click();
       await expect(validation.getByRole("status")).toHaveText(T.admin.demandeApprouvee);
