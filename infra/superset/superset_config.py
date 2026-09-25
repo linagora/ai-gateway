@@ -81,7 +81,11 @@ def FLASK_APP_MUTATOR(app):  # noqa: N802 (nom imposé par Superset)
     @app.before_request
     def follow_portal_identity():
         # Une session Superset ouverte au nom d'un autre utilisateur que celui transmis est fermée.
-        if current_user.is_authenticated and current_user.username != request.headers.get("X-Portal-User"):
+        # Une requête sans en-tête (lancée par le navigateur lui-même, comme le script du service
+        # worker, hors du point de contrôle) ne ferme rien : derrière Caddy, toute requête vers /stats
+        # porte l'identité transmise par le portail.
+        utilisateur = request.headers.get("X-Portal-User")
+        if utilisateur and current_user.is_authenticated and current_user.username != utilisateur:
             logout_user()
 
 # Interface en français
