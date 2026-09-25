@@ -46,6 +46,8 @@ L'utilisateur crée des enregistrements **A** (et AAAA si IPv6) vers l'IP de l'i
 
 **Contrôle** : `dig +short <domaine>` renvoie l'IP de l'instance pour chacun (depuis le poste).
 
+**Filtrage réseau OVHcloud (🧑)** : en amont du pare-feu du serveur (ufw), le groupe de sécurité OpenStack de l'instance filtre aussi le trafic. Dans Horizon (espace client OVHcloud → projet Public Cloud → « Horizon » ; région de l'instance), menu Network → Security Groups → groupe de l'instance → « Manage Rules » (gérer les règles) → « Add Rule » (ajouter une règle), en entrée (Ingress) depuis `0.0.0.0/0` : TCP 80 (règle HTTP), TCP 443 (HTTPS), UDP 443 (règle UDP personnalisée, pour HTTP/3). N'ajouter aucun autre groupe à l'instance, et garder SSH limité aux sorties VPN. Sans ces règles, Let's Encrypt échoue (« Timeout during connect »).
+
 ## Phase 3 — Déploiement des fichiers et secrets
 
 ```bash
@@ -154,7 +156,14 @@ Mot de passe de la console : `ssh -t ia-host '/opt/linagora-ia/scripts/set-env-v
         --firstname Admin --lastname IA --email admin-ia@linagora.com --password "$(openssl rand -hex 16)" && \
      docker compose run --rm superset superset init && docker compose up -d redis superset'
    ```
-   Connexion par le point de contrôle du portail (après la phase 9) sur `https://ai-gateway.linagora.com/stats/`. **Recette du sous-chemin** : pages, graphiques, exports CSV, liens de partage. Si les assets sont servis correctement sous `/stats/static/`, retirer `/static/*` du Caddyfile ; si le sous-chemin est trop instable dans la version retenue, 🧑 le signaler (repli possible : sous-domaine dédié). Ajouter la base « LiteLLM reporting » : `postgresql+psycopg2://reporting_ro:<REPORTING_RO_PASSWORD>@postgres:5432/litellm` (saisie par l'utilisateur dans l'UI, ou par l'agent via la CLI Superset sans afficher le mot de passe). Script prêt : `superset/init-reporting.py` (connexion + un jeu de données par vue, idempotent ; le mot de passe passe par l'entrée standard, voir l'en-tête du script). Créer les datasets à partir des vues `reporting.*` (montants en €), le tableau de bord « Vue d'ensemble » (PRD §7.1) et un graphique de contrôle sur `v_check_pricing_eur` (doit rester vide).
+   Connexion par le point de contrôle du portail (après la phase 9) sur `https://ai-gateway.linagora.com/stats/`. **Recette du sous-chemin** : pages, graphiques, exports CSV, liens de partage. Si les assets sont servis correctement sous `/stats/static/`, retirer `/static/*` du Caddyfile ; si le sous-chemin est trop instable dans la version retenue, 🧑 le signaler (repli possible : sous-domaine dédié). Ajouter la base « LiteLLM reporting » : `postgresql+psycopg2://reporting_ro:<REPORTING_RO_PASSWORD>@postgres:5432/litellm` (saisie par l'utilisateur dans l'UI, ou par l'agent via la CLI Superset sans afficher le mot de passe). Script prêt : `superset/init-reporting.py` (connexion + un jeu de données par vue, idempotent ; le mot de passe passe par l'entrée standard, voir l'en-tête du script). Puis les tableaux de bord, versionnés et reconstruits à l'identique :
+   ```bash
+   docker compose exec -T superset python3 - < superset/tableaux-de-bord.py
+   ```
+   - **Consommation** (admins et lecteurs du reporting) : indicateurs comparés à la période précédente (coût, requêtes, jetons), taux de réussite, équipes et clés actives, vue d'ensemble par jour, modèles, fournisseurs et hébergements, consommation et budget par équipe, niveaux déclarés des clés.
+   - **Pilotage** (admins) : plus gros consommateurs, clés les plus utilisées, clés à 80 % de leur budget ou plus, clés sans utilisation depuis 30 jours, qualité de service (taux d'erreur, latences moyenne et p95) par modèle et par fournisseur, contrôle devise (doit rester à 0).
+   - Période par défaut : les 30 derniers jours, aujourd'hui compris ; filtres Équipe et Niveau sur « Consommation ».
+   - Le rôle « Lecteur reporting » n'accède qu'aux vues agrégées (`v_usage_daily`, `v_team_budget`, `v_activity`) ; l'accès aux tableaux est réglé par rôle (`DASHBOARD_RBAC`). L'indicateur comparé à la période précédente (`pop_kpi`) exige `CHART_PLUGINS_EXPERIMENTAL`.
    Autres lecteurs : ajouter leur uid à `PORTAL_REPORTING_UIDS` dans le `.env`, puis `docker compose --profile portal up -d portal`. Leur compte Superset est créé à la première visite, avec le rôle « Lecteur reporting » (créé par `superset/init-reporting.py`).
 3. Sauvegardes :
    ```bash
@@ -164,7 +173,10 @@ Mot de passe de la console : `ssh -t ia-host '/opt/linagora-ia/scripts/set-env-v
    **Contrôle** : `ssh ia-host 'sudo /opt/linagora-ia/scripts/restore-test.sh'` — restaure la dernière sauvegarde (rôles + base `litellm`) dans un conteneur Postgres jetable et sans réseau, affiche les volumes à côté de ceux de la production, vérifie les vues de reporting avec `reporting_ro`, puis supprime le conteneur. Le Postgres de production n'est jamais touché (aucune base de test à supprimer). Note : les images cloud Debian 13 n'ont pas `cron` ; `bootstrap-host.sh` l'installe.
 
 ## Phase 8 — Recette socle
-Critères d'acceptation 1, 2, 3, 7, 9 du PRD §9. Mettre à jour `docs/INSTALL-LOG.md`.
+Critères d'acceptation 1, 2, 3, 7, 9 du PRD §9, par les URL publiques. Mettre à jour `docs/INSTALL-LOG.md`.
+- Critère 3 depuis une IP non autorisée : lancer `curl` depuis le serveur lui-même (son IP publique n'est pas dans `ADMIN_ALLOWED_IPS`) → 403.
+- Critères 1 et 7 avec une clé de test créée et utilisée **sur le serveur** (jamais affichée), contre `https://ai-api.linagora.com`. Une clé révoquée est refusée en 5 s au plus (`general_settings.user_api_key_cache_ttl: 5` ; sans ce réglage, 10 à 30 s).
+- Liste blanche OpenRouter, garde et JEV : `scripts/test-liste-blanche.py` (voir la phase 5).
 
 ## Phase 9 — Déploiement du portail (après développement, cf. PORTAL-BRIEF)
 
