@@ -194,6 +194,21 @@ describe("filtres, tri et recommandations (ticket #8)", () => {
     expect(await noms(litellm, { search: "MÉDIUM" })).toEqual(["Mistral Medium 3.5"]);
   });
 
+  test("le cas d'usage « Transcription » trouve les modèles qui transcrivent l'audio, avec sa recommandation", async () => {
+    const litellm = await catalogueFiltrable();
+    litellm.withModel({ modelName: "voxtral-small", publisher: "Mistral AI", executionRegion: "UE", capabilities: ["audio_video"], inputCostPerToken: 0.0000001, outputCostPerToken: 0.0000003, maxInputTokens: 32_000 });
+    await saveCatalogEntry({ db: testDb, litellm }, admin, {
+      ...qwen,
+      modelName: "voxtral-small",
+      displayNameFr: "Voxtral Small",
+      useCases: ["TRANSCRIPTION", "EXTRACTION"],
+      recommendedFor: ["TRANSCRIPTION"],
+      dataLevel: "N1",
+    });
+    const { models } = await levelModels({ db: testDb, litellm }, { level: "N1", language: "fr", criteria: { useCase: "TRANSCRIPTION" } });
+    expect(models.map((m) => [m.displayName, m.recommendedFor])).toEqual([["Voxtral Small", ["TRANSCRIPTION"]]]);
+  });
+
   test("une recherche de moins de trois caractères ne filtre pas", async () => {
     const litellm = await catalogueFiltrable();
     const tous = await noms(litellm, {});

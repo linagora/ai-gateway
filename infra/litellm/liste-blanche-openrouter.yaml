@@ -40,10 +40,12 @@ modeles:
   - {nom: ministral-8b, openrouter: mistralai/ministral-8b-2512, zone: UE}
   - {nom: ministral-3b, openrouter: mistralai/ministral-3b-2512, zone: UE}
   - {nom: devstral-2, openrouter: mistralai/devstral-2512, zone: UE}
+  - {nom: voxtral-small-2507, openrouter: mistralai/voxtral-small-24b-2507, zone: UE}
 
-  # --- Google Gemini Flash, Vertex AI région UE ---
+  # --- Google Gemini (Flash, Flash-Lite, Pro), Vertex AI région UE ---
   - {nom: gemini-2.5-flash, openrouter: google/gemini-2.5-flash, zone: UE}
   - {nom: gemini-2.5-flash-lite, openrouter: google/gemini-2.5-flash-lite, zone: UE}
+  - {nom: gemini-2.5-pro, openrouter: google/gemini-2.5-pro, zone: UE}
   - {nom: gemini-3.1-flash-lite, openrouter: google/gemini-3.1-flash-lite, zone: UE}
   - {nom: gemini-3.5-flash-lite, openrouter: google/gemini-3.5-flash-lite, zone: UE}
 

@@ -1,10 +1,11 @@
 """Déclare dans LiteLLM les modèles de la liste blanche OpenRouter (litellm/liste-blanche-openrouter.yaml)
 et vérifie qu'aucun autre modèle OpenRouter, ni aucun joker, n'y est déclaré. Idempotent.
 
-  cd /opt/linagora-ia && docker compose exec -T litellm python3 - [--appliquer] [--supprimer-hors-liste] < scripts/sync-openrouter.py
+  cd /opt/linagora-ia && docker compose exec -T litellm python3 - [--appliquer] [--seulement=nom,nom] [--supprimer-hors-liste] < scripts/sync-openrouter.py
 
 Sans option : affiche le plan et sort en erreur s'il reste un écart. --appliquer crée ou met à jour les
-modèles de la liste ; --supprimer-hors-liste supprime en plus les modèles OpenRouter qui n'y figurent pas.
+modèles de la liste ; --seulement=nom,nom limite ces créations et mises à jour aux modèles nommés (les autres
+écarts restent signalés) ; --supprimer-hors-liste supprime en plus les modèles OpenRouter qui n'y figurent pas.
 
 Pour chaque modèle : points d'accès OpenRouter de sa zone (API publique /models/<id>/endpoints), prix
 en € = prix le plus élevé de ces points d'accès × (1 + frais) × taux, routage limité à ces points
@@ -30,6 +31,12 @@ EDITEURS = {"mistralai": "Mistral AI", "google": "Google", "z-ai": "Z.ai (Zhipu)
 
 appliquer = "--appliquer" in sys.argv
 supprimer = "--supprimer-hors-liste" in sys.argv
+seulement = next((a.split("=", 1)[1].split(",") for a in sys.argv if a.startswith("--seulement=")), None)
+
+
+def agir(nom):
+    """Le modèle `nom` est-il créé ou mis à jour par ce passage ?"""
+    return appliquer and (seulement is None or nom in seulement)
 
 
 def http(methode, url, corps=None, auth=True):
@@ -71,6 +78,17 @@ def declaration(entree, cfg):
         provider["data_collection"] = "deny"
     if plafond is not None:
         provider["max_price"] = {"prompt": plafond[0], "completion": plafond[1]}
+    # Tarifs qu'OpenRouter facture à part et que LiteLLM sait compter : l'audio en entrée (au jeton audio, soit à la
+    # seconde pour Voxtral) et le contexte long (au-delà de 200 000 jetons). Sans eux, LiteLLM compterait l'audio au
+    # prix du texte, et les budgets des clés sous-estimeraient la dépense.
+    supplements = {}
+    audio = max(float((e.get("pricing") or {}).get("audio") or 0) for e in retenus)
+    if audio > 0:
+        supplements["input_cost_per_audio_token"] = arrondi(audio * k)
+    paliers = [o for e in retenus for o in (e.get("pricing") or {}).get("overrides") or [] if o.get("min_prompt_tokens") == 200_000]
+    if paliers:
+        supplements["input_cost_per_token_above_200k_tokens"] = arrondi(max(float(o["prompt"]) for o in paliers) * k)
+        supplements["output_cost_per_token_above_200k_tokens"] = arrondi(max(float(o["completion"]) for o in paliers) * k)
     # Capacités affichées au catalogue ; les outils et les sorties JSON, communs à tous les modèles, n'en sont pas.
     entrees = set((donnees.get("architecture") or {}).get("input_modalities") or [])
     raisonne = any({"reasoning", "include_reasoning"} & set(e.get("supported_parameters") or []) for e in retenus)
@@ -85,6 +103,7 @@ def declaration(entree, cfg):
             "api_key": "os.environ/OPENROUTER_API_KEY",
             "input_cost_per_token": arrondi(usd_in * k),
             "output_cost_per_token": arrondi(usd_out * k),
+            **supplements,
             "provider": provider,
         },
         "model_info": {
@@ -134,14 +153,14 @@ for nom, v in voulus.items():
         print(f"✘ {nom} : déclaré {len(existants)} fois, à corriger à la main")
         reste += 1
     elif not existants:
-        print(f"+ {nom} : {'créé' if appliquer else 'à créer'} ({resume})")
-        if appliquer:
+        print(f"+ {nom} : {'créé' if agir(nom) else 'à créer'} ({resume})")
+        if agir(nom):
             http("POST", f"{PROXY}/model/new", v)
         else:
             reste += 1
     elif d := ecarts(v, existants[0]):
-        print(f"~ {nom} : {'mis à jour' if appliquer else 'à mettre à jour'} ({', '.join(d)}) ({resume})")
-        if appliquer:
+        print(f"~ {nom} : {'mis à jour' if agir(nom) else 'à mettre à jour'} ({', '.join(d)}) ({resume})")
+        if agir(nom):
             http("PATCH", f"{PROXY}/model/{existants[0]['model_info']['id']}/update", v)
         else:
             reste += 1
