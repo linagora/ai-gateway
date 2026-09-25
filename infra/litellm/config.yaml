@@ -14,6 +14,9 @@ general_settings:
 
 litellm_settings:
   drop_params: true
+  # Garde de la passerelle (garde.py, à côté de ce fichier) : refus des paramètres qui changeraient
+  # de modèle ou de fournisseur
+  callbacks: garde.garde
   # --- Phase 2 : Langfuse ------------------------------------------------------
   # success_callback: ["langfuse"]
   # failure_callback: ["langfuse"]

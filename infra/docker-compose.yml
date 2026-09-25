@@ -62,7 +62,7 @@ services:
   litellm:
     image: ${LITELLM_IMAGE}
     restart: unless-stopped
-    command: ["--config", "/app/config.yaml", "--port", "4000", "--num_workers", "2"]
+    command: ["--config", "/app/passerelle/config.yaml", "--port", "4000", "--num_workers", "2"]
     environment:
       DATABASE_URL: postgresql://litellm:${LITELLM_DB_PASSWORD}@postgres:5432/litellm
       STORE_MODEL_IN_DB: "True"
@@ -80,7 +80,8 @@ services:
       OVH_QWEN_API_BASE: ${OVH_QWEN_API_BASE}
       OVH_QWEN_API_KEY: ${OVH_QWEN_API_KEY}
     volumes:
-      - ./litellm/config.yaml:/app/config.yaml:ro
+      # config.yaml, garde.py (chargée depuis le dossier de la configuration) et liste blanche OpenRouter
+      - ./litellm:/app/passerelle:ro
     depends_on:
       postgres:
         condition: service_healthy
