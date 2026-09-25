@@ -296,6 +296,11 @@
     "bouton": "Se connecter avec LemonLDAP::NG",
     "echec": "La connexion a échoué. Réessayez ; si le problème persiste, contactez un administrateur du portail."
   },
+  "refus": {
+    "titre": "Accès réservé",
+    "message": "Votre compte n'est pas autorisé pour ce service. Si vous pensez que c'est une erreur, contactez un administrateur du portail.",
+    "retour": "Retour au portail"
+  },
   "gestion": {
     "nav": {
       "libelle": "Administration",

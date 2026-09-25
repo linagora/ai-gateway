@@ -48,6 +48,22 @@ test("un salarié qui n'est pas admin est refusé sur /admin", async () => {
   expect({ status: response.status(), accesReserve: (await response.text()).includes("Accès réservé") }).toEqual({ status: 403, accesReserve: true });
 });
 
+test("la page de refus s'affiche dans la langue de la requête : choix mémorisé du portail, sinon langue du navigateur", async () => {
+  const refus = async (headers: Record<string, string>) => {
+    const response = await sessions.salarie!.request.get(`${gate}/admin/ui/`, { headers, maxRedirects: 0 });
+    return { status: response.status(), texte: await response.text() };
+  };
+  expect(await refus({ "Accept-Language": "fr-FR,fr;q=0.9" })).toMatchObject({ status: 403, texte: expect.stringContaining("Accès réservé") });
+  const anglais = await refus({ "Accept-Language": "en-US,en;q=0.9" });
+  expect(anglais).toMatchObject({ status: 403, texte: expect.stringContaining("Access restricted") });
+  expect(anglais.texte).toContain('<html lang="en">');
+  const session = (await sessions.salarie!.cookies()).map((c) => `${c.name}=${c.value}`).join("; ");
+  expect(await refus({ "Accept-Language": "fr-FR", Cookie: `${session}; portal.langue=en` })).toMatchObject({
+    status: 403,
+    texte: expect.stringContaining("Access restricted"),
+  });
+});
+
 test("une lectrice du reporting passe sur /stats en lecture, avec son nom encodé", async () => {
   const response = await sessions.lectrice!.request.get(`${gate}/stats/superset/welcome/`, { maxRedirects: 0 });
   expect(await response.text()).toBe(

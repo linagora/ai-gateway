@@ -1,14 +1,19 @@
 import type { NextRequest } from "next/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { decideServiceAccess, type GatedService } from "@/lib/access";
 import { getCurrentUser } from "@/lib/session";
 
 const SERVICES: readonly GatedService[] = ["admin", "stats"];
 
-const DENIED_PAGE = `<!doctype html><html lang="fr"><meta charset="utf-8"><title>Accès réservé</title>
+/** Page de refus, dans la langue de la requête (choix mémorisé du portail, sinon langue du navigateur). */
+async function deniedPage(): Promise<string> {
+  const [langue, t] = await Promise.all([getLocale(), getTranslations("refus")]);
+  return `<!doctype html><html lang="${langue}"><meta charset="utf-8"><title>${t("titre")}</title>
 <body style="font-family: system-ui, sans-serif; margin: 3rem">
-<h1>Accès réservé</h1>
-<p>Votre compte n'est pas autorisé pour ce service. Si vous pensez que c'est une erreur, contactez un administrateur du portail.</p>
-<p><a href="/">Retour au portail</a></p></body></html>`;
+<h1>${t("titre")}</h1>
+<p>${t("message")}</p>
+<p><a href="/">${t("retour")}</a></p></body></html>`;
+}
 
 /** Appelé par Caddy (forward_auth) avant chaque requête vers /admin (console LiteLLM) et /stats (Superset). */
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/acces/[service]">): Promise<Response> {
@@ -27,6 +32,6 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/api/acces/[s
     case "login":
       return new Response(null, { status: 302, headers: { Location: decision.location, ...noStore } });
     case "deny":
-      return new Response(DENIED_PAGE, { status: 403, headers: { "Content-Type": "text/html; charset=utf-8", ...noStore } });
+      return new Response(await deniedPage(), { status: 403, headers: { "Content-Type": "text/html; charset=utf-8", ...noStore } });
   }
 }

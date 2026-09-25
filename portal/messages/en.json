@@ -296,6 +296,11 @@
     "bouton": "Sign in with LemonLDAP::NG",
     "echec": "Sign-in failed. Try again; if the problem persists, contact a portal administrator."
   },
+  "refus": {
+    "titre": "Access restricted",
+    "message": "Your account is not allowed to use this service. If you think this is a mistake, contact a portal administrator.",
+    "retour": "Back to the portal"
+  },
   "gestion": {
     "nav": {
       "libelle": "Administration",
