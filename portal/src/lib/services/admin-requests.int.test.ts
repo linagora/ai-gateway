@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
 import { approveKeyRequest, approveTeamJoinRequest, getRequestReview, listPendingRequests, refuseRequest, requestCompletion } from "./admin-requests";
+import { listAudit } from "./audit";
 import { saveCatalogEntry } from "./catalog";
 import { completeRequest, createKeyRequest, createTeamJoinRequest, type KeyRequestInput, listMyRequests } from "./requests";
 import { saveSettings } from "./settings";
@@ -185,5 +186,44 @@ describe("adhésion à une équipe (F-22)", () => {
     const { id } = await createTeamJoinRequest(deps, demandeur, { teamId: "equipe-data", justification: "Projet d'analyse" });
     await expect(approveTeamJoinRequest(deps, admin, id, "equipe-inconnue")).rejects.toMatchObject({ code: "introuvable" });
     expect((await listMyRequests(deps, demandeur)).find((r) => r.id === id)).toMatchObject({ teamAlias: "Data", status: "SOUMISE" });
+  });
+});
+
+describe("journal d'audit des décisions (ticket #22)", () => {
+  const journal = async () => (await listAudit(testDb)).map((e) => [e.actorUid, e.action, e.details]);
+
+  test("dépôt et approbation d'une demande de clé, avec l'équipe retenue", async () => {
+    litellm.withTeam({ teamId: "equipe-lps", teamAlias: "LPS Paris", models: [], memberUids: [] });
+    const { id } = await createKeyRequest(deps, demandeur, demande);
+    await approveKeyRequest(deps, admin, id, { ...parametres, teamId: "equipe-lps" });
+    expect(await journal()).toEqual([
+      ["mmaudet", "REQUEST_CREATED", { kind: "CLE", teamAlias: "R&D" }],
+      ["jdupont", "REQUEST_APPROVED", { teamAlias: "LPS Paris" }],
+    ]);
+    expect((await listAudit(testDb)).every((e) => e.targetId === id)).toBe(true);
+  });
+
+  test("refus avec le motif, et complément demandé avec le commentaire", async () => {
+    const { id: refusee } = await createKeyRequest(deps, demandeur, demande);
+    await refuseRequest(deps, admin, refusee, "Budget non justifié");
+    const { id: aCompleter } = await createKeyRequest(deps, collegue, demande);
+    await requestCompletion(deps, admin, aCompleter, "Précisez le projet");
+    expect(await journal()).toEqual([
+      ["mmaudet", "REQUEST_CREATED", { kind: "CLE", teamAlias: "R&D" }],
+      ["jdupont", "REQUEST_REFUSED", { motif: "Budget non justifié" }],
+      ["pmartin", "REQUEST_CREATED", { kind: "CLE", teamAlias: "R&D" }],
+      ["jdupont", "COMPLETION_REQUESTED", { commentaire: "Précisez le projet" }],
+    ]);
+  });
+
+  test("dépôt d'une demande d'adhésion et adhésion acceptée, avec l'équipe retenue", async () => {
+    litellm.withTeam({ teamId: "equipe-data", teamAlias: "Data", models: [], memberUids: [] });
+    litellm.withTeam({ teamId: "equipe-lps", teamAlias: "LPS Paris", models: [], memberUids: [] });
+    const { id } = await createTeamJoinRequest(deps, demandeur, { teamId: "equipe-data", justification: "Projet d'analyse" });
+    await approveTeamJoinRequest(deps, admin, id, "equipe-lps");
+    expect(await journal()).toEqual([
+      ["mmaudet", "REQUEST_CREATED", { kind: "ADHESION_EQUIPE", teamAlias: "Data" }],
+      ["jdupont", "MEMBERSHIP_APPROVED", { teamAlias: "LPS Paris" }],
+    ]);
   });
 });

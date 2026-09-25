@@ -5,6 +5,7 @@ import type { LiteLLMClient, LiteLLMTeamSummary } from "@/lib/litellm/client";
 import { PolicyViolationError, PortalError } from "@/lib/errors";
 import type { Prisma } from "@/generated/prisma/client";
 import { type CatalogModel, checkKeyRequest, checkTransition, DATA_LEVELS, type DataLevel, type KeyRequestDraft, type PolicyVerdict, type RequestStatus } from "@/lib/policy";
+import { recordAudit } from "./audit";
 
 interface RequestDeps {
   db: Db;
@@ -44,6 +45,7 @@ export async function createKeyRequest(deps: RequestDeps, user: SessionUser, inp
   const created = await deps.db.accessRequest.create({
     data: { kind: "CLE", requesterUid: user.uid, requesterEmail: user.email, ...fields },
   });
+  await recordAudit(deps.db, { actorUid: user.uid, action: "REQUEST_CREATED", targetId: created.id, details: { kind: "CLE", teamAlias: created.teamAlias } });
   return { id: created.id };
 }
 
@@ -102,6 +104,7 @@ export async function createTeamJoinRequest(deps: RequestDeps, user: SessionUser
       justification: data.justification,
     },
   });
+  await recordAudit(deps.db, { actorUid: user.uid, action: "REQUEST_CREATED", targetId: created.id, details: { kind: "ADHESION_EQUIPE", teamAlias: team.teamAlias } });
   return { id: created.id };
 }
 

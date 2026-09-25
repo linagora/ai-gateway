@@ -5,6 +5,7 @@ import { PolicyViolationError, PortalError } from "@/lib/errors";
 import type { LiteLLMClient } from "@/lib/litellm/client";
 import type { DataLevel, PolicyCheck, RequestStatus } from "@/lib/policy";
 import { requireAdmin } from "@/lib/rbac";
+import { recordAudit } from "./audit";
 import { evaluateKeyRequest, transitionRequest } from "./requests";
 import { readSettings, type SettingValues } from "./settings";
 
@@ -151,6 +152,7 @@ export async function approveKeyRequest(deps: AdminDeps, actor: SessionUser, id:
       decidedAt: deps.now?.() ?? new Date(),
     },
   });
+  await recordAudit(deps.db, { actorUid: actor.uid, action: "REQUEST_APPROVED", targetId: request.id, details: { teamAlias: equipe.teamAlias } });
 }
 
 /** Règle 7 : les paramètres non saisis prennent les valeurs par défaut configurées (F-51). */
@@ -176,6 +178,7 @@ export async function refuseRequest(deps: AdminDeps, actor: SessionUser, id: str
     comment,
     data: { decidedBy: actor.uid, decidedAt: new Date(), decisionComment: comment.trim() },
   });
+  await recordAudit(deps.db, { actorUid: actor.uid, action: "REQUEST_REFUSED", targetId: request.id, details: { motif: comment.trim() } });
 }
 
 /** F-31 : renvoie la demande au demandeur pour qu'il la complète (statut A_COMPLETER). */
@@ -186,6 +189,7 @@ export async function requestCompletion(deps: AdminDeps, actor: SessionUser, id:
   await transitionRequest(deps.db, request, "A_COMPLETER", {
     data: { decidedBy: actor.uid, decidedAt: new Date(), decisionComment: comment.trim() || null },
   });
+  await recordAudit(deps.db, { actorUid: actor.uid, action: "COMPLETION_REQUESTED", targetId: request.id, details: { commentaire: comment.trim() || null } });
 }
 
 /**
@@ -200,6 +204,7 @@ export async function approveTeamJoinRequest(deps: AdminDeps, actor: SessionUser
   const equipe = await teamForApproval(deps, request, teamId);
   await deps.litellm.addTeamMember(equipe.teamId, request.requesterUid);
   await transitionRequest(deps.db, request, "APPROUVEE", { data: { ...equipe, decidedBy: actor.uid, decidedAt: new Date() } });
+  await recordAudit(deps.db, { actorUid: actor.uid, action: "MEMBERSHIP_APPROVED", targetId: request.id, details: { teamAlias: equipe.teamAlias } });
 }
 
 /** Équipe retenue à l'approbation : celle de la demande, sauf si l'admin en choisit une autre, qui doit exister. */
