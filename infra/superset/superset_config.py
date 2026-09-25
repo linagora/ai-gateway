@@ -91,3 +91,22 @@ def FLASK_APP_MUTATOR(app):  # noqa: N802 (nom imposé par Superset)
 # Interface en français
 BABEL_DEFAULT_LOCALE = "fr"
 LANGUAGES = {"fr": {"flag": "fr", "name": "Français"}, "en": {"flag": "us", "name": "English"}}
+
+# Nombres et dates à la française (montants : format « $,.2f » → 1 234,56 €)
+D3_FORMAT = {"decimal": ",", "thousands": "\u202f", "grouping": [3], "currency": ["", "\u00a0€"]}
+D3_TIME_FORMAT = {
+    "dateTime": "%A %e %B %Y à %X",
+    "date": "%d/%m/%Y",
+    "time": "%H:%M:%S",
+    "periods": ["AM", "PM"],
+    "days": ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"],
+    "shortDays": ["dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam."],
+    "months": ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre",
+               "novembre", "décembre"],
+    "shortMonths": ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."],
+}
+
+# Tableaux de bord (superset/tableaux-de-bord.py) : accès par rôle à chaque tableau (« Pilotage »
+# réservé aux admins) ; indicateur comparé à la période précédente (graphique pop_kpi, encore
+# classé expérimental par Superset).
+FEATURE_FLAGS = {"DASHBOARD_RBAC": True, "CHART_PLUGINS_EXPERIMENTAL": True}
