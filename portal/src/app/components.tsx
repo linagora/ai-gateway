@@ -37,7 +37,7 @@ export async function UserMenu() {
       {user.isAdmin && <Link href="/gestion/demandes">{t("gestion")}</Link>}
       <span>{user.name}</span>
       <form action={signOutAction}>
-        <button type="submit" className="mt-0">
+        <button type="submit" className="mt-0 border-neutral-400 bg-white text-neutral-800 hover:bg-neutral-100">
           {t("deconnexion")}
         </button>
       </form>

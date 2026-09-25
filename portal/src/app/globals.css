@@ -1,5 +1,28 @@
 @import "tailwindcss";
 
+/*
+ * Charte Linagora légère (ticket #4), définie une seule fois pour tout le portail : la couleur principale
+ * (rouge du logo) et les couleurs des niveaux de confidentialité. Chaque couleur de niveau est lisible sur
+ * fond blanc (contraste d'au moins 4,5:1) et n'est jamais employée sans le nom du niveau.
+ */
+:root {
+  --linagora: #c51843;
+  --linagora-fonce: #9e1336;
+  --niveau-n1: #15803d;
+  --niveau-n2: #b45309;
+  --niveau-n3: #b91c1c;
+  --niveau-exp: #6d28d9;
+}
+
+@theme inline {
+  --color-linagora: var(--linagora);
+  --color-linagora-fonce: var(--linagora-fonce);
+  --color-niveau-n1: var(--niveau-n1);
+  --color-niveau-n2: var(--niveau-n2);
+  --color-niveau-n3: var(--niveau-n3);
+  --color-niveau-exp: var(--niveau-exp);
+}
+
 /* Styles de base volontairement sobres (V1) ; le graphisme sera repris plus tard. */
 @layer base {
   body {
@@ -47,13 +70,17 @@
     border-radius: 0.25rem;
     padding: 0.3rem 0.5rem;
   }
+  /* Boutons principaux aux couleurs de Linagora. */
   button {
     margin-top: 0.75rem;
-    border: 1px solid #1d4ed8;
+    border: 1px solid var(--linagora);
     border-radius: 0.25rem;
     padding: 0.3rem 0.9rem;
-    background: #1d4ed8;
+    background: var(--linagora);
     color: #ffffff;
+  }
+  button:hover:not(:disabled) {
+    background: var(--linagora-fonce);
   }
   fieldset {
     margin-top: 0.75rem;

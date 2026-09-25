@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -18,8 +19,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     <html lang={locale}>
       <body>
         <NextIntlClientProvider>
-          <header className="flex flex-wrap items-center gap-4 border-b px-6 py-3">
-            <Link href="/" className="font-semibold">
+          <header className="flex flex-wrap items-center gap-4 border-t-4 border-b border-t-linagora px-6 py-3">
+            <Link href="/" className="flex items-center gap-2 font-semibold text-neutral-900 no-underline">
+              <Image src="/linagora-logo.svg" alt="Linagora" width={116} height={24} priority />
               {t("portail")}
             </Link>
             <nav className="flex flex-wrap gap-x-4" aria-label={t("navigation")}>

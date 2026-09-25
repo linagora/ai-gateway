@@ -124,7 +124,7 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
                   </p>
                 )}
                 {m.acceptsUpTo && (
-                  <p className="self-start rounded border border-neutral-400 px-2 text-sm">{t("accepteJusqua", { niveau: m.acceptsUpTo })}</p>
+                  <p className={`self-start rounded border-2 px-2 text-sm ${COULEURS_NIVEAUX[m.acceptsUpTo]}`}>{t("accepteJusqua", { niveau: m.acceptsUpTo })}</p>
                 )}
                 <p>{m.shortDescription}</p>
                 {m.capabilities.length > 0 && (
@@ -191,7 +191,7 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
           </p>
           <code className="text-xs break-all text-neutral-600">{detail.modelName}</code>
           {detail.acceptsUpTo && (
-            <p className="self-start rounded border border-neutral-400 px-2 text-sm">{t("accepteJusqua", { niveau: detail.acceptsUpTo })}</p>
+            <p className={`self-start rounded border-2 px-2 text-sm ${COULEURS_NIVEAUX[detail.acceptsUpTo]}`}>{t("accepteJusqua", { niveau: detail.acceptsUpTo })}</p>
           )}
           <h3 className="mt-3 font-medium">{detailT("description")}</h3>
           <p className="whitespace-pre-line">{detail.longDescription}</p>
