@@ -144,6 +144,22 @@ describe("dépense, budget et exemple d'appel dans « Mes clés » (ticket #16)"
     });
   });
 
+  test("« Mes clés » présente les clés actives d'abord, puis les révoquées ou expirées, les plus récentes en premier", async () => {
+    const retirer = async (projet: string, heures: number) => {
+      const id = await demandeApprouvee({ project: projet });
+      maintenant = new Date(Date.parse("2026-10-01T09:00:00Z") + heures * 3_600_000);
+      await pickUpKey(deps, titulaire, id);
+      return id;
+    };
+    const ancienne = await retirer("Ancienne", 1);
+    await revokeKey(deps, titulaire, ancienne);
+    const active1 = await retirer("Active un", 2);
+    const revoquee = await retirer("Révoquée", 3);
+    await revokeKey(deps, titulaire, revoquee);
+    const active2 = await retirer("Active deux", 4);
+    expect((await listMyKeys(deps, titulaire)).keys.map((k) => k.requestId)).toEqual([active2, active1, revoquee, ancienne]);
+  });
+
   test("une passerelle injoignable n'empêche pas « Mes clés » : seules les valeurs lues dans la passerelle manquent", async () => {
     const id = await demandeApprouvee();
     await pickUpKey(deps, titulaire, id);

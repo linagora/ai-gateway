@@ -61,7 +61,10 @@ export interface MyKeys {
   keys: IssuedKey[];
 }
 
-/** « Mes clés » : les demandes approuvées à retirer, puis les clés émises, du titulaire seulement. */
+/**
+ * « Mes clés » : les demandes approuvées à retirer, puis les clés émises du titulaire seulement, les actives d'abord
+ * et les plus récentes en premier ; les clés révoquées ou expirées viennent ensuite.
+ */
 export async function listMyKeys(deps: KeyDeps, user: SessionUser): Promise<MyKeys> {
   await markExpired(deps.db, deps.now?.() ?? new Date());
   const [rows, delai] = await Promise.all([
@@ -87,7 +90,9 @@ export async function listMyKeys(deps: KeyDeps, user: SessionUser): Promise<MyKe
         project: r.project,
         pickupDeadline: delai !== null && r.decidedAt ? pickupDeadline(r.decidedAt, delai) : null,
       })),
-    keys: emises.map((k) => ({ ...k, examples: callExamples(k.models, typesApi) })),
+    keys: emises
+      .map((k) => ({ ...k, examples: callExamples(k.models, typesApi) }))
+      .sort((a, b) => Number(b.status === "CLE_EMISE") - Number(a.status === "CLE_EMISE") || b.issuedAt.getTime() - a.issuedAt.getTime()),
   };
 }
 
