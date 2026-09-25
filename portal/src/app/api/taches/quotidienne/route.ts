@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { runDailyTask } from "@/lib/services/keys";
+import { runDailyTask } from "@/lib/services/echeances";
 import { getDeps } from "@/lib/session";
 
 /** Jeton présenté identique au jeton configuré (comparaison en temps constant). */

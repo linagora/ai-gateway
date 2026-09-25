@@ -6,6 +6,7 @@ import type { LiteLLMClient } from "@/lib/litellm/client";
 import type { DataLevel, PolicyCheck, RequestStatus } from "@/lib/policy";
 import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
+import { pickupDeadline, readPickupDays } from "./echeances";
 import { type NotificationDeps, notifyCompletionRequested, notifyKeyApproved, notifyMembershipApproved, notifyRefused } from "./notifications";
 import { evaluateKeyRequest, transitionRequest } from "./requests";
 import { readSettings, type SettingValues } from "./settings";
@@ -151,6 +152,7 @@ export async function approveKeyRequest(deps: AdminDeps, actor: SessionUser, id:
   const bloquants = verdict.checks.filter((c) => !c.ok && !(reaffectee && c.id === "membre_equipe"));
   if (bloquants.length > 0) throw new PolicyViolationError(bloquants);
   if (verdict.checks.some((c) => c.id === "membre_equipe" && !c.ok)) await deps.litellm.addTeamMember(equipe.teamId, request.requesterUid);
+  const approuveeLe = deps.now?.() ?? new Date();
   await transitionRequest(deps.db, request, "APPROUVEE", {
     data: {
       ...equipe,
@@ -161,16 +163,15 @@ export async function approveKeyRequest(deps: AdminDeps, actor: SessionUser, id:
       rpmLimit: params.rpmLimit,
       tpmLimit: params.tpmLimit,
       decidedBy: actor.uid,
-      decidedAt: deps.now?.() ?? new Date(),
+      decidedAt: approuveeLe,
     },
   });
   await recordAudit(deps.db, { actorUid: actor.uid, action: "REQUEST_APPROVED", targetId: request.id, details: { teamAlias: equipe.teamAlias } });
-  const delai = (await readSettings(deps.db)).pickup_days;
-  const approuveeLe = deps.now?.() ?? new Date();
+  const delai = await readPickupDays(deps.db);
   await notifyKeyApproved(deps, {
     to: request.requesterEmail,
     equipe: equipe.teamAlias,
-    echeance: delai ? new Date(approuveeLe.getTime() + Number(delai) * 86_400_000) : null,
+    echeance: delai !== null ? pickupDeadline(approuveeLe, delai) : null,
   });
 }
 

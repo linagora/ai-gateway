@@ -6,7 +6,8 @@ import { FakeMailer } from "@/test/fake-mailer";
 import { approveKeyRequest, getRequestReview, refuseRequest } from "./admin-requests";
 import { listAudit } from "./audit";
 import { saveCatalogEntry } from "./catalog";
-import { blockKey, listAllKeys, listMyKeys, pickUpKey, renewalDraft, replaceKey, revokeKey, runDailyTask, unblockKey } from "./keys";
+import { runDailyTask } from "./echeances";
+import { blockKey, listAllKeys, listMyKeys, pickUpKey, renewalDraft, replaceKey, revokeKey, unblockKey } from "./keys";
 import { createKeyRequest, type KeyRequestInput, listMyRequests } from "./requests";
 import { saveSettings } from "./settings";
 

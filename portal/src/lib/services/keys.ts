@@ -7,10 +7,9 @@ import type { DataLevel, RequestStatus } from "@/lib/policy";
 import type { LimiteDeDebit } from "@/lib/limite-de-debit";
 import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
-import { markExpired } from "./echeances";
-import { type NotificationDeps, notifyAdminKeyAction, notifyExpiryReminder, notifyPickupReminder } from "./notifications";
+import { markExpired, pickupDeadline, readPickupDays } from "./echeances";
+import { type NotificationDeps, notifyAdminKeyAction } from "./notifications";
 import { ownKeyToRenew, transitionRequest } from "./requests";
-import { readSettings } from "./settings";
 
 /** Dépendances du service des clés ; la date du jour est injectée pour rendre les échéances testables. */
 export interface KeyDeps extends NotificationDeps {
@@ -27,8 +26,6 @@ function verifierFrequence(deps: KeyDeps, user: SessionUser, maintenant: Date): 
     throw new PortalError("trop_de_generations", "Trop de clés générées en peu de temps.");
   }
 }
-
-const JOUR = 86_400_000;
 
 /** Demande approuvée, en attente de retrait par son titulaire. */
 export interface KeyToPickUp {
@@ -66,11 +63,10 @@ export interface MyKeys {
 /** « Mes clés » : les demandes approuvées à retirer, puis les clés émises, du titulaire seulement. */
 export async function listMyKeys(deps: KeyDeps, user: SessionUser): Promise<MyKeys> {
   await markExpired(deps.db, deps.now?.() ?? new Date());
-  const [rows, settings] = await Promise.all([
+  const [rows, delai] = await Promise.all([
     deps.db.accessRequest.findMany({ where: { requesterUid: user.uid, kind: "CLE" }, orderBy: { createdAt: "asc" } }),
-    readSettings(deps.db),
+    readPickupDays(deps.db),
   ]);
-  const delai = settings.pickup_days ? Number(settings.pickup_days) : null;
   const emises = rows.filter((r) => r.keyAlias && r.keyIssuedAt && r.dataLevel);
   // Lectures en direct dans la passerelle : une passerelle injoignable n'empêche pas d'afficher les clés.
   const [usages, typesApi] = await Promise.all([
@@ -89,7 +85,7 @@ export async function listMyKeys(deps: KeyDeps, user: SessionUser): Promise<MyKe
         dataLevel: r.dataLevel as DataLevel,
         models: r.approvedModels,
         project: r.project,
-        pickupDeadline: delai !== null && r.decidedAt ? new Date(r.decidedAt.getTime() + delai * JOUR) : null,
+        pickupDeadline: delai !== null && r.decidedAt ? pickupDeadline(r.decidedAt, delai) : null,
       })),
     keys: emises.map((r, i) => ({
       requestId: r.id,
@@ -370,46 +366,4 @@ function slug(texte: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 40);
-}
-
-/** Compte rendu de la tâche quotidienne. */
-export interface DailyTaskReport {
-  rappelsRetrait: number;
-  rappelsExpiration: number;
-  demandesExpirees: number;
-  clesExpirees: number;
-}
-
-/**
- * F-45 : tâche quotidienne. Elle fait expirer ce qui est échu, puis envoie une seule fois chacun les rappels :
- * trois jours avant l'échéance de retrait, sept jours avant l'expiration d'une clé.
- */
-export async function runDailyTask(deps: KeyDeps): Promise<DailyTaskReport> {
-  const maintenant = deps.now?.() ?? new Date();
-  const expirations = await markExpired(deps.db, maintenant);
-  const delai = (await readSettings(deps.db)).pickup_days;
-  let rappelsRetrait = 0;
-  let rappelsExpiration = 0;
-  if (delai) {
-    const debut = new Date(maintenant.getTime() - Number(delai) * JOUR);
-    const aRetirer = await deps.db.accessRequest.findMany({
-      where: { kind: "CLE", status: "APPROUVEE", pickupReminderSentAt: null, decidedAt: { gt: debut, lte: new Date(debut.getTime() + 3 * JOUR) } },
-    });
-    for (const r of aRetirer) {
-      const { count } = await deps.db.accessRequest.updateMany({ where: { id: r.id, pickupReminderSentAt: null }, data: { pickupReminderSentAt: maintenant } });
-      if (count === 0 || !r.decidedAt) continue;
-      rappelsRetrait++;
-      await notifyPickupReminder(deps, { to: r.requesterEmail, equipe: r.teamAlias, echeance: new Date(r.decidedAt.getTime() + Number(delai) * JOUR) });
-    }
-  }
-  const aExpirer = await deps.db.accessRequest.findMany({
-    where: { kind: "CLE", status: "CLE_EMISE", expiryReminderSentAt: null, keyExpiresAt: { gt: maintenant, lte: new Date(maintenant.getTime() + 7 * JOUR) } },
-  });
-  for (const r of aExpirer) {
-    const { count } = await deps.db.accessRequest.updateMany({ where: { id: r.id, expiryReminderSentAt: null }, data: { expiryReminderSentAt: maintenant } });
-    if (count === 0 || !r.keyExpiresAt || !r.keyAlias) continue;
-    rappelsExpiration++;
-    await notifyExpiryReminder(deps, { to: r.requesterEmail, alias: r.keyAlias, echeance: r.keyExpiresAt });
-  }
-  return { rappelsRetrait, rappelsExpiration, ...expirations };
 }
