@@ -9,9 +9,9 @@ import { getDeps, requireUser } from "@/lib/session";
 import { USE_CASES } from "@/lib/use-cases";
 import { formats, Notice } from "../../../components";
 import { BoutonCopier } from "../../../bouton-copier";
+import { exempleAppel } from "../../../exemples-appel";
 import { COULEURS_NIVEAUX } from "../couleurs";
 import { BoutonSelection } from "./bouton-selection";
-import { exempleAppel } from "./exemple-appel";
 
 /** Icônes des capacités, toujours accompagnées de leur libellé. */
 const ICONES: Record<Capability, string> = { images: "🖼️", audio_video: "🎧", raisonnement: "🧠" };

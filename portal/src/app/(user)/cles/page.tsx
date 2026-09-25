@@ -2,14 +2,23 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { listMyKeys } from "@/lib/services/keys";
 import { getDeps, requireUser } from "@/lib/session";
+import { BoutonCopier } from "../../bouton-copier";
 import { formats, Notice } from "../../components";
+import { exemplesAppel, LANGAGES } from "../../exemples-appel";
 import { RetraitCle } from "./retrait-cle";
 
 /** Tickets #15 et suivants : les demandes approuvées à retirer, puis les clés émises du titulaire. */
 export default async function MesClesPage(props: PageProps<"/cles">) {
   const user = await requireUser();
-  const [{ date }, t, domaine, searchParams] = await Promise.all([formats(), getTranslations("cles"), getTranslations("domaine"), props.searchParams]);
+  const [{ date, euros }, t, domaine, detail, searchParams] = await Promise.all([
+    formats(),
+    getTranslations("cles"),
+    getTranslations("domaine"),
+    getTranslations("detail"),
+    props.searchParams,
+  ]);
   const { toPickUp, keys } = await listMyKeys(getDeps(), user);
+  const textesExemple = { message: detail("exemple.message"), etat: detail("exemple.etat"), question: detail("exemple.question") };
 
   return (
     <>
@@ -41,34 +50,68 @@ export default async function MesClesPage(props: PageProps<"/cles">) {
             {t("aucune")} <Link href="/catalogue">{t("catalogue")}</Link>
           </p>
         ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>{t("colonnes.alias")}</th>
-                <th>{t("colonnes.equipe")}</th>
-                <th>{t("colonnes.niveau")}</th>
-                <th>{t("colonnes.modeles")}</th>
-                <th>{t("colonnes.emise")}</th>
-                <th>{t("colonnes.expiration")}</th>
-                <th>{t("colonnes.statut")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {keys.map((k) => (
-                <tr key={k.requestId}>
-                  <td>
+          <div className="flex flex-col gap-4">
+            {keys.map((k) => {
+              const exemples = k.example ? exemplesAppel(k.example.model, k.example.apiKind, textesExemple) : null;
+              return (
+                <article key={k.requestId} aria-labelledby={`cle-emise-${k.requestId}`} className="rounded border border-neutral-300 p-4">
+                  <h3 id={`cle-emise-${k.requestId}`} className="font-medium">
                     <code>{k.alias}</code>
-                  </td>
-                  <td>{k.teamAlias}</td>
-                  <td>{domaine(`niveaux.${k.dataLevel}`)}</td>
-                  <td>{k.models.join(", ")}</td>
-                  <td>{date(k.issuedAt)}</td>
-                  <td>{k.expiresAt ? date(k.expiresAt) : "—"}</td>
-                  <td>{domaine(`statuts.${k.status}`)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </h3>
+                  <p className="text-sm">
+                    {k.teamAlias} · {domaine(`niveaux.${k.dataLevel}`)} · {k.models.join(", ")}
+                  </p>
+                  <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-4 text-sm">
+                    <dt className="font-medium">{t("colonnes.statut")}</dt>
+                    <dd>
+                      {domaine(`statuts.${k.status}`)}
+                      {k.usage?.blocked && ` · ${t("bloquee")}`}
+                    </dd>
+                    <dt className="font-medium">{t("colonnes.emise")}</dt>
+                    <dd>{date(k.issuedAt)}</dd>
+                    <dt className="font-medium">{t("colonnes.expiration")}</dt>
+                    <dd>{k.expiresAt ? date(k.expiresAt) : "—"}</dd>
+                    {k.usage && (
+                      <>
+                        <dt className="font-medium">{t("depense")}</dt>
+                        <dd>
+                          {k.usage.maxBudget !== null && (
+                            <progress value={Math.min(k.usage.spend, k.usage.maxBudget)} max={k.usage.maxBudget} aria-hidden="true" className="mr-2 align-middle" />
+                          )}
+                          {t("depenseSur", {
+                            depense: k.usage.spend > 0 && k.usage.spend < 0.01 ? t("moinsDunCentime") : euros(k.usage.spend),
+                            budget: euros(k.usage.maxBudget),
+                          })}
+                        </dd>
+                        {k.usage.budgetResetAt && (
+                          <>
+                            <dt className="font-medium">{t("remiseAZero")}</dt>
+                            <dd>{date(k.usage.budgetResetAt)}</dd>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </dl>
+                  {!k.usage && k.status === "CLE_EMISE" && <p className="mt-2 text-sm italic">{t("infoIndisponible")}</p>}
+                  {exemples && k.status === "CLE_EMISE" && (
+                    <details className="mt-3">
+                      <summary className="cursor-pointer font-medium">{t("commentUtiliser")}</summary>
+                      <p className="mt-2 text-sm">{t("emplacement")}</p>
+                      {LANGAGES.map((langage) => (
+                        <div key={langage} className="mt-3">
+                          <h4 className="text-sm font-medium">{t(`langages.${langage}`)}</h4>
+                          <pre className="overflow-x-auto rounded bg-neutral-900 p-3 text-xs text-neutral-100">
+                            <code>{exemples[langage]}</code>
+                          </pre>
+                          <BoutonCopier texte={exemples[langage]} libelle={t("copierExemple")} libelleCopie={t("exempleCopie")} />
+                        </div>
+                      ))}
+                    </details>
+                  )}
+                </article>
+              );
+            })}
+          </div>
         )}
       </section>
     </>

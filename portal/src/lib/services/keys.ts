@@ -1,7 +1,7 @@
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
 import { PortalError } from "@/lib/errors";
-import type { LiteLLMClient } from "@/lib/litellm/client";
+import type { ApiKind, KeyInfo, LiteLLMClient } from "@/lib/litellm/client";
 import type { DataLevel, RequestStatus } from "@/lib/policy";
 import { recordAudit } from "./audit";
 import { transitionRequest } from "./requests";
@@ -38,6 +38,10 @@ export interface IssuedKey {
   issuedAt: Date;
   expiresAt: Date | null;
   status: RequestStatus;
+  /** Dépense, budget, remise à zéro et blocage, lus en direct dans la passerelle ; null s'ils sont indisponibles. */
+  usage: Omit<KeyInfo, "expiresAt"> | null;
+  /** Modèle et type d'API de l'exemple d'appel (premier modèle de la clé). */
+  example: { model: string; apiKind: ApiKind } | null;
 }
 
 export interface MyKeys {
@@ -52,6 +56,15 @@ export async function listMyKeys(deps: KeyDeps, user: SessionUser): Promise<MyKe
     readSettings(deps.db),
   ]);
   const delai = settings.pickup_days ? Number(settings.pickup_days) : null;
+  const emises = rows.filter((r) => r.keyAlias && r.keyIssuedAt && r.dataLevel);
+  // Lectures en direct dans la passerelle : une passerelle injoignable n'empêche pas d'afficher les clés.
+  const [usages, typesApi] = await Promise.all([
+    Promise.all(emises.map((r) => (r.status === "CLE_EMISE" && r.keyTokenId ? keyUsage(deps.litellm, r.keyTokenId) : null))),
+    deps.litellm.listModels().then(
+      (models) => new Map(models.map((m) => [m.modelName, m.apiKind])),
+      () => new Map<string, ApiKind>(),
+    ),
+  ]);
   return {
     toPickUp: rows
       .filter((r) => r.status === "APPROUVEE" && r.dataLevel)
@@ -63,20 +76,30 @@ export async function listMyKeys(deps: KeyDeps, user: SessionUser): Promise<MyKe
         project: r.project,
         pickupDeadline: delai !== null && r.decidedAt ? new Date(r.decidedAt.getTime() + delai * JOUR) : null,
       })),
-    keys: rows
-      .filter((r) => r.keyAlias && r.keyIssuedAt && r.dataLevel)
-      .map((r) => ({
-        requestId: r.id,
-        alias: r.keyAlias as string,
-        teamAlias: r.teamAlias,
-        dataLevel: r.dataLevel as DataLevel,
-        models: r.approvedModels,
-        project: r.project,
-        issuedAt: r.keyIssuedAt as Date,
-        expiresAt: r.keyExpiresAt,
-        status: r.status,
-      })),
+    keys: emises.map((r, i) => ({
+      requestId: r.id,
+      alias: r.keyAlias as string,
+      teamAlias: r.teamAlias,
+      dataLevel: r.dataLevel as DataLevel,
+      models: r.approvedModels,
+      project: r.project,
+      issuedAt: r.keyIssuedAt as Date,
+      expiresAt: r.keyExpiresAt,
+      status: r.status,
+      usage: usages[i],
+      example: r.approvedModels[0] ? { model: r.approvedModels[0], apiKind: typesApi.get(r.approvedModels[0]) ?? "conversation" } : null,
+    })),
   };
+}
+
+/** Dépense, budget, remise à zéro et blocage d'une clé ; null si la passerelle ne répond pas ou ne la connaît pas. */
+async function keyUsage(litellm: LiteLLMClient, tokenId: string): Promise<IssuedKey["usage"]> {
+  try {
+    const info = await litellm.getKeyInfo(tokenId);
+    return info ? { spend: info.spend, maxBudget: info.maxBudget, budgetResetAt: info.budgetResetAt, blocked: info.blocked } : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

@@ -39,9 +39,21 @@ test("le titulaire retire sa clé, la voit une seule fois, et elle fonctionne au
 
   await panneau.getByRole("button", { name: "J'ai copié ma clé" }).click();
   await expect(panneau).toHaveCount(0);
-  await expect(page.getByRole("region", { name: "Clés émises" }).getByRole("row", { name: new RegExp(`${salarie.uid}-r-d-essai-retrait-.*Clé émise`) })).toBeVisible();
+  const carte = page.getByRole("region", { name: "Clés émises" }).getByRole("article", { name: new RegExp(`^${salarie.uid}-r-d-essai-retrait-`) });
+  await expect(carte).toContainText("Clé émise");
   await page.reload();
   expect(await page.content()).not.toContain(cle);
+
+  // Ticket #16 : la dépense de l'appel apparaît (LiteLLM la compte en quelques secondes), avec le budget approuvé.
+  await expect(async () => {
+    await page.reload();
+    await expect(carte).toContainText("moins de 0,01 € sur 5,00 €", { timeout: 1_000 });
+  }).toPass({ timeout: 45_000 });
+  await expect(carte).toContainText("Remise à zéro du budget");
+  await carte.getByText("Comment l'utiliser").click();
+  await expect(carte.locator("pre").first()).toContainText('"model": "dev-public"');
+  await expect(carte).toContainText('model="dev-public"');
+  expect(await carte.textContent()).not.toContain(cle);
 });
 
 test("« Mes clés » s'affiche en anglais", async ({ browser }) => {

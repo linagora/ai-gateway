@@ -193,4 +193,17 @@ describe("clés", () => {
     expect(cle.expiresAt.getTime()).toBeLessThan(avant + 91 * 86_400_000);
     await expect(client.generateKey(parametres)).rejects.toThrow(/alias/i);
   });
+
+  test("les informations d'une clé se lisent par son empreinte : dépense, budget, remise à zéro, expiration, blocage", async () => {
+    const { userId, teamId } = await titulaire();
+    const alias = uniqueId("cle");
+    createdKeyAliases.push(alias);
+    const cle = await client.generateKey({ userId, teamId, models: ["dev-public"], maxBudget: 5, budgetDuration: "30d", duration: "90d", rpmLimit: null, tpmLimit: null, alias, metadata: {} });
+    const info = await client.getKeyInfo(cle.tokenId);
+    expect(info).toMatchObject({ spend: 0, maxBudget: 5, expiresAt: cle.expiresAt, blocked: false });
+    // LiteLLM aligne la remise à zéro sur le calendrier (le 1er du mois pour 30d) : une date future, dans la période.
+    expect(info?.budgetResetAt?.getTime()).toBeGreaterThan(Date.now());
+    expect(info?.budgetResetAt?.getTime()).toBeLessThanOrEqual(Date.now() + 31 * 86_400_000);
+    expect(await client.getKeyInfo("0".repeat(64))).toBeNull();
+  });
 });

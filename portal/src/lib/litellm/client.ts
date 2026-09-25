@@ -95,6 +95,15 @@ export interface GeneratedKey {
   expiresAt: Date;
 }
 
+/** Informations d'une clé émise, lues dans LiteLLM : dépense et budget en euros (tarifs déclarés en EUR). */
+export interface KeyInfo {
+  spend: number;
+  maxBudget: number | null;
+  budgetResetAt: Date | null;
+  expiresAt: Date | null;
+  blocked: boolean;
+}
+
 export interface LiteLLMClient {
   getUser(userId: string): Promise<LiteLLMUser | null>;
   /** F-02 : crée l'utilisateur (rôle internal_user) SANS clé : aucune clé hors du circuit de validation. */
@@ -109,6 +118,8 @@ export interface LiteLLMClient {
   listTeams(): Promise<LiteLLMTeamSummary[]>;
   /** F-40 : génère une clé ; l'alias doit être unique dans LiteLLM. */
   generateKey(params: KeyParams): Promise<GeneratedKey>;
+  /** F-42 : informations d'une clé d'après son empreinte ; null si LiteLLM ne la connaît pas. */
+  getKeyInfo(tokenId: string): Promise<KeyInfo | null>;
 }
 
 const teamSummarySchema = z.object({
@@ -162,6 +173,16 @@ const generatedKeySchema = z.object({
   token: z.string().nullish(),
   key_alias: z.string().nullish(),
   expires: z.string().nullish(),
+});
+
+const keyInfoSchema = z.object({
+  info: z.object({
+    spend: z.number().nullish(),
+    max_budget: z.number().nullish(),
+    budget_reset_at: z.string().nullish(),
+    expires: z.string().nullish(),
+    blocked: z.boolean().nullish(),
+  }),
 });
 
 const errorSchema = z.object({ error: z.object({ message: z.string() }) });
@@ -274,6 +295,21 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
       const tokenId = generated.token_id ?? generated.token;
       if (!tokenId || !generated.expires) throw new LiteLLMError(status, "LiteLLM POST /key/generate : réponse incomplète");
       return { key: generated.key, tokenId, alias: generated.key_alias ?? params.alias, expiresAt: new Date(generated.expires) };
+    },
+
+    async getKeyInfo(tokenId) {
+      const path = `/key/info?key=${encodeURIComponent(tokenId)}`;
+      const { status, data } = await call("GET", path);
+      if (status === 404) return null;
+      if (status !== 200) fail("GET", path, status, data);
+      const { info } = keyInfoSchema.parse(data);
+      return {
+        spend: info.spend ?? 0,
+        maxBudget: info.max_budget ?? null,
+        budgetResetAt: info.budget_reset_at ? new Date(info.budget_reset_at) : null,
+        expiresAt: info.expires ? new Date(info.expires) : null,
+        blocked: info.blocked === true,
+      };
     },
   };
 }

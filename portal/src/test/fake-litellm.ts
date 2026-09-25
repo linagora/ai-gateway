@@ -1,11 +1,14 @@
 import { randomBytes } from "node:crypto";
-import type { GeneratedKey, KeyParams, LiteLLMClient, LiteLLMModel, LiteLLMTeam, LiteLLMUser } from "@/lib/litellm/client";
+import type { GeneratedKey, KeyInfo, KeyParams, LiteLLMClient, LiteLLMModel, LiteLLMTeam, LiteLLMUser } from "@/lib/litellm/client";
 
 /** Clé connue du LiteLLM simulé ; `key` n'y est gardée que pour les vérifications des tests. */
 export interface FakeKey extends KeyParams {
   key: string;
   tokenId: string;
   expiresAt: Date;
+  spend: number;
+  budgetResetAt: Date;
+  blocked: boolean;
 }
 
 /** Durée LiteLLM (30d, 12h, 90m, 3600s) en millisecondes. */
@@ -69,9 +72,17 @@ export class FakeLiteLLM implements LiteLLMClient {
     if ([...this.keys.values()].some((k) => k.alias === params.alias)) throw new Error(`Key with alias '${params.alias}' already exists.`);
     const key = `sk-${randomBytes(12).toString("hex")}`;
     const tokenId = randomBytes(32).toString("hex");
-    const expiresAt = new Date(this.horloge().getTime() + durationMs(params.duration));
-    this.keys.set(tokenId, { ...params, key, tokenId, expiresAt });
+    const maintenant = this.horloge().getTime();
+    const expiresAt = new Date(maintenant + durationMs(params.duration));
+    const budgetResetAt = new Date(maintenant + durationMs(params.budgetDuration));
+    this.keys.set(tokenId, { ...params, key, tokenId, expiresAt, spend: 0, budgetResetAt, blocked: false });
     return { key, tokenId, alias: params.alias, expiresAt };
+  }
+
+  async getKeyInfo(tokenId: string): Promise<KeyInfo | null> {
+    if (this.panne) throw new Error("LiteLLM injoignable");
+    const k = this.keys.get(tokenId);
+    return k ? { spend: k.spend, maxBudget: k.maxBudget, budgetResetAt: k.budgetResetAt, expiresAt: k.expiresAt, blocked: k.blocked } : null;
   }
 
   // --- préparation des scénarios ---

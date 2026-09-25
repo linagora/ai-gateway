@@ -440,6 +440,21 @@
       "statut": "Status"
     },
     "aucune": "You have no key yet: choose models, then request a key.",
-    "catalogue": "See the catalog"
+    "catalogue": "See the catalog",
+    "depense": "Spend",
+    "depenseSur": "{depense} of {budget}",
+    "moinsDunCentime": "less than €0.01",
+    "remiseAZero": "Budget reset",
+    "infoIndisponible": "Spend and budget unavailable for now: the gateway is not responding.",
+    "bloquee": "blocked",
+    "commentUtiliser": "How to use it",
+    "emplacement": "Keep your key in the LINAGORA_API_KEY environment variable: the examples read it from there, it never appears in them.",
+    "langages": {
+      "curl": "curl",
+      "python": "Python (OpenAI SDK)",
+      "javascript": "JavaScript (OpenAI SDK)"
+    },
+    "copierExemple": "Copy the example",
+    "exempleCopie": "Example copied"
   }
 }

@@ -440,6 +440,21 @@
       "statut": "Statut"
     },
     "aucune": "Vous n'avez encore aucune clé : choisissez des modèles, puis demandez une clé.",
-    "catalogue": "Voir le catalogue"
+    "catalogue": "Voir le catalogue",
+    "depense": "Dépense",
+    "depenseSur": "{depense} sur {budget}",
+    "moinsDunCentime": "moins de 0,01 €",
+    "remiseAZero": "Remise à zéro du budget",
+    "infoIndisponible": "Dépense et budget indisponibles pour l'instant : la passerelle ne répond pas.",
+    "bloquee": "bloquée",
+    "commentUtiliser": "Comment l'utiliser",
+    "emplacement": "Gardez votre clé dans la variable d'environnement LINAGORA_API_KEY : les exemples la lisent là, elle n'y figure jamais.",
+    "langages": {
+      "curl": "curl",
+      "python": "Python (SDK OpenAI)",
+      "javascript": "JavaScript (SDK OpenAI)"
+    },
+    "copierExemple": "Copier l'exemple",
+    "exempleCopie": "Exemple copié"
   }
 }

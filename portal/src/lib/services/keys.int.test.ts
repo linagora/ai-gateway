@@ -125,3 +125,40 @@ describe("retrait d'une clé (ticket #15)", () => {
     expect((await listMyKeys(deps, titulaire)).toPickUp.map((d) => d.requestId)).toEqual([id]);
   });
 });
+
+describe("dépense, budget et exemple d'appel dans « Mes clés » (ticket #16)", () => {
+  test("chaque clé émise montre sa dépense, son budget, la remise à zéro et son état bloqué, lus dans la passerelle", async () => {
+    const id = await demandeApprouvee();
+    const { key } = await pickUpKey(deps, titulaire, id);
+    const generee = [...litellm.keys.values()].find((k) => k.key === key)!;
+    generee.spend = 2.5;
+    expect((await listMyKeys(deps, titulaire)).keys[0].usage).toEqual({
+      spend: 2.5,
+      maxBudget: 15,
+      budgetResetAt: new Date(maintenant.getTime() + 30 * JOUR),
+      blocked: false,
+    });
+  });
+
+  test("une passerelle injoignable n'empêche pas « Mes clés » : seules les valeurs lues dans la passerelle manquent", async () => {
+    const id = await demandeApprouvee();
+    await pickUpKey(deps, titulaire, id);
+    litellm.panne = true;
+    expect((await listMyKeys(deps, titulaire)).keys).toEqual([expect.objectContaining({ requestId: id, usage: null })]);
+  });
+
+  test("l'exemple d'appel d'une clé porte son premier modèle et le type d'API de celui-ci", async () => {
+    litellm.withModel({ modelName: "jev-latest", apiKind: "decision" });
+    const fiche = { shortDescriptionFr: "…", longDescriptionFr: "…", useCases: [], recommendedFor: [], visible: true };
+    await saveCatalogEntry(deps, admin, { ...fiche, modelName: "jev-latest", displayNameFr: "JEV", dataLevel: "EXP" });
+    const { id } = await createKeyRequest(deps, titulaire, { ...demande, dataLevel: "EXP", models: ["jev-latest"] });
+    await approveKeyRequest(deps, admin, id, { models: ["jev-latest"], budget: 5, budgetDuration: "30d", days: 30, rpmLimit: null, tpmLimit: null });
+    await pickUpKey(deps, titulaire, id);
+    const idConversation = await demandeApprouvee();
+    await pickUpKey(deps, titulaire, idConversation);
+    expect(Object.fromEntries((await listMyKeys(deps, titulaire)).keys.map((k) => [k.requestId, k.example]))).toEqual({
+      [id]: { model: "jev-latest", apiKind: "decision" },
+      [idConversation]: { model: "mistral-small", apiKind: "conversation" },
+    });
+  });
+});
