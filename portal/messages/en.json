@@ -95,7 +95,8 @@
       "transition_interdite": "{cas, select, modifiee {The request was modified in the meantime; reload the page.} traitee {This request has already been processed.} expiree {This key has expired: request its renewal.} bloquee {This key has been blocked by an administrator.} other {This action is not possible in the current status of the request.}}",
       "saisie_invalide": "Invalid input: check the fields {champs}.",
       "inconnue": "An error occurred.",
-      "passerelle_indisponible": "The gateway is not responding: try again in a few moments."
+      "passerelle_indisponible": "The gateway is not responding: try again in a few moments.",
+      "trop_de_generations": "Too many keys generated in a short time: try again in a few minutes."
     },
     "controles": {
       "membre_equipe": "The requester is a member of the team",

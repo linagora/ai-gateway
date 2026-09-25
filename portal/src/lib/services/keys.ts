@@ -4,6 +4,7 @@ import { PortalError } from "@/lib/errors";
 import type { AccessRequest } from "@/generated/prisma/client";
 import type { ApiKind, KeyInfo, KeyParams, LiteLLMClient } from "@/lib/litellm/client";
 import type { DataLevel, RequestStatus } from "@/lib/policy";
+import type { LimiteDeDebit } from "@/lib/limite-de-debit";
 import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
 import { markExpired } from "./echeances";
@@ -16,6 +17,15 @@ export interface KeyDeps extends NotificationDeps {
   db: Db;
   litellm: LiteLLMClient;
   now?: () => Date;
+  /** Limite de fréquence des retraits et remplacements, par titulaire ; aucune limite si absente. */
+  limiteGenerations?: LimiteDeDebit;
+}
+
+/** Le retrait et le remplacement sont limités en fréquence par titulaire (spécification #14). */
+function verifierFrequence(deps: KeyDeps, user: SessionUser, maintenant: Date): void {
+  if (deps.limiteGenerations && !deps.limiteGenerations.autoriser(user.uid, maintenant)) {
+    throw new PortalError("trop_de_generations", "Trop de clés générées en peu de temps.");
+  }
 }
 
 const JOUR = 86_400_000;
@@ -122,6 +132,7 @@ export async function pickUpKey(deps: KeyDeps, user: SessionUser, requestId: str
   }
   if (request.status !== "APPROUVEE") throw new PortalError("transition_interdite", "Cette demande n'a pas de clé à retirer.", { cas: "traitee" });
   if (!request.approvedDays) throw new PortalError("parametre_manquant", "Paramètres de la clé incomplets.");
+  verifierFrequence(deps, user, maintenant);
   const { count } = await deps.db.accessRequest.updateMany({ where: { id: request.id, status: "APPROUVEE" }, data: { status: "CLE_EMISE", keyIssuedAt: maintenant } });
   if (count === 0) throw new PortalError("transition_interdite", "La demande a été modifiée entre-temps ; rechargez la page.", { cas: "modifiee" });
   const rendreARetirer = () =>
@@ -275,6 +286,7 @@ export async function replaceKey(deps: KeyDeps, user: SessionUser, requestId: st
     throw new PortalError("passerelle_indisponible", "L'état de la clé n'a pas pu être vérifié.");
   });
   if (etat?.blocked) throw new PortalError("transition_interdite", "Cette clé est bloquée par un administrateur.", { cas: "bloquee" });
+  verifierFrequence(deps, user, maintenant);
   const rang = request.keyReplacements + 2;
   let nouvelle;
   try {

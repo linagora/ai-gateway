@@ -6,6 +6,7 @@ import { type SessionUser, toPortalUser } from "@/lib/auth-user";
 import { addressesFromEnv, mailerFromEnv } from "@/lib/courriel";
 import { getDb } from "@/lib/db";
 import { getLiteLLM } from "@/lib/litellm/instance";
+import { LimiteDeDebit } from "@/lib/limite-de-debit";
 
 /**
  * Couche d'accès aux données (DAL) : l'utilisateur courant, reconstruit à chaque requête. Le rôle
@@ -31,11 +32,15 @@ export async function requireAdminPage(): Promise<SessionUser> {
   return user;
 }
 
+/** Au plus cinq retraits ou remplacements de clé par titulaire en dix minutes (spécification #14). */
+const limiteGenerations = new LimiteDeDebit(5, 10 * 60_000);
+
 /** Dépendances réelles des cas d'usage ; sans configuration SMTP, aucun courriel n'est envoyé. */
 export function getDeps() {
   return {
     db: getDb(),
     litellm: getLiteLLM(),
+    limiteGenerations,
     mailer: mailerFromEnv(),
     adminEmails: addressesFromEnv(process.env.ADMIN_NOTIFICATION_EMAILS),
     portalUrl: process.env.AUTH_URL,

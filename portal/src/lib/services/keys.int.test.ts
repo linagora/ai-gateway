@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test } from "vitest";
+import { LimiteDeDebit } from "@/lib/limite-de-debit";
 import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
 import { FakeMailer } from "@/test/fake-mailer";
@@ -484,5 +485,15 @@ describe("robustesse du retrait (revue de code)", () => {
     expect(resultats.map((r) => r.status).sort()).toEqual(["fulfilled", "rejected"]);
     expect(resultats.find((r) => r.status === "rejected")).toMatchObject({ reason: { code: "transition_interdite" } });
     expect(litellm.keys.size).toBe(1);
+  });
+
+  test("au-delà de cinq retraits ou remplacements en dix minutes, le titulaire doit patienter", async () => {
+    const limites = { ...deps, limiteGenerations: new LimiteDeDebit(5, 10 * 60_000) };
+    const id = await demandeApprouvee();
+    await pickUpKey(limites, titulaire, id);
+    for (let i = 0; i < 4; i++) await replaceKey(limites, titulaire, id);
+    await expect(replaceKey(limites, titulaire, id)).rejects.toMatchObject({ code: "trop_de_generations" });
+    maintenant = new Date(maintenant.getTime() + 10 * 60_000 + 1);
+    await expect(replaceKey(limites, titulaire, id)).resolves.toMatchObject({ key: expect.stringMatching(/^sk-/) });
   });
 });

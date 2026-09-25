@@ -15,7 +15,8 @@ export type PortalErrorCode =
   | "passerelle_indisponible"
   | "recommandation_hors_cas_usage"
   | "tarif_eur_manquant"
-  | "transition_interdite";
+  | "transition_interdite"
+  | "trop_de_generations";
 
 export class PortalError extends Error {
   constructor(
