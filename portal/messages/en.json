@@ -539,7 +539,10 @@
       "examen": "An administrator reviews your request; an email tells you as soon as it is approved.",
       "examenLien": "Track my requests",
       "retrait": "Come back here to generate your key: it is shown only once, copy it right away."
-    }
+    },
+    "adresseApi": "API address",
+    "copierAdresse": "Copy the address",
+    "adresseCopiee": "Address copied"
   },
   "courriels": {
     "lien": "Link: {url}",

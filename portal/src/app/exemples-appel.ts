@@ -3,6 +3,11 @@ import type { ApiKind } from "@/lib/litellm/client";
 /** Adresse publique de l'API (plan d'adresses de la passerelle), sauf configuration contraire. */
 const ADRESSE_PAR_DEFAUT = "https://ai-api.linagora.com/v1";
 
+/** Adresse de l'API compatible OpenAI (endpoint) à donner aux salariés, sans barre oblique finale. */
+export function adresseApi(): string {
+  return (process.env.PUBLIC_API_BASE_URL || ADRESSE_PAR_DEFAUT).replace(/\/$/, "");
+}
+
 /** Textes d'exemple, dans la langue du salarié. */
 export interface TextesExemple {
   message: string;
@@ -19,7 +24,7 @@ export type Langage = (typeof LANGAGES)[number];
  * JEV reçoit dans le dernier message sa requête « System One » en JSON : un état et des questions typées.
  */
 export function exemplesAppel(modelName: string, apiKind: ApiKind, textes: TextesExemple): Record<Langage, string> {
-  const adresse = (process.env.PUBLIC_API_BASE_URL || ADRESSE_PAR_DEFAUT).replace(/\/$/, "");
+  const adresse = adresseApi();
   const contenu =
     apiKind === "decision"
       ? JSON.stringify({ state: textes.etat, questions: { urgent: { type: "noul", instructions: textes.question } } })

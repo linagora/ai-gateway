@@ -46,6 +46,9 @@ test("le titulaire retire sa clé, la voit une seule fois, et elle fonctionne au
   await page.reload();
   expect(await page.content()).not.toContain(cle);
   await expect(page.getByRole("link", { name: "Mes clés", exact: true })).toBeVisible();
+  // La carte donne l'adresse de l'API (endpoint), celle des exemples d'appel.
+  await expect(carte).toContainText("Adresse de l'API");
+  await expect(carte).toContainText("http://127.0.0.1:54400/admin/v1");
 
   // Ticket #16 : la dépense de l'appel apparaît (LiteLLM la compte en quelques secondes), avec le budget approuvé.
   await expect(async () => {

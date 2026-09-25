@@ -5,7 +5,7 @@ import { getDeps, requireUser } from "@/lib/session";
 import { BoutonCopier } from "../../bouton-copier";
 import { remplacerCleAction, retirerCleAction, revoquerCleAction } from "../../actions";
 import { DepenseSurBudget, formats, Notice } from "../../components";
-import { exemplesAppel, LANGAGES } from "../../exemples-appel";
+import { adresseApi, exemplesAppel, LANGAGES } from "../../exemples-appel";
 import { GenerationCle } from "./generation-cle";
 
 /** Tickets #15 et suivants : les demandes approuvées à retirer, puis les clés émises du titulaire. */
@@ -82,6 +82,15 @@ export default async function MesClesPage(props: PageProps<"/cles">) {
                   </dd>
                   <dt className="font-medium">{t("colonnes.emise")}</dt>
                   <dd>{date(k.issuedAt)}</dd>
+                  {k.status === "CLE_EMISE" && (
+                    <>
+                      <dt className="font-medium">{t("adresseApi")}</dt>
+                      <dd className="flex flex-wrap items-center gap-2">
+                        <code className="break-all">{adresseApi()}</code>
+                        <BoutonCopier texte={adresseApi()} libelle={t("copierAdresse")} libelleCopie={t("adresseCopiee")} />
+                      </dd>
+                    </>
+                  )}
                   <dt className="font-medium">{t("colonnes.expiration")}</dt>
                   <dd>{k.expiresAt ? date(k.expiresAt) : domaine("durees.0")}</dd>
                   {k.gatewayState && (

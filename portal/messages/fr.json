@@ -539,7 +539,10 @@
       "examen": "Un administrateur examine votre demande ; un courriel vous prévient dès qu'elle est approuvée.",
       "examenLien": "Suivre mes demandes",
       "retrait": "Revenez ici pour générer votre clé : elle ne s'affiche qu'une seule fois, copiez-la aussitôt."
-    }
+    },
+    "adresseApi": "Adresse de l'API",
+    "copierAdresse": "Copier l'adresse",
+    "adresseCopiee": "Adresse copiée"
   },
   "courriels": {
     "lien": "Lien : {url}",
