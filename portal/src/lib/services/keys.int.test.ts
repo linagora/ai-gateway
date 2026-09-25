@@ -494,6 +494,15 @@ describe("courriels des actions d'un admin sur une clé (ticket #26)", () => {
     expect(mailer.outbox[2].text).toContain("https://portail.test/cles");
   });
 
+  test("un courriel qui ne part pas n'empêche pas l'action de l'admin", async () => {
+    const id = await demandeApprouvee();
+    await pickUpKey(deps, titulaire, id);
+    mailer.panne = true;
+    await blockKey(avecCourriel(), admin, id);
+    expect((await listMyKeys(deps, titulaire)).keys[0].gatewayState?.blocked).toBe(true);
+    expect(mailer.outbox).toEqual([]);
+  });
+
   test("les actions du titulaire sur ses propres clés n'envoient aucun courriel", async () => {
     const id = await demandeApprouvee();
     await pickUpKey(avecCourriel(), titulaire, id);
