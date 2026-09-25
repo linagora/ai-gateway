@@ -101,7 +101,7 @@ export async function runDailyTask(deps: DailyTaskDeps): Promise<DailyTaskReport
       const { count } = await deps.db.accessRequest.updateMany({ where: { id: r.id, pickupReminderSentAt: null }, data: { pickupReminderSentAt: maintenant } });
       if (count === 0) continue;
       rappelsRetrait++;
-      await notifyPickupReminder(deps, { to: r.requesterEmail, equipe: r.teamAlias, echeance });
+      await notifyPickupReminder(deps, r, echeance);
     }
   }
   const aExpirer = await deps.db.accessRequest.findMany({
@@ -121,7 +121,7 @@ export async function runDailyTask(deps: DailyTaskDeps): Promise<DailyTaskReport
     });
     if (count === 0) continue;
     rappelsExpiration++;
-    await notifyExpiryReminder(deps, { to: r.requesterEmail, alias: r.keyAlias, echeance: r.keyExpiresAt, jours });
+    await notifyExpiryReminder(deps, { ...r, keyAlias: r.keyAlias, keyExpiresAt: r.keyExpiresAt }, jours);
   }
   return { rappelsRetrait, rappelsExpiration, ...expirations };
 }

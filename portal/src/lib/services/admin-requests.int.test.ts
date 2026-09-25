@@ -238,34 +238,48 @@ describe("courriels des décisions au demandeur (ticket #24)", () => {
     await saveSettings(deps, admin, { pickup_days: "14" });
   });
 
-  test("approbation : l'échéance de retrait et un lien vers « Mes clés », jamais de clé", async () => {
+  test("approbation : le demandeur est salué, les paramètres de sa clé récapitulés, avec l'échéance de retrait, jamais de clé", async () => {
     const { id } = await createKeyRequest(deps, demandeur, demande);
     await approveKeyRequest(avecCourriel(), admin, id, parametres);
     expect(recus()).toEqual([
-      {
-        to: ["mmaudet@linagora.com"],
-        subject: "Votre demande de clé est approuvée / Your key request is approved",
-        text: expect.stringContaining("Votre demande de clé d'API pour l'équipe R&D est approuvée. Retirez votre clé avant le 15 octobre 2026 dans « Mes clés »."),
-      },
+      { to: ["mmaudet@linagora.com"], subject: "[AI GATEWAY] Votre demande de clé est approuvée / Your key request is approved", text: expect.stringContaining("Bonjour Michel-Marie Maudet,") },
     ]);
-    expect(recus()[0].text).toContain("Your API key request for the R&D team is approved. Pick up your key before October 15, 2026 in “My keys”.");
-    expect(recus()[0].text).toContain("https://portail.test/cles");
+    const texte = recus()[0].text;
+    expect(texte).toContain(
+      [
+        "Votre demande de clé d'API pour l'équipe R&D est approuvée. Paramètres de votre clé :",
+        "- Équipe : R&D",
+        "- Niveau de confidentialité : N2 — Interne",
+        "- Modèles accordés : mistral-small",
+      ].join("\n"),
+    );
+    expect(texte).toMatch(/- Budget : 15,00\s€ par période de 30 jours\n- Durée de validité : 60 jours\n- Projet : compte-rendu/);
+    expect(texte).toContain("Retirez votre clé avant le 15 octobre 2026 dans « Mes clés » : elle ne s'affichera qu'une seule fois.");
+    expect(texte).toContain("Hello Michel-Marie Maudet,");
+    expect(texte).toContain("Pick up your key before October 15, 2026 in “My keys”: it will be shown only once.");
+    expect(texte).toContain("https://portail.test/cles");
   });
 
   test("refus, avec le motif", async () => {
     const { id } = await createKeyRequest(deps, demandeur, demande);
     await refuseRequest(avecCourriel(), admin, id, "Budget non justifié");
     expect(recus()).toEqual([
-      { to: ["mmaudet@linagora.com"], subject: "Votre demande est refusée / Your request is refused", text: expect.stringContaining("Motif : Budget non justifié") },
+      { to: ["mmaudet@linagora.com"], subject: "[AI GATEWAY] Votre demande est refusée / Your request is refused", text: expect.stringContaining("Motif du refus : Budget non justifié") },
     ]);
-    expect(recus()[0].text).toContain("Reason: Budget non justifié");
+    expect(recus()[0].text).toContain("Bonjour Michel-Marie Maudet,\n\nVotre demande de clé d'API pour l'équipe R&D est refusée.");
+    expect(recus()[0].text).toContain("- Modèles : mistral-small, qwen3.8");
+    expect(recus()[0].text).toContain("Reason for refusal: Budget non justifié");
   });
 
   test("complément demandé, avec le commentaire de l'admin et un lien vers « Mes demandes »", async () => {
     const { id } = await createKeyRequest(deps, demandeur, demande);
     await requestCompletion(avecCourriel(), admin, id, "Précisez le projet");
     expect(recus()).toEqual([
-      { to: ["mmaudet@linagora.com"], subject: "Votre demande est à compléter / Your request needs more information", text: expect.stringContaining("Commentaire : Précisez le projet") },
+      {
+        to: ["mmaudet@linagora.com"],
+        subject: "[AI GATEWAY] Votre demande est à compléter / Your request needs more information",
+        text: expect.stringContaining("Commentaire de l'administrateur : Précisez le projet"),
+      },
     ]);
     expect(recus()[0].text).toContain("https://portail.test/demandes");
   });
@@ -276,8 +290,12 @@ describe("courriels des décisions au demandeur (ticket #24)", () => {
     const { id } = await createTeamJoinRequest(deps, demandeur, { teamId: "equipe-data", justification: "Projet d'analyse" });
     await approveTeamJoinRequest(avecCourriel(), admin, id, "equipe-lps");
     expect(recus()).toEqual([
-      { to: ["mmaudet@linagora.com"], subject: "Votre demande d'accès est acceptée / Your access request is accepted", text: expect.stringContaining("Vous êtes désormais membre de l'équipe LPS Paris.") },
+      {
+        to: ["mmaudet@linagora.com"],
+        subject: "[AI GATEWAY] Votre demande d'accès est acceptée / Your access request is accepted",
+        text: expect.stringContaining("Bonjour Michel-Marie Maudet,\n\nVotre demande d'accès est acceptée : vous êtes désormais membre de l'équipe LPS Paris."),
+      },
     ]);
-    expect(recus()[0].text).toContain("You are now a member of the LPS Paris team.");
+    expect(recus()[0].text).toContain("Your access request is accepted: you are now a member of the LPS Paris team.");
   });
 });

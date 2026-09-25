@@ -132,22 +132,34 @@ describe("notification des admins (ticket #23)", () => {
     litellm.withTeam({ teamId: "equipe-lps", teamAlias: "LPS Paris", models: [], memberUids: [] });
   });
 
-  test("une nouvelle demande de clé envoie aux admins un courriel bilingue, avec un lien vers sa fiche de validation", async () => {
+  test("une nouvelle demande de clé envoie aux admins un courriel bilingue qui nomme le demandeur et récapitule sa demande", async () => {
     const { id } = await createKeyRequest(avecCourriel(), demandeur, demande);
     expect(mailer.outbox).toHaveLength(1);
     const [courriel] = mailer.outbox;
     expect(courriel.to).toEqual(ADMINS);
-    expect(courriel.subject).toBe("Nouvelle demande de clé d'API / New API key request");
+    expect(courriel.subject).toBe("[AI GATEWAY] Nouvelle demande de clé d'API de Michel-Marie Maudet / New API key request from Michel-Marie Maudet");
+    expect(courriel.text).toContain(
+      [
+        "Michel-Marie Maudet (mmaudet@linagora.com) a déposé une demande de clé d'API :",
+        "- Équipe : R&D",
+        "- Niveau de confidentialité : N2 — Interne",
+        "- Modèles : mistral-small, qwen3.8",
+        "- Projet : compte-rendu",
+        "- Motif : Assistant de rédaction des comptes rendus",
+        "- Durée souhaitée : 3 mois",
+      ].join("\n"),
+    );
+    expect(courriel.text).toContain("Michel-Marie Maudet (mmaudet@linagora.com) submitted an API key request:\n- Team: R&D\n- Confidentiality level: N2 — Internal");
     expect(courriel.text).toContain(`https://portail.test/gestion/demandes/${id}`);
-    expect(courriel.text).toContain("mmaudet a demandé une clé d'API pour l'équipe R&D (N2 — Interne).");
-    expect(courriel.text).toContain("mmaudet requested an API key for the R&D team (N2 — Internal).");
-    expect(courriel.text.indexOf("mmaudet a demandé")).toBeLessThan(courriel.text.indexOf("mmaudet requested"));
+    expect(courriel.text.indexOf("a déposé")).toBeLessThan(courriel.text.indexOf("submitted"));
   });
 
   test("une nouvelle demande d'accès aussi", async () => {
     const { id } = await createTeamJoinRequest(avecCourriel(), demandeur, { teamId: "equipe-lps", justification: "Rejoindre mon équipe" });
-    expect(mailer.outbox.map((c) => [c.to, c.subject])).toEqual([[ADMINS, "Nouvelle demande d'accès à une équipe / New team access request"]]);
-    expect(mailer.outbox[0].text).toContain("mmaudet demande à rejoindre l'équipe LPS Paris.");
+    expect(mailer.outbox.map((c) => [c.to, c.subject])).toEqual([
+      [ADMINS, "[AI GATEWAY] Nouvelle demande d'accès à une équipe de Michel-Marie Maudet / New team access request from Michel-Marie Maudet"],
+    ]);
+    expect(mailer.outbox[0].text).toContain("Michel-Marie Maudet (mmaudet@linagora.com) demande à rejoindre l'équipe LPS Paris :\n- Motif : Rejoindre mon équipe");
     expect(mailer.outbox[0].text).toContain(`https://portail.test/gestion/demandes/${id}`);
   });
 

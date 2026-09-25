@@ -51,7 +51,7 @@ export async function createKeyRequest(deps: RequestDeps, user: SessionUser, inp
   const fields = await validateKeyRequest(deps, user, input);
   const origine = input.renewsRequestId ? await ownKeyToRenew(deps, user, input.renewsRequestId) : null;
   const created = await deps.db.accessRequest.create({
-    data: { kind: "CLE", requesterUid: user.uid, requesterEmail: user.email, ...fields, renewsRequestId: origine?.id ?? null },
+    data: { kind: "CLE", requesterUid: user.uid, requesterEmail: user.email, requesterName: user.name, ...fields, renewsRequestId: origine?.id ?? null },
   });
   await recordAudit(deps.db, {
     actorUid: user.uid,
@@ -120,6 +120,7 @@ export async function createTeamJoinRequest(deps: RequestDeps, user: SessionUser
       kind: "ADHESION_EQUIPE",
       requesterUid: user.uid,
       requesterEmail: user.email,
+      requesterName: user.name,
       teamId: team.teamId,
       teamAlias: team.teamAlias,
       models: [],

@@ -509,30 +509,57 @@
   },
   "courriels": {
     "lien": "Link: {url}",
+    "bonjour": "Hello {nom},",
+    "bonjourAdmins": "Hello,",
+    "examiner": "Review it in the portal's approval queue.",
+    "rappelDemande": "Your request:",
+    "rappelApprobation": "Your key's parameters:",
+    "rappelCle": "Your key:",
+    "recap": {
+      "ligne": "- {libelle}: {valeur}",
+      "equipe": "Team",
+      "niveau": "Confidentiality level",
+      "modeles": "Models",
+      "modelesAccordes": "Granted models",
+      "projet": "Project",
+      "motif": "Reason",
+      "dureeSouhaitee": "Requested duration",
+      "budget": "Budget",
+      "budgetValeur": "{montant, number, ::currency/EUR} every {periode}",
+      "validite": "Validity",
+      "expiration": "Expires",
+      "date": "{date, date, long}"
+    },
     "nouvelleDemandeCle": {
-      "sujet": "New API key request",
-      "corps": "{uid} requested an API key for the {equipe} team ({niveau})."
+      "sujet": "New API key request from {nom}",
+      "corps": "{nom} ({email}) submitted an API key request:"
     },
     "nouvelleDemandeAdhesion": {
-      "sujet": "New team access request",
-      "corps": "{uid} asks to join the {equipe} team."
+      "sujet": "New team access request from {nom}",
+      "corps": "{nom} ({email}) asks to join the {equipe} team:"
     },
     "demandeApprouvee": {
       "sujet": "Your key request is approved",
-      "corps": "Your API key request for the {equipe} team is approved. Pick up your key before {date, date, long} in “My keys”.",
-      "corpsSansEcheance": "Your API key request for the {equipe} team is approved. Pick up your key in “My keys”."
+      "corps": "Your API key request for the {equipe} team is approved. Your key's parameters:",
+      "retrait": "Pick up your key before {date, date, long} in “My keys”: it will be shown only once.",
+      "retraitSansEcheance": "Pick up your key in “My keys”: it will be shown only once."
     },
     "demandeRefusee": {
       "sujet": "Your request is refused",
-      "corps": "Your request for the {equipe} team is refused.\nReason: {motif}"
+      "corps": "{type, select, CLE {Your API key request for the {equipe} team is refused.} other {Your request to join the {equipe} team is refused.}}",
+      "motif": "Reason for refusal: {motif}",
+      "suite": "You can submit a new request from the portal."
     },
     "complementDemande": {
       "sujet": "Your request needs more information",
-      "corps": "An administrator asks for more information on your request for the {equipe} team.\nComment: {commentaire}"
+      "corps": "{type, select, CLE {An administrator asks for more information about your API key request for the {equipe} team.} other {An administrator asks for more information about your request to join the {equipe} team.}}",
+      "commentaire": "Administrator's comment: {commentaire}",
+      "suite": "Complete it in “My requests”."
     },
     "adhesionAcceptee": {
       "sujet": "Your access request is accepted",
-      "corps": "You are now a member of the {equipe} team. You can request an API key for it."
+      "corps": "Your access request is accepted: you are now a member of the {equipe} team.",
+      "suite": "You can now request an API key for it: choose the confidentiality level, the models and the duration."
     },
     "rappelRetrait": {
       "sujet": "Reminder: your key is waiting to be picked up",
@@ -540,8 +567,9 @@
     },
     "rappelExpiration": {
       "sujet": "Reminder: your key {alias} expires soon",
-      "corps": "Your API key {alias} expires {delai}, on {date, date, long}. To keep using it, request its renewal in “My keys”.",
-      "delai": "{jours, plural, =0 {today} =1 {tomorrow} =30 {in a month} other {in # days}}"
+      "corps": "Your API key {alias} expires {delai}, on {date, date, long}.",
+      "delai": "{jours, plural, =0 {today} =1 {tomorrow} =30 {in a month} other {in # days}}",
+      "suite": "To keep using it, request its renewal in “My keys”."
     },
     "cleRevoquee": {
       "sujet": "Your key {alias} has been revoked",

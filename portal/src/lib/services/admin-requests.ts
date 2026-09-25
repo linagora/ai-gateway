@@ -168,12 +168,8 @@ export async function approveKeyRequest(deps: AdminDeps, actor: SessionUser, id:
     },
   });
   await recordAudit(deps.db, { actorUid: actor.uid, action: "REQUEST_APPROVED", targetId: request.id, details: { teamAlias: equipe.teamAlias } });
-  const delai = await readPickupDays(deps.db);
-  await notifyKeyApproved(deps, {
-    to: request.requesterEmail,
-    equipe: equipe.teamAlias,
-    echeance: delai !== null ? pickupDeadline(approuveeLe, delai) : null,
-  });
+  const [approuvee, delai] = await Promise.all([deps.db.accessRequest.findUniqueOrThrow({ where: { id: request.id } }), readPickupDays(deps.db)]);
+  await notifyKeyApproved(deps, approuvee, delai !== null ? pickupDeadline(approuveeLe, delai) : null);
 }
 
 /** Règle 7 : les paramètres non saisis prennent les valeurs par défaut configurées (F-51). */
@@ -200,7 +196,7 @@ export async function refuseRequest(deps: AdminDeps, actor: SessionUser, id: str
     data: { decidedBy: actor.uid, decidedAt: new Date(), decisionComment: comment.trim() },
   });
   await recordAudit(deps.db, { actorUid: actor.uid, action: "REQUEST_REFUSED", targetId: request.id, details: { motif: comment.trim() } });
-  await notifyRefused(deps, { to: request.requesterEmail, equipe: request.teamAlias, motif: comment.trim() });
+  await notifyRefused(deps, request, comment.trim());
 }
 
 /** F-31 : renvoie la demande au demandeur pour qu'il la complète (statut A_COMPLETER). */
@@ -212,7 +208,7 @@ export async function requestCompletion(deps: AdminDeps, actor: SessionUser, id:
     data: { decidedBy: actor.uid, decidedAt: new Date(), decisionComment: comment.trim() || null },
   });
   await recordAudit(deps.db, { actorUid: actor.uid, action: "COMPLETION_REQUESTED", targetId: request.id, details: { commentaire: comment.trim() || null } });
-  await notifyCompletionRequested(deps, { to: request.requesterEmail, equipe: request.teamAlias, commentaire: comment.trim() || null });
+  await notifyCompletionRequested(deps, request, comment.trim() || null);
 }
 
 /**
@@ -228,7 +224,7 @@ export async function approveTeamJoinRequest(deps: AdminDeps, actor: SessionUser
   await deps.litellm.addTeamMember(equipe.teamId, request.requesterUid);
   await transitionRequest(deps.db, request, "APPROUVEE", { data: { ...equipe, decidedBy: actor.uid, decidedAt: new Date() } });
   await recordAudit(deps.db, { actorUid: actor.uid, action: "MEMBERSHIP_APPROVED", targetId: request.id, details: { teamAlias: equipe.teamAlias } });
-  await notifyMembershipApproved(deps, { to: request.requesterEmail, equipe: equipe.teamAlias });
+  await notifyMembershipApproved(deps, request, equipe.teamAlias);
 }
 
 /** Équipe retenue à l'approbation : celle de la demande, sauf si l'admin en choisit une autre, qui doit exister. */

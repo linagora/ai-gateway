@@ -426,7 +426,7 @@ describe("tâche quotidienne : échéances et rappels (ticket #25)", () => {
     maintenant = new Date("2026-10-12T05:00:00Z"); // 12 octobre, 7 h à Paris : J-3
     expect(await tache()).toMatchObject({ rappelsRetrait: 1 });
     await tache();
-    expect(sujets()).toEqual([["mmaudet@linagora.com", "Rappel : votre clé est à retirer / Reminder: your key is waiting to be picked up"]]);
+    expect(sujets()).toEqual([["mmaudet@linagora.com", "[AI GATEWAY] Rappel : votre clé est à retirer / Reminder: your key is waiting to be picked up"]]);
     expect(mailer.outbox[0].text).toContain("Retirez-la avant le 15 octobre 2026 dans « Mes clés »");
   });
 
@@ -469,9 +469,9 @@ describe("courriels des actions d'un admin sur une clé (ticket #26)", () => {
     await unblockKey(avecCourriel(), admin, bloquee);
     await revokeKey(avecCourriel(), admin, revoquee);
     expect(mailer.outbox.map((c) => [c.to, c.subject])).toEqual([
-      [["mmaudet@linagora.com"], `Votre clé ${alias(bloquee)} est bloquée / Your key ${alias(bloquee)} is blocked`],
-      [["mmaudet@linagora.com"], `Votre clé ${alias(bloquee)} est débloquée / Your key ${alias(bloquee)} is unblocked`],
-      [["mmaudet@linagora.com"], `Votre clé ${alias(revoquee)} a été révoquée / Your key ${alias(revoquee)} has been revoked`],
+      [["mmaudet@linagora.com"], `[AI GATEWAY] Votre clé ${alias(bloquee)} est bloquée / Your key ${alias(bloquee)} is blocked`],
+      [["mmaudet@linagora.com"], `[AI GATEWAY] Votre clé ${alias(bloquee)} est débloquée / Your key ${alias(bloquee)} is unblocked`],
+      [["mmaudet@linagora.com"], `[AI GATEWAY] Votre clé ${alias(revoquee)} a été révoquée / Your key ${alias(revoquee)} has been revoked`],
     ]);
     expect(mailer.outbox[2].text).toContain("Un administrateur a révoqué votre clé d'API");
     expect(mailer.outbox[2].text).toContain("https://portail.test/cles");
@@ -601,9 +601,11 @@ describe("rappels d'expiration un mois, sept jours et la veille, selon la durée
     expect(mailer.outbox).toEqual([]);
     await chaqueMatin("2026-11-30", "2026-11-30");
     expect(delais()).toEqual(["dans un mois"]);
-    expect(mailer.outbox[0].subject).toBe(`Rappel : votre clé mmaudet-r-d-compte-rendu-hebdo-${id.slice(-4)} expire bientôt / Reminder: your key mmaudet-r-d-compte-rendu-hebdo-${id.slice(-4)} expires soon`);
+    expect(mailer.outbox[0].subject).toBe(`[AI GATEWAY] Rappel : votre clé mmaudet-r-d-compte-rendu-hebdo-${id.slice(-4)} expire bientôt / Reminder: your key mmaudet-r-d-compte-rendu-hebdo-${id.slice(-4)} expires soon`);
     expect(mailer.outbox[0].text).toContain("expire dans un mois, le 30 décembre 2026");
     expect(mailer.outbox[0].text).toContain("expires in a month, on December 30, 2026");
+    expect(mailer.outbox[0].text).toContain(`Bonjour Michel-Marie Maudet,\n\nVotre clé d'API mmaudet-r-d-compte-rendu-hebdo-${id.slice(-4)} expire dans un mois`);
+    expect(mailer.outbox[0].text).toContain("- Équipe : R&D\n- Niveau de confidentialité : N2 — Interne\n- Modèles : mistral-small");
     expect(mailer.outbox[0].text).toContain("https://portail.test/cles");
     await chaqueMatin("2026-12-01", "2026-12-22");
     expect(delais()).toEqual(["dans un mois"]);

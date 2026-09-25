@@ -509,30 +509,57 @@
   },
   "courriels": {
     "lien": "Lien : {url}",
+    "bonjour": "Bonjour {nom},",
+    "bonjourAdmins": "Bonjour,",
+    "examiner": "Examinez-la dans la file de validation du portail.",
+    "rappelDemande": "Rappel de votre demande :",
+    "rappelApprobation": "Paramètres de votre clé :",
+    "rappelCle": "Rappel de votre clé :",
+    "recap": {
+      "ligne": "- {libelle} : {valeur}",
+      "equipe": "Équipe",
+      "niveau": "Niveau de confidentialité",
+      "modeles": "Modèles",
+      "modelesAccordes": "Modèles accordés",
+      "projet": "Projet",
+      "motif": "Motif",
+      "dureeSouhaitee": "Durée souhaitée",
+      "budget": "Budget",
+      "budgetValeur": "{montant, number, ::currency/EUR} par période de {periode}",
+      "validite": "Durée de validité",
+      "expiration": "Expiration",
+      "date": "{date, date, long}"
+    },
     "nouvelleDemandeCle": {
-      "sujet": "Nouvelle demande de clé d'API",
-      "corps": "{uid} a demandé une clé d'API pour l'équipe {equipe} ({niveau})."
+      "sujet": "Nouvelle demande de clé d'API de {nom}",
+      "corps": "{nom} ({email}) a déposé une demande de clé d'API :"
     },
     "nouvelleDemandeAdhesion": {
-      "sujet": "Nouvelle demande d'accès à une équipe",
-      "corps": "{uid} demande à rejoindre l'équipe {equipe}."
+      "sujet": "Nouvelle demande d'accès à une équipe de {nom}",
+      "corps": "{nom} ({email}) demande à rejoindre l'équipe {equipe} :"
     },
     "demandeApprouvee": {
       "sujet": "Votre demande de clé est approuvée",
-      "corps": "Votre demande de clé d'API pour l'équipe {equipe} est approuvée. Retirez votre clé avant le {date, date, long} dans « Mes clés ».",
-      "corpsSansEcheance": "Votre demande de clé d'API pour l'équipe {equipe} est approuvée. Retirez votre clé dans « Mes clés »."
+      "corps": "Votre demande de clé d'API pour l'équipe {equipe} est approuvée. Paramètres de votre clé :",
+      "retrait": "Retirez votre clé avant le {date, date, long} dans « Mes clés » : elle ne s'affichera qu'une seule fois.",
+      "retraitSansEcheance": "Retirez votre clé dans « Mes clés » : elle ne s'affichera qu'une seule fois."
     },
     "demandeRefusee": {
       "sujet": "Votre demande est refusée",
-      "corps": "Votre demande pour l'équipe {equipe} est refusée.\nMotif : {motif}"
+      "corps": "{type, select, CLE {Votre demande de clé d'API pour l'équipe {equipe} est refusée.} other {Votre demande d'accès à l'équipe {equipe} est refusée.}}",
+      "motif": "Motif du refus : {motif}",
+      "suite": "Vous pouvez déposer une nouvelle demande depuis le portail."
     },
     "complementDemande": {
       "sujet": "Votre demande est à compléter",
-      "corps": "Un administrateur demande un complément sur votre demande pour l'équipe {equipe}.\nCommentaire : {commentaire}"
+      "corps": "{type, select, CLE {Un administrateur demande un complément sur votre demande de clé d'API pour l'équipe {equipe}.} other {Un administrateur demande un complément sur votre demande d'accès à l'équipe {equipe}.}}",
+      "commentaire": "Commentaire de l'administrateur : {commentaire}",
+      "suite": "Complétez-la dans « Mes demandes »."
     },
     "adhesionAcceptee": {
       "sujet": "Votre demande d'accès est acceptée",
-      "corps": "Vous êtes désormais membre de l'équipe {equipe}. Vous pouvez y demander une clé d'API."
+      "corps": "Votre demande d'accès est acceptée : vous êtes désormais membre de l'équipe {equipe}.",
+      "suite": "Vous pouvez maintenant y demander une clé d'API : choisissez le niveau de confidentialité, les modèles et la durée."
     },
     "rappelRetrait": {
       "sujet": "Rappel : votre clé est à retirer",
@@ -540,8 +567,9 @@
     },
     "rappelExpiration": {
       "sujet": "Rappel : votre clé {alias} expire bientôt",
-      "corps": "Votre clé d'API {alias} expire {delai}, le {date, date, long}. Pour continuer à l'utiliser, demandez son renouvellement dans « Mes clés ».",
-      "delai": "{jours, plural, =0 {aujourd'hui} =1 {demain} =30 {dans un mois} other {dans # jours}}"
+      "corps": "Votre clé d'API {alias} expire {delai}, le {date, date, long}.",
+      "delai": "{jours, plural, =0 {aujourd'hui} =1 {demain} =30 {dans un mois} other {dans # jours}}",
+      "suite": "Pour continuer à l'utiliser, demandez son renouvellement dans « Mes clés »."
     },
     "cleRevoquee": {
       "sujet": "Votre clé {alias} a été révoquée",

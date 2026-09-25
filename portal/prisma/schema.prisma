@@ -76,6 +76,8 @@ model AccessRequest {
   kind            RequestKind
   requesterUid    String
   requesterEmail  String
+  /// nom du demandeur au dépôt de la demande (SSO) ; absent des demandes plus anciennes
+  requesterName   String?
   /// team_id LiteLLM
   teamId          String
   teamAlias       String
