@@ -11,6 +11,9 @@ general_settings:
   # Détail par requête conservé 90 jours ; les tables agrégées Daily* gardent l'historique
   maximum_spend_logs_retention_period: "90d"
   maximum_spend_logs_cleanup_cron: "0 3 * * *"
+  # Cache des clés valides, par processus : une clé révoquée passait encore 10 à 30 s (critère 7).
+  # 5 s borne ce délai ; coût : une lecture en base par clé active toutes les 5 s et par processus.
+  user_api_key_cache_ttl: 5
 
 litellm_settings:
   drop_params: true
