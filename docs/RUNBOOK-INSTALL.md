@@ -192,7 +192,7 @@ ssh ia-host 'cd /opt/linagora-ia && docker compose --profile portal build portal
 - 🧑 Valeurs à fournir : `SMTP_HOST`, `SMTP_PORT` (465 : TLS implicite ; 587 : STARTTLS), `SMTP_USER`, `SMTP_FROM` (ex. `Portail IA Linagora <portail-ia@linagora.com>`), `ADMIN_NOTIFICATION_EMAILS` (admins à notifier, séparés par des virgules). L'agent les renseigne avec `sed -i` sur le serveur.
 - 🧑 Le mot de passe est saisi par l'utilisateur lui-même, en masqué : `ssh -t ia-host '/opt/linagora-ia/scripts/set-env-var.sh SMTP_PASSWORD'`.
 - Prise en compte : `docker compose --profile portal up -d portal` (recrée le conteneur avec les nouvelles variables).
-- **Contrôle** : déposer une demande de test ; les admins reçoivent « Nouvelle demande de clé d'API / New API key request ». Sinon : `docker compose logs portal | grep "Courriel non envoyé"`.
+- **Contrôle** : `docker compose exec -T portal env | ./scripts/verifier-smtp.py` (connexion et authentification avec la configuration reçue par le portail, sans envoi ni affichage de secret) ; puis déposer une demande de test : les admins reçoivent « Nouvelle demande de clé d'API / New API key request ». Sinon : `docker compose logs portal | grep "Courriel non envoyé"`.
 
 **Tâche quotidienne** (rappels J-3 et J-7, expirations) : route interne `POST /api/taches/quotidienne` du portail, protégée par `PORTAL_TASK_TOKEN` et bloquée par Caddy depuis Internet ; le cron du serveur l'appelle chaque jour à 7 h, heure de Paris.
 ```bash
