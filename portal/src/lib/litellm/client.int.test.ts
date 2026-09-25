@@ -47,6 +47,7 @@ describe("modèles", () => {
       capabilities: [],
       hosts: [],
       executionRegion: null,
+      apiKind: "conversation",
       inputCostPerToken: 0.000001,
       outputCostPerToken: 0.000004,
       pricingCurrency: "EUR",
@@ -71,6 +72,21 @@ describe("modèles", () => {
       hosts: ["Mistral"],
       executionRegion: "UE",
     });
+  });
+
+  test("un modèle déclaré comme API de décision l'expose ; sans déclaration, un modèle est un modèle de conversation", async () => {
+    const [decision, conversation] = [uniqueId("decision"), uniqueId("conversation")];
+    for (const [modelName, typeApi] of [[decision, { type_api: "decision" }], [conversation, {}]] as const) {
+      const created = await admin<{ model_info: { id: string } }>("POST", "/model/new", {
+        model_name: modelName,
+        litellm_params: { model: "openai/gpt-4o-mini", api_key: "sk-factice", mock_response: "OK", input_cost_per_token: 0.0000001, output_cost_per_token: 0 },
+        model_info: { data_level: "EXP", pricing_currency: "EUR", ...typeApi },
+      });
+      createdModels.push(created.model_info.id);
+    }
+    const models = await client.listModels();
+    expect(models.find((m) => m.modelName === decision)?.apiKind).toBe("decision");
+    expect(models.find((m) => m.modelName === conversation)?.apiKind).toBe("conversation");
   });
 
   test("un modèle joint par OpenRouter affiche le fournisseur déclaré, pas la route de LiteLLM", async () => {

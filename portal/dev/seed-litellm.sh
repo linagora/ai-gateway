@@ -6,10 +6,11 @@ set -euo pipefail
 B="${LITELLM_BASE_URL:-http://127.0.0.1:54400/admin}"
 H=(-H "Authorization: Bearer ${LITELLM_MASTER_KEY:-sk-dev-master-key}" -H "Content-Type: application/json")
 
-model() { # nom, niveau, hébergement, prix entrée, prix sortie (€ par jeton), fournisseur, éditeur, capacités, hébergeurs (JSON), zone[, contexte]
+model() { # nom, niveau, hébergement, prix entrée, prix sortie (€ par jeton), fournisseur, éditeur, capacités, hébergeurs (JSON), zone[, contexte[, type d'API]]
   local info id
-  info=$(jq -n --arg l "$2" --arg h "$3" --arg f "$6" --arg e "$7" --argjson c "$8" --argjson hb "$9" --arg z "${10}" --argjson ctx "${11:-128000}" \
-    '{data_level: $l, hosting: $h, pricing_currency: "EUR", max_input_tokens: $ctx, fournisseur: $f, editeur: $e, capacites: $c, hebergeurs: $hb, zone: $z}')
+  info=$(jq -n --arg l "$2" --arg h "$3" --arg f "$6" --arg e "$7" --argjson c "$8" --argjson hb "$9" --arg z "${10}" --argjson ctx "${11:-128000}" --arg t "${12:-}" \
+    '{data_level: $l, hosting: $h, pricing_currency: "EUR", max_input_tokens: $ctx, fournisseur: $f, editeur: $e, capacites: $c, hebergeurs: $hb, zone: $z}
+     + (if $t == "" then {} else {type_api: $t} end)')
   id=$(curl -fsS "${H[@]}" "$B/model/info" | jq -r --arg n "$1" 'first(.data[] | select(.model_name == $n) | .model_info.id) // empty')
   if [[ -n "$id" ]]; then
     curl -fsS "${H[@]}" -X PATCH "$B/model/$id/update" -d "$(jq -n --argjson i "$info" '{model_info: $i}')" >/dev/null
@@ -28,7 +29,8 @@ model() { # nom, niveau, hébergement, prix entrée, prix sortie (€ par jeton)
 model dev-public N1 HORS_UE 0.0000001 0.0000004 OpenRouter "Moonshot AI" '["images","raisonnement"]' '["Fireworks"]' monde
 model dev-interne N2 UE 0.0000002 0.0000006 OpenRouter "Mistral AI" '["images"]' '["Mistral"]' UE
 model dev-confidentiel N3 INTERNE 0.0000004 0.0000027 OVHcloud "Alibaba (Qwen)" '["images","raisonnement"]' '["OVHcloud"]' UE 262144
-model dev-experimental EXP HORS_UE 0.0000001 0.0000004 Typesafe Typesafe '[]' '["Typesafe"]' monde
+# Comme JEV : une API de décision (« System One »), et non un modèle de conversation.
+model dev-experimental EXP HORS_UE 0.0000001 0.0000004 Typesafe Typesafe '[]' '["Typesafe"]' monde 128000 decision
 
 MODELS='["dev-public", "dev-interne", "dev-confidentiel", "dev-experimental"]'
 

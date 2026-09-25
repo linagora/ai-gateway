@@ -47,8 +47,14 @@ export const CAPABILITIES: readonly Capability[] = ["images", "audio_video", "ra
 export type ExecutionRegion = "UE" | "HORS_UE";
 
 /**
+ * Manière d'appeler un modèle : conversation (par défaut), ou API de décision comme JEV (« System One »),
+ * qui attend dans le dernier message une requête JSON et non un texte libre.
+ */
+export type ApiKind = "conversation" | "decision";
+
+/**
  * Modèle déclaré dans LiteLLM. Les prix, déclarés dans litellm_params, sont relus via model_info.
- * Fournisseur, éditeur, capacités, hébergeurs et zone sont déclarés par la passerelle dans model_info.
+ * Fournisseur, éditeur, capacités, hébergeurs, zone et type d'API sont déclarés par la passerelle dans model_info.
  */
 export interface LiteLLMModel {
   modelId: string;
@@ -58,6 +64,7 @@ export interface LiteLLMModel {
   capabilities: Capability[];
   hosts: string[];
   executionRegion: ExecutionRegion | null;
+  apiKind: ApiKind;
   inputCostPerToken: number | null;
   outputCostPerToken: number | null;
   pricingCurrency: string | null;
@@ -113,6 +120,7 @@ const modelInfoSchema = z.object({
         capacites: z.array(z.string()).nullish(),
         hebergeurs: z.array(z.string()).nullish(),
         zone: z.string().nullish(),
+        type_api: z.string().nullish(),
         input_cost_per_token: z.number().nullish(),
         output_cost_per_token: z.number().nullish(),
         pricing_currency: z.string().nullish(),
@@ -199,6 +207,7 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
         capabilities: (mi.capacites ?? []).filter((c): c is Capability => CAPABILITIES.includes(c as Capability)),
         hosts: mi.hebergeurs ?? [],
         executionRegion: mi.zone === "UE" ? "UE" : mi.zone === "monde" ? "HORS_UE" : null,
+        apiKind: mi.type_api === "decision" ? "decision" : "conversation",
         inputCostPerToken: mi.input_cost_per_token ?? null,
         outputCostPerToken: mi.output_cost_per_token ?? null,
         pricingCurrency: mi.pricing_currency ?? null,
