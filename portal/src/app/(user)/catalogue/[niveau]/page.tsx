@@ -9,7 +9,7 @@ import { getDeps, requireUser } from "@/lib/session";
 import { USE_CASES } from "@/lib/use-cases";
 import { formats, Notice } from "../../../components";
 import { BoutonCopier } from "../../../bouton-copier";
-import { exempleAppel } from "../../../exemples-appel";
+import { exemplesAppel } from "../../../exemples-appel";
 import { COULEURS_NIVEAUX } from "../couleurs";
 import { BoutonSelection } from "./bouton-selection";
 
@@ -211,11 +211,11 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
           )}
           <h3 className="mt-3 font-medium">{detailT("exempleAppel")}</h3>
           {(() => {
-            const exemple = exempleAppel(detail.modelName, detail.apiKind, {
+            const exemple = exemplesAppel(detail.modelName, detail.apiKind, {
               message: detailT("exemple.message"),
               etat: detailT("exemple.etat"),
               question: detailT("exemple.question"),
-            });
+            }).curl;
             return (
               <>
                 <pre className="overflow-x-auto rounded bg-neutral-900 p-3 text-xs text-neutral-100">

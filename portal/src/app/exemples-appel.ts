@@ -56,8 +56,3 @@ export function exemplesAppel(modelName: string, apiKind: ApiKind, textes: Texte
     ].join("\n"),
   };
 }
-
-/** Exemple curl seul (panneau de détail du catalogue). */
-export function exempleAppel(modelName: string, apiKind: ApiKind, textes: TextesExemple): string {
-  return exemplesAppel(modelName, apiKind, textes).curl;
-}
