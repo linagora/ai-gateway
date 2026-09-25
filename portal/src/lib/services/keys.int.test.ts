@@ -435,9 +435,10 @@ describe("tâche quotidienne : échéances et rappels (ticket #25)", () => {
     expect(mailer.outbox[0].text).toContain("https://portail.test/cles");
   });
 
-  test("une demande non retirée dans le délai expire, à la lecture comme par la tâche, et ne se retire plus", async () => {
+  test("une demande non retirée dans le délai expire, à la lecture (salarié comme admin) comme par la tâche, et ne se retire plus", async () => {
     const id = await demandeApprouvee();
     maintenant = new Date(approuveeLe.getTime() + 15 * JOUR);
+    expect((await getRequestReview(deps, admin, id)).status).toBe("EXPIREE");
     expect((await listMyKeys(deps, titulaire)).toPickUp).toEqual([]);
     expect((await listMyRequests(deps, titulaire)).find((r) => r.id === id)?.status).toBe("EXPIREE");
     await expect(pickUpKey(deps, titulaire, id)).rejects.toMatchObject({ code: "transition_interdite" });

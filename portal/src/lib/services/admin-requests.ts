@@ -6,7 +6,7 @@ import type { LiteLLMClient } from "@/lib/litellm/client";
 import type { DataLevel, PolicyCheck, RequestStatus } from "@/lib/policy";
 import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
-import { pickupDeadline, readPickupDays } from "./echeances";
+import { markExpired, pickupDeadline, readPickupDays } from "./echeances";
 import { type NotificationDeps, notifyCompletionRequested, notifyKeyApproved, notifyMembershipApproved, notifyRefused } from "./notifications";
 import { evaluateKeyRequest, transitionRequest } from "./requests";
 import { readSettings, type SettingValues } from "./settings";
@@ -67,6 +67,7 @@ export interface RequestReview extends PendingRequest {
 
 export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: string): Promise<RequestReview> {
   requireAdmin(actor);
+  await markExpired(deps.db, deps.now?.() ?? new Date());
   const r = await deps.db.accessRequest.findUnique({ where: { id } });
   if (!r) throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
   const checks =
