@@ -149,6 +149,31 @@ export async function pickUpKey(deps: KeyDeps, user: SessionUser, requestId: str
   return { key: generee.key, alias: generee.alias };
 }
 
+/** F-43 : révocation d'une clé par son titulaire : suppression dans LiteLLM, demande « Révoquée » (statut final). */
+export async function revokeKey(deps: KeyDeps, user: SessionUser, requestId: string): Promise<void> {
+  const request = await deps.db.accessRequest.findUnique({ where: { id: requestId } });
+  if (!request || request.kind !== "CLE" || request.requesterUid !== user.uid || !request.keyTokenId) {
+    throw new PortalError("introuvable", "Clé introuvable.", { objet: "demande_cle" });
+  }
+  if (request.status !== "CLE_EMISE") throw new PortalError("transition_interdite", "Cette clé n'est plus active.", { cas: "traitee" });
+  await deleteFromGateway(deps.litellm, request.keyTokenId);
+  await transitionRequest(deps.db, request, "REVOQUEE");
+  await recordAudit(deps.db, { actorUid: user.uid, action: "KEY_REVOKED", targetId: request.id, details: { alias: request.keyAlias } });
+}
+
+/** Supprime une clé de la passerelle ; une clé qu'elle ne connaît déjà plus (supprimée depuis la console) est acquise. */
+async function deleteFromGateway(litellm: LiteLLMClient, tokenId: string): Promise<void> {
+  try {
+    await litellm.deleteKey(tokenId);
+  } catch {
+    const encoreConnue = await litellm.getKeyInfo(tokenId).then(
+      (info) => info !== null,
+      () => true,
+    );
+    if (encoreConnue) throw new PortalError("passerelle_indisponible", "La suppression de la clé a échoué.");
+  }
+}
+
 /** Alias unique et lisible : <uid>-<équipe>-<projet ou « cle »>-<4 derniers caractères de la demande>. */
 function keyAlias(request: { requesterUid: string; teamAlias: string; project: string | null; id: string }): string {
   return [request.requesterUid, request.teamAlias, request.project || "cle", request.id.slice(-4)].map(slug).join("-");

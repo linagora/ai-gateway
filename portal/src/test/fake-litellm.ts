@@ -85,6 +85,11 @@ export class FakeLiteLLM implements LiteLLMClient {
     return k ? { spend: k.spend, maxBudget: k.maxBudget, budgetResetAt: k.budgetResetAt, expiresAt: k.expiresAt, blocked: k.blocked } : null;
   }
 
+  async deleteKey(tokenId: string): Promise<void> {
+    if (this.panne) throw new Error("LiteLLM injoignable");
+    if (!this.keys.delete(tokenId)) throw new Error("clé inconnue");
+  }
+
   // --- préparation des scénarios ---
 
   withTeam(team: { teamId: string; teamAlias?: string; models: string[]; memberUids: string[] }): this {

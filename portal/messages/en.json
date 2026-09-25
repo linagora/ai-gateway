@@ -77,7 +77,8 @@
       "adhesionApprouvee": "Membership approved: the requester has been added to the team.",
       "demandeRefusee": "Request refused.",
       "complementDemande": "Request sent back to the requester for more information.",
-      "parametresEnregistres": "Settings saved."
+      "parametresEnregistres": "Settings saved.",
+      "cleRevoquee": "Key revoked."
     },
     "erreurs": {
       "controles_en_echec": "The request does not comply with the model access policy. Failed checks: {controles}.",
@@ -455,6 +456,9 @@
       "javascript": "JavaScript (OpenAI SDK)"
     },
     "copierExemple": "Copy the example",
-    "exempleCopie": "Example copied"
+    "exempleCopie": "Example copied",
+    "revoquer": "Revoke this key",
+    "revocationAvertissement": "The gateway will refuse the key within seconds. Revocation cannot be undone.",
+    "confirmerRevocation": "Confirm revocation"
   }
 }

@@ -4,7 +4,7 @@ import { FakeLiteLLM } from "@/test/fake-litellm";
 import { approveKeyRequest } from "./admin-requests";
 import { listAudit } from "./audit";
 import { saveCatalogEntry } from "./catalog";
-import { listMyKeys, pickUpKey } from "./keys";
+import { listMyKeys, pickUpKey, revokeKey } from "./keys";
 import { createKeyRequest, type KeyRequestInput } from "./requests";
 import { saveSettings } from "./settings";
 
@@ -160,5 +160,41 @@ describe("dépense, budget et exemple d'appel dans « Mes clés » (ticket #16)"
       [id]: { model: "jev-latest", apiKind: "decision" },
       [idConversation]: { model: "mistral-small", apiKind: "conversation" },
     });
+  });
+});
+
+describe("révocation par le titulaire (ticket #17)", () => {
+  test("le titulaire révoque sa clé : elle est supprimée de la passerelle et la demande passe en « Révoquée »", async () => {
+    const id = await demandeApprouvee();
+    const { key } = await pickUpKey(deps, titulaire, id);
+    await revokeKey(deps, titulaire, id);
+    expect([...litellm.keys.values()].some((k) => k.key === key)).toBe(false);
+    expect((await listMyKeys(deps, titulaire)).keys).toEqual([expect.objectContaining({ requestId: id, status: "REVOQUEE", usage: null })]);
+    expect((await listAudit(testDb)).map((e) => [e.actorUid, e.action, e.targetId])).toContainEqual(["mmaudet", "KEY_REVOKED", id]);
+  });
+
+  test("un salarié ne révoque que ses propres clés, et une seule fois", async () => {
+    const id = await demandeApprouvee();
+    await pickUpKey(deps, titulaire, id);
+    await expect(revokeKey(deps, collegue, id)).rejects.toMatchObject({ code: "introuvable" });
+    await revokeKey(deps, titulaire, id);
+    await expect(revokeKey(deps, titulaire, id)).rejects.toMatchObject({ code: "transition_interdite" });
+  });
+
+  test("une clé déjà supprimée dans la passerelle (depuis la console) est marquée « Révoquée »", async () => {
+    const id = await demandeApprouvee();
+    await pickUpKey(deps, titulaire, id);
+    litellm.keys.clear();
+    await revokeKey(deps, titulaire, id);
+    expect((await listMyKeys(deps, titulaire)).keys[0].status).toBe("REVOQUEE");
+  });
+
+  test("une passerelle injoignable laisse la clé émise", async () => {
+    const id = await demandeApprouvee();
+    await pickUpKey(deps, titulaire, id);
+    litellm.panne = true;
+    await expect(revokeKey(deps, titulaire, id)).rejects.toMatchObject({ code: "passerelle_indisponible" });
+    litellm.panne = false;
+    expect((await listMyKeys(deps, titulaire)).keys[0].status).toBe("CLE_EMISE");
   });
 });

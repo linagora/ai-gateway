@@ -120,6 +120,8 @@ export interface LiteLLMClient {
   generateKey(params: KeyParams): Promise<GeneratedKey>;
   /** F-42 : informations d'une clé d'après son empreinte ; null si LiteLLM ne la connaît pas. */
   getKeyInfo(tokenId: string): Promise<KeyInfo | null>;
+  /** F-43 : supprime une clé d'après son empreinte ; la passerelle la refuse ensuite. */
+  deleteKey(tokenId: string): Promise<void>;
 }
 
 const teamSummarySchema = z.object({
@@ -310,6 +312,11 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
         expiresAt: info.expires ? new Date(info.expires) : null,
         blocked: info.blocked === true,
       };
+    },
+
+    async deleteKey(tokenId) {
+      const { status, data } = await call("POST", "/key/delete", { keys: [tokenId] });
+      if (status !== 200) fail("POST", "/key/delete", status, data);
     },
   };
 }

@@ -206,4 +206,21 @@ describe("clés", () => {
     expect(info?.budgetResetAt?.getTime()).toBeLessThanOrEqual(Date.now() + 31 * 86_400_000);
     expect(await client.getKeyInfo("0".repeat(64))).toBeNull();
   });
+
+  test("une clé supprimée n'est plus connue, et la passerelle la refuse en quelques secondes", async () => {
+    const { userId, teamId } = await titulaire();
+    const alias = uniqueId("cle");
+    createdKeyAliases.push(alias);
+    const cle = await client.generateKey({ userId, teamId, models: ["dev-public"], maxBudget: 5, budgetDuration: "30d", duration: "90d", rpmLimit: null, tpmLimit: null, alias, metadata: {} });
+    const appel = () =>
+      fetch(`${baseUrl}/v1/chat/completions`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${cle.key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "dev-public", messages: [{ role: "user", content: "Bonjour" }] }),
+      }).then((r) => r.status);
+    expect(await appel()).toBe(200);
+    await client.deleteKey(cle.tokenId);
+    expect(await client.getKeyInfo(cle.tokenId)).toBeNull();
+    await expect.poll(appel, { timeout: 15_000, interval: 1_000 }).toBe(401);
+  });
 });

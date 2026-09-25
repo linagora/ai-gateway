@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { listMyKeys } from "@/lib/services/keys";
 import { getDeps, requireUser } from "@/lib/session";
 import { BoutonCopier } from "../../bouton-copier";
+import { revoquerCleAction } from "../../actions";
 import { formats, Notice } from "../../components";
 import { exemplesAppel, LANGAGES } from "../../exemples-appel";
 import { RetraitCle } from "./retrait-cle";
@@ -93,6 +94,16 @@ export default async function MesClesPage(props: PageProps<"/cles">) {
                     )}
                   </dl>
                   {!k.usage && k.status === "CLE_EMISE" && <p className="mt-2 text-sm italic">{t("infoIndisponible")}</p>}
+                  {k.status === "CLE_EMISE" && (
+                    <details className="mt-3">
+                      <summary className="cursor-pointer font-medium">{t("revoquer")}</summary>
+                      <p className="mt-2 text-sm">{t("revocationAvertissement")}</p>
+                      <form action={revoquerCleAction}>
+                        <input type="hidden" name="id" value={k.requestId} />
+                        <button type="submit">{t("confirmerRevocation")}</button>
+                      </form>
+                    </details>
+                  )}
                   {exemples && k.status === "CLE_EMISE" && (
                     <details className="mt-3">
                       <summary className="cursor-pointer font-medium">{t("commentUtiliser")}</summary>

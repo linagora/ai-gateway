@@ -16,7 +16,7 @@ import {
   requestCompletion,
 } from "@/lib/services/admin-requests";
 import { saveCatalogEntry } from "@/lib/services/catalog";
-import { pickUpKey } from "@/lib/services/keys";
+import { pickUpKey, revokeKey } from "@/lib/services/keys";
 import { cancelRequest, completeRequest, createKeyRequest, createTeamJoinRequest } from "@/lib/services/requests";
 import { saveSettings } from "@/lib/services/settings";
 import { getDeps, requireUser } from "@/lib/session";
@@ -163,6 +163,12 @@ export async function saveSettingsAction(formData: FormData): Promise<void> {
 
 // --- outils ---
 
+/** F-43 : révocation d'une clé par son titulaire. */
+export async function revoquerCleAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  await run("/cles", () => revokeKey(getDeps(), user, text(formData, "id")), { path: "/cles", message: "cleRevoquee" });
+}
+
 /** Résultat du retrait d'une clé : la clé n'y figure qu'une fois, et nulle part ailleurs. */
 export type ResultatRetrait = { ok: true; cle: string; alias: string } | { ok: false; erreur: string; details: Record<string, string> };
 
@@ -192,7 +198,8 @@ type CleSucces =
   | "adhesionApprouvee"
   | "demandeRefusee"
   | "complementDemande"
-  | "parametresEnregistres";
+  | "parametresEnregistres"
+  | "cleRevoquee";
 
 /** Exécute le cas d'usage ; en cas d'erreur métier, revient sur `errorPath` avec le message. */
 async function run(errorPath: string, action: () => Promise<unknown>, success: { path: string; message: CleSucces }): Promise<void> {

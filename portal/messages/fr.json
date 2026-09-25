@@ -77,7 +77,8 @@
       "adhesionApprouvee": "Adhésion approuvée : le demandeur a été ajouté à l'équipe.",
       "demandeRefusee": "Demande refusée.",
       "complementDemande": "Demande renvoyée au demandeur pour complément.",
-      "parametresEnregistres": "Paramètres enregistrés."
+      "parametresEnregistres": "Paramètres enregistrés.",
+      "cleRevoquee": "Clé révoquée."
     },
     "erreurs": {
       "controles_en_echec": "La demande ne respecte pas la politique d'accès aux modèles. Contrôles en échec : {controles}.",
@@ -455,6 +456,9 @@
       "javascript": "JavaScript (SDK OpenAI)"
     },
     "copierExemple": "Copier l'exemple",
-    "exempleCopie": "Exemple copié"
+    "exempleCopie": "Exemple copié",
+    "revoquer": "Révoquer cette clé",
+    "revocationAvertissement": "La passerelle refusera la clé dans les secondes qui suivent. La révocation est définitive.",
+    "confirmerRevocation": "Confirmer la révocation"
   }
 }

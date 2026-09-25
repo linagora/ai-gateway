@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
 import { ADMIN, connecter, demandeApprouvee, enrichirModele } from "./outils";
 
 /* Chantier « Mes clés » (spécification #14). La passerelle de développement répond par des modèles simulés. */
@@ -54,6 +54,39 @@ test("le titulaire retire sa clé, la voit une seule fois, et elle fonctionne au
   await expect(carte.locator("pre").first()).toContainText('"model": "dev-public"');
   await expect(carte).toContainText('model="dev-public"');
   expect(await carte.textContent()).not.toContain(cle);
+});
+
+/** Retire la clé de la seule demande approuvée du salarié ; rend la clé affichée une fois. */
+async function retirerCle(page: Page): Promise<string> {
+  await page.goto("/cles");
+  await page.getByRole("region", { name: "À retirer" }).getByRole("button", { name: "Générer ma clé" }).click();
+  const panneau = page.getByRole("region", { name: /Votre nouvelle clé/ });
+  const cle = ((await panneau.locator("code").textContent()) ?? "").trim();
+  await panneau.getByRole("button", { name: "J'ai copié ma clé" }).click();
+  await expect(panneau).toHaveCount(0);
+  return cle;
+}
+
+/** Statut HTTP d'un appel à la passerelle de développement avec une clé. */
+async function appel(request: APIRequestContext, cle: string): Promise<number> {
+  const reponse = await request.post(PASSERELLE, { headers: { Authorization: `Bearer ${cle}` }, data: { model: "dev-public", messages: [{ role: "user", content: "Bonjour" }] } });
+  return reponse.status();
+}
+
+test("le titulaire révoque sa clé : la passerelle la refuse en quelques secondes (ticket #17)", async ({ browser, request }) => {
+  const salarie = personne("revocation");
+  const page = await (await connecter(browser, salarie)).newPage();
+  await demandeApprouvee(browser, page, salarie, "Essai revocation");
+  const cle = await retirerCle(page);
+  expect(await appel(request, cle)).toBe(200);
+
+  const carte = page.getByRole("article", { name: new RegExp(`^${salarie.uid}-r-d-essai-revocation-`) });
+  await carte.getByText("Révoquer cette clé").click();
+  await carte.getByRole("button", { name: "Confirmer la révocation" }).click();
+  await expect(page.getByRole("status")).toHaveText("Clé révoquée.");
+  await expect(carte).toContainText("Révoquée");
+  await expect(carte.getByText("Révoquer cette clé")).toHaveCount(0);
+  await expect.poll(() => appel(request, cle), { timeout: 15_000, intervals: [1_000] }).toBe(401);
 });
 
 test("« Mes clés » s'affiche en anglais", async ({ browser }) => {
