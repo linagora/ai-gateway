@@ -55,12 +55,13 @@ interface CatalogDeps {
   litellm: LiteLLMClient;
 }
 
-/** F-10 : modèles de LiteLLM enrichis et rendus visibles par un admin. */
-export async function listCatalog(deps: CatalogDeps): Promise<CatalogItem[]> {
+/** F-10 : modèles de LiteLLM enrichis et rendus visibles par un admin, dans la langue demandée (repli sur le français). */
+export async function listCatalog(deps: CatalogDeps, language: Langue = "fr"): Promise<CatalogItem[]> {
+  const text = inLanguage(language);
   return (await visibleModels(deps)).map(({ entry, model, inputPricePerMillion, outputPricePerMillion }) => ({
     modelName: entry.modelName,
-    displayName: entry.displayNameFr,
-    description: entry.shortDescriptionFr,
+    displayName: text(entry.displayNameFr, entry.displayNameEn),
+    description: text(entry.shortDescriptionFr, entry.shortDescriptionEn),
     useCases: entry.useCases,
     publisher: model.publisher,
     executionRegion: model.executionRegion,
@@ -191,9 +192,14 @@ export async function modelDetail(
   return (await modelsOfLevel(deps, level, language)).find((m) => m.modelName === modelName) ?? null;
 }
 
-/** Modèles d'un niveau, dans la langue du salarié. Un texte que l'admin n'a pas traduit s'affiche en français. */
+/** Texte d'une fiche dans la langue du salarié : un texte que l'admin n'a pas traduit s'affiche en français. */
+function inLanguage(language: Langue) {
+  return <T extends string | null>(fr: T, en: string | null): T | string => (language === "en" && en) || fr;
+}
+
+/** Modèles d'un niveau, dans la langue du salarié. */
 async function modelsOfLevel(deps: CatalogDeps, level: DataLevel, language: Langue): Promise<ModelDetail[]> {
-  const text = <T extends string | null>(fr: T, en: string | null): T | string => (language === "en" && en) || fr;
+  const text = inLanguage(language);
   return (await visibleModels(deps))
     .filter(({ entry }) => modelAcceptsLevel(entry.dataLevel, level))
     .map(({ entry, model, inputPricePerMillion, outputPricePerMillion }) => ({

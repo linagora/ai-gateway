@@ -45,6 +45,20 @@
       "images": "Images",
       "audio_video": "Audio et vidéo",
       "raisonnement": "Raisonnement"
+    },
+    "statuts": {
+      "SOUMISE": "Soumise",
+      "A_COMPLETER": "À compléter",
+      "APPROUVEE": "Approuvée",
+      "REFUSEE": "Refusée",
+      "ANNULEE": "Annulée",
+      "CLE_EMISE": "Clé émise",
+      "EXPIREE": "Expirée",
+      "REVOQUEE": "Révoquée"
+    },
+    "typesDemande": {
+      "CLE": "Clé d'API",
+      "ADHESION_EQUIPE": "Adhésion à une équipe"
     }
   },
   "avis": {
@@ -228,5 +242,52 @@
     },
     "copier": "Copier l'exemple",
     "copie": "Exemple copié"
+  },
+  "mesDemandes": {
+    "titre": "Mes demandes",
+    "nouvelleCle": "Nouvelle demande de clé",
+    "rejoindreEquipe": "Demander à rejoindre une équipe",
+    "colonnes": {
+      "date": "Date",
+      "type": "Type",
+      "equipe": "Équipe",
+      "niveau": "Niveau",
+      "modeles": "Modèles",
+      "statut": "Statut",
+      "commentaire": "Commentaire de l'administrateur"
+    },
+    "completer": "Compléter",
+    "annuler": "Annuler",
+    "aucune": "Aucune demande pour l'instant."
+  },
+  "nouvelleDemande": {
+    "titre": "Demander une clé d'API",
+    "titreCompleter": "Compléter ma demande",
+    "aucuneEquipe": "Vous n'êtes membre d'aucune équipe.",
+    "rejoindreDabord": "Demandez d'abord à rejoindre une équipe.",
+    "equipe": "Équipe",
+    "equipeAbsente": "Votre équipe n'est pas listée ?",
+    "rejoindre": "Demander à la rejoindre",
+    "niveau": "Niveau de confidentialité des données que vous traiterez",
+    "modeles": "Modèles (niveau maximal accepté par chaque modèle)",
+    "motif": "Motif",
+    "projet": "Projet ou affaire",
+    "budget": "Budget souhaité (€)",
+    "duree": "Durée souhaitée (jours)",
+    "typeCle": "Type de clé",
+    "typesCle": {
+      "PERSONNELLE": "Personnelle",
+      "SERVICE": "Service (application)"
+    },
+    "engagement": "Je m'engage à ne pas soumettre de données d'un niveau supérieur à celui déclaré (niveau Expérimental : données publiques uniquement).",
+    "envoyer": "Envoyer la demande",
+    "resoumettre": "Resoumettre"
+  },
+  "adhesion": {
+    "titre": "Demander à rejoindre une équipe",
+    "aucuneEquipe": "Aucune autre équipe n'existe pour l'instant : contactez un administrateur.",
+    "equipe": "Équipe",
+    "motif": "Motif",
+    "envoyer": "Envoyer la demande"
   }
 }

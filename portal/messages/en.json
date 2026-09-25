@@ -45,6 +45,20 @@
       "images": "Images",
       "audio_video": "Audio & video",
       "raisonnement": "Reasoning"
+    },
+    "statuts": {
+      "SOUMISE": "Submitted",
+      "A_COMPLETER": "Needs more information",
+      "APPROUVEE": "Approved",
+      "REFUSEE": "Refused",
+      "ANNULEE": "Cancelled",
+      "CLE_EMISE": "Key issued",
+      "EXPIREE": "Expired",
+      "REVOQUEE": "Revoked"
+    },
+    "typesDemande": {
+      "CLE": "API key",
+      "ADHESION_EQUIPE": "Team membership"
     }
   },
   "avis": {
@@ -228,5 +242,52 @@
     },
     "copier": "Copy the example",
     "copie": "Example copied"
+  },
+  "mesDemandes": {
+    "titre": "My requests",
+    "nouvelleCle": "New key request",
+    "rejoindreEquipe": "Ask to join a team",
+    "colonnes": {
+      "date": "Date",
+      "type": "Type",
+      "equipe": "Team",
+      "niveau": "Level",
+      "modeles": "Models",
+      "statut": "Status",
+      "commentaire": "Administrator's comment"
+    },
+    "completer": "Complete",
+    "annuler": "Cancel",
+    "aucune": "No request yet."
+  },
+  "nouvelleDemande": {
+    "titre": "Request an API key",
+    "titreCompleter": "Complete my request",
+    "aucuneEquipe": "You are not a member of any team.",
+    "rejoindreDabord": "First ask to join a team.",
+    "equipe": "Team",
+    "equipeAbsente": "Your team is not listed?",
+    "rejoindre": "Ask to join it",
+    "niveau": "Confidentiality level of the data you will process",
+    "modeles": "Models (maximal level accepted by each model)",
+    "motif": "Reason",
+    "projet": "Project or deal",
+    "budget": "Requested budget (€)",
+    "duree": "Requested duration (days)",
+    "typeCle": "Key type",
+    "typesCle": {
+      "PERSONNELLE": "Personal",
+      "SERVICE": "Service (application)"
+    },
+    "engagement": "I commit to not submitting data above the declared level (Experimental level: public data only).",
+    "envoyer": "Send request",
+    "resoumettre": "Resubmit"
+  },
+  "adhesion": {
+    "titre": "Ask to join a team",
+    "aucuneEquipe": "No other team exists yet: contact an administrator.",
+    "equipe": "Team",
+    "motif": "Reason",
+    "envoyer": "Send request"
   }
 }

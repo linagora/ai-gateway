@@ -357,6 +357,18 @@ describe("catalogue des utilisateurs (F-10)", () => {
     ]);
   });
 
+  test("le catalogue des utilisateurs suit la langue demandée, avec repli sur le français", async () => {
+    const litellm = new FakeLiteLLM().withModel({ modelName: "qwen3.8" }).withModel({ modelName: "mistral-medium" });
+    await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, displayNameEn: "Qwen 3.8 27B (EN)", shortDescriptionEn: "General-purpose model hosted by OVHcloud" });
+    await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName: "mistral-medium", displayNameFr: "Mistral Medium", shortDescriptionFr: "Modèle polyvalent" });
+    const noms = async (language?: Langue) => Object.fromEntries((await listCatalog({ db: testDb, litellm }, language)).map((m) => [m.modelName, [m.displayName, m.description]]));
+    expect(await noms("en")).toEqual({
+      "qwen3.8": ["Qwen 3.8 27B (EN)", "General-purpose model hosted by OVHcloud"],
+      "mistral-medium": ["Mistral Medium", "Modèle polyvalent"],
+    });
+    expect((await noms())["qwen3.8"]).toEqual(["Qwen 3.8 27B", "Modèle généraliste hébergé par OVHcloud"]);
+  });
+
   test("un modèle enrichi mais masqué n'apparaît pas", async () => {
     const litellm = new FakeLiteLLM().withModel({ modelName: "qwen3.8" });
     await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, visible: false });

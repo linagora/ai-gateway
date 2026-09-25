@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { LEVEL_DESCRIPTIONS, LEVEL_LABELS } from "@/lib/labels";
+import { getLocale, getTranslations } from "next-intl/server";
+import type { Langue } from "@/lib/langue";
 import { DATA_LEVELS } from "@/lib/policy";
 import { listCatalog } from "@/lib/services/catalog";
 import { listMyTeams } from "@/lib/services/requests";
@@ -14,84 +15,90 @@ import { Notice } from "../../../components";
  */
 export default async function NewRequestPage(props: PageProps<"/demandes/nouvelle">) {
   const user = await requireUser();
-  const searchParams = await props.searchParams;
+  const [t, domaine, catalogue, language, searchParams] = await Promise.all([
+    getTranslations("nouvelleDemande"),
+    getTranslations("domaine"),
+    getTranslations("catalogue"),
+    getLocale() as Promise<Langue>,
+    props.searchParams,
+  ]);
   const completing = typeof searchParams.completer === "string" ? searchParams.completer : "";
   // Préremplissage depuis le catalogue : niveau de la page et modèles sélectionnés. Ce ne sont que des
   // valeurs proposées : les contrôles de la demande restent ceux du serveur.
   const niveau = DATA_LEVELS.find((l) => l === searchParams.niveau) ?? null;
   const preselected = [searchParams.modeles].flat().filter((m): m is string => typeof m === "string");
   const deps = getDeps();
-  const [teams, catalog] = await Promise.all([listMyTeams(deps, user), listCatalog(deps)]);
+  const [teams, catalog] = await Promise.all([listMyTeams(deps, user), listCatalog(deps, language)]);
 
   return (
     <>
-      <h1>{completing ? "Compléter ma demande" : "Demander une clé d'API"}</h1>
+      <h1>{completing ? t("titreCompleter") : t("titre")}</h1>
       <Notice searchParams={searchParams} />
       {teams.length === 0 ? (
         <p>
-          Vous n&apos;êtes membre d&apos;aucune équipe. <Link href="/demandes/adhesion">Demandez d&apos;abord à rejoindre une équipe.</Link>
+          {t("aucuneEquipe")} <Link href="/demandes/adhesion">{t("rejoindreDabord")}</Link>
         </p>
       ) : (
         <form action={createKeyRequestAction}>
           {completing && <input type="hidden" name="requestId" value={completing} />}
           <label>
-            Équipe
+            {t("equipe")}
             <select name="teamId" required>
-              {teams.map((t) => (
-                <option key={t.teamId} value={t.teamId}>
-                  {t.teamAlias}
+              {teams.map((team) => (
+                <option key={team.teamId} value={team.teamId}>
+                  {team.teamAlias}
                 </option>
               ))}
             </select>
           </label>
           <p className="text-sm">
-            Votre équipe n&apos;est pas listée ? <Link href="/demandes/adhesion">Demander à la rejoindre</Link>
+            {t("equipeAbsente")} <Link href="/demandes/adhesion">{t("rejoindre")}</Link>
           </p>
           <fieldset>
-            <legend className="font-medium">Niveau de sensibilité des données que vous traiterez</legend>
+            <legend className="font-medium">{t("niveau")}</legend>
             {DATA_LEVELS.map((l) => (
               <label key={l} className="font-normal">
-                <input type="radio" name="dataLevel" value={l} required defaultChecked={l === niveau} /> {LEVEL_LABELS[l]} — {LEVEL_DESCRIPTIONS[l]}
+                <input type="radio" name="dataLevel" value={l} required defaultChecked={l === niveau} /> {domaine(`niveaux.${l}`)} —{" "}
+                {catalogue(`niveaux.${l}.definition`)}
               </label>
             ))}
           </fieldset>
           <fieldset>
-            <legend className="font-medium">Modèles (niveau maximal accepté par chaque modèle)</legend>
+            <legend className="font-medium">{t("modeles")}</legend>
             {catalog.map((m) => (
               <label key={m.modelName} className="font-normal">
                 <input type="checkbox" name="models" value={m.modelName} defaultChecked={preselected.includes(m.modelName)} /> {m.displayName} (
-                {LEVEL_LABELS[m.dataLevel]})
+                {domaine(`niveaux.${m.dataLevel}`)})
               </label>
             ))}
           </fieldset>
           <label>
-            Motif
+            {t("motif")}
             <textarea name="justification" required rows={3} />
           </label>
           <label>
-            Projet ou affaire
+            {t("projet")}
             <input name="project" />
           </label>
           <label>
-            Budget souhaité (€)
+            {t("budget")}
             <input name="requestedBudget" type="number" min="1" step="1" />
           </label>
           <label>
-            Durée souhaitée (jours)
+            {t("duree")}
             <input name="requestedDays" type="number" min="1" step="1" />
           </label>
           <label>
-            Type de clé
+            {t("typeCle")}
             <select name="keyType">
-              <option value="PERSONNELLE">Personnelle</option>
-              <option value="SERVICE">Service (application)</option>
+              <option value="PERSONNELLE">{t("typesCle.PERSONNELLE")}</option>
+              <option value="SERVICE">{t("typesCle.SERVICE")}</option>
             </select>
           </label>
           <label className="font-normal">
-            <input type="checkbox" name="commitment" required /> Je m&apos;engage à ne pas soumettre de données d&apos;un niveau supérieur à
-            celui déclaré (niveau Expérimental : données publiques uniquement).
+            <input type="checkbox" name="commitment" required /> {t("engagement")}
           </label>
-          <button type="submit">{completing ? "Resoumettre" : "Envoyer la demande"}</button>
+          <button type="submit">{completing ? t("resoumettre") : t("envoyer")}</button>
         </form>
       )}
     </>
