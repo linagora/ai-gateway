@@ -23,6 +23,10 @@ export function toPortalUser(claims: OidcClaims, adminUidsSetting: string | unde
   const uid = claims.sub?.trim();
   const email = claims.email?.trim();
   if (!uid || !email) return null;
-  const adminUids = (adminUidsSetting ?? "").split(",").map((u) => u.trim()).filter(Boolean);
-  return { uid, email, name: claims.name?.trim() || uid, isAdmin: isAdmin(uid, adminUids) };
+  return { uid, email, name: claims.name?.trim() || uid, isAdmin: isAdmin(uid, parseUidList(adminUidsSetting)) };
+}
+
+/** Liste d'uid saisie en configuration : séparés par des virgules, espaces et vides ignorés. */
+export function parseUidList(setting: string | undefined): string[] {
+  return (setting ?? "").split(",").map((u) => u.trim()).filter(Boolean);
 }
