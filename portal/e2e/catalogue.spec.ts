@@ -334,12 +334,19 @@ test.describe("filtres appliqués sans bouton (retours de recette du 2026-09-25)
 test.describe("détail d'un modèle (ticket #9)", () => {
   const panneau = (page: Page) => page.getByRole("dialog");
 
-  test("chaque carte mène à la fiche détaillée par un lien explicite", async ({ browser }) => {
+  test("chaque carte mène à la fiche détaillée par un lien explicite ; sur un écran bas, la fiche défile et montre tout l'exemple d'appel", async ({ browser }) => {
     const context = await connecter(browser, salarie);
     const page = await context.newPage();
+    await page.setViewportSize({ width: 1280, height: 600 });
     await page.goto("/catalogue/n1");
     await page.getByRole("article", { name: "Modèle graphique" }).getByRole("link", { name: "Voir la fiche détaillée de Modèle graphique" }).click();
     await expect(panneau(page).getByRole("heading", { level: 2 })).toHaveText("Modèle graphique");
+    // L'exemple d'appel s'affiche en entier, sans ascenseur à lui : c'est la fiche qui défile.
+    const exemple = panneau(page).locator("pre");
+    expect(await exemple.evaluate((e) => ({ hauteur: e.scrollHeight - e.clientHeight, largeur: e.scrollWidth - e.clientWidth }))).toEqual({ hauteur: 0, largeur: 0 });
+    expect(await panneau(page).evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(true);
+    await panneau(page).getByRole("button", { name: "Copier l'exemple" }).scrollIntoViewIfNeeded();
+    await expect(panneau(page).getByRole("button", { name: "Copier l'exemple" })).toBeInViewport();
     await context.close();
   });
 

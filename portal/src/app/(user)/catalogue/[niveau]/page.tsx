@@ -196,7 +196,7 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
         <aside
           role="dialog"
           aria-labelledby="detail-titre"
-          className="fixed inset-y-0 right-0 z-10 flex w-full max-w-lg flex-col gap-2 overflow-y-auto border-l border-neutral-300 bg-white p-6 shadow-xl"
+          className="fixed inset-y-0 right-0 z-10 flex w-full max-w-2xl flex-col gap-2 overflow-y-auto border-l border-neutral-300 bg-white p-6 shadow-xl"
         >
           <p className="text-right">
             <Link href={levelPageHref(level, searchParams, null)} scroll={false}>
@@ -240,7 +240,8 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
             }).curl;
             return (
               <>
-                <pre className="overflow-x-auto rounded bg-neutral-900 p-3 text-xs text-neutral-100">
+                {/* En entier : sans rétrécir dans la colonne du panneau (c'est le panneau qui défile), lignes repliées. */}
+                <pre className="shrink-0 rounded bg-neutral-900 p-3 text-xs whitespace-pre-wrap text-neutral-100 wrap-anywhere">
                   <code>{exemple}</code>
                 </pre>
                 <div>
