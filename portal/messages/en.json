@@ -191,6 +191,21 @@
     "hypothesePages": "Assumption: a page of text in French is about 750 tokens.",
     "contexteInconnu": "Context size not disclosed",
     "casUsage": "Use cases",
-    "demanderCle": "Request a key for this model"
+    "demanderCle": "Request a key for this model",
+    "filtres": "Filters",
+    "recherche": "Search for a model or a publisher",
+    "tousCasUsage": "All use cases",
+    "ueUniquement": "EU only",
+    "tri": "Sort by",
+    "tris": {
+      "recommended": "Recommended first",
+      "price": "Price, lowest first",
+      "context": "Context, largest first",
+      "name": "Name"
+    },
+    "filtrer": "Filter",
+    "reinitialiser": "Reset filters",
+    "aucunResultat": "No model matches these criteria. Broaden your search or remove some filters.",
+    "notreChoix": "Our pick for: {cas}"
   }
 }

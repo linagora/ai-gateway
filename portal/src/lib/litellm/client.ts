@@ -41,7 +41,7 @@ export interface LiteLLMTeam extends LiteLLMTeamSummary {
 /** Capacité d'un modèle, déclarée par la passerelle (les outils et le JSON, communs à tous, n'en sont pas). */
 export type Capability = "images" | "audio_video" | "raisonnement";
 
-const CAPABILITIES: readonly Capability[] = ["images", "audio_video", "raisonnement"];
+export const CAPABILITIES: readonly Capability[] = ["images", "audio_video", "raisonnement"];
 
 /** Zone d'exécution d'un modèle (glossaire) : UE ou hors UE. */
 export type ExecutionRegion = "UE" | "HORS_UE";

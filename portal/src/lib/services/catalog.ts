@@ -94,6 +94,8 @@ export interface LevelModel {
   useCases: UseCase[];
   /** Niveau maximal du modèle quand il dépasse celui de la page (badge « accepte jusqu'à N3 »), sinon null. */
   acceptsUpTo: DataLevel | null;
+  /** Cas d'usage pour lesquels l'admin recommande le modèle, sur la seule page de son niveau maximal. */
+  recommendedFor: UseCase[];
   priceTier: PriceTier;
   /** Contexte arrondi au millier de jetons et son équivalent en pages ; null si la passerelle ne le déclare pas. */
   context: { tokens: number; pages: number } | null;
@@ -122,11 +124,36 @@ function priceTier(blended: number): PriceTier {
   return blended < 0.3 ? "€" : blended < 1 ? "€€" : "€€€";
 }
 
+/** Critères de la page d'un niveau (ticket #8). */
+export interface LevelCriteria {
+  /** Partie du nom ou de l'éditeur, sans tenir compte des majuscules ni des accents. */
+  search?: string;
+  useCase?: UseCase;
+  /** Capacités que le modèle doit toutes avoir. */
+  capabilities?: Capability[];
+  /** Seulement les modèles exécutés dans l'Union européenne. */
+  euOnly?: boolean;
+  sort?: LevelSort;
+}
+
+/** Tris de la page d'un niveau : les recommandés d'abord (par défaut), prix croissant, contexte décroissant ou nom. */
+export const LEVEL_SORTS = ["recommended", "price", "context", "name"] as const;
+export type LevelSort = (typeof LEVEL_SORTS)[number];
+
+/** Page d'un niveau : les modèles qui répondent aux critères, et le nombre de modèles du niveau avant tout critère. */
+export interface LevelModels {
+  modelCount: number;
+  models: LevelModel[];
+}
+
 /** Modèles d'un niveau : ceux qui acceptent des données de ce niveau, selon la règle de la politique d'accès. */
-export async function levelModels(deps: CatalogDeps, { level, language }: { level: DataLevel; language: Langue }): Promise<LevelModel[]> {
+export async function levelModels(
+  deps: CatalogDeps,
+  { level, language, criteria = {} }: { level: DataLevel; language: Langue; criteria?: LevelCriteria },
+): Promise<LevelModels> {
   // Un texte que l'admin n'a pas traduit s'affiche en français.
   const text = (fr: string, en: string | null) => (language === "en" && en) || fr;
-  return (await visibleModels(deps))
+  const models = (await visibleModels(deps))
     .filter(({ entry }) => modelAcceptsLevel(entry.dataLevel, level))
     .map(({ entry, model, inputPricePerMillion, outputPricePerMillion }) => ({
       modelName: entry.modelName,
@@ -139,9 +166,40 @@ export async function levelModels(deps: CatalogDeps, { level, language }: { leve
       outputPricePerMillion,
       useCases: entry.useCases,
       acceptsUpTo: entry.dataLevel === level ? null : entry.dataLevel,
+      recommendedFor: entry.dataLevel === level ? entry.recommendedFor : [],
       priceTier: priceTier(blendedPricePerMillion(inputPricePerMillion, outputPricePerMillion)),
       context: context(model.maxInputTokens),
     }));
+  const { search = "", useCase, capabilities = [], euOnly = false, sort = "recommended" } = criteria;
+  const blended = (m: LevelModel) => blendedPricePerMillion(m.inputPricePerMillion, m.outputPricePerMillion);
+  const byName = (a: LevelModel, b: LevelModel) => a.displayName.localeCompare(b.displayName, language);
+  const comparators: Record<LevelSort, (a: LevelModel, b: LevelModel) => number> = {
+    recommended: (a, b) => Number(b.recommendedFor.length > 0) - Number(a.recommendedFor.length > 0) || blended(a) - blended(b) || byName(a, b),
+    price: (a, b) => blended(a) - blended(b) || byName(a, b),
+    context: (a, b) => (b.context?.tokens ?? -1) - (a.context?.tokens ?? -1) || byName(a, b),
+    name: byName,
+  };
+  return {
+    modelCount: models.length,
+    models: models
+      .filter(
+        (m) =>
+          [m.displayName, m.modelName, m.publisher ?? ""].some((champ) => normalized(champ).includes(normalized(search))) &&
+          (!useCase || m.useCases.includes(useCase)) &&
+          capabilities.every((c) => m.capabilities.includes(c)) &&
+          (!euOnly || m.executionRegion === "UE"),
+      )
+      .sort(comparators[sort]),
+  };
+}
+
+/** Texte comparable : en minuscules et sans accents. */
+function normalized(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
 }
 
 /** Vue d'ensemble d'un niveau de confidentialité (ticket #5). */

@@ -23,8 +23,24 @@ export async function connecter(browser: Browser, personne: Personne, langueNavi
 
 export const ADMIN: Personne = { uid: "mmaudet", email: "mmaudet@linagora.com", name: "Admin E2E" };
 
-/** Enrichit un modèle de démonstration depuis la gestion du catalogue (session admin), et le rend visible. */
-export async function enrichirModele(page: Page, modele: { nom: string; nomAffiche: string; niveau: string }): Promise<void> {
+const CAS_USAGE = [
+  "Rédaction et synthèse",
+  "Code",
+  "Analyse de documents longs",
+  "Traduction",
+  "Extraction et classement",
+  "Raisonnement et analyse",
+  "Décision structurée",
+];
+
+/**
+ * Enrichit un modèle de démonstration depuis la gestion du catalogue (session admin), et le rend visible.
+ * Les cas d'usage et les recommandations, s'ils sont donnés, remplacent ceux de la fiche.
+ */
+export async function enrichirModele(
+  page: Page,
+  modele: { nom: string; nomAffiche: string; niveau: string; casUsage?: string[]; recommandePour?: string[] },
+): Promise<void> {
   await page.goto("/gestion/catalogue");
   const section = page.locator("section").filter({ has: page.locator("code", { hasText: new RegExp(`^${modele.nom}$`) }) });
   await section.getByLabel("Nom affiché (français)").fill(modele.nomAffiche);
@@ -32,6 +48,10 @@ export async function enrichirModele(page: Page, modele: { nom: string; nomAffic
   await section.getByLabel("Description longue (français)").fill(`Modèle de démonstration ${modele.niveau}, à réponses simulées.`);
   await section.getByLabel("Niveau maximal").selectOption(modele.niveau);
   await section.getByLabel("Visible des salariés").check();
+  for (const [groupe, coches] of [["Cas d'usage", modele.casUsage], ["Recommandé pour", modele.recommandePour]] as const) {
+    if (!coches) continue;
+    for (const cas of CAS_USAGE) await section.getByRole("group", { name: groupe }).getByLabel(cas, { exact: true }).setChecked(coches.includes(cas));
+  }
   await section.getByRole("button", { name: "Enregistrer" }).click();
   await expect(page.getByRole("status")).toHaveText("Catalogue mis à jour.");
 }

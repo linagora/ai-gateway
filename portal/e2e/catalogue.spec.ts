@@ -8,13 +8,13 @@ const salarie = { uid: `catalogue-${suffixe}`, email: `catalogue-${suffixe}@exam
 test.beforeAll(async ({ browser }) => {
   const context = await connecter(browser, ADMIN);
   const page = await context.newPage();
-  for (const [nom, nomAffiche, niveau] of [
-    ["dev-public", "Modèle public", "N1"],
-    ["dev-interne", "Modèle interne", "N2"],
-    ["dev-confidentiel", "Modèle confidentiel", "N3"],
-    ["dev-experimental", "Modèle expérimental", "EXP"],
+  for (const modele of [
+    { nom: "dev-public", nomAffiche: "Modèle public", niveau: "N1", casUsage: ["Traduction"], recommandePour: ["Traduction"] },
+    { nom: "dev-interne", nomAffiche: "Modèle interne", niveau: "N2", casUsage: ["Rédaction et synthèse", "Code"], recommandePour: ["Code"] },
+    { nom: "dev-confidentiel", nomAffiche: "Modèle confidentiel", niveau: "N3", casUsage: ["Rédaction et synthèse"], recommandePour: ["Rédaction et synthèse"] },
+    { nom: "dev-experimental", nomAffiche: "Modèle expérimental", niveau: "EXP", casUsage: [], recommandePour: [] },
   ]) {
-    await enrichirModele(page, { nom, nomAffiche, niveau });
+    await enrichirModele(page, modele);
   }
   await context.close();
   // Le salarié existe dans LiteLLM après sa première connexion ; il rejoint l'équipe R&D de démonstration.
@@ -196,6 +196,43 @@ test.describe("page d'un niveau (ticket #7)", () => {
       expect(suivant.y).toBeGreaterThanOrEqual(precedent.y + precedent.height);
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await context.close();
+  });
+});
+
+test.describe("filtres, tri et recommandations (ticket #8)", () => {
+  const modele = (page: Page, nom: string) => page.getByRole("article", { name: nom });
+
+  test("le salarié filtre par cas d'usage ; « Notre choix pour … » n'apparaît que sur la page du niveau maximal du modèle", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    await page.goto("/catalogue/n1");
+    await expect(modele(page, "Modèle public")).toContainText("Notre choix pour : Traduction");
+    await expect(modele(page, "Modèle interne")).not.toContainText("Notre choix");
+    await page.getByRole("combobox", { name: "Cas d'usage" }).selectOption({ label: "Code" });
+    await page.getByRole("button", { name: "Filtrer" }).click();
+    await expect(page).toHaveURL(/cas=CODING/);
+    await expect(page.getByRole("article")).toHaveCount(1);
+    await expect(modele(page, "Modèle interne")).toBeVisible();
+
+    await page.goto("/catalogue/n2");
+    await expect(page.getByRole("article").first()).toHaveAccessibleName("Modèle interne");
+    await expect(modele(page, "Modèle interne")).toContainText("Notre choix pour : Code");
+    await context.close();
+  });
+
+  test("les filtres se combinent et se partagent par l'adresse ; sans résultat, un message invite à les élargir", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    await page.goto("/catalogue/n1?ue=1&capacite=raisonnement");
+    await expect(page.getByRole("checkbox", { name: "UE uniquement" })).toBeChecked();
+    await expect(page.getByRole("article")).toHaveCount(1);
+    await expect(modele(page, "Modèle confidentiel")).toBeVisible();
+    await page.getByRole("searchbox", { name: "Rechercher un modèle ou un éditeur" }).fill("introuvable");
+    await page.getByRole("button", { name: "Filtrer" }).click();
+    await expect(page.getByRole("main")).toContainText("Aucun modèle ne correspond à ces critères. Élargissez la recherche ou retirez des filtres.");
+    await page.getByRole("link", { name: "Réinitialiser les filtres" }).click();
+    await expect(page.getByRole("article")).toHaveCount(3);
     await context.close();
   });
 });
