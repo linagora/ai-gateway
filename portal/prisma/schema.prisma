@@ -1,0 +1,141 @@
+// Base « portal » du Portail Linagora (brief §2). L'URL de connexion est dans prisma7.config.ts.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// EXP : expérimental (modèles en bêta, données publiques uniquement, clés dédiées)
+enum DataLevel {
+  N1
+  N2
+  N3
+  EXP
+}
+
+enum RequestStatus {
+  SOUMISE
+  A_COMPLETER
+  APPROUVEE
+  REFUSEE
+  ANNULEE
+  CLE_EMISE
+  EXPIREE
+  REVOQUEE
+}
+
+enum RequestKind {
+  CLE
+  ADHESION_EQUIPE
+}
+
+enum KeyType {
+  PERSONNELLE
+  SERVICE
+}
+
+/// Cas d'usage d'un modèle : liste fermée commune à tous les modèles, libellés dans les dictionnaires.
+enum UseCase {
+  WRITING
+  CODING
+  DOCUMENT_ANALYSIS
+  TRANSLATION
+  EXTRACTION
+  REASONING
+  STRUCTURED_DECISIONS
+}
+
+/// Fiche d'un modèle LiteLLM (model_name), saisie par l'admin : textes en français (obligatoires,
+/// sauf les limites) et en anglais (facultatifs, repli sur le français), cas d'usage et recommandations.
+/// Les faits techniques (éditeur, zone, capacités, prix…) viennent de la passerelle.
+model CatalogEntry {
+  modelName          String    @id
+  displayNameFr      String
+  displayNameEn      String?
+  shortDescriptionFr String
+  shortDescriptionEn String?
+  longDescriptionFr  String
+  longDescriptionEn  String?
+  limitationsFr      String?
+  limitationsEn      String?
+  useCases           UseCase[] @default([])
+  /// sous-ensemble de useCases
+  recommendedFor     UseCase[] @default([])
+  dataLevel          DataLevel
+  visible            Boolean   @default(false)
+  updatedAt          DateTime  @updatedAt
+  updatedBy          String
+}
+
+model AccessRequest {
+  id              String        @id @default(cuid())
+  kind            RequestKind
+  requesterUid    String
+  requesterEmail  String
+  /// team_id LiteLLM
+  teamId          String
+  teamAlias       String
+  /// obligatoire si kind = CLE
+  dataLevel       DataLevel?
+  models          String[]
+  justification   String
+  project         String?
+  keyType         KeyType?
+  requestedBudget Decimal?
+  requestedDays   Int?
+  // paramètres figés par l'admin à l'approbation
+  approvedModels  String[]
+  approvedBudget  Decimal?
+  /// ex. "30d"
+  budgetDuration  String?
+  approvedDays    Int?
+  rpmLimit        Int?
+  tpmLimit        Int?
+  status          RequestStatus @default(SOUMISE)
+  decidedBy       String?
+  decisionComment String?
+  decidedAt       DateTime?
+  /// renseigné à la génération
+  keyAlias        String?
+  /// empreinte (token_id) — JAMAIS la clé
+  keyTokenId      String?
+  keyIssuedAt     DateTime?
+  /// date d'expiration de la clé émise (le remplacement la conserve)
+  keyExpiresAt    DateTime?
+  /// nombre de remplacements de la clé (suffixe -2, -3… de l'alias)
+  keyReplacements Int           @default(0)
+  /// demande dont cette demande renouvelle la clé
+  renewsRequestId String?
+  /// rappels envoyés par la tâche quotidienne (une seule fois chacun)
+  pickupReminderSentAt DateTime?
+  expiryReminderSentAt DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([requesterUid])
+  @@index([status])
+}
+
+/// Valeurs par défaut configurables (F-51) : default_budget, default_budget_duration, default_days,
+/// default_rpm, default_tpm, pickup_days.
+model Setting {
+  key       String   @id
+  value     String
+  updatedBy String
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id       BigInt   @id @default(autoincrement())
+  at       DateTime @default(now())
+  actorUid String
+  /// REQUEST_CREATED, REQUEST_APPROVED, KEY_GENERATED, KEY_REVOKED, CATALOG_UPDATED…
+  action   String
+  targetId String?
+  /// jamais de secret
+  details  Json
+}

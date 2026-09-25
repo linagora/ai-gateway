@@ -1,9 +1,38 @@
+# Secrets et identifiants : jamais dans le dépôt
 .env
 .env.*
 !.env.example
 !infra/.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+*.kdbx
+*.secret
+id_rsa*
+id_ecdsa*
+id_ed25519*
+secrets/
+credentials*.json
+service-account*.json
+.netrc
+.npmrc
+
+# Sauvegardes et exports
+*.dump
+*.bundle
+backups/
+
+# Documents de conception, glossaire du domaine et journal d'installation : tenus hors du dépôt
+docs/PRD.md
+docs/PORTAL-BRIEF.md
+docs/INSTALL-LOG.md
+CONTEXT.md
+docs/adr/
+docs/agents/
+
+# Dépendances et constructions
 node_modules/
 .next/
 dist/
-*.dump
 *.log

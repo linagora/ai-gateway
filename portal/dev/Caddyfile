@@ -1,0 +1,29 @@
+# Caddy de développement : reproduit le point de contrôle de la production (fragment partagé
+# infra/caddy/portal-gate.caddy) devant un service factice qui affiche l'identité reçue.
+#   http://localhost:54600/admin/…  et  http://localhost:54600/stats/…
+{
+	auto_https off
+	admin off
+}
+
+:8080 {
+	@admin path /admin /admin/*
+	handle @admin {
+		route {
+			import /etc/caddy/portal-gate.caddy admin host.docker.internal:3100
+			reverse_proxy 127.0.0.1:8081
+		}
+	}
+	@stats path /stats /stats/*
+	handle @stats {
+		route {
+			import /etc/caddy/portal-gate.caddy stats host.docker.internal:3100
+			reverse_proxy 127.0.0.1:8081
+		}
+	}
+}
+
+# Service factice : renvoie l'identité transmise par le point de contrôle.
+:8081 {
+	respond "service={path} utilisateur={header.X-Portal-User} role={header.X-Portal-Role} email={header.X-Portal-Email} nom={header.X-Portal-Name}"
+}

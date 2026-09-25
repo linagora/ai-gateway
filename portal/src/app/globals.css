@@ -1,0 +1,99 @@
+@import "tailwindcss";
+
+/*
+ * Charte Linagora légère (ticket #4), définie une seule fois pour tout le portail : la couleur principale
+ * (rouge du logo) et les couleurs des niveaux de confidentialité. Chaque couleur de niveau est lisible sur
+ * fond blanc (contraste d'au moins 4,5:1) et n'est jamais employée sans le nom du niveau.
+ */
+:root {
+  --linagora: #c51c42;
+  --linagora-fonce: #9e1635;
+  --niveau-n1: #15803d;
+  --niveau-n2: #b45309;
+  --niveau-n3: #b91c1c;
+  --niveau-exp: #6d28d9;
+}
+
+@theme inline {
+  --color-linagora: var(--linagora);
+  --color-linagora-fonce: var(--linagora-fonce);
+  --color-niveau-n1: var(--niveau-n1);
+  --color-niveau-n2: var(--niveau-n2);
+  --color-niveau-n3: var(--niveau-n3);
+  --color-niveau-exp: var(--niveau-exp);
+}
+
+/* Styles de base volontairement sobres (V1) ; le graphisme sera repris plus tard. */
+@layer base {
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: #171717;
+    background: #ffffff;
+  }
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+  h2 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 1.5rem 0 0.75rem;
+  }
+  a {
+    color: #1d4ed8;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+  }
+  th,
+  td {
+    border-bottom: 1px solid #e5e5e5;
+    padding: 0.4rem 0.5rem;
+    text-align: left;
+    vertical-align: middle;
+  }
+  label {
+    display: block;
+    margin-top: 0.75rem;
+    font-weight: 500;
+  }
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    display: block;
+    width: 100%;
+    max-width: 32rem;
+    border: 1px solid #a3a3a3;
+    border-radius: 0.25rem;
+    padding: 0.3rem 0.5rem;
+  }
+  /* Boutons principaux aux couleurs de Linagora. */
+  button {
+    margin-top: 0.75rem;
+    border: 1px solid var(--linagora);
+    border-radius: 0.25rem;
+    padding: 0.3rem 0.9rem;
+    background: var(--linagora);
+    color: #ffffff;
+  }
+  button:hover:not(:disabled) {
+    background: var(--linagora-fonce);
+  }
+  /* Dans un tableau, un bouton s'aligne sur le texte de sa ligne, sans marge au-dessus. */
+  td button {
+    margin-top: 0;
+  }
+  fieldset {
+    margin-top: 0.75rem;
+  }
+}
+
+/* Champ obligatoire : petite étoile rouge discrète après le libellé, expliquée en tête du formulaire. */
+.obligatoire {
+  margin-left: 0.15em;
+  color: var(--linagora);
+  font-weight: 400;
+}

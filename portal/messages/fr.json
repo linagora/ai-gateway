@@ -1,0 +1,549 @@
+{
+  "metadonnees": {
+    "titre": "Portail IA Linagora",
+    "description": "Catalogue des modèles d'IA et demandes de clés d'API"
+  },
+  "entete": {
+    "portail": "Portail IA",
+    "langue": "Langue",
+    "navigation": "Navigation principale",
+    "catalogue": "Catalogue",
+    "mesDemandes": "Mes demandes",
+    "nouvelleDemande": "Nouvelle demande",
+    "gestion": "Gestion",
+    "deconnexion": "Se déconnecter",
+    "mesCles": "Mes clés"
+  },
+  "accueil": {
+    "bonjour": "Bonjour {nom}",
+    "presentation": "Ce portail donne accès aux modèles d'IA de Linagora par une API compatible OpenAI. Chaque clé d'API est validée par un administrateur et limitée aux modèles compatibles avec le niveau de confidentialité de vos données.",
+    "catalogue": "Consulter le catalogue des modèles",
+    "demander": "Demander une clé d'API",
+    "suivre": "Suivre mes demandes",
+    "valider": "Valider les demandes (administrateurs)"
+  },
+  "domaine": {
+    "niveaux": {
+      "N1": "N1 — Public",
+      "N2": "N2 — Interne",
+      "N3": "N3 — Confidentiel",
+      "EXP": "Expérimental (bêta)"
+    },
+    "zones": {
+      "UE": "UE",
+      "HORS_UE": "Hors UE"
+    },
+    "casUsage": {
+      "WRITING": "Rédaction et synthèse",
+      "CODING": "Code",
+      "DOCUMENT_ANALYSIS": "Analyse de documents longs",
+      "TRANSLATION": "Traduction",
+      "EXTRACTION": "Extraction et classement",
+      "REASONING": "Raisonnement et analyse",
+      "STRUCTURED_DECISIONS": "Décision structurée"
+    },
+    "capacites": {
+      "images": "Images",
+      "audio_video": "Audio et vidéo",
+      "raisonnement": "Raisonnement"
+    },
+    "statuts": {
+      "SOUMISE": "Soumise",
+      "A_COMPLETER": "À compléter",
+      "APPROUVEE": "Approuvée",
+      "REFUSEE": "Refusée",
+      "ANNULEE": "Annulée",
+      "CLE_EMISE": "Clé émise",
+      "EXPIREE": "Expirée",
+      "REVOQUEE": "Révoquée"
+    },
+    "typesDemande": {
+      "CLE": "Clé d'API",
+      "ADHESION_EQUIPE": "Accès à une équipe"
+    },
+    "durees": {
+      "1": "24 heures",
+      "7": "1 semaine",
+      "30": "1 mois",
+      "90": "3 mois",
+      "180": "6 mois",
+      "365": "1 an",
+      "0": "N'expire jamais"
+    },
+    "dureeEnJours": "{nombre, plural, one {# jour} other {# jours}}"
+  },
+  "avis": {
+    "succes": {
+      "demandeEnvoyee": "Demande envoyée aux administrateurs.",
+      "demandeResoumise": "Demande complétée et resoumise.",
+      "adhesionEnvoyee": "Demande d'accès envoyée.",
+      "demandeAnnulee": "Demande annulée.",
+      "catalogueMisAJour": "Catalogue mis à jour.",
+      "demandeApprouvee": "Demande approuvée.",
+      "adhesionApprouvee": "Demande d'accès approuvée : le demandeur a été ajouté à l'équipe.",
+      "demandeRefusee": "Demande refusée.",
+      "complementDemande": "Demande renvoyée au demandeur pour complément.",
+      "parametresEnregistres": "Paramètres enregistrés.",
+      "cleRevoquee": "Clé révoquée.",
+      "cleBloquee": "Clé bloquée.",
+      "cleDebloquee": "Clé débloquée."
+    },
+    "erreurs": {
+      "controles_en_echec": "La demande ne respecte pas la politique d'accès aux modèles. Contrôles en échec : {controles}.",
+      "deja_membre": "Vous êtes déjà membre de l'équipe {equipe}.",
+      "engagement_requis": "Engagez-vous à ne pas soumettre de données d'un niveau supérieur à celui déclaré.",
+      "interdit": "Action réservée aux administrateurs.",
+      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} other {Demande introuvable.}}",
+      "motif_obligatoire": "Un motif est obligatoire.",
+      "parametre_manquant": "Budget, période du budget et durée de validité sont obligatoires : saisissez-les ou configurez des valeurs par défaut.",
+      "recommandation_hors_cas_usage": "Une recommandation ne peut porter que sur un cas d'usage coché.",
+      "tarif_eur_manquant": "Le modèle {modele} n'a pas de tarif en euros : il ne peut pas être rendu visible.",
+      "transition_interdite": "{cas, select, modifiee {La demande a été modifiée entre-temps ; rechargez la page.} traitee {Cette demande a déjà été traitée.} expiree {Cette clé a expiré : demandez son renouvellement.} bloquee {Cette clé est bloquée par un administrateur.} other {Cette action n'est pas possible au statut actuel de la demande.}}",
+      "saisie_invalide": "Saisie invalide : vérifiez les champs {champs}.",
+      "inconnue": "Une erreur est survenue.",
+      "passerelle_indisponible": "La passerelle ne répond pas : réessayez dans quelques instants.",
+      "trop_de_generations": "Trop de clés générées en peu de temps : réessayez dans quelques minutes."
+    },
+    "controles": {
+      "membre_equipe": "Le demandeur est membre de l'équipe",
+      "modeles_presents": "Au moins un modèle est demandé",
+      "modeles_equipe": "Les modèles sont autorisés pour l'équipe",
+      "niveau_modeles": "Les modèles acceptent le niveau de confidentialité déclaré",
+      "modeles_visibles": "Les modèles sont visibles au catalogue"
+    },
+    "champs": {
+      "modelName": "Modèle",
+      "displayNameFr": "Nom affiché (français)",
+      "displayNameEn": "Nom affiché (anglais)",
+      "shortDescriptionFr": "Description courte (français)",
+      "shortDescriptionEn": "Description courte (anglais)",
+      "longDescriptionFr": "Description longue (français)",
+      "longDescriptionEn": "Description longue (anglais)",
+      "limitationsFr": "Limites connues (français)",
+      "limitationsEn": "Limites connues (anglais)",
+      "useCases": "Cas d'usage",
+      "recommendedFor": "Recommandé pour",
+      "dataLevel": "Niveau de confidentialité",
+      "visible": "Visible des salariés",
+      "teamId": "Équipe",
+      "models": "Modèles",
+      "justification": "Motif",
+      "project": "Projet ou affaire",
+      "requestedBudget": "Budget souhaité (€)",
+      "requestedDays": "Durée souhaitée (jours)",
+      "keyType": "Type de clé",
+      "commitment": "Engagement",
+      "budget": "Budget (€)",
+      "budgetDuration": "Période du budget",
+      "days": "Durée de validité (jours)",
+      "rpmLimit": "Limite de requêtes par minute",
+      "tpmLimit": "Limite de jetons par minute",
+      "comment": "Commentaire",
+      "default_budget": "Budget par défaut (€)",
+      "default_budget_duration": "Période du budget",
+      "default_days": "Durée de validité par défaut (jours)",
+      "default_rpm": "Limite de requêtes par minute",
+      "default_tpm": "Limite de jetons par minute",
+      "pickup_days": "Délai de retrait d'une clé approuvée (jours)"
+    }
+  },
+  "gestionCatalogue": {
+    "titre": "Gestion du catalogue",
+    "introduction": "Chaque modèle déclaré dans la passerelle reçoit ici sa fiche : textes en français (obligatoires, sauf les limites) et en anglais (facultatifs, le français s'affiche à défaut), cas d'usage et recommandations. Les faits techniques viennent de la passerelle.",
+    "faits": "Faits techniques (déclarés par la passerelle)",
+    "editeur": "Éditeur",
+    "fournisseur": "Fournisseur",
+    "hebergeurs": "Hébergeurs",
+    "zone": "Zone d'exécution",
+    "prix": "Prix entrée / sortie (par million de jetons)",
+    "contexte": "Contexte",
+    "jetons": "{nombre} jetons",
+    "capacites": "Capacités",
+    "aucune": "aucune",
+    "sansTarif": "Pas de tarif en euros : ce modèle ne peut pas être rendu visible.",
+    "nomFr": "Nom affiché (français)",
+    "nomEn": "Nom affiché (anglais)",
+    "courteFr": "Description courte (français)",
+    "courteEn": "Description courte (anglais)",
+    "longueFr": "Description longue (français)",
+    "longueEn": "Description longue (anglais)",
+    "limitesFr": "Limites connues (français)",
+    "limitesEn": "Limites connues (anglais)",
+    "casUsage": "Cas d'usage",
+    "recommandePour": "Recommandé pour",
+    "niveau": "Niveau maximal",
+    "visible": "Visible des salariés",
+    "enregistrer": "Enregistrer",
+    "aucunModele": "Aucun modèle n'est déclaré dans la passerelle."
+  },
+  "catalogue": {
+    "titre": "Catalogue des modèles",
+    "introduction": "Choisissez d'abord le niveau de confidentialité des données que vous allez confier à un modèle : chaque niveau ouvre ses propres modèles.",
+    "confier": "Vous pouvez y confier",
+    "jamais": "Jamais",
+    "garanties": "Garanties",
+    "modeles": "{nombre, plural, =0 {Aucun modèle} one {# modèle} other {# modèles}}",
+    "prixDepart": "à partir de {prix} par million de jetons",
+    "voirModeles": "Voir les modèles",
+    "demanderCle": "Demander une clé de ce niveau",
+    "aucunModele": "Aucun modèle n'est encore ouvert à ce niveau. Pour en demander un, écrivez aux administrateurs du portail.",
+    "niveaux": {
+      "N1": {
+        "definition": "Informations publiques ou destinées à l'être.",
+        "confier": [
+          "Code open source et documentation publique",
+          "Contenus déjà publiés : site, articles, communiqués",
+          "Veille et recherche sur des sources publiques"
+        ],
+        "jamais": [
+          "Documents internes non publiés (niveau N2)",
+          "Données clients ou personnelles (niveau N3)"
+        ],
+        "garanties": "Exécution en Union européenne ou hors UE selon le modèle : la zone de chaque modèle est indiquée."
+      },
+      "N2": {
+        "definition": "Informations internes non publiques, sans données personnelles sensibles.",
+        "confier": [
+          "Code et documents internes",
+          "Spécifications et comptes rendus de réunion",
+          "Propositions commerciales non nominatives"
+        ],
+        "jamais": [
+          "Données clients ou personnelles (niveau N3)",
+          "Contrats, secrets et données sous NDA (niveau N3)"
+        ],
+        "garanties": "Hébergeurs engagés à ne pas conserver les données ni à les utiliser pour l'entraînement, en Union européenne de préférence."
+      },
+      "N3": {
+        "definition": "Données clients, personnelles, RH, financières, contractuelles, secrets, données sous NDA ou du secteur public.",
+        "confier": [
+          "Données clients et données personnelles (RGPD)",
+          "Documents RH, financiers et contrats",
+          "Données sous NDA ou du secteur public"
+        ],
+        "jamais": [
+          "Informations classifiées (Diffusion Restreinte et au-delà)",
+          "Données qu'un contrat interdit de confier à un tiers"
+        ],
+        "garanties": "Modèles hébergés en France chez OVHcloud, sous contrat de sous-traitance ; à terme, chez Linagora ou un hébergeur souverain."
+      },
+      "EXP": {
+        "definition": "Modèles récents en bêta, à essayer avec des données publiques uniquement.",
+        "confier": [
+          "Tests et prototypes sur des données publiques",
+          "Contenus déjà publiés ou fictifs",
+          "Découverte de nouvelles capacités"
+        ],
+        "jamais": [
+          "Toute donnée interne, même non sensible",
+          "Toute donnée client ou personnelle"
+        ],
+        "garanties": "Service en bêta, sans garantie : un modèle peut changer ou être retiré sans préavis. Clé dédiée, limitée aux modèles expérimentaux."
+      }
+    }
+  },
+  "niveau": {
+    "tousLesNiveaux": "← Tous les niveaux",
+    "accepteJusqua": "Accepte jusqu'à {niveau}",
+    "capacites": "Capacités",
+    "repere": {
+      "bas": "Prix bas",
+      "moyen": "Prix moyen",
+      "eleve": "Prix élevé"
+    },
+    "prix": "{entree} en entrée, {sortie} en sortie, par million de jetons",
+    "contexte": "{jetons} jetons, soit environ {pages} pages",
+    "hypothesePages": "Hypothèse : une page de texte en français compte environ 750 jetons.",
+    "contexteInconnu": "Taille du contexte non communiquée",
+    "casUsage": "Cas d'usage",
+    "filtres": "Filtres",
+    "recherche": "Rechercher un modèle ou un éditeur",
+    "tousCasUsage": "Tous les cas d'usage",
+    "ueUniquement": "UE uniquement",
+    "tri": "Trier par",
+    "tris": {
+      "recommended": "Recommandés d'abord",
+      "price": "Prix croissant",
+      "context": "Contexte décroissant",
+      "name": "Nom"
+    },
+    "filtrer": "Filtrer",
+    "reinitialiser": "Réinitialiser les filtres",
+    "aucunResultat": "Aucun modèle ne correspond à ces critères. Élargissez la recherche ou retirez des filtres.",
+    "notreChoix": "Notre choix pour : {cas}",
+    "selectionner": "Sélectionner",
+    "selectionnerModele": "Sélectionner {nom}",
+    "demanderSelection": "Demander une clé pour la sélection"
+  },
+  "detail": {
+    "fermer": "Fermer",
+    "description": "Description",
+    "hebergeurs": "Hébergeurs",
+    "limites": "Limites connues",
+    "aucuneLimite": "Aucune limite n'est signalée pour ce modèle.",
+    "apiDecision": {
+      "titre": "Une API de décision, pas un modèle de conversation",
+      "explication": "Ce modèle est une API de décision (« System One ») : il ne converse pas. Le dernier message contient une requête JSON : « state » décrit la situation, « questions » liste les décisions attendues, chacune avec son type et ses instructions. La réponse est un JSON « answers », avec une réponse par question."
+    },
+    "exempleAppel": "Exemple d'appel",
+    "exemple": {
+      "message": "Bonjour ! Résume en trois points les avantages du logiciel libre.",
+      "etat": "Mes virements échouent depuis trois jours et cela bloque la paie.",
+      "question": "Le message exprime-t-il une urgence ?"
+    },
+    "copier": "Copier l'exemple",
+    "copie": "Exemple copié"
+  },
+  "mesDemandes": {
+    "titre": "Mes demandes",
+    "nouvelleCle": "Nouvelle demande de clé",
+    "rejoindreEquipe": "Demander à rejoindre une équipe",
+    "colonnes": {
+      "date": "Date",
+      "type": "Type",
+      "equipe": "Équipe",
+      "niveau": "Niveau",
+      "modeles": "Modèles",
+      "statut": "Statut",
+      "commentaire": "Commentaire de l'administrateur"
+    },
+    "completer": "Compléter",
+    "annuler": "Annuler",
+    "aucune": "Aucune demande pour l'instant.",
+    "retirer": "Retirer ma clé"
+  },
+  "nouvelleDemande": {
+    "titre": "Demander une clé d'API",
+    "titreCompleter": "Compléter ma demande",
+    "aucuneEquipe": "Vous n'êtes membre d'aucune équipe.",
+    "rejoindreDabord": "Demandez d'abord à rejoindre une équipe.",
+    "equipe": "Équipe",
+    "equipeAbsente": "Votre équipe n'est pas listée ?",
+    "rejoindre": "Demander à la rejoindre",
+    "niveau": "Niveau de confidentialité des données que vous traiterez",
+    "modeles": "Modèles (niveau maximal accepté par chaque modèle)",
+    "choisirNiveau": "Choisissez d'abord le niveau de confidentialité : seuls les modèles qui l'acceptent sont proposés.",
+    "aucunModeleNiveau": "Aucun modèle du catalogue n'accepte encore ce niveau.",
+    "motif": "Motif",
+    "projet": "Projet ou affaire",
+    "duree": "Durée souhaitée",
+    "engagement": "Je m'engage à ne pas soumettre de données d'un niveau supérieur à celui déclaré (niveau Expérimental : données publiques uniquement).",
+    "envoyer": "Envoyer la demande",
+    "resoumettre": "Resoumettre",
+    "titreRenouvellement": "Renouveler la clé {alias}"
+  },
+  "adhesion": {
+    "titre": "Demander à rejoindre une équipe",
+    "aucuneEquipe": "Aucune autre équipe n'existe pour l'instant : contactez un administrateur.",
+    "equipe": "Équipe",
+    "motif": "Motif",
+    "envoyer": "Envoyer la demande"
+  },
+  "connexion": {
+    "titre": "Connexion au Portail IA",
+    "explication": "Le portail utilise votre compte Linagora : connectez-vous avec le SSO de l'entreprise.",
+    "bouton": "Se connecter avec LemonLDAP::NG",
+    "echec": "La connexion a échoué. Réessayez ; si le problème persiste, contactez un administrateur du portail."
+  },
+  "refus": {
+    "titre": "Accès réservé",
+    "message": "Votre compte n'est pas autorisé pour ce service. Si vous pensez que c'est une erreur, contactez un administrateur du portail.",
+    "retour": "Retour au portail"
+  },
+  "gestion": {
+    "nav": {
+      "libelle": "Administration",
+      "demandes": "Demandes",
+      "catalogue": "Catalogue",
+      "parametres": "Valeurs par défaut",
+      "cles": "Clés"
+    },
+    "file": {
+      "titre": "Demandes en attente de validation",
+      "colonnes": {
+        "soumise": "Soumise le",
+        "demandeur": "Demandeur",
+        "type": "Type",
+        "equipe": "Équipe",
+        "niveau": "Niveau",
+        "modeles": "Modèles",
+        "projet": "Projet"
+      },
+      "examiner": "Examiner",
+      "aucune": "Aucune demande en attente."
+    },
+    "fiche": {
+      "statut": "Statut",
+      "soumise": "Soumise le",
+      "demandeur": "Demandeur",
+      "equipe": "Équipe",
+      "niveau": "Niveau déclaré",
+      "modeles": "Modèles demandés",
+      "projet": "Projet",
+      "budgetDuree": "Budget / durée souhaités",
+      "motif": "Motif",
+      "dernierCommentaire": "Dernier commentaire",
+      "controles": "Contrôles de politique (état actuel)",
+      "approuverCle": "Approuver (paramètres de la clé)",
+      "modelesAccordes": "Modèles accordés",
+      "budget": "Budget (€)",
+      "periode": "Période du budget (ex. 30d)",
+      "validite": "Durée de validité",
+      "rpm": "Limite de requêtes par minute (facultatif)",
+      "tpm": "Limite de jetons par minute (facultatif)",
+      "approuver": "Approuver",
+      "approuverAdhesion": "Approuver : ajouter {uid} à l'équipe choisie",
+      "refuserOuCompleter": "Refuser ou demander un complément",
+      "motifRefus": "Motif du refus",
+      "refuser": "Refuser",
+      "complement": "Complément demandé",
+      "demanderComplement": "Demander un complément",
+      "equipeCle": "Équipe de la clé",
+      "equipeAffectation": "Équipe d'affectation",
+      "aideEquipe": "Si le demandeur n'est pas membre de l'équipe choisie, l'approbation l'y ajoute.",
+      "renouvellement": "Renouvellement de la clé {alias}.",
+      "depenseOrigine": "Dépense de cette clé : {depense}."
+    },
+    "parametres": {
+      "titre": "Valeurs par défaut des clés",
+      "explication": "Elles pré-remplissent le formulaire d'approbation. Un champ laissé vide n'est pas modifié.",
+      "champs": {
+        "default_budget": "Budget par défaut (€)",
+        "default_budget_duration": "Période du budget (ex. 30d)",
+        "default_days": "Durée de validité par défaut (jours)",
+        "default_rpm": "Limite de requêtes par minute (facultatif)",
+        "default_tpm": "Limite de jetons par minute (facultatif)",
+        "pickup_days": "Délai de retrait d'une clé approuvée (jours)"
+      },
+      "enregistrer": "Enregistrer"
+    },
+    "cles": {
+      "titre": "Clés émises",
+      "aucune": "Aucune clé n'a encore été retirée.",
+      "colonnes": {
+        "titulaire": "Titulaire",
+        "alias": "Alias",
+        "equipe": "Équipe",
+        "niveau": "Niveau",
+        "depense": "Dépense",
+        "expiration": "Expire le",
+        "statut": "Statut"
+      },
+      "revoquer": "Révoquer",
+      "revocationAvertissement": "La passerelle refusera la clé dans les secondes qui suivent. La révocation est définitive.",
+      "confirmerRevocation": "Confirmer la révocation",
+      "bloquer": "Bloquer",
+      "debloquer": "Débloquer"
+    }
+  },
+  "introuvable": {
+    "titre": "Page introuvable",
+    "message": "Cette adresse ne correspond à aucune page du portail.",
+    "retour": "Retour à l'accueil"
+  },
+  "erreur": {
+    "titre": "Une erreur est survenue",
+    "message": "La page n'a pas pu s'afficher. Réessayez ; si le problème persiste, contactez un administrateur du portail.",
+    "reessayer": "Réessayer"
+  },
+  "formulaire": {
+    "obligatoires": "Les champs suivis d'une étoile (<etoile>*</etoile>) sont obligatoires."
+  },
+  "cles": {
+    "titre": "Mes clés",
+    "aRetirer": "À retirer",
+    "aRetirerIntro": "Ces demandes sont approuvées : générez votre clé avant l'échéance.",
+    "echeance": "À retirer avant le {date}",
+    "sansEcheance": "Pas d'échéance de retrait",
+    "generer": "Générer ma clé",
+    "generation": "Génération…",
+    "nouvelleCle": "Votre nouvelle clé {alias}",
+    "avertissement": "Copiez-la maintenant et gardez-la en lieu sûr : elle ne sera plus jamais affichée.",
+    "copier": "Copier la clé",
+    "copiee": "Clé copiée",
+    "jaiCopie": "J'ai copié ma clé",
+    "emises": "Clés émises",
+    "colonnes": {
+      "alias": "Alias",
+      "equipe": "Équipe",
+      "niveau": "Niveau",
+      "modeles": "Modèles",
+      "emise": "Retirée le",
+      "expiration": "Expire le",
+      "statut": "Statut"
+    },
+    "aucune": "Vous n'avez encore aucune clé : choisissez des modèles, puis demandez une clé.",
+    "catalogue": "Voir le catalogue",
+    "depense": "Dépense",
+    "depenseSur": "{depense} sur {budget}",
+    "moinsDunCentime": "moins de 0,01 €",
+    "remiseAZero": "Remise à zéro du budget",
+    "infoIndisponible": "Dépense et budget indisponibles pour l'instant : la passerelle ne répond pas.",
+    "bloquee": "bloquée",
+    "commentUtiliser": "Comment l'utiliser",
+    "exemplesPour": "Avec {modele}",
+    "emplacement": "Gardez votre clé dans la variable d'environnement LINAGORA_API_KEY : les exemples la lisent là, elle n'y figure jamais.",
+    "langages": {
+      "curl": "curl",
+      "python": "Python (SDK OpenAI)",
+      "javascript": "JavaScript (SDK OpenAI)"
+    },
+    "copierExemple": "Copier l'exemple",
+    "exempleCopie": "Exemple copié",
+    "revoquer": "Révoquer cette clé",
+    "revocationAvertissement": "La passerelle refusera la clé dans les secondes qui suivent. La révocation est définitive.",
+    "confirmerRevocation": "Confirmer la révocation",
+    "remplacer": "Remplacer ma clé (clé perdue)",
+    "remplacementExplication": "Une nouvelle clé remplace celle-ci, avec les mêmes paramètres et la même date d'expiration. L'ancienne cesse aussitôt de fonctionner.",
+    "confirmerRemplacement": "Générer la clé de remplacement",
+    "renouveler": "Renouveler"
+  },
+  "courriels": {
+    "lien": "Lien : {url}",
+    "nouvelleDemandeCle": {
+      "sujet": "Nouvelle demande de clé d'API",
+      "corps": "{uid} a demandé une clé d'API pour l'équipe {equipe} ({niveau})."
+    },
+    "nouvelleDemandeAdhesion": {
+      "sujet": "Nouvelle demande d'accès à une équipe",
+      "corps": "{uid} demande à rejoindre l'équipe {equipe}."
+    },
+    "demandeApprouvee": {
+      "sujet": "Votre demande de clé est approuvée",
+      "corps": "Votre demande de clé d'API pour l'équipe {equipe} est approuvée. Retirez votre clé avant le {date, date, long} dans « Mes clés ».",
+      "corpsSansEcheance": "Votre demande de clé d'API pour l'équipe {equipe} est approuvée. Retirez votre clé dans « Mes clés »."
+    },
+    "demandeRefusee": {
+      "sujet": "Votre demande est refusée",
+      "corps": "Votre demande pour l'équipe {equipe} est refusée.\nMotif : {motif}"
+    },
+    "complementDemande": {
+      "sujet": "Votre demande est à compléter",
+      "corps": "Un administrateur demande un complément sur votre demande pour l'équipe {equipe}.\nCommentaire : {commentaire}"
+    },
+    "adhesionAcceptee": {
+      "sujet": "Votre demande d'accès est acceptée",
+      "corps": "Vous êtes désormais membre de l'équipe {equipe}. Vous pouvez y demander une clé d'API."
+    },
+    "rappelRetrait": {
+      "sujet": "Rappel : votre clé est à retirer",
+      "corps": "Votre clé d'API pour l'équipe {equipe} vous attend. Retirez-la avant le {date, date, long} dans « Mes clés » : passé ce délai, la demande expire."
+    },
+    "rappelExpiration": {
+      "sujet": "Rappel : votre clé {alias} expire bientôt",
+      "corps": "Votre clé d'API {alias} expire le {date, date, long}. Pour continuer à l'utiliser, demandez son renouvellement dans « Mes clés »."
+    },
+    "cleRevoquee": {
+      "sujet": "Votre clé {alias} a été révoquée",
+      "corps": "Un administrateur a révoqué votre clé d'API {alias} : la passerelle la refuse désormais. Pour obtenir une nouvelle clé, demandez son renouvellement dans « Mes clés »."
+    },
+    "cleBloquee": {
+      "sujet": "Votre clé {alias} est bloquée",
+      "corps": "Un administrateur a bloqué votre clé d'API {alias} : la passerelle la refuse jusqu'à son déblocage. Pour en savoir plus, écrivez aux administrateurs du portail."
+    },
+    "cleDebloquee": {
+      "sujet": "Votre clé {alias} est débloquée",
+      "corps": "Un administrateur a débloqué votre clé d'API {alias} : elle fonctionne à nouveau."
+    }
+  }
+}

@@ -5,10 +5,12 @@ Plateforme d'accès aux modèles d'IA : **LiteLLM Proxy (communautaire)** + **Po
 ## Contenu
 | Chemin | Rôle |
 |---|---|
-| `docs/PRD.md` | PRD simplifié : besoin, architecture, composants, exigences, critères d'acceptation |
+| `docs/PRD.md` | PRD simplifié : besoin, architecture, composants, exigences, critères d'acceptation (hors dépôt) |
 | `docs/RUNBOOK-INSTALL.md` | Installation distante pas à pas, pilotée par un agent de code via SSH |
-| `docs/PORTAL-BRIEF.md` | Brief de développement du portail (Next.js / TypeScript) |
+| `docs/PORTAL-BRIEF.md` | Brief de développement du portail (Next.js / TypeScript) (hors dépôt) |
 | `infra/` | Fichiers déployés dans `/opt/linagora-ia` : compose, Caddy, LiteLLM, Postgres, vues de reporting, Superset, scripts |
+
+Les documents de conception (`docs/PRD.md`, `docs/PORTAL-BRIEF.md`) et le journal d'installation (`docs/INSTALL-LOG.md`) sont tenus hors du dépôt.
 
 ## Démarrer avec un agent de code (sur votre PC)
 
@@ -24,6 +26,6 @@ Plateforme d'accès aux modèles d'IA : **LiteLLM Proxy (communautaire)** + **Po
 
 ## À préparer de votre côté
 - DNS : `ai-gateway.linagora.com` et `ai-api.linagora.com` vers l'IP de l'instance.
-- Clients OIDC dans LemonLDAP::NG (PRD §4.3), avec une règle d'accès limitant `litellm-admin` aux admins.
+- Un seul client OIDC dans LemonLDAP::NG, `portail-ia`, ouvert à tous les salariés (PRD §4.3) : les accès admin et reporting sont gérés par la passerelle (`PORTAL_ADMIN_UIDS`, `PORTAL_REPORTING_UIDS`).
 - Clé d'API OpenRouter, paramètres de l'endpoint OVHcloud Qwen3.8 (N3), taux USD→EUR, paramètres SMTP, liste des uid admins, IP autorisées pour l'administration.
 - Décisions ouvertes : PRD §11.

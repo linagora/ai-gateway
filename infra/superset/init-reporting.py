@@ -9,7 +9,10 @@ from sqlalchemy import text
 
 from superset.app import create_app
 
-VIEWS = ["v_requests", "v_daily_user", "v_daily_team", "v_keys", "v_teams", "v_users", "v_models", "v_check_pricing_eur"]
+VIEWS = ["v_requests", "v_daily_user", "v_daily_team", "v_keys", "v_teams", "v_users", "v_models", "v_check_pricing_eur",
+         "v_usage_daily", "v_team_budget", "v_activity", "v_key_status"]
+# Seules vues ouvertes aux lecteurs du reporting : agrégées, sans donnée par personne ni par clé.
+READER_VIEWS = ["v_usage_daily", "v_team_budget", "v_activity"]
 
 app = create_app()
 with app.app_context():
@@ -37,3 +40,16 @@ with app.app_context():
         ds.fetch_metadata()
         print(f"• jeu de données reporting.{view} : {'créé' if created else 'mis à jour'} ({len(ds.columns)} colonnes)")
     db.session.commit()
+
+    # Rôle des lecteurs du reporting (PORTAL_REPORTING_UIDS) : droits de lecture de Gamma + accès aux
+    # seules vues agrégées. Les vues nominatives (requêtes, utilisateurs, clés) restent réservées aux admins.
+    from superset import security_manager as sm
+
+    reader = sm.find_role("Lecteur reporting") or sm.add_role("Lecteur reporting")
+    permissions = set(sm.find_role("Gamma").permissions)
+    for ds in db.session.query(SqlaTable).filter_by(schema="reporting", database_id=database.id):
+        if ds.table_name in READER_VIEWS:
+            permissions.add(sm.add_permission_view_menu("datasource_access", ds.get_perm()))
+    reader.permissions = list(permissions)
+    db.session.commit()
+    print(f"• rôle « Lecteur reporting » : {len(permissions)} permissions")

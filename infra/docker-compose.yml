@@ -28,7 +28,8 @@ services:
       ADMIN_ALLOWED_IPS: ${ADMIN_ALLOWED_IPS}
       LANGFUSE_UPSTREAM: ${LANGFUSE_UPSTREAM:-}
     volumes:
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Dossier entier : le Caddyfile importe portal-gate.caddy (et un rsync remplace les fichiers).
+      - ./caddy:/etc/caddy:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
@@ -61,7 +62,7 @@ services:
   litellm:
     image: ${LITELLM_IMAGE}
     restart: unless-stopped
-    command: ["--config", "/app/config.yaml", "--port", "4000", "--num_workers", "2"]
+    command: ["--config", "/app/passerelle/config.yaml", "--port", "4000", "--num_workers", "2"]
     environment:
       DATABASE_URL: postgresql://litellm:${LITELLM_DB_PASSWORD}@postgres:5432/litellm
       STORE_MODEL_IN_DB: "True"
@@ -70,21 +71,18 @@ services:
       # Tout LiteLLM (UI + API) est servi sous /admin ; Caddy préfixe /admin pour ai-api.
       SERVER_ROOT_PATH: /admin
       PROXY_BASE_URL: https://${DOMAIN_PORTAL}
+      # Compte admin local de la console. Pas de SSO LiteLLM : sa limite gratuite (5 utilisateurs)
+      # compte tous les utilisateurs inscrits, et le portail inscrit chaque salarié. L'accès à /admin
+      # passe par le point de contrôle du portail (caddy/portal-gate.caddy).
       UI_USERNAME: ${UI_USERNAME}
       UI_PASSWORD: ${UI_PASSWORD}
-      GENERIC_CLIENT_ID: ${GENERIC_CLIENT_ID}
-      GENERIC_CLIENT_SECRET: ${GENERIC_CLIENT_SECRET}
-      GENERIC_AUTHORIZATION_ENDPOINT: ${GENERIC_AUTHORIZATION_ENDPOINT}
-      GENERIC_TOKEN_ENDPOINT: ${GENERIC_TOKEN_ENDPOINT}
-      GENERIC_USERINFO_ENDPOINT: ${GENERIC_USERINFO_ENDPOINT}
-      GENERIC_SCOPE: ${GENERIC_SCOPE}
-      GENERIC_USER_ID_ATTRIBUTE: ${GENERIC_USER_ID_ATTRIBUTE}
-      GENERIC_USER_EMAIL_ATTRIBUTE: ${GENERIC_USER_EMAIL_ATTRIBUTE}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      TYPESAFE_API_KEY: ${TYPESAFE_API_KEY}
       OVH_QWEN_API_BASE: ${OVH_QWEN_API_BASE}
       OVH_QWEN_API_KEY: ${OVH_QWEN_API_KEY}
     volumes:
-      - ./litellm/config.yaml:/app/config.yaml:ro
+      # config.yaml, garde.py (chargée depuis le dossier de la configuration) et liste blanche OpenRouter
+      - ./litellm:/app/passerelle:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -118,9 +116,6 @@ services:
       SUPERSET_APP_ROOT: /stats
       SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY}
       SUPERSET_DATABASE_URI: postgresql+psycopg2://superset:${SUPERSET_DB_PASSWORD}@postgres:5432/superset
-      SUPERSET_OIDC_CLIENT_ID: ${SUPERSET_OIDC_CLIENT_ID}
-      SUPERSET_OIDC_CLIENT_SECRET: ${SUPERSET_OIDC_CLIENT_SECRET}
-      OIDC_ISSUER: ${OIDC_ISSUER}
       REDIS_HOST: redis
     volumes:
       - ./superset/superset_config.py:/app/pythonpath/superset_config.py:ro
@@ -151,18 +146,36 @@ services:
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
       PORTAL_ADMIN_UIDS: ${PORTAL_ADMIN_UIDS}
+      PORTAL_REPORTING_UIDS: ${PORTAL_REPORTING_UIDS:-}
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}
       SMTP_USER: ${SMTP_USER}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       SMTP_FROM: ${SMTP_FROM}
       ADMIN_NOTIFICATION_EMAILS: ${ADMIN_NOTIFICATION_EMAILS}
+      PORTAL_TASK_TOKEN: ${PORTAL_TASK_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy
       litellm:
         condition: service_healthy
     mem_limit: 768m
+    logging: *default-logging
+
+  # Migrations Prisma du portail, lancées à la demande (la CLI n'est pas dans l'image d'exécution) :
+  #   docker compose --profile portal run --rm portal-migrate
+  portal-migrate:
+    profiles: ["portal"]
+    build:
+      context: ./portal
+      target: migrate
+    image: linagora-ia/portal-migrate:local
+    restart: "no"
+    environment:
+      DATABASE_URL: postgresql://portal:${PORTAL_DB_PASSWORD}@postgres:5432/portal
+    depends_on:
+      postgres:
+        condition: service_healthy
     logging: *default-logging
 
 volumes:

@@ -11,32 +11,30 @@ general_settings:
   # Détail par requête conservé 90 jours ; les tables agrégées Daily* gardent l'historique
   maximum_spend_logs_retention_period: "90d"
   maximum_spend_logs_cleanup_cron: "0 3 * * *"
+  # Cache des clés valides, par processus : une clé révoquée passait encore 10 à 30 s (critère 7).
+  # 5 s borne ce délai ; coût : une lecture en base par clé active toutes les 5 s et par processus.
+  user_api_key_cache_ttl: 5
 
 litellm_settings:
   drop_params: true
+  # Garde de la passerelle (garde.py, à côté de ce fichier) : refus des paramètres qui changeraient
+  # de modèle ou de fournisseur
+  callbacks: garde.garde
+  # JEV (Typesafe, niveau Expérimental) : fournisseur personnalisé (jev.py), modèle
+  # « typesafe/jev-latest ». Pas de route dédiée : dans l'édition communautaire, une clé ne peut pas
+  # ouvrir une route « pass-through » (allowed_passthrough_routes est réservé à l'édition Enterprise).
+  custom_provider_map:
+    - {"provider": "typesafe", "custom_handler": jev.jev}
   # --- Phase 2 : Langfuse ------------------------------------------------------
   # success_callback: ["langfuse"]
   # failure_callback: ["langfuse"]
   # turn_off_message_logging: true     # métadonnées seulement, tant que la politique RGPD n'est pas validée
   # (variables LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY / LANGFUSE_HOST à ajouter au service litellm)
 
-# Exemple de déclaration (à reproduire plutôt via l'UI admin) :
+# Modèles OpenRouter : uniquement ceux de liste-blanche-openrouter.yaml, déclarés par
+# scripts/sync-openrouter.py (jamais à la main ni par l'UI, jamais de joker « openrouter/* »).
+# Autres modèles : déclarés en base par l'API, par exemple le modèle N3 :
 # model_list:
-#   - model_name: mistral-small            # nom exposé aux utilisateurs
-#     litellm_params:
-#       model: openrouter/mistralai/mistral-small-3.2-24b-instruct
-#       api_key: os.environ/OPENROUTER_API_KEY
-#       # N2 : restreindre le routage OpenRouter aux fournisseurs sans collecte/conservation
-#       # (paramètre "provider" d'OpenRouter — syntaxe exacte à vérifier dans la doc LiteLLM/OpenRouter)
-#       # Prix : dans litellm_params (LiteLLM ≥ 1.10x supprime les prix placés dans model_info)
-#       input_cost_per_token: 0.00000009    # EUR par token (prix USD × fx_rate_usd_eur)
-#       output_cost_per_token: 0.00000028
-#     model_info:
-#       pricing_currency: EUR               # obligatoire pour être visible dans le portail
-#       fx_rate_usd_eur: 0.92               # taux interne, revu chaque trimestre
-#       data_level: N2                      # recopié depuis le portail (source de vérité)
-#       hosting: UE
-#
 #   - model_name: qwen3.8                  # N3 — endpoint OVHcloud (déclaré en base le 2026-09-24)
 #     litellm_params:
 #       model: openai/Qwen3.8-27B

@@ -46,6 +46,8 @@ L'utilisateur crée des enregistrements **A** (et AAAA si IPv6) vers l'IP de l'i
 
 **Contrôle** : `dig +short <domaine>` renvoie l'IP de l'instance pour chacun (depuis le poste).
 
+**Filtrage réseau OVHcloud (🧑)** : en amont du pare-feu du serveur (ufw), le groupe de sécurité OpenStack de l'instance filtre aussi le trafic. Dans Horizon (espace client OVHcloud → projet Public Cloud → « Horizon » ; région de l'instance), menu Network → Security Groups → groupe de l'instance → « Manage Rules » (gérer les règles) → « Add Rule » (ajouter une règle), en entrée (Ingress) depuis `0.0.0.0/0` : TCP 80 (règle HTTP), TCP 443 (HTTPS), UDP 443 (règle UDP personnalisée, pour HTTP/3). N'ajouter aucun autre groupe à l'instance, et garder SSH limité aux sorties VPN. Sans ces règles, Let's Encrypt échoue (« Timeout during connect »).
+
 ## Phase 3 — Déploiement des fichiers et secrets
 
 ```bash
@@ -88,13 +90,28 @@ curl -s -o /dev/null -w '%{http_code}\n' https://ai-gateway.linagora.com/admin/u
 ```
 Vérifier dans les logs LiteLLM l'absence du message « Cannot apply server_root_path replacements to UI » (sinon l'UI sous `/admin` ne chargera pas ses assets : il faudra une image dérivée pré-traitée). Vérifier aussi qu'aucun port autre que 22/80/443 n'écoute publiquement : `ssh ia-host 'sudo ss -tlnp'` (Postgres ne doit **pas** être sur 0.0.0.0).
 
-**Premiers modèles** (via l'UI admin `https://ai-gateway.linagora.com/admin/ui`, connexion locale `UI_USERNAME`/`UI_PASSWORD`), en suivant les exemples de `litellm/config.yaml` :
-- un modèle OpenRouter N1 ou N2 ;
-- le modèle N3 **Qwen3.8 sur l'endpoint OVHcloud** (`openai/<modèle>` + `api_base` = `OVH_QWEN_API_BASE`), après un test direct de l'endpoint (`curl <api_base>/models`).
+**Premiers modèles** :
+- le modèle N3 **Qwen3.8 sur l'endpoint OVHcloud** (`openai/<modèle>` + `api_base` = `OVH_QWEN_API_BASE`), après un test direct de l'endpoint (`curl <api_base>/models`), par l'API ou l'UI admin (`https://ai-gateway.linagora.com/admin/ui`, connexion locale `UI_USERNAME`/`UI_PASSWORD`) ;
+- les modèles **OpenRouter**, uniquement par la liste blanche (ci-dessous), jamais à la main ni par l'UI ;
+- **Qwen3.8** (OVHcloud, N3) et **JEV** (Typesafe, niveau Expérimental), joints sans OpenRouter : `docker compose exec -T litellm python3 - < scripts/declare-modeles-directs.py` (déclare le modèle s'il manque, sinon réécrit ses informations : fournisseur, éditeur, capacités, hébergeurs, zone).
+
+**Liste blanche OpenRouter** (`litellm/liste-blanche-openrouter.yaml`, versionnée) : seuls ses modèles sont déclarés ; aucun joker (`openrouter/*`). Chaque modèle a une **zone d'exécution** : `UE` (points d'accès `mistral/eu`, `google-vertex/eu`, Inceptron, NextBit) ou `monde` (fournisseurs au siège américain, sans conservation des données). Le routage d'OpenRouter est limité à ces points d'accès, sans repli (`provider.only`, `allow_fallbacks: false`). Prix déclarés en € = prix OpenRouter le plus élevé de la zone × 1,055 (frais d'achat de crédits) × taux BCE ; plafond facultatif `prix_max_usd` transmis à OpenRouter.
+```bash
+cd /opt/linagora-ia
+docker compose exec -T litellm python3 - < scripts/sync-openrouter.py               # plan et écarts (code 1 s'il en reste)
+docker compose exec -T litellm python3 - --appliquer < scripts/sync-openrouter.py   # création / mise à jour
+docker compose exec -T litellm python3 - < scripts/test-liste-blanche.py            # recette (42 contrôles, < 0,01 €)
+```
+- Les modèles OpenRouter sont joints en `openai/<id>` sur `https://openrouter.ai/api/v1`, **pas** par la route `openrouter/` de LiteLLM : celle-ci enregistre le coût renvoyé par OpenRouter, **en dollars**, à la place des tarifs en euros (vérifié sur la 1.102.1).
+- Un modèle OpenRouter hors liste est signalé par `sync-openrouter.py` ; `--supprimer-hors-liste` le supprime.
+- La **garde** (`litellm/garde.py`, chargée par `litellm_settings.callbacks`) refuse les paramètres qui changeraient de modèle ou de fournisseur : `models`, `route`, `provider`, `plugins`, `preset`, `usage`, `extra_body`, `additional_drop_params`, `fallbacks`… Sans elle, une requête pourrait nommer un modèle de repli hors liste ou un fournisseur hors zone : ses paramètres priment sur ceux du modèle.
+- Revoir le taux et les prix chaque trimestre (modifier `taux_usd_eur`, puis `--appliquer`).
+
+**JEV** : fournisseur personnalisé (`litellm/jev.py`, `litellm_settings.custom_provider_map`), modèle `jev-latest`, appelé comme tout modèle par `/v1/chat/completions`. Le dernier message contient la requête System One de Typesafe en JSON (`{"state": …, "questions": {…}}`), la réponse est le JSON des réponses. Coût sur les jetons comptés par Typesafe. Une route dédiée (« pass-through ») n'est pas possible : ouvrir une telle route à une clé (`allowed_passthrough_routes`) est réservé à l'édition Enterprise. Clé Typesafe : `scripts/set-env-var.sh TYPESAFE_API_KEY`, puis recréer le conteneur `litellm`.
 
 Chaque modèle reçoit :
 - dans **`litellm_params`** : `input_cost_per_token` et `output_cost_per_token` **en EUR**. Depuis LiteLLM 1.10x, les prix placés dans `model_info` sont considérés comme dérivés de la table de coûts publique et **supprimés à l'enregistrement** ; `/model/info` les recopie ensuite dans `model_info` pour l'affichage ;
-- dans **`model_info`** : `pricing_currency: EUR` (et `fx_rate_usd_eur` pour les tarifs convertis), `data_level`, `hosting`.
+- dans **`model_info`** : `pricing_currency: EUR` (et `fx_rate_usd_eur` pour les tarifs convertis), `data_level` (`N1`, `N2`, `N3`, ou `EXP` pour un modèle en bêta), `hosting`.
 
 Déclaration possible par l'API (exemple : `scripts/smoke-test.py` pour le test, `POST /model/new` pour la création). Test de bout en bout réutilisable : `docker compose exec -T litellm python3 - <model_name> < scripts/smoke-test.py` (équipe et clé de test, critère 1, complétion, dépense au tarif EUR, révocation → 401, nettoyage).
 
@@ -107,16 +124,22 @@ ssh ia-host 'cd /opt/linagora-ia && MK=$(grep ^LITELLM_MASTER_KEY= .env | cut -d
 ```
 Puis `/admin/key/generate` avec ce `team_id`, appel `https://ai-api.linagora.com/v1/chat/completions` (une fois avec le modèle OpenRouter, une fois avec Qwen3.8) avec la clé de test, vérification de la dépense (`/admin/key/info` : montant cohérent avec le tarif EUR), et **suppression** de la clé et de l'équipe de test (`/admin/key/delete`, `/admin/team/delete`).
 
-## Phase 6 — SSO admin LiteLLM (🧑 LemonLDAP::NG)
+## Phase 6 — SSO : client OIDC unique et point de contrôle (🧑 LemonLDAP::NG)
 
-🧑 L'utilisateur déclare dans LemonLDAP::NG les clients OIDC du PRD §4.3 (au minimum `litellm-admin` et `superset` ; `portail-ia` peut attendre la phase 9), avec **une règle d'accès limitant `litellm-admin` aux uid admins**, et renseigne les secrets dans `.env`.
+Un seul client OIDC, celui du portail (PRD §4.3). `/admin` et `/stats` sont protégés par le point de contrôle du portail (`caddy/portal-gate.caddy`), avec les listes `PORTAL_ADMIN_UIDS` et `PORTAL_REPORTING_UIDS` du `.env`. Ni LiteLLM ni Superset n'ont de SSO propre.
 
-L'agent vérifie les endpoints réels : `curl -s https://sso.linagora.com/.well-known/openid-configuration | jq '{authorization_endpoint, token_endpoint, userinfo_endpoint}'` et corrige les variables `GENERIC_*` si besoin. Consulter la doc LiteLLM « SSO for Admin UI » de la version déployée pour la désignation des admins (attribut de rôle ou `PROXY_ADMIN_ID`).
+🧑 L'utilisateur fait déclarer le client `portail-ia` : redirect URI `https://ai-gateway.linagora.com/api/auth/callback/lemonldap`, tous les salariés, scopes `openid profile email`, claims `sub` (= uid), `email` et `name` dans l'ID token, PKCE S256. Il saisit ensuite le secret : `ssh -t ia-host '/opt/linagora-ia/scripts/set-env-var.sh OIDC_CLIENT_SECRET'`.
 
+L'agent vérifie l'issuer : `curl -s https://sso.linagora.com/.well-known/openid-configuration | jq '{issuer, authorization_endpoint, code_challenge_methods_supported}'`.
+
+⚠️ Tant que le portail n'est pas déployé (phase 9), `/admin` et `/stats` répondent 502 (fermeture par défaut). Accès de secours à la console LiteLLM par un tunnel SSH :
 ```bash
-ssh ia-host 'cd /opt/linagora-ia && docker compose up -d litellm'
+IP=$(ssh ia-host "docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' linagora-ia-litellm-1")
+ssh -N -L 14000:$IP:4000 ia-host    # puis http://localhost:14000/admin/ui (compte UI_USERNAME / UI_PASSWORD)
 ```
-**Contrôle** : connexion à `https://ai-gateway.linagora.com/admin/ui` via « Login with SSO » (redirect URI `https://ai-gateway.linagora.com/admin/sso/callback`) avec un uid admin ; un uid non admin est refusé par LemonLDAP.
+Mot de passe de la console : `ssh -t ia-host '/opt/linagora-ia/scripts/set-env-var.sh UI_PASSWORD'`, puis `docker compose up -d litellm`.
+
+**Contrôle** (après la phase 9) : un admin atteint `https://ai-gateway.linagora.com/admin/ui` puis se connecte avec le compte local ; un salarié non admin reçoit 403 ; un lecteur listé dans `PORTAL_REPORTING_UIDS` atteint `/stats/` ; sans session, les deux renvoient vers la connexion SSO du portail. Le même fragment Caddy est testé automatiquement : `portal/e2e/point-de-controle.spec.ts`.
 
 ## Phase 7 — Reporting (Superset) et sauvegardes
 
@@ -133,8 +156,15 @@ ssh ia-host 'cd /opt/linagora-ia && docker compose up -d litellm'
         --firstname Admin --lastname IA --email admin-ia@linagora.com --password "$(openssl rand -hex 16)" && \
      docker compose run --rm superset superset init && docker compose up -d redis superset'
    ```
-   Connexion OIDC sur `https://ai-gateway.linagora.com/stats/` avec l'uid admin. **Recette du sous-chemin** : pages, graphiques, exports CSV, liens de partage. Si les assets sont servis correctement sous `/stats/static/`, retirer `/static/*` du Caddyfile ; si le sous-chemin est trop instable dans la version retenue, 🧑 le signaler (repli possible : sous-domaine dédié). Ajouter la base « LiteLLM reporting » : `postgresql+psycopg2://reporting_ro:<REPORTING_RO_PASSWORD>@postgres:5432/litellm` (saisie par l'utilisateur dans l'UI, ou par l'agent via la CLI Superset sans afficher le mot de passe). Script prêt : `superset/init-reporting.py` (connexion + un jeu de données par vue, idempotent ; le mot de passe passe par l'entrée standard, voir l'en-tête du script). Créer les datasets à partir des vues `reporting.*` (montants en €), le tableau de bord « Vue d'ensemble » (PRD §7.1) et un graphique de contrôle sur `v_check_pricing_eur` (doit rester vide).
-   Autres lecteurs : les créer dans Superset (Paramètres → Utilisateurs) avec `username = uid`, rôle `Gamma` + accès aux datasets.
+   Connexion par le point de contrôle du portail (après la phase 9) sur `https://ai-gateway.linagora.com/stats/`. **Recette du sous-chemin** : pages, graphiques, exports CSV, liens de partage. Si les assets sont servis correctement sous `/stats/static/`, retirer `/static/*` du Caddyfile ; si le sous-chemin est trop instable dans la version retenue, 🧑 le signaler (repli possible : sous-domaine dédié). Ajouter la base « LiteLLM reporting » : `postgresql+psycopg2://reporting_ro:<REPORTING_RO_PASSWORD>@postgres:5432/litellm` (saisie par l'utilisateur dans l'UI, ou par l'agent via la CLI Superset sans afficher le mot de passe). Script prêt : `superset/init-reporting.py` (connexion + un jeu de données par vue, idempotent ; le mot de passe passe par l'entrée standard, voir l'en-tête du script). Puis les tableaux de bord, versionnés et reconstruits à l'identique :
+   ```bash
+   docker compose exec -T superset python3 - < superset/tableaux-de-bord.py
+   ```
+   - **Consommation** (admins et lecteurs du reporting) : indicateurs comparés à la période précédente (coût, requêtes, jetons), taux de réussite, équipes et clés actives, vue d'ensemble par jour, modèles, fournisseurs et hébergements, consommation et budget par équipe, niveaux déclarés des clés.
+   - **Pilotage** (admins) : plus gros consommateurs, clés les plus utilisées, clés à 80 % de leur budget ou plus, clés sans utilisation depuis 30 jours, qualité de service (taux d'erreur, latences moyenne et p95) par modèle et par fournisseur, contrôle devise (doit rester à 0).
+   - Période par défaut : les 30 derniers jours, aujourd'hui compris ; filtres Équipe et Niveau sur « Consommation ».
+   - Le rôle « Lecteur reporting » n'accède qu'aux vues agrégées (`v_usage_daily`, `v_team_budget`, `v_activity`) ; l'accès aux tableaux est réglé par rôle (`DASHBOARD_RBAC`). L'indicateur comparé à la période précédente (`pop_kpi`) exige `CHART_PLUGINS_EXPERIMENTAL`.
+   Autres lecteurs : ajouter leur uid à `PORTAL_REPORTING_UIDS` dans le `.env`, puis `docker compose --profile portal up -d portal`. Leur compte Superset est créé à la première visite, avec le rôle « Lecteur reporting » (créé par `superset/init-reporting.py`).
 3. Sauvegardes :
    ```bash
    ssh ia-host '(sudo crontab -l 2>/dev/null; echo "30 2 * * * /opt/linagora-ia/scripts/backup.sh >> /var/log/linagora-ia-backup.log 2>&1") | sort -u | sudo crontab - && sudo /opt/linagora-ia/scripts/backup.sh'
@@ -143,17 +173,34 @@ ssh ia-host 'cd /opt/linagora-ia && docker compose up -d litellm'
    **Contrôle** : `ssh ia-host 'sudo /opt/linagora-ia/scripts/restore-test.sh'` — restaure la dernière sauvegarde (rôles + base `litellm`) dans un conteneur Postgres jetable et sans réseau, affiche les volumes à côté de ceux de la production, vérifie les vues de reporting avec `reporting_ro`, puis supprime le conteneur. Le Postgres de production n'est jamais touché (aucune base de test à supprimer). Note : les images cloud Debian 13 n'ont pas `cron` ; `bootstrap-host.sh` l'installe.
 
 ## Phase 8 — Recette socle
-Critères d'acceptation 1, 2, 3, 7, 9 du PRD §9. Mettre à jour `docs/INSTALL-LOG.md`.
+Critères d'acceptation 1, 2, 3, 7, 9 du PRD §9, par les URL publiques. Mettre à jour `docs/INSTALL-LOG.md`.
+- Critère 3 depuis une IP non autorisée : lancer `curl` depuis le serveur lui-même (son IP publique n'est pas dans `ADMIN_ALLOWED_IPS`) → 403.
+- Critères 1 et 7 avec une clé de test créée et utilisée **sur le serveur** (jamais affichée), contre `https://ai-api.linagora.com`. Une clé révoquée est refusée en 5 s au plus (`general_settings.user_api_key_cache_ttl: 5` ; sans ce réglage, 10 à 30 s).
+- Liste blanche OpenRouter, garde et JEV : `scripts/test-liste-blanche.py` (voir la phase 5).
 
 ## Phase 9 — Déploiement du portail (après développement, cf. PORTAL-BRIEF)
 
 ```bash
 rsync -av --delete --exclude node_modules --exclude .next --exclude '.env*' portal/ ia-host:/opt/linagora-ia/portal/
-ssh ia-host 'cd /opt/linagora-ia && docker compose --profile portal build portal && \
-  docker compose --profile portal run --rm portal npx prisma migrate deploy && \
+ssh ia-host 'cd /opt/linagora-ia && docker compose --profile portal build portal portal-migrate && \
+  docker compose --profile portal run --rm portal-migrate && \
   docker compose --profile portal up -d portal'
 ```
-**Contrôle** : critères 4, 5, 6, 8 du PRD §9.
+**Contrôle** : critères 4, 5, 6, 8 du PRD §9, puis contrôles du point de contrôle (phase 6), qui devient actif avec le portail.
+
+**Courriels** (spécification #14) : le portail envoie ses notifications et ses rappels, bilingues, par le serveur SMTP de `.env`. Sans `SMTP_HOST` ou sans `SMTP_FROM`, il n'envoie rien et tout le reste fonctionne ; un échec d'envoi est journalisé sans bloquer l'action.
+- 🧑 Valeurs à fournir : `SMTP_HOST`, `SMTP_PORT` (465 : TLS implicite ; 587 : STARTTLS), `SMTP_USER`, `SMTP_FROM` (ex. `Portail IA Linagora <portail-ia@linagora.com>`), `ADMIN_NOTIFICATION_EMAILS` (admins à notifier, séparés par des virgules). L'agent les renseigne avec `sed -i` sur le serveur.
+- 🧑 Le mot de passe est saisi par l'utilisateur lui-même, en masqué : `ssh -t ia-host '/opt/linagora-ia/scripts/set-env-var.sh SMTP_PASSWORD'`.
+- Prise en compte : `docker compose --profile portal up -d portal` (recrée le conteneur avec les nouvelles variables).
+- **Contrôle** : `docker compose exec -T portal env | ./scripts/verifier-smtp.py` (connexion et authentification avec la configuration reçue par le portail, sans envoi ni affichage de secret) ; puis déposer une demande de test : les admins reçoivent « Nouvelle demande de clé d'API / New API key request ». Sinon : `docker compose logs portal | grep "Courriel non envoyé"`.
+
+**Tâche quotidienne** (rappels J-3 et J-7, expirations) : route interne `POST /api/taches/quotidienne` du portail, protégée par `PORTAL_TASK_TOKEN` et bloquée par Caddy depuis Internet ; le cron du serveur l'appelle chaque jour à 7 h, heure de Paris.
+```bash
+rsync -av --exclude '.env' infra/ ia-host:/opt/linagora-ia/
+ssh ia-host 'sudo /opt/linagora-ia/scripts/installer-tache-quotidienne.sh && \
+  cd /opt/linagora-ia && docker compose --profile portal up -d portal && docker compose restart caddy'
+```
+**Contrôle** : `curl -s -o /dev/null -w '%{http_code}' -X POST https://ai-gateway.linagora.com/api/taches/quotidienne` → 404 ; passage manuel depuis le serveur (même commande que le cron, dans `/etc/cron.d/linagora-ia-portail`) → compte rendu JSON ; journal : `/opt/linagora-ia/logs/taches.log`.
 
 ## Phase 10 — Langfuse (phase 2, seconde instance recommandée)
 
@@ -176,5 +223,6 @@ ssh ia-host 'cd /opt/linagora-ia && docker compose --profile portal build portal
 ## Dépannage rapide
 - `docker compose logs -f <service>` ; `docker stats --no-stream` (mémoire : la B2-15 est juste).
 - Certificat non émis : DNS non propagé ou port 80 bloqué → `docker compose logs caddy`.
-- SSO en échec : comparer l'URI de redirection déclarée dans LemonLDAP avec celle du PRD §4.3 (schéma, domaine, chemin exacts, préfixes `/admin`, `/stats`, `/traces` compris).
+- SSO en échec : comparer l'URI de redirection déclarée dans LemonLDAP avec celle du PRD §4.3 (`https://ai-gateway.linagora.com/api/auth/callback/lemonldap`, à l'identique).
+- `/admin` ou `/stats` en 502 : le portail n'est pas démarré (point de contrôle) ; 403 : uid absent de `PORTAL_ADMIN_UIDS` / `PORTAL_REPORTING_UIDS`.
 - Session perdue en passant du portail à `/stats` ou `/admin` : collision de cookies sur le même domaine → vérifier les noms de cookies (Superset : `superset_session`).

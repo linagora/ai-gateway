@@ -1,0 +1,61 @@
+# Liste blanche des modèles OpenRouter de la passerelle (niveau N1 : données publiques).
+#
+# Seuls ces modèles sont déclarés dans LiteLLM, par scripts/sync-openrouter.py : tout autre modèle
+# OpenRouter est refusé par la passerelle. La garde (litellm/garde.py) interdit en plus aux requêtes
+# de changer de modèle ou de fournisseur par leurs paramètres (modèles de repli, préférences de
+# fournisseur…). Aucun modèle fermé premium (Anthropic, OpenAI) : décision du 2026-09-25.
+#
+# Zones d'exécution : chaque modèle n'est servi que par les points d'accès OpenRouter de sa zone,
+# sans repli ailleurs (provider.only + allow_fallbacks: false, vérifié le 2026-09-25).
+#   UE    : points d'accès en Union européenne. Pour Mistral et Google, seul le point d'accès « /eu »
+#           (Mistral publie aussi /zdr et /us, Google Vertex /global et /us).
+#   monde : fournisseurs dont OpenRouter publie un siège aux États-Unis (liste du 2026-09-25), sans
+#           conservation des données (data_collection: deny) ; fournisseurs chinois exclus. Données
+#           publiques uniquement.
+#
+# Prix déclarés en € = prix OpenRouter en $ (le plus élevé des points d'accès autorisés)
+#                      × (1 + frais d'achat de crédits) × taux USD→EUR.
+# prix_max_usd (facultatif) : plafond en $ par million de jetons (entrée, sortie), transmis à
+# OpenRouter (provider.max_price) : les points d'accès plus chers sont exclus du routage.
+
+taux_usd_eur: 0.87974        # BCE, 2026-09-24 : 1 EUR = 1,1367 USD. À revoir chaque trimestre.
+frais_openrouter: 0.055      # frais d'achat de crédits par carte (modèles facturés au prix des fournisseurs)
+
+zones:
+  UE: [mistral/eu, google-vertex/eu, inceptron, nextbit]
+  monde: [amazon-bedrock, amazon-nova, anthropic, arcee-ai, atlas-cloud, avian, azure, baseten,
+          cerebras, chutes, clarifai, claude-on-aws, cloudflare, cohere, coreweave, crusoe, databricks,
+          decart, deepinfra, featherless, fireworks, friendli, gmicloud, google-ai-studio,
+          google-vertex, groq, heygen, inference-net, io-net, ionstream, krea, mara, meta, modal,
+          modelrun, modular, morph, novita, nvidia, open-inference, openai, parasail, perceptron,
+          perplexity, phala, runway, sail-research, sambanova, switchpoint, tenstorrent, together,
+          venice, wafer, xai]
+
+modeles:
+  # --- Mistral (France), point d'accès UE de Mistral ---
+  - {nom: mistral-large-3, openrouter: mistralai/mistral-large-2512, zone: UE}
+  - {nom: mistral-medium-3.5, openrouter: mistralai/mistral-medium-3-5, zone: UE}
+  - {nom: mistral-small-2603, openrouter: mistralai/mistral-small-2603, zone: UE}
+  - {nom: ministral-14b, openrouter: mistralai/ministral-14b-2512, zone: UE}
+  - {nom: ministral-8b, openrouter: mistralai/ministral-8b-2512, zone: UE}
+  - {nom: ministral-3b, openrouter: mistralai/ministral-3b-2512, zone: UE}
+  - {nom: devstral-2, openrouter: mistralai/devstral-2512, zone: UE}
+  - {nom: codestral-2508, openrouter: mistralai/codestral-2508, zone: UE}
+
+  # --- Google Gemini Flash, Vertex AI région UE ---
+  - {nom: gemini-2.5-flash, openrouter: google/gemini-2.5-flash, zone: UE}
+  - {nom: gemini-2.5-flash-lite, openrouter: google/gemini-2.5-flash-lite, zone: UE}
+  - {nom: gemini-3.1-flash-lite, openrouter: google/gemini-3.1-flash-lite, zone: UE}
+  - {nom: gemini-3.5-flash-lite, openrouter: google/gemini-3.5-flash-lite, zone: UE}
+
+  # --- Modèles ouverts servis en UE (Inceptron : Suède/Finlande ; NextBit : Espagne) ---
+  - {nom: glm-5.3, openrouter: z-ai/glm-5.3, zone: UE}
+  - {nom: glm-5.3-flash, openrouter: z-ai/glm-5.3-flash, zone: UE}
+  - {nom: glm-5.2, openrouter: z-ai/glm-5.2, zone: UE}
+  - {nom: deepseek-v4.1-flash, openrouter: deepseek/deepseek-v4.1-flash, zone: UE}
+  - {nom: deepseek-v4-pro, openrouter: deepseek/deepseek-v4-pro-0813, zone: UE}
+  - {nom: deepseek-v4-flash, openrouter: deepseek/deepseek-v4-flash-0731, zone: UE}
+
+  # --- Kimi (Moonshot) : aucun fournisseur en UE, zone monde ---
+  - {nom: kimi-k2.5, openrouter: moonshotai/kimi-k2.5, zone: monde}
+  - {nom: kimi-k3, openrouter: moonshotai/kimi-k3, zone: monde, prix_max_usd: [3, 15]}   # hors offres « fast »

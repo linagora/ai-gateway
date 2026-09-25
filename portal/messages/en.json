@@ -1,0 +1,549 @@
+{
+  "metadonnees": {
+    "titre": "Linagora AI Portal",
+    "description": "AI model catalog and API key requests"
+  },
+  "entete": {
+    "portail": "AI Portal",
+    "langue": "Language",
+    "navigation": "Main navigation",
+    "catalogue": "Catalog",
+    "mesDemandes": "My requests",
+    "nouvelleDemande": "New request",
+    "gestion": "Administration",
+    "deconnexion": "Sign out",
+    "mesCles": "My keys"
+  },
+  "accueil": {
+    "bonjour": "Hello {nom}",
+    "presentation": "This portal gives access to Linagora's AI models through an OpenAI-compatible API. Each API key is approved by an administrator and limited to the models compatible with the confidentiality level of your data.",
+    "catalogue": "Browse the model catalog",
+    "demander": "Request an API key",
+    "suivre": "Track my requests",
+    "valider": "Review requests (administrators)"
+  },
+  "domaine": {
+    "niveaux": {
+      "N1": "N1 — Public",
+      "N2": "N2 — Internal",
+      "N3": "N3 — Confidential",
+      "EXP": "Experimental (beta)"
+    },
+    "zones": {
+      "UE": "EU",
+      "HORS_UE": "Outside the EU"
+    },
+    "casUsage": {
+      "WRITING": "Writing & summarizing",
+      "CODING": "Coding",
+      "DOCUMENT_ANALYSIS": "Long-document analysis",
+      "TRANSLATION": "Translation",
+      "EXTRACTION": "Extraction & classification",
+      "REASONING": "Reasoning & analysis",
+      "STRUCTURED_DECISIONS": "Structured decisions"
+    },
+    "capacites": {
+      "images": "Images",
+      "audio_video": "Audio & video",
+      "raisonnement": "Reasoning"
+    },
+    "statuts": {
+      "SOUMISE": "Submitted",
+      "A_COMPLETER": "Needs more information",
+      "APPROUVEE": "Approved",
+      "REFUSEE": "Refused",
+      "ANNULEE": "Cancelled",
+      "CLE_EMISE": "Key issued",
+      "EXPIREE": "Expired",
+      "REVOQUEE": "Revoked"
+    },
+    "typesDemande": {
+      "CLE": "API key",
+      "ADHESION_EQUIPE": "Team access"
+    },
+    "durees": {
+      "1": "24 hours",
+      "7": "1 week",
+      "30": "1 month",
+      "90": "3 months",
+      "180": "6 months",
+      "365": "1 year",
+      "0": "Never expires"
+    },
+    "dureeEnJours": "{nombre, plural, one {# day} other {# days}}"
+  },
+  "avis": {
+    "succes": {
+      "demandeEnvoyee": "Request sent to the administrators.",
+      "demandeResoumise": "Request completed and resubmitted.",
+      "adhesionEnvoyee": "Access request sent.",
+      "demandeAnnulee": "Request cancelled.",
+      "catalogueMisAJour": "Catalog updated.",
+      "demandeApprouvee": "Request approved.",
+      "adhesionApprouvee": "Access request approved: the requester has been added to the team.",
+      "demandeRefusee": "Request refused.",
+      "complementDemande": "Request sent back to the requester for more information.",
+      "parametresEnregistres": "Settings saved.",
+      "cleRevoquee": "Key revoked.",
+      "cleBloquee": "Key blocked.",
+      "cleDebloquee": "Key unblocked."
+    },
+    "erreurs": {
+      "controles_en_echec": "The request does not comply with the model access policy. Failed checks: {controles}.",
+      "deja_membre": "You are already a member of the {equipe} team.",
+      "engagement_requis": "Commit to not submitting data above the declared level.",
+      "interdit": "Administrators only.",
+      "introuvable": "{objet, select, modele {Model {modele} is not declared in the gateway.} equipe {Team not found.} demande_adhesion {Access request not found.} demande_cle {Key request not found.} other {Request not found.}}",
+      "motif_obligatoire": "A reason is required.",
+      "parametre_manquant": "Budget, budget period and validity are required: enter them or configure default values.",
+      "recommandation_hors_cas_usage": "A recommendation can only apply to a checked use case.",
+      "tarif_eur_manquant": "Model {modele} has no price in euros: it cannot be made visible.",
+      "transition_interdite": "{cas, select, modifiee {The request was modified in the meantime; reload the page.} traitee {This request has already been processed.} expiree {This key has expired: request its renewal.} bloquee {This key has been blocked by an administrator.} other {This action is not possible in the current status of the request.}}",
+      "saisie_invalide": "Invalid input: check the fields {champs}.",
+      "inconnue": "An error occurred.",
+      "passerelle_indisponible": "The gateway is not responding: try again in a few moments.",
+      "trop_de_generations": "Too many keys generated in a short time: try again in a few minutes."
+    },
+    "controles": {
+      "membre_equipe": "The requester is a member of the team",
+      "modeles_presents": "At least one model is requested",
+      "modeles_equipe": "The models are allowed for the team",
+      "niveau_modeles": "The models accept the declared confidentiality level",
+      "modeles_visibles": "The models are visible in the catalog"
+    },
+    "champs": {
+      "modelName": "Model",
+      "displayNameFr": "Display name (French)",
+      "displayNameEn": "Display name (English)",
+      "shortDescriptionFr": "Short description (French)",
+      "shortDescriptionEn": "Short description (English)",
+      "longDescriptionFr": "Long description (French)",
+      "longDescriptionEn": "Long description (English)",
+      "limitationsFr": "Known limitations (French)",
+      "limitationsEn": "Known limitations (English)",
+      "useCases": "Use cases",
+      "recommendedFor": "Our pick for",
+      "dataLevel": "Confidentiality level",
+      "visible": "Visible to employees",
+      "teamId": "Team",
+      "models": "Models",
+      "justification": "Reason",
+      "project": "Project or deal",
+      "requestedBudget": "Requested budget (€)",
+      "requestedDays": "Requested duration (days)",
+      "keyType": "Key type",
+      "commitment": "Commitment",
+      "budget": "Budget (€)",
+      "budgetDuration": "Budget period",
+      "days": "Validity (days)",
+      "rpmLimit": "Requests per minute limit",
+      "tpmLimit": "Tokens per minute limit",
+      "comment": "Comment",
+      "default_budget": "Default budget (€)",
+      "default_budget_duration": "Budget period",
+      "default_days": "Default validity (days)",
+      "default_rpm": "Requests per minute limit",
+      "default_tpm": "Tokens per minute limit",
+      "pickup_days": "Pickup delay for an approved key (days)"
+    }
+  },
+  "gestionCatalogue": {
+    "titre": "Catalog management",
+    "introduction": "Each model declared in the gateway gets its sheet here: texts in French (required, except limitations) and in English (optional, French is shown instead), use cases and recommendations. Technical facts come from the gateway.",
+    "faits": "Technical facts (declared by the gateway)",
+    "editeur": "Publisher",
+    "fournisseur": "Supplier",
+    "hebergeurs": "Hosts",
+    "zone": "Execution region",
+    "prix": "Input / output price (per million tokens)",
+    "contexte": "Context",
+    "jetons": "{nombre} tokens",
+    "capacites": "Capabilities",
+    "aucune": "none",
+    "sansTarif": "No price in euros: this model cannot be made visible.",
+    "nomFr": "Display name (French)",
+    "nomEn": "Display name (English)",
+    "courteFr": "Short description (French)",
+    "courteEn": "Short description (English)",
+    "longueFr": "Long description (French)",
+    "longueEn": "Long description (English)",
+    "limitesFr": "Known limitations (French)",
+    "limitesEn": "Known limitations (English)",
+    "casUsage": "Use cases",
+    "recommandePour": "Our pick for",
+    "niveau": "Maximum level",
+    "visible": "Visible to employees",
+    "enregistrer": "Save",
+    "aucunModele": "No model is declared in the gateway."
+  },
+  "catalogue": {
+    "titre": "Model catalog",
+    "introduction": "First choose the confidentiality level of the data you will entrust to a model: each level opens its own models.",
+    "confier": "You may entrust",
+    "jamais": "Never",
+    "garanties": "Guarantees",
+    "modeles": "{nombre, plural, =0 {No model} one {# model} other {# models}}",
+    "prixDepart": "from {prix} per million tokens",
+    "voirModeles": "See the models",
+    "demanderCle": "Request a key for this level",
+    "aucunModele": "No model is open at this level yet. To request one, write to the portal administrators.",
+    "niveaux": {
+      "N1": {
+        "definition": "Information that is public or intended to be.",
+        "confier": [
+          "Open source code and public documentation",
+          "Content already published: website, articles, press releases",
+          "Monitoring and research on public sources"
+        ],
+        "jamais": [
+          "Unpublished internal documents (level N2)",
+          "Customer or personal data (level N3)"
+        ],
+        "garanties": "Executed in the European Union or outside the EU depending on the model: each model shows its execution region."
+      },
+      "N2": {
+        "definition": "Non-public internal information, without sensitive personal data.",
+        "confier": [
+          "Internal code and documents",
+          "Specifications and meeting minutes",
+          "Non-nominative commercial proposals"
+        ],
+        "jamais": [
+          "Customer or personal data (level N3)",
+          "Contracts, secrets and data under NDA (level N3)"
+        ],
+        "garanties": "Hosts committed to neither retaining the data nor using it for training, preferably in the European Union."
+      },
+      "N3": {
+        "definition": "Customer, personal, HR, financial and contractual data, secrets, data under NDA or from the public sector.",
+        "confier": [
+          "Customer data and personal data (GDPR)",
+          "HR and financial documents, contracts",
+          "Data under NDA or from the public sector"
+        ],
+        "jamais": [
+          "Classified information (Restricted and above)",
+          "Data that a contract forbids entrusting to a third party"
+        ],
+        "garanties": "Models hosted in France by OVHcloud, under a data processing agreement; eventually by Linagora or a sovereign host."
+      },
+      "EXP": {
+        "definition": "Recent models in beta, to try with public data only.",
+        "confier": [
+          "Tests and prototypes on public data",
+          "Already published or fictional content",
+          "Discovering new capabilities"
+        ],
+        "jamais": [
+          "Any internal data, even non-sensitive",
+          "Any customer or personal data"
+        ],
+        "garanties": "Beta service without guarantee: a model may change or be withdrawn without notice. Dedicated key, limited to experimental models."
+      }
+    }
+  },
+  "niveau": {
+    "tousLesNiveaux": "← All levels",
+    "accepteJusqua": "Accepts up to {niveau}",
+    "capacites": "Capabilities",
+    "repere": {
+      "bas": "Low price",
+      "moyen": "Medium price",
+      "eleve": "High price"
+    },
+    "prix": "{entree} input, {sortie} output, per million tokens",
+    "contexte": "{jetons} tokens, or about {pages} pages",
+    "hypothesePages": "Assumption: a page of text in French is about 750 tokens.",
+    "contexteInconnu": "Context size not disclosed",
+    "casUsage": "Use cases",
+    "filtres": "Filters",
+    "recherche": "Search for a model or a publisher",
+    "tousCasUsage": "All use cases",
+    "ueUniquement": "EU only",
+    "tri": "Sort by",
+    "tris": {
+      "recommended": "Recommended first",
+      "price": "Price, lowest first",
+      "context": "Context, largest first",
+      "name": "Name"
+    },
+    "filtrer": "Filter",
+    "reinitialiser": "Reset filters",
+    "aucunResultat": "No model matches these criteria. Broaden your search or remove some filters.",
+    "notreChoix": "Our pick for: {cas}",
+    "selectionner": "Select",
+    "selectionnerModele": "Select {nom}",
+    "demanderSelection": "Request a key for the selection"
+  },
+  "detail": {
+    "fermer": "Close",
+    "description": "Description",
+    "hebergeurs": "Hosts",
+    "limites": "Known limitations",
+    "aucuneLimite": "No limitation has been reported for this model.",
+    "apiDecision": {
+      "titre": "A decision API, not a chat model",
+      "explication": "This model is a decision API (“System One”): it does not chat. The last message holds a JSON request: “state” describes the situation, “questions” lists the expected decisions, each with its type and instructions. The response is an “answers” JSON object, with one answer per question."
+    },
+    "exempleAppel": "Example call",
+    "exemple": {
+      "message": "Hello! Summarize the benefits of free software in three points.",
+      "etat": "My transfers have been failing for three days and payroll is blocked.",
+      "question": "Does the message express urgency?"
+    },
+    "copier": "Copy the example",
+    "copie": "Example copied"
+  },
+  "mesDemandes": {
+    "titre": "My requests",
+    "nouvelleCle": "New key request",
+    "rejoindreEquipe": "Ask to join a team",
+    "colonnes": {
+      "date": "Date",
+      "type": "Type",
+      "equipe": "Team",
+      "niveau": "Level",
+      "modeles": "Models",
+      "statut": "Status",
+      "commentaire": "Administrator's comment"
+    },
+    "completer": "Complete",
+    "annuler": "Cancel",
+    "aucune": "No request yet.",
+    "retirer": "Pick up my key"
+  },
+  "nouvelleDemande": {
+    "titre": "Request an API key",
+    "titreCompleter": "Complete my request",
+    "aucuneEquipe": "You are not a member of any team.",
+    "rejoindreDabord": "First ask to join a team.",
+    "equipe": "Team",
+    "equipeAbsente": "Your team is not listed?",
+    "rejoindre": "Ask to join it",
+    "niveau": "Confidentiality level of the data you will process",
+    "modeles": "Models (maximal level accepted by each model)",
+    "choisirNiveau": "First choose the confidentiality level: only the models that accept it are offered.",
+    "aucunModeleNiveau": "No model in the catalogue accepts this level yet.",
+    "motif": "Reason",
+    "projet": "Project or deal",
+    "duree": "Requested duration",
+    "engagement": "I commit to not submitting data above the declared level (Experimental level: public data only).",
+    "envoyer": "Send request",
+    "resoumettre": "Resubmit",
+    "titreRenouvellement": "Renew the key {alias}"
+  },
+  "adhesion": {
+    "titre": "Ask to join a team",
+    "aucuneEquipe": "No other team exists yet: contact an administrator.",
+    "equipe": "Team",
+    "motif": "Reason",
+    "envoyer": "Send request"
+  },
+  "connexion": {
+    "titre": "Sign in to the AI Portal",
+    "explication": "The portal uses your Linagora account: sign in with the company SSO.",
+    "bouton": "Sign in with LemonLDAP::NG",
+    "echec": "Sign-in failed. Try again; if the problem persists, contact a portal administrator."
+  },
+  "refus": {
+    "titre": "Access restricted",
+    "message": "Your account is not allowed to use this service. If you think this is a mistake, contact a portal administrator.",
+    "retour": "Back to the portal"
+  },
+  "gestion": {
+    "nav": {
+      "libelle": "Administration",
+      "demandes": "Requests",
+      "catalogue": "Catalog",
+      "parametres": "Default values",
+      "cles": "Keys"
+    },
+    "file": {
+      "titre": "Requests awaiting validation",
+      "colonnes": {
+        "soumise": "Submitted on",
+        "demandeur": "Requester",
+        "type": "Type",
+        "equipe": "Team",
+        "niveau": "Level",
+        "modeles": "Models",
+        "projet": "Project"
+      },
+      "examiner": "Review",
+      "aucune": "No pending request."
+    },
+    "fiche": {
+      "statut": "Status",
+      "soumise": "Submitted on",
+      "demandeur": "Requester",
+      "equipe": "Team",
+      "niveau": "Declared level",
+      "modeles": "Requested models",
+      "projet": "Project",
+      "budgetDuree": "Requested budget / duration",
+      "motif": "Reason",
+      "dernierCommentaire": "Last comment",
+      "controles": "Policy checks (current state)",
+      "approuverCle": "Approve (key parameters)",
+      "modelesAccordes": "Granted models",
+      "budget": "Budget (€)",
+      "periode": "Budget period (e.g. 30d)",
+      "validite": "Validity",
+      "rpm": "Requests per minute limit (optional)",
+      "tpm": "Tokens per minute limit (optional)",
+      "approuver": "Approve",
+      "approuverAdhesion": "Approve: add {uid} to the chosen team",
+      "refuserOuCompleter": "Refuse or ask for more information",
+      "motifRefus": "Reason for refusal",
+      "refuser": "Refuse",
+      "complement": "Information requested",
+      "demanderComplement": "Ask for more information",
+      "equipeCle": "Key team",
+      "equipeAffectation": "Assigned team",
+      "aideEquipe": "If the requester is not a member of the chosen team, approval adds them to it.",
+      "renouvellement": "Renewal of the key {alias}.",
+      "depenseOrigine": "Spend of this key: {depense}."
+    },
+    "parametres": {
+      "titre": "Default key values",
+      "explication": "They prefill the approval form. A field left empty is not changed.",
+      "champs": {
+        "default_budget": "Default budget (€)",
+        "default_budget_duration": "Budget period (e.g. 30d)",
+        "default_days": "Default validity (days)",
+        "default_rpm": "Requests per minute limit (optional)",
+        "default_tpm": "Tokens per minute limit (optional)",
+        "pickup_days": "Pickup delay for an approved key (days)"
+      },
+      "enregistrer": "Save"
+    },
+    "cles": {
+      "titre": "Issued keys",
+      "aucune": "No key has been picked up yet.",
+      "colonnes": {
+        "titulaire": "Holder",
+        "alias": "Alias",
+        "equipe": "Team",
+        "niveau": "Level",
+        "depense": "Spend",
+        "expiration": "Expires on",
+        "statut": "Status"
+      },
+      "revoquer": "Revoke",
+      "revocationAvertissement": "The gateway will refuse the key within seconds. Revocation cannot be undone.",
+      "confirmerRevocation": "Confirm revocation",
+      "bloquer": "Block",
+      "debloquer": "Unblock"
+    }
+  },
+  "introuvable": {
+    "titre": "Page not found",
+    "message": "This address does not match any page of the portal.",
+    "retour": "Back to the home page"
+  },
+  "erreur": {
+    "titre": "An error occurred",
+    "message": "The page could not be displayed. Try again; if the problem persists, contact a portal administrator.",
+    "reessayer": "Try again"
+  },
+  "formulaire": {
+    "obligatoires": "Fields followed by an asterisk (<etoile>*</etoile>) are required."
+  },
+  "cles": {
+    "titre": "My keys",
+    "aRetirer": "To pick up",
+    "aRetirerIntro": "These requests are approved: generate your key before the deadline.",
+    "echeance": "Pick up before {date}",
+    "sansEcheance": "No pickup deadline",
+    "generer": "Generate my key",
+    "generation": "Generating…",
+    "nouvelleCle": "Your new key {alias}",
+    "avertissement": "Copy it now and keep it safe: it will never be displayed again.",
+    "copier": "Copy the key",
+    "copiee": "Key copied",
+    "jaiCopie": "I have copied my key",
+    "emises": "Issued keys",
+    "colonnes": {
+      "alias": "Alias",
+      "equipe": "Team",
+      "niveau": "Level",
+      "modeles": "Models",
+      "emise": "Picked up on",
+      "expiration": "Expires on",
+      "statut": "Status"
+    },
+    "aucune": "You have no key yet: choose models, then request a key.",
+    "catalogue": "See the catalog",
+    "depense": "Spend",
+    "depenseSur": "{depense} of {budget}",
+    "moinsDunCentime": "less than €0.01",
+    "remiseAZero": "Budget reset",
+    "infoIndisponible": "Spend and budget unavailable for now: the gateway is not responding.",
+    "bloquee": "blocked",
+    "commentUtiliser": "How to use it",
+    "exemplesPour": "With {modele}",
+    "emplacement": "Keep your key in the LINAGORA_API_KEY environment variable: the examples read it from there, it never appears in them.",
+    "langages": {
+      "curl": "curl",
+      "python": "Python (OpenAI SDK)",
+      "javascript": "JavaScript (OpenAI SDK)"
+    },
+    "copierExemple": "Copy the example",
+    "exempleCopie": "Example copied",
+    "revoquer": "Revoke this key",
+    "revocationAvertissement": "The gateway will refuse the key within seconds. Revocation cannot be undone.",
+    "confirmerRevocation": "Confirm revocation",
+    "remplacer": "Replace my key (lost key)",
+    "remplacementExplication": "A new key replaces this one, with the same parameters and the same expiry date. The old key stops working at once.",
+    "confirmerRemplacement": "Generate the replacement key",
+    "renouveler": "Renew"
+  },
+  "courriels": {
+    "lien": "Link: {url}",
+    "nouvelleDemandeCle": {
+      "sujet": "New API key request",
+      "corps": "{uid} requested an API key for the {equipe} team ({niveau})."
+    },
+    "nouvelleDemandeAdhesion": {
+      "sujet": "New team access request",
+      "corps": "{uid} asks to join the {equipe} team."
+    },
+    "demandeApprouvee": {
+      "sujet": "Your key request is approved",
+      "corps": "Your API key request for the {equipe} team is approved. Pick up your key before {date, date, long} in “My keys”.",
+      "corpsSansEcheance": "Your API key request for the {equipe} team is approved. Pick up your key in “My keys”."
+    },
+    "demandeRefusee": {
+      "sujet": "Your request is refused",
+      "corps": "Your request for the {equipe} team is refused.\nReason: {motif}"
+    },
+    "complementDemande": {
+      "sujet": "Your request needs more information",
+      "corps": "An administrator asks for more information on your request for the {equipe} team.\nComment: {commentaire}"
+    },
+    "adhesionAcceptee": {
+      "sujet": "Your access request is accepted",
+      "corps": "You are now a member of the {equipe} team. You can request an API key for it."
+    },
+    "rappelRetrait": {
+      "sujet": "Reminder: your key is waiting to be picked up",
+      "corps": "Your API key for the {equipe} team is waiting for you. Pick it up before {date, date, long} in “My keys”: after that, the request expires."
+    },
+    "rappelExpiration": {
+      "sujet": "Reminder: your key {alias} expires soon",
+      "corps": "Your API key {alias} expires on {date, date, long}. To keep using it, request its renewal in “My keys”."
+    },
+    "cleRevoquee": {
+      "sujet": "Your key {alias} has been revoked",
+      "corps": "An administrator revoked your API key {alias}: the gateway now refuses it. To get a new key, request its renewal in “My keys”."
+    },
+    "cleBloquee": {
+      "sujet": "Your key {alias} is blocked",
+      "corps": "An administrator blocked your API key {alias}: the gateway refuses it until it is unblocked. For more information, write to the portal administrators."
+    },
+    "cleDebloquee": {
+      "sujet": "Your key {alias} is unblocked",
+      "corps": "An administrator unblocked your API key {alias}: it works again."
+    }
+  }
+}
