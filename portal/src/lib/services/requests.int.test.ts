@@ -83,17 +83,17 @@ describe("équipes proposées dans les formulaires", () => {
     expect(await listMyTeams(deps, demandeur)).toEqual([{ teamId: "equipe-rd", teamAlias: "R&D", models: ["mistral-small", "qwen3.8"] }]);
   });
 
-  test("une demande d'adhésion propose les autres équipes (F-22)", async () => {
+  test("une demande d'accès propose les autres équipes (F-22)", async () => {
     expect((await listJoinableTeams(deps, demandeur)).map((t) => t.teamId)).toEqual(["equipe-data"]);
   });
 });
 
-describe("demandes d'adhésion à une équipe (F-22)", () => {
+describe("demandes d'accès à une équipe (F-22)", () => {
   beforeEach(() => {
     litellm.withTeam({ teamId: "equipe-data", teamAlias: "Data", models: ["mistral-small"], memberUids: ["jdupont"] });
   });
 
-  test("une demande d'adhésion est enregistrée et apparaît dans Mes demandes", async () => {
+  test("une demande d'accès est enregistrée et apparaît dans Mes demandes", async () => {
     await createTeamJoinRequest(deps, demandeur, { teamId: "equipe-data", justification: "Rejoindre le projet d'analyse" });
     expect(await listMyRequests(deps, demandeur)).toMatchObject([{ kind: "ADHESION_EQUIPE", teamAlias: "Data", status: "SOUMISE" }]);
   });
@@ -145,9 +145,9 @@ describe("notification des admins (ticket #23)", () => {
     expect(courriel.text.indexOf("mmaudet a demandé")).toBeLessThan(courriel.text.indexOf("mmaudet requested"));
   });
 
-  test("une nouvelle demande d'adhésion aussi", async () => {
+  test("une nouvelle demande d'accès aussi", async () => {
     const { id } = await createTeamJoinRequest(avecCourriel(), demandeur, { teamId: "equipe-lps", justification: "Rejoindre mon équipe" });
-    expect(mailer.outbox.map((c) => [c.to, c.subject])).toEqual([[ADMINS, "Nouvelle demande d'adhésion / New team membership request"]]);
+    expect(mailer.outbox.map((c) => [c.to, c.subject])).toEqual([[ADMINS, "Nouvelle demande d'accès à une équipe / New team access request"]]);
     expect(mailer.outbox[0].text).toContain("mmaudet demande à rejoindre l'équipe LPS Paris.");
     expect(mailer.outbox[0].text).toContain(`https://portail.test/gestion/demandes/${id}`);
   });

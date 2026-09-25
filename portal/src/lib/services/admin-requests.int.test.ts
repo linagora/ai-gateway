@@ -164,8 +164,8 @@ describe("demande de complément (F-31, F-24)", () => {
   });
 });
 
-describe("adhésion à une équipe (F-22)", () => {
-  test("approuver une demande d'adhésion ajoute le demandeur à l'équipe dans LiteLLM", async () => {
+describe("demande d'accès à une équipe (F-22)", () => {
+  test("approuver une demande d'accès ajoute le demandeur à l'équipe dans LiteLLM", async () => {
     litellm.withTeam({ teamId: "equipe-data", teamAlias: "Data", models: ["mistral-small"], memberUids: ["jdupont"] });
     const { id } = await createTeamJoinRequest(deps, demandeur, { teamId: "equipe-data", justification: "Projet d'analyse" });
     await approveTeamJoinRequest(deps, admin, id);
@@ -217,7 +217,7 @@ describe("journal d'audit des décisions (ticket #22)", () => {
     ]);
   });
 
-  test("dépôt d'une demande d'adhésion et adhésion acceptée, avec l'équipe retenue", async () => {
+  test("dépôt d'une demande d'accès et demande acceptée, avec l'équipe retenue", async () => {
     litellm.withTeam({ teamId: "equipe-data", teamAlias: "Data", models: [], memberUids: [] });
     litellm.withTeam({ teamId: "equipe-lps", teamAlias: "LPS Paris", models: [], memberUids: [] });
     const { id } = await createTeamJoinRequest(deps, demandeur, { teamId: "equipe-data", justification: "Projet d'analyse" });
@@ -271,13 +271,13 @@ describe("courriels des décisions au demandeur (ticket #24)", () => {
     expect(recus()[0].text).toContain("https://portail.test/demandes");
   });
 
-  test("adhésion acceptée, avec l'équipe retenue", async () => {
+  test("demande d'accès acceptée, avec l'équipe retenue", async () => {
     litellm.withTeam({ teamId: "equipe-data", teamAlias: "Data", models: [], memberUids: [] });
     litellm.withTeam({ teamId: "equipe-lps", teamAlias: "LPS Paris", models: [], memberUids: [] });
     const { id } = await createTeamJoinRequest(deps, demandeur, { teamId: "equipe-data", justification: "Projet d'analyse" });
     await approveTeamJoinRequest(avecCourriel(), admin, id, "equipe-lps");
     expect(recus()).toEqual([
-      { to: ["mmaudet@linagora.com"], subject: "Votre adhésion est acceptée / Your team membership is accepted", text: expect.stringContaining("Vous êtes désormais membre de l'équipe LPS Paris.") },
+      { to: ["mmaudet@linagora.com"], subject: "Votre demande d'accès est acceptée / Your access request is accepted", text: expect.stringContaining("Vous êtes désormais membre de l'équipe LPS Paris.") },
     ]);
     expect(recus()[0].text).toContain("You are now a member of the LPS Paris team.");
   });
