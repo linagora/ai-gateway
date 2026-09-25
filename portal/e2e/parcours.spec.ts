@@ -129,11 +129,18 @@ for (const T of LANGUES) {
       await expect(salariePage.getByRole("row", { name: new RegExp(`${T.cle}.*R&D.*${T.niveaux.N2}.*dev-interne.*${T.soumise}`) })).toBeVisible();
     });
 
-    test("critère 5 : une demande N3 incluant un modèle N2 est refusée côté serveur", async () => {
+    test("critère 5 : une demande N3 ne propose pas de modèle N2, et le serveur refuse celle qui en contient un", async () => {
       await salariePage.goto("/demandes/nouvelle");
       await salariePage.getByLabel(T.equipe).selectOption({ label: "R&D" });
       await salariePage.getByRole("radio", { name: new RegExp(`^${T.niveaux.N3}`) }).check();
-      await salariePage.getByLabel(/Modèle interne/).check();
+      await expect(salariePage.locator('input[name="models"][value="dev-confidentiel"]')).toHaveCount(1);
+      await expect(salariePage.locator('input[name="models"][value="dev-interne"]')).toHaveCount(0);
+      // Requête forgée : le modèle N2 est ajouté au formulaire sans passer par l'interface.
+      await salariePage.locator("main form").evaluate((form) => {
+        const champ = document.createElement("input");
+        Object.assign(champ, { type: "hidden", name: "models", value: "dev-interne" });
+        form.append(champ);
+      });
       await salariePage.getByLabel(T.motif).fill("Analyse de contrats");
       await salariePage.getByLabel(T.engagement).check();
       await salariePage.getByRole("button", { name: T.envoyer }).click();

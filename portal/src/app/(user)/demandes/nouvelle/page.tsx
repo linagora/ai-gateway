@@ -7,12 +7,13 @@ import { renewalDraft } from "@/lib/services/keys";
 import { listMyTeams } from "@/lib/services/requests";
 import { getDeps, requireUser } from "@/lib/session";
 import { createKeyRequestAction } from "../../../actions";
-import { ExplicationObligatoires, Notice, Obligatoire } from "../../../components";
+import { ExplicationObligatoires, Notice } from "../../../components";
+import { Obligatoire } from "../../../obligatoire";
+import { NiveauEtModeles } from "./niveau-et-modeles";
 
 /**
  * F-20 / F-21 : demande de clé (ou complément d'une demande renvoyée : ?completer=<id>).
- * V1 : tous les modèles visibles sont proposés ; le serveur rejoue les contrôles (équipe, niveau).
- * Le filtrage dynamique des modèles selon l'équipe et le niveau relève de la reprise de l'ergonomie.
+ * Seuls les modèles qui acceptent le niveau choisi sont proposés ; le serveur rejoue les contrôles (équipe, niveau).
  */
 export default async function NewRequestPage(props: PageProps<"/demandes/nouvelle">) {
   const user = await requireUser();
@@ -61,30 +62,13 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
           <p className="text-sm">
             {t("equipeAbsente")} <Link href="/demandes/adhesion">{t("rejoindre")}</Link>
           </p>
-          <fieldset>
-            <legend className="font-medium">
-              {t("niveau")}
-              <Obligatoire />
-            </legend>
-            {DATA_LEVELS.map((l) => (
-              <label key={l} className="font-normal">
-                <input type="radio" name="dataLevel" value={l} required defaultChecked={l === niveau} /> {domaine(`niveaux.${l}`)} —{" "}
-                {catalogue(`niveaux.${l}.definition`)}
-              </label>
-            ))}
-          </fieldset>
-          <fieldset>
-            <legend className="font-medium">
-              {t("modeles")}
-              <Obligatoire />
-            </legend>
-            {catalog.map((m) => (
-              <label key={m.modelName} className="font-normal">
-                <input type="checkbox" name="models" value={m.modelName} defaultChecked={preselected.includes(m.modelName)} /> {m.displayName} (
-                {domaine(`niveaux.${m.dataLevel}`)})
-              </label>
-            ))}
-          </fieldset>
+          <NiveauEtModeles
+            niveaux={DATA_LEVELS.map((l) => ({ niveau: l, libelle: domaine(`niveaux.${l}`), definition: catalogue(`niveaux.${l}.definition`) }))}
+            modeles={catalog.map((m) => ({ modelName: m.modelName, displayName: m.displayName, dataLevel: m.dataLevel, libelleNiveau: domaine(`niveaux.${m.dataLevel}`) }))}
+            niveauInitial={niveau}
+            preselection={preselected}
+            textes={{ niveau: t("niveau"), modeles: t("modeles"), choisirNiveau: t("choisirNiveau"), aucunModele: t("aucunModeleNiveau") }}
+          />
           <label>
             {t("motif")}
             <Obligatoire />

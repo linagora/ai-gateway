@@ -316,6 +316,8 @@
     "rejoindre": "Ask to join it",
     "niveau": "Confidentiality level of the data you will process",
     "modeles": "Models (maximal level accepted by each model)",
+    "choisirNiveau": "First choose the confidentiality level: only the models that accept it are offered.",
+    "aucunModeleNiveau": "No model in the catalogue accepts this level yet.",
     "motif": "Reason",
     "projet": "Project or deal",
     "budget": "Requested budget (€)",

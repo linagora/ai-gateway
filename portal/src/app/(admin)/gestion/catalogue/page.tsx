@@ -4,7 +4,8 @@ import { listCatalogForAdmin } from "@/lib/services/catalog";
 import { getDeps, requireAdminPage } from "@/lib/session";
 import { USE_CASES } from "@/lib/use-cases";
 import { saveCatalogEntryAction } from "../../../actions";
-import { ExplicationObligatoires, formats, Notice, Obligatoire } from "../../../components";
+import { ExplicationObligatoires, formats, Notice } from "../../../components";
+import { Obligatoire } from "../../../obligatoire";
 import { AdminNav } from "../admin-nav";
 
 /** F-50, ticket #6 : fiche de chaque modèle (textes en deux langues, cas d'usage, recommandations) et faits techniques. */

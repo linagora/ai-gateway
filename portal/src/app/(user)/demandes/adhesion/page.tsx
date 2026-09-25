@@ -2,7 +2,8 @@ import { getTranslations } from "next-intl/server";
 import { listJoinableTeams } from "@/lib/services/requests";
 import { getDeps, requireUser } from "@/lib/session";
 import { createTeamJoinRequestAction } from "../../../actions";
-import { ExplicationObligatoires, Notice, Obligatoire } from "../../../components";
+import { ExplicationObligatoires, Notice } from "../../../components";
+import { Obligatoire } from "../../../obligatoire";
 
 /** F-22 : demander à rejoindre une équipe existante ; un administrateur valide. */
 export default async function TeamJoinPage(props: PageProps<"/demandes/adhesion">) {

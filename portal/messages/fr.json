@@ -316,6 +316,8 @@
     "rejoindre": "Demander à la rejoindre",
     "niveau": "Niveau de confidentialité des données que vous traiterez",
     "modeles": "Modèles (niveau maximal accepté par chaque modèle)",
+    "choisirNiveau": "Choisissez d'abord le niveau de confidentialité : seuls les modèles qui l'acceptent sont proposés.",
+    "aucunModeleNiveau": "Aucun modèle du catalogue n'accepte encore ce niveau.",
     "motif": "Motif",
     "projet": "Projet ou affaire",
     "budget": "Budget souhaité (€)",

@@ -89,15 +89,6 @@ function parametresErreur(lire: (nom: string) => string | null, t: Awaited<Retur
   return { objet: "", cas: "", modele: "", equipe: "", ...details, champs, controles };
 }
 
-/** Marque d'un champ obligatoire : une petite étoile rouge ; l'attribut required l'annonce aux lecteurs d'écran. */
-export function Obligatoire() {
-  return (
-    <span className="obligatoire" aria-hidden="true">
-      *
-    </span>
-  );
-}
-
 /** Explication des étoiles, en tête d'un formulaire qui a des champs obligatoires. */
 export async function ExplicationObligatoires() {
   const t = await getTranslations("formulaire");

@@ -303,6 +303,23 @@ test.describe("détail d'un modèle (ticket #9)", () => {
   });
 });
 
+/** Modèles proposés par le formulaire de demande (valeurs des cases à cocher). */
+function modelesProposes(page: Page): Promise<string[]> {
+  return page.locator('input[name="models"]').evaluateAll((cases) => cases.map((c) => (c as HTMLInputElement).value));
+}
+
+/** Ajoute au formulaire de demande un champ que l'interface ne propose pas, comme le ferait une requête forgée. */
+async function ajouterAuFormulaire(page: Page, nom: string, valeur: string): Promise<void> {
+  await page.locator("main form").evaluate(
+    (form, [n, v]) => {
+      const champ = document.createElement("input");
+      Object.assign(champ, { type: "hidden", name: n, value: v });
+      form.append(champ);
+    },
+    [nom, valeur],
+  );
+}
+
 test.describe("sélection de modèles et demande préremplie (ticket #10)", () => {
   const bouton = (page: Page) => page.getByRole("button", { name: "Demander une clé pour la sélection" });
 
@@ -320,7 +337,7 @@ test.describe("sélection de modèles et demande préremplie (ticket #10)", () =
     await expect(page.getByRole("radio", { name: /^N2 — Interne/ })).toBeChecked();
     await expect(page.getByLabel(/Modèle interne/)).toBeChecked();
     await expect(page.getByLabel(/Modèle confidentiel/)).toBeChecked();
-    await expect(page.getByLabel(/Modèle public/)).not.toBeChecked();
+    await expect(page.getByLabel(/Modèle public/)).toHaveCount(0);
     await page.getByLabel("Équipe").selectOption({ label: "R&D" });
     await page.getByLabel("Motif").fill("Synthèse de documents internes");
     await page.getByLabel(/Je m'engage/).check();
@@ -348,12 +365,33 @@ test.describe("sélection de modèles et demande préremplie (ticket #10)", () =
     await context.close();
   });
 
+  test("le formulaire de demande ne propose que les modèles qui acceptent le niveau choisi", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    await page.goto("/demandes/nouvelle");
+    const proposes = async () => (await modelesProposes(page)).sort();
+    await expect(page.getByText("Choisissez d'abord le niveau de confidentialité")).toBeVisible();
+    expect(await proposes()).toEqual([]);
+    for (const [niveau, attendus] of [
+      [/^N3 — Confidentiel/, ["dev-confidentiel"]],
+      [/^N2 — Interne/, ["dev-confidentiel", "dev-interne"]],
+      [/^N1 — Public/, ["dev-confidentiel", "dev-interne", "dev-public"]],
+      [/^Expérimental/, ["dev-experimental"]],
+    ] as const) {
+      await page.getByRole("radio", { name: niveau }).check();
+      await expect.poll(proposes).toEqual(attendus);
+    }
+    await context.close();
+  });
+
   test("une adresse préremplie modifiée à la main ne contourne pas les contrôles de la demande", async ({ browser }) => {
     const context = await connecter(browser, salarie);
     const page = await context.newPage();
     await page.goto("/demandes/nouvelle?niveau=N3&modeles=dev-public");
     await expect(page.getByRole("radio", { name: /^N3 — Confidentiel/ })).toBeChecked();
-    await expect(page.getByLabel(/Modèle public/)).toBeChecked();
+    await expect(page.getByLabel(/Modèle public/)).toHaveCount(0);
+    // Envoyé quand même, par une requête forgée, le modèle N1 est refusé par le serveur.
+    await ajouterAuFormulaire(page, "models", "dev-public");
     await page.getByLabel("Équipe").selectOption({ label: "R&D" });
     await page.getByLabel("Motif").fill("Contrats clients");
     await page.getByLabel(/Je m'engage/).check();

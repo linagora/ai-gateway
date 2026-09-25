@@ -12,7 +12,8 @@ import {
   refuseRequestAction,
   requestCompletionAction,
 } from "../../../../actions";
-import { ExplicationObligatoires, Notice, Obligatoire, formats } from "../../../../components";
+import { ExplicationObligatoires, Notice, formats } from "../../../../components";
+import { Obligatoire } from "../../../../obligatoire";
 import { AdminNav } from "../../admin-nav";
 
 /** F-31 / F-32 : fiche d'une demande, contrôles de politique ✔/✘ et décisions. */
