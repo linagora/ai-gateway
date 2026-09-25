@@ -364,5 +364,15 @@
       },
       "enregistrer": "Enregistrer"
     }
+  },
+  "introuvable": {
+    "titre": "Page introuvable",
+    "message": "Cette adresse ne correspond à aucune page du portail.",
+    "retour": "Retour à l'accueil"
+  },
+  "erreur": {
+    "titre": "Une erreur est survenue",
+    "message": "La page n'a pas pu s'afficher. Réessayez ; si le problème persiste, contactez un administrateur du portail.",
+    "reessayer": "Réessayer"
   }
 }

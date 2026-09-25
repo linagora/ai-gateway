@@ -364,5 +364,15 @@
       },
       "enregistrer": "Save"
     }
+  },
+  "introuvable": {
+    "titre": "Page not found",
+    "message": "This address does not match any page of the portal.",
+    "retour": "Back to the home page"
+  },
+  "erreur": {
+    "titre": "An error occurred",
+    "message": "The page could not be displayed. Try again; if the problem persists, contact a portal administrator.",
+    "reessayer": "Try again"
   }
 }

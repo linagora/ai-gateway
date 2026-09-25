@@ -18,7 +18,7 @@ async function deniedPage(): Promise<string> {
 /** Appelé par Caddy (forward_auth) avant chaque requête vers /admin (console LiteLLM) et /stats (Superset). */
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/acces/[service]">): Promise<Response> {
   const { service } = await ctx.params;
-  if (!SERVICES.includes(service as GatedService)) return new Response("Service inconnu", { status: 404 });
+  if (!SERVICES.includes(service as GatedService)) return new Response(null, { status: 404 });
 
   const decision = decideServiceAccess(await getCurrentUser(), service as GatedService, {
     portalOrigin: new URL(process.env.AUTH_URL ?? request.nextUrl.origin).origin,
