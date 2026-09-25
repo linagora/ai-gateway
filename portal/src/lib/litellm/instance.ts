@@ -2,13 +2,10 @@ import "server-only";
 import { requiredEnv } from "@/lib/db";
 import { createLiteLLMClient, type LiteLLMClient } from "./client";
 
-const globalForLiteLLM = globalThis as unknown as { portalLiteLLM?: LiteLLMClient };
-
-/** Client LiteLLM du portail (réseau interne, clé maître côté serveur uniquement). */
+/**
+ * Client LiteLLM du portail (réseau interne, clé maître côté serveur uniquement). Sans état, il est créé à
+ * chaque appel : aucune instance globale ne survit à un rechargement du code en développement.
+ */
 export function getLiteLLM(): LiteLLMClient {
-  globalForLiteLLM.portalLiteLLM ??= createLiteLLMClient({
-    baseUrl: requiredEnv("LITELLM_BASE_URL"),
-    masterKey: requiredEnv("LITELLM_MASTER_KEY"),
-  });
-  return globalForLiteLLM.portalLiteLLM;
+  return createLiteLLMClient({ baseUrl: requiredEnv("LITELLM_BASE_URL"), masterKey: requiredEnv("LITELLM_MASTER_KEY") });
 }
