@@ -20,5 +20,11 @@
     "demander": "Request an API key",
     "suivre": "Track my requests",
     "valider": "Review requests (administrators)"
+  },
+  "catalogue": {
+    "zones": {
+      "UE": "EU",
+      "HORS_UE": "Outside the EU"
+    }
   }
 }

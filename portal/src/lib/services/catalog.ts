@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
-import type { LiteLLMClient, LiteLLMModel } from "@/lib/litellm/client";
+import type { ExecutionRegion, LiteLLMClient, LiteLLMModel } from "@/lib/litellm/client";
 import { PortalError } from "@/lib/errors";
 import { DATA_LEVELS, type DataLevel } from "@/lib/policy";
 import { requireAdmin } from "@/lib/rbac";
@@ -27,7 +27,9 @@ export interface CatalogItem {
   description: string;
   useCases: string | null;
   category: string | null;
-  provider: string | null;
+  /** Éditeur et zone d'exécution, déclarés par la passerelle. Le fournisseur n'est montré qu'aux admins. */
+  publisher: string | null;
+  executionRegion: ExecutionRegion | null;
   dataLevel: DataLevel;
   hosting: string;
   inputPricePerMillion: number;
@@ -53,7 +55,8 @@ export async function listCatalog(deps: CatalogDeps): Promise<CatalogItem[]> {
         description: entry.description,
         useCases: entry.useCases,
         category: entry.category,
-        provider: model.provider,
+        publisher: model.publisher,
+        executionRegion: model.executionRegion,
         dataLevel: entry.dataLevel,
         hosting: entry.hosting,
         inputPricePerMillion: perMillion(model.inputCostPerToken),
@@ -67,7 +70,7 @@ export async function listCatalog(deps: CatalogDeps): Promise<CatalogItem[]> {
 /** Ligne du catalogue d'administration : un modèle de LiteLLM et son enrichissement éventuel. */
 export interface AdminCatalogItem {
   modelName: string;
-  provider: string | null;
+  supplier: string | null;
   hasEuroPricing: boolean;
   inputPricePerMillion: number | null;
   outputPricePerMillion: number | null;
@@ -83,7 +86,7 @@ export async function listCatalogForAdmin(deps: CatalogDeps, actor: SessionUser)
       const entry = entries.find((e) => e.modelName === model.modelName);
       return {
         modelName: model.modelName,
-        provider: model.provider,
+        supplier: model.supplier,
         hasEuroPricing: hasEuroPricing(model),
         inputPricePerMillion: model.inputCostPerToken === null ? null : perMillion(model.inputCostPerToken),
         outputPricePerMillion: model.outputCostPerToken === null ? null : perMillion(model.outputCostPerToken),

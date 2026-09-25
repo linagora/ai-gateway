@@ -25,7 +25,7 @@ export default async function AdminCataloguePage(props: PageProps<"/gestion/cata
       {models.map((m) => (
         <section key={m.modelName} className="mt-6 border-t pt-4">
           <h2 className="mt-0">
-            <code>{m.modelName}</code> · {m.provider ?? "—"} · {m.hasEuroPricing ? `${euros(m.inputPricePerMillion)} / ${euros(m.outputPricePerMillion)} par million de jetons` : "⚠ pas de tarif en euros"}
+            <code>{m.modelName}</code> · {m.supplier ?? "—"} · {m.hasEuroPricing ? `${euros(m.inputPricePerMillion)} / ${euros(m.outputPricePerMillion)} par million de jetons` : "⚠ pas de tarif en euros"}
             {!m.entry && " · non enrichi"}
           </h2>
           <form action={saveCatalogEntryAction}>

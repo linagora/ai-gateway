@@ -38,11 +38,26 @@ export interface LiteLLMTeam extends LiteLLMTeamSummary {
   memberUids: string[];
 }
 
-/** Modèle déclaré dans LiteLLM. Les prix, déclarés dans litellm_params, sont relus via model_info. */
+/** Capacité d'un modèle, déclarée par la passerelle (les outils et le JSON, communs à tous, n'en sont pas). */
+export type Capability = "images" | "audio_video" | "raisonnement";
+
+const CAPABILITIES: readonly Capability[] = ["images", "audio_video", "raisonnement"];
+
+/** Zone d'exécution d'un modèle (glossaire) : UE ou hors UE. */
+export type ExecutionRegion = "UE" | "HORS_UE";
+
+/**
+ * Modèle déclaré dans LiteLLM. Les prix, déclarés dans litellm_params, sont relus via model_info.
+ * Fournisseur, éditeur, capacités, hébergeurs et zone sont déclarés par la passerelle dans model_info.
+ */
 export interface LiteLLMModel {
   modelId: string;
   modelName: string;
-  provider: string | null;
+  supplier: string | null;
+  publisher: string | null;
+  capabilities: Capability[];
+  hosts: string[];
+  executionRegion: ExecutionRegion | null;
   inputCostPerToken: number | null;
   outputCostPerToken: number | null;
   pricingCurrency: string | null;
@@ -92,9 +107,12 @@ const modelInfoSchema = z.object({
       model_name: z.string(),
       model_info: z.object({
         id: z.string(),
-        litellm_provider: z.string().nullish(),
-        /** Fournisseur affiché, déclaré par la passerelle quand la route de LiteLLM ne le dit pas (OpenRouter joint en openai/…). */
+        /** Déclarés par la passerelle : la route de LiteLLM (openai/…) ne dit rien du vrai fournisseur. */
         fournisseur: z.string().nullish(),
+        editeur: z.string().nullish(),
+        capacites: z.array(z.string()).nullish(),
+        hebergeurs: z.array(z.string()).nullish(),
+        zone: z.string().nullish(),
         input_cost_per_token: z.number().nullish(),
         output_cost_per_token: z.number().nullish(),
         pricing_currency: z.string().nullish(),
@@ -176,7 +194,11 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
       return modelInfoSchema.parse(data).data.map(({ model_name, model_info: mi }) => ({
         modelId: mi.id,
         modelName: model_name,
-        provider: mi.fournisseur ?? mi.litellm_provider ?? null,
+        supplier: mi.fournisseur ?? null,
+        publisher: mi.editeur ?? null,
+        capabilities: (mi.capacites ?? []).filter((c): c is Capability => CAPABILITIES.includes(c as Capability)),
+        hosts: mi.hebergeurs ?? [],
+        executionRegion: mi.zone === "UE" ? "UE" : mi.zone === "monde" ? "HORS_UE" : null,
         inputCostPerToken: mi.input_cost_per_token ?? null,
         outputCostPerToken: mi.output_cost_per_token ?? null,
         pricingCurrency: mi.pricing_currency ?? null,

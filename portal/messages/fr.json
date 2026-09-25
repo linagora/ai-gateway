@@ -20,5 +20,11 @@
     "demander": "Demander une clé d'API",
     "suivre": "Suivre mes demandes",
     "valider": "Valider les demandes (administrateurs)"
+  },
+  "catalogue": {
+    "zones": {
+      "UE": "UE",
+      "HORS_UE": "Hors UE"
+    }
   }
 }

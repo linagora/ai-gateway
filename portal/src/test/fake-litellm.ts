@@ -53,7 +53,11 @@ export class FakeLiteLLM implements LiteLLMClient {
   withModel(model: Partial<LiteLLMModel> & { modelName: string }): this {
     this.models.push({
       modelId: `id-${model.modelName}`,
-      provider: "openai",
+      supplier: "OpenRouter",
+      publisher: null,
+      capabilities: [],
+      hosts: [],
+      executionRegion: "UE",
       inputCostPerToken: 0.0000004,
       outputCostPerToken: 0.0000027,
       pricingCurrency: "EUR",

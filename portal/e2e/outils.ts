@@ -1,4 +1,4 @@
-import { type Browser, type BrowserContext, expect } from "@playwright/test";
+import { type Browser, type BrowserContext, expect, type Page } from "@playwright/test";
 
 export interface Personne {
   uid: string;
@@ -19,4 +19,18 @@ export async function connecter(browser: Browser, personne: Personne, langueNavi
   await expect(page.getByRole("heading", { name: new RegExp(personne.name) })).toBeVisible();
   await page.close();
   return context;
+}
+
+export const ADMIN: Personne = { uid: "mmaudet", email: "mmaudet@linagora.com", name: "Admin E2E" };
+
+/** Enrichit un modèle de démonstration depuis la gestion du catalogue (session admin), et le rend visible. */
+export async function enrichirModele(page: Page, modele: { nom: string; nomAffiche: string; niveau: string }): Promise<void> {
+  await page.goto("/gestion/catalogue");
+  const section = page.locator("section").filter({ has: page.locator("code", { hasText: new RegExp(`^${modele.nom}$`) }) });
+  await section.getByLabel("Nom affiché").fill(modele.nomAffiche);
+  await section.getByLabel("Description").fill(`Modèle de démonstration ${modele.niveau}`);
+  await section.getByLabel("Niveau maximal de données").selectOption(modele.niveau);
+  await section.getByLabel("Visible des utilisateurs").check();
+  await section.getByRole("button", { name: "Enregistrer" }).click();
+  await expect(page.getByRole("status")).toHaveText("Catalogue mis à jour.");
 }

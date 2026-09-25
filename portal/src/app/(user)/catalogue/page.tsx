@@ -1,23 +1,24 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import { HOSTING_LABELS, LEVEL_DESCRIPTIONS, LEVEL_LABELS } from "@/lib/labels";
 import { DATA_LEVELS } from "@/lib/policy";
 import { listCatalog } from "@/lib/services/catalog";
 import { getDeps, requireUser } from "@/lib/session";
 import { Notice, formats } from "../../components";
 
-/** F-10 à F-12 : catalogue des modèles visibles, filtrable par niveau, fournisseur et catégorie. */
+/** F-10 à F-12 : catalogue des modèles visibles, filtrable par niveau, éditeur et catégorie. */
 export default async function CataloguePage(props: PageProps<"/catalogue">) {
   await requireUser();
-  const { euros, nombre } = await formats();
+  const [{ euros, nombre }, t] = await Promise.all([formats(), getTranslations("catalogue")]);
   const searchParams = await props.searchParams;
   const pick = (name: string) => (typeof searchParams[name] === "string" ? (searchParams[name] as string) : "");
-  const [level, provider, category] = [pick("niveau"), pick("fournisseur"), pick("categorie")];
+  const [level, publisher, category] = [pick("niveau"), pick("editeur"), pick("categorie")];
 
   const catalog = await listCatalog(getDeps());
   const items = catalog.filter(
-    (m) => (!level || m.dataLevel === level) && (!provider || m.provider === provider) && (!category || m.category === category),
+    (m) => (!level || m.dataLevel === level) && (!publisher || m.publisher === publisher) && (!category || m.category === category),
   );
-  const providers = [...new Set(catalog.map((m) => m.provider).filter(Boolean))] as string[];
+  const publishers = [...new Set(catalog.map((m) => m.publisher).filter(Boolean))] as string[];
   const categories = [...new Set(catalog.map((m) => m.category).filter(Boolean))] as string[];
 
   return (
@@ -37,10 +38,10 @@ export default async function CataloguePage(props: PageProps<"/catalogue">) {
           </select>
         </label>
         <label>
-          Fournisseur
-          <select name="fournisseur" defaultValue={provider}>
+          Éditeur
+          <select name="editeur" defaultValue={publisher}>
             <option value="">Tous</option>
-            {providers.map((p) => (
+            {publishers.map((p) => (
               <option key={p}>{p}</option>
             ))}
           </select>
@@ -75,7 +76,9 @@ export default async function CataloguePage(props: PageProps<"/catalogue">) {
               <td>
                 <strong>{m.displayName}</strong>
                 <br />
-                <code>{m.modelName}</code> · {m.provider ?? "—"} {m.category && `· ${m.category}`}
+                {m.publisher ?? "—"} · {m.executionRegion ? t(`zones.${m.executionRegion}`) : "—"}
+                <br />
+                <code>{m.modelName}</code> {m.category && `· ${m.category}`}
               </td>
               <td title={LEVEL_DESCRIPTIONS[m.dataLevel]}>{LEVEL_LABELS[m.dataLevel]}</td>
               <td>{HOSTING_LABELS[m.hosting as keyof typeof HOSTING_LABELS] ?? m.hosting}</td>

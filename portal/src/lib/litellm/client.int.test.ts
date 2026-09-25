@@ -42,13 +42,34 @@ describe("modèles", () => {
     expect(model).toEqual({
       modelId: created.model_info.id,
       modelName,
-      provider: "openai",
+      supplier: null,
+      publisher: null,
+      capabilities: [],
+      hosts: [],
+      executionRegion: null,
       inputCostPerToken: 0.000001,
       outputCostPerToken: 0.000004,
       pricingCurrency: "EUR",
       dataLevel: "N2",
       hosting: "UE",
       maxInputTokens: 128000,
+    });
+  });
+
+  test("un modèle expose l'éditeur, les capacités, les hébergeurs et la zone d'exécution déclarés par la passerelle", async () => {
+    const modelName = uniqueId("modele");
+    const created = await admin<{ model_info: { id: string } }>("POST", "/model/new", {
+      model_name: modelName,
+      litellm_params: { model: "openai/mistralai/mistral-large-2512", api_key: "sk-factice", mock_response: "OK", input_cost_per_token: 0.0000005, output_cost_per_token: 0.0000015 },
+      model_info: { fournisseur: "OpenRouter", editeur: "Mistral AI", capacites: ["images", "raisonnement"], hebergeurs: ["Mistral"], zone: "UE", data_level: "N1", pricing_currency: "EUR" },
+    });
+    createdModels.push(created.model_info.id);
+    expect((await client.listModels()).find((m) => m.modelName === modelName)).toMatchObject({
+      supplier: "OpenRouter",
+      publisher: "Mistral AI",
+      capabilities: ["images", "raisonnement"],
+      hosts: ["Mistral"],
+      executionRegion: "UE",
     });
   });
 
@@ -60,7 +81,7 @@ describe("modèles", () => {
       model_info: { fournisseur: "OpenRouter", data_level: "N1", pricing_currency: "EUR", hosting: "UE" },
     });
     createdModels.push(created.model_info.id);
-    expect((await client.listModels()).find((m) => m.modelName === modelName)?.provider).toBe("OpenRouter");
+    expect((await client.listModels()).find((m) => m.modelName === modelName)?.supplier).toBe("OpenRouter");
   });
 });
 

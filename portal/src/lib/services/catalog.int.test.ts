@@ -24,6 +24,15 @@ describe("catalogue des utilisateurs (F-10)", () => {
     expect(await listCatalog({ db: testDb, litellm })).toEqual([]);
   });
 
+  test("un modèle du catalogue montre l'éditeur et la zone d'exécution déclarés par la passerelle, jamais le fournisseur", async () => {
+    const litellm = new FakeLiteLLM().withModel({ modelName: "qwen3.8", supplier: "OVHcloud", publisher: "Alibaba (Qwen)", executionRegion: "UE" });
+    await saveCatalogEntry({ db: testDb, litellm }, admin, qwen);
+    const [modele] = await listCatalog({ db: testDb, litellm });
+    expect(modele).toMatchObject({ publisher: "Alibaba (Qwen)", executionRegion: "UE" });
+    expect(modele).not.toHaveProperty("supplier");
+    expect(modele).not.toHaveProperty("provider");
+  });
+
   test("un modèle enrichi et visible apparaît avec ses prix en euros par million de jetons", async () => {
     const litellm = new FakeLiteLLM().withModel({ modelName: "qwen3.8", inputCostPerToken: 0.0000004, outputCostPerToken: 0.0000027 });
     await saveCatalogEntry({ db: testDb, litellm }, admin, qwen);
@@ -34,7 +43,8 @@ describe("catalogue des utilisateurs (F-10)", () => {
         description: "Modèle généraliste hébergé par OVHcloud",
         useCases: "Synthèse de documents confidentiels",
         category: "texte",
-        provider: "openai",
+        publisher: null,
+        executionRegion: "UE",
         dataLevel: "N3",
         hosting: "UE",
         inputPricePerMillion: 0.4,
