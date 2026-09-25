@@ -3,12 +3,12 @@ import { connecter, enrichirModele } from "./outils";
 
 /*
  * Parcours principal (PRD §9, critères 4, 5 et 6 jusqu'à l'approbation) : un admin (PORTAL_ADMIN_UIDS=mmaudet
- * dans .env) et un salarié créé pour l'occasion, qui fait tout le parcours en français, puis en anglais.
+ * dans .env) et un salarié créé pour l'occasion, qui font tout le parcours en français, puis en anglais.
  */
 const suffix = Date.now().toString(36);
 const admin = { uid: "mmaudet", email: "mmaudet@linagora.com", name: "Admin E2E" };
 
-/** Textes attendus par le salarié, dans chaque langue. Les modèles de démonstration n'ont que des textes français. */
+/** Textes attendus dans chaque langue. Les modèles de démonstration n'ont que des textes français. */
 const LANGUES = [
   {
     code: "fr",
@@ -26,6 +26,14 @@ const LANGUES = [
     soumise: "Soumise",
     approuvee: "Approuvée",
     date: /\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/,
+    admin: {
+      examiner: "Examiner",
+      adhesion: "Adhésion à une équipe",
+      approuverAjout: /Approuver : ajouter/,
+      adhesionApprouvee: "Adhésion approuvée : le demandeur a été ajouté à l'équipe.",
+      approuver: "Approuver",
+      demandeApprouvee: "Demande approuvée.",
+    },
   },
   {
     code: "en",
@@ -43,6 +51,14 @@ const LANGUES = [
     soumise: "Submitted",
     approuvee: "Approved",
     date: /\d{1,2}\/\d{1,2}\/\d{2}, \d{1,2}:\d{2}\s[AP]M/,
+    admin: {
+      examiner: "Review",
+      adhesion: "Team membership",
+      approuverAjout: /Approve: add/,
+      adhesionApprouvee: "Membership approved: the requester has been added to the team.",
+      approuver: "Approve",
+      demandeApprouvee: "Request approved.",
+    },
   },
 ];
 
@@ -77,9 +93,11 @@ for (const T of LANGUES) {
   test.describe(`parcours du salarié (${T.code})`, () => {
     const salarie = { uid: `e2e-${T.code}-${suffix}`, email: `e2e-${T.code}-${suffix}@example.org`, name: `Salarié ${T.code} ${suffix}` };
     let salariePage: Page;
+    let validation: Page;
 
     test.beforeAll(async ({ browser }) => {
       salariePage = await (await connecter(browser, salarie, T.navigateur)).newPage();
+      validation = await (await connecter(browser, admin, T.navigateur)).newPage();
     });
 
     test("un salarié demande à rejoindre l'équipe R&D et un admin l'y ajoute (F-22)", async () => {
@@ -89,10 +107,10 @@ for (const T of LANGUES) {
       await salariePage.getByRole("button", { name: T.envoyer }).click();
       await expect(salariePage.getByRole("status")).toHaveText(T.adhesionEnvoyee);
 
-      await adminPage.goto("/gestion/demandes");
-      await adminPage.getByRole("row", { name: new RegExp(`${salarie.uid}.*Adhésion`) }).getByRole("link", { name: "Examiner" }).click();
-      await adminPage.getByRole("button", { name: /Approuver : ajouter/ }).click();
-      await expect(adminPage.getByRole("status")).toHaveText("Adhésion approuvée : le demandeur a été ajouté à l'équipe.");
+      await validation.goto("/gestion/demandes");
+      await validation.getByRole("row", { name: new RegExp(`${salarie.uid}.*${T.admin.adhesion}`) }).getByRole("link", { name: T.admin.examiner }).click();
+      await validation.getByRole("button", { name: T.admin.approuverAjout }).click();
+      await expect(validation.getByRole("status")).toHaveText(T.admin.adhesionApprouvee);
     });
 
     test("critère 4 : le salarié voit le catalogue et soumet une demande N2", async () => {
@@ -123,11 +141,11 @@ for (const T of LANGUES) {
     });
 
     test("un admin approuve la demande N2 et le salarié la voit approuvée", async () => {
-      await adminPage.goto("/gestion/demandes");
-      await adminPage.getByRole("row", { name: new RegExp(`${salarie.uid}.*Clé d'API`) }).getByRole("link", { name: "Examiner" }).click();
-      await expect(adminPage.getByText("✘")).toHaveCount(0);
-      await adminPage.getByRole("button", { name: "Approuver", exact: true }).click();
-      await expect(adminPage.getByRole("status")).toHaveText("Demande approuvée.");
+      await validation.goto("/gestion/demandes");
+      await validation.getByRole("row", { name: new RegExp(`${salarie.uid}.*${T.cle}`) }).getByRole("link", { name: T.admin.examiner }).click();
+      await expect(validation.getByText("✘")).toHaveCount(0);
+      await validation.getByRole("button", { name: T.admin.approuver, exact: true }).click();
+      await expect(validation.getByRole("status")).toHaveText(T.admin.demandeApprouvee);
 
       await salariePage.goto("/demandes");
       const ligne = salariePage.getByRole("row", { name: new RegExp(`${T.cle}.*R&D.*${T.approuvee}`) });
@@ -156,3 +174,14 @@ for (const T of LANGUES) {
     });
   });
 }
+
+test("un admin anglophone voit la file des demandes et les valeurs par défaut en anglais", async ({ browser }) => {
+  const page = await (await connecter(browser, admin, "en-US")).newPage();
+  await page.goto("/gestion/demandes");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Requests awaiting validation");
+  await expect(page.getByRole("columnheader", { name: "Requester" })).toBeVisible();
+  await page.goto("/gestion/parametres");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Default key values");
+  await expect(page.getByLabel("Default budget (€)")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save" })).toBeVisible();
+});

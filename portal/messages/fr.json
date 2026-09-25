@@ -59,6 +59,10 @@
     "typesDemande": {
       "CLE": "Clé d'API",
       "ADHESION_EQUIPE": "Adhésion à une équipe"
+    },
+    "typesCle": {
+      "PERSONNELLE": "Personnelle",
+      "SERVICE": "Service (application)"
     }
   },
   "avis": {
@@ -275,10 +279,6 @@
     "budget": "Budget souhaité (€)",
     "duree": "Durée souhaitée (jours)",
     "typeCle": "Type de clé",
-    "typesCle": {
-      "PERSONNELLE": "Personnelle",
-      "SERVICE": "Service (application)"
-    },
     "engagement": "Je m'engage à ne pas soumettre de données d'un niveau supérieur à celui déclaré (niveau Expérimental : données publiques uniquement).",
     "envoyer": "Envoyer la demande",
     "resoumettre": "Resoumettre"
@@ -289,5 +289,69 @@
     "equipe": "Équipe",
     "motif": "Motif",
     "envoyer": "Envoyer la demande"
+  },
+  "gestion": {
+    "nav": {
+      "libelle": "Administration",
+      "demandes": "Demandes",
+      "catalogue": "Catalogue",
+      "parametres": "Valeurs par défaut"
+    },
+    "file": {
+      "titre": "Demandes en attente de validation",
+      "colonnes": {
+        "soumise": "Soumise le",
+        "demandeur": "Demandeur",
+        "type": "Type",
+        "equipe": "Équipe",
+        "niveau": "Niveau",
+        "modeles": "Modèles",
+        "projet": "Projet"
+      },
+      "examiner": "Examiner",
+      "aucune": "Aucune demande en attente."
+    },
+    "fiche": {
+      "statut": "Statut",
+      "soumise": "Soumise le",
+      "demandeur": "Demandeur",
+      "equipe": "Équipe",
+      "niveau": "Niveau déclaré",
+      "modeles": "Modèles demandés",
+      "projet": "Projet",
+      "typeCle": "Type de clé",
+      "budgetDuree": "Budget / durée souhaités",
+      "jours": "{nombre, plural, one {# jour} other {# jours}}",
+      "motif": "Motif",
+      "dernierCommentaire": "Dernier commentaire",
+      "controles": "Contrôles de politique (état actuel)",
+      "approuverCle": "Approuver (paramètres de la clé)",
+      "modelesAccordes": "Modèles accordés",
+      "budget": "Budget (€)",
+      "periode": "Période du budget (ex. 30d)",
+      "validite": "Durée de validité (jours)",
+      "rpm": "Limite de requêtes par minute (facultatif)",
+      "tpm": "Limite de jetons par minute (facultatif)",
+      "approuver": "Approuver",
+      "approuverAdhesion": "Approuver : ajouter {uid} à l'équipe {equipe}",
+      "refuserOuCompleter": "Refuser ou demander un complément",
+      "motifRefus": "Motif du refus (obligatoire)",
+      "refuser": "Refuser",
+      "complement": "Complément demandé",
+      "demanderComplement": "Demander un complément"
+    },
+    "parametres": {
+      "titre": "Valeurs par défaut des clés",
+      "explication": "Elles pré-remplissent le formulaire d'approbation. Un champ laissé vide n'est pas modifié.",
+      "champs": {
+        "default_budget": "Budget par défaut (€)",
+        "default_budget_duration": "Période du budget (ex. 30d)",
+        "default_days": "Durée de validité par défaut (jours)",
+        "default_rpm": "Limite de requêtes par minute (facultatif)",
+        "default_tpm": "Limite de jetons par minute (facultatif)",
+        "pickup_days": "Délai de retrait d'une clé approuvée (jours)"
+      },
+      "enregistrer": "Enregistrer"
+    }
   }
 }

@@ -91,8 +91,8 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
           <label>
             {t("typeCle")}
             <select name="keyType">
-              <option value="PERSONNELLE">{t("typesCle.PERSONNELLE")}</option>
-              <option value="SERVICE">{t("typesCle.SERVICE")}</option>
+              <option value="PERSONNELLE">{domaine("typesCle.PERSONNELLE")}</option>
+              <option value="SERVICE">{domaine("typesCle.SERVICE")}</option>
             </select>
           </label>
           <label className="font-normal">

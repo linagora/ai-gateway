@@ -59,6 +59,10 @@
     "typesDemande": {
       "CLE": "API key",
       "ADHESION_EQUIPE": "Team membership"
+    },
+    "typesCle": {
+      "PERSONNELLE": "Personal",
+      "SERVICE": "Service (application)"
     }
   },
   "avis": {
@@ -275,10 +279,6 @@
     "budget": "Requested budget (€)",
     "duree": "Requested duration (days)",
     "typeCle": "Key type",
-    "typesCle": {
-      "PERSONNELLE": "Personal",
-      "SERVICE": "Service (application)"
-    },
     "engagement": "I commit to not submitting data above the declared level (Experimental level: public data only).",
     "envoyer": "Send request",
     "resoumettre": "Resubmit"
@@ -289,5 +289,69 @@
     "equipe": "Team",
     "motif": "Reason",
     "envoyer": "Send request"
+  },
+  "gestion": {
+    "nav": {
+      "libelle": "Administration",
+      "demandes": "Requests",
+      "catalogue": "Catalog",
+      "parametres": "Default values"
+    },
+    "file": {
+      "titre": "Requests awaiting validation",
+      "colonnes": {
+        "soumise": "Submitted on",
+        "demandeur": "Requester",
+        "type": "Type",
+        "equipe": "Team",
+        "niveau": "Level",
+        "modeles": "Models",
+        "projet": "Project"
+      },
+      "examiner": "Review",
+      "aucune": "No pending request."
+    },
+    "fiche": {
+      "statut": "Status",
+      "soumise": "Submitted on",
+      "demandeur": "Requester",
+      "equipe": "Team",
+      "niveau": "Declared level",
+      "modeles": "Requested models",
+      "projet": "Project",
+      "typeCle": "Key type",
+      "budgetDuree": "Requested budget / duration",
+      "jours": "{nombre, plural, one {# day} other {# days}}",
+      "motif": "Reason",
+      "dernierCommentaire": "Last comment",
+      "controles": "Policy checks (current state)",
+      "approuverCle": "Approve (key parameters)",
+      "modelesAccordes": "Granted models",
+      "budget": "Budget (€)",
+      "periode": "Budget period (e.g. 30d)",
+      "validite": "Validity (days)",
+      "rpm": "Requests per minute limit (optional)",
+      "tpm": "Tokens per minute limit (optional)",
+      "approuver": "Approve",
+      "approuverAdhesion": "Approve: add {uid} to the {equipe} team",
+      "refuserOuCompleter": "Refuse or ask for more information",
+      "motifRefus": "Reason for refusal (required)",
+      "refuser": "Refuse",
+      "complement": "Information requested",
+      "demanderComplement": "Ask for more information"
+    },
+    "parametres": {
+      "titre": "Default key values",
+      "explication": "They prefill the approval form. A field left empty is not changed.",
+      "champs": {
+        "default_budget": "Default budget (€)",
+        "default_budget_duration": "Budget period (e.g. 30d)",
+        "default_days": "Default validity (days)",
+        "default_rpm": "Requests per minute limit (optional)",
+        "default_tpm": "Tokens per minute limit (optional)",
+        "pickup_days": "Pickup delay for an approved key (days)"
+      },
+      "enregistrer": "Save"
+    }
   }
 }
