@@ -165,7 +165,7 @@
           "Données clients ou personnelles (niveau N3)",
           "Contrats, secrets et données sous NDA (niveau N3)"
         ],
-        "garanties": "Fournisseurs engagés à ne pas conserver les données ni à entraîner leurs modèles dessus, en Union européenne de préférence."
+        "garanties": "Hébergeurs engagés à ne pas conserver les données ni à les utiliser pour l'entraînement, en Union européenne de préférence."
       },
       "N3": {
         "definition": "Données clients, personnelles, RH, financières, contractuelles, secrets, données sous NDA ou du secteur public.",

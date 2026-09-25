@@ -165,7 +165,7 @@
           "Customer or personal data (level N3)",
           "Contracts, secrets and data under NDA (level N3)"
         ],
-        "garanties": "Suppliers committed to neither retaining the data nor training their models on it, preferably in the European Union."
+        "garanties": "Hosts committed to neither retaining the data nor using it for training, preferably in the European Union."
       },
       "N3": {
         "definition": "Customer, personal, HR, financial and contractual data, secrets, data under NDA or from the public sector.",
