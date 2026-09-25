@@ -12,7 +12,10 @@
     "nouvelleDemande": "Nouvelle demande",
     "gestion": "Gestion",
     "deconnexion": "Se déconnecter",
-    "mesCles": "Mes clés"
+    "mesCles": "Mes clés",
+    "aRetirer": "{nombre, plural, one {# clé à retirer} other {# clés à retirer}}",
+    "aCompleter": "{nombre, plural, one {# demande à compléter} other {# demandes à compléter}}",
+    "aValider": "{nombre, plural, one {# demande à valider} other {# demandes à valider}}"
   },
   "accueil": {
     "bonjour": "Bonjour {nom}",

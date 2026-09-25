@@ -27,6 +27,7 @@ test("le menu signale les demandes à valider et les clés à retirer ; les page
   const menu = admin.getByRole("navigation", { name: "Administration" });
   await expect(menu.getByRole("link", { name: /^Demandes \(\d+ demandes? à valider\)$/ })).toBeVisible();
   await expect(menu.getByRole("link", { name: /^Clés \(\d+ clés? à retirer\)$/ })).toBeVisible();
+  await expect(admin.getByRole("banner").getByRole("link", { name: /^Gestion \(\d+ demandes? à valider\)$/ })).toBeVisible();
   const archive = admin.getByRole("region", { name: "Archive : demandes traitées" });
   await expect(archive.getByRole("row", { name: new RegExp(`${salarie.uid}.*Clé d'API.*Approuvée`) })).toBeVisible();
 

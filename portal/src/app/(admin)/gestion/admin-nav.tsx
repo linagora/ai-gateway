@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { countAdminPending } from "@/lib/services/admin-requests";
 import { getDeps, requireAdminPage } from "@/lib/session";
+import { Pastille } from "../../pastille";
 
 /** Menu d'administration ; ses pastilles comptent ce qui attend : demandes à valider, clés approuvées à retirer. */
 export async function AdminNav() {
@@ -20,18 +21,5 @@ export async function AdminNav() {
       <Link href="/gestion/catalogue">{t("catalogue")}</Link>
       <Link href="/gestion/parametres">{t("parametres")}</Link>
     </nav>
-  );
-}
-
-/** Pastille d'un nombre en attente ; les lecteurs d'écran lisent son libellé (« 2 demandes à valider »). Rien à zéro. */
-function Pastille({ nombre, libelle }: { nombre: number; libelle: string }) {
-  if (nombre === 0) return null;
-  return (
-    <>
-      <span aria-hidden="true" className="ml-1.5 inline-flex min-w-5 items-center justify-center rounded-full bg-linagora px-1.5 text-xs font-semibold text-white">
-        {nombre}
-      </span>
-      <span className="sr-only"> ({libelle})</span>
-    </>
   );
 }

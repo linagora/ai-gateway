@@ -4,7 +4,17 @@ import { FakeLiteLLM } from "@/test/fake-litellm";
 import { FakeMailer } from "@/test/fake-mailer";
 import { saveCatalogEntry } from "./catalog";
 import { provisionUser } from "./provisioning";
-import { cancelRequest, createKeyRequest, createTeamJoinRequest, type KeyRequestInput, listJoinableTeams, listMyRequests, listMyTeams } from "./requests";
+import { approveKeyRequest, requestCompletion } from "./admin-requests";
+import {
+  cancelRequest,
+  countMyPending,
+  createKeyRequest,
+  createTeamJoinRequest,
+  type KeyRequestInput,
+  listJoinableTeams,
+  listMyRequests,
+  listMyTeams,
+} from "./requests";
 
 const admin = { uid: "jdupont", email: "jdupont@linagora.com", name: "Jeanne Dupont", isAdmin: true };
 const demandeur = { uid: "mmaudet", email: "mmaudet@linagora.com", name: "Michel-Marie Maudet", isAdmin: false };
@@ -186,5 +196,17 @@ describe("notification des admins (ticket #23)", () => {
     await createKeyRequest(deps, demandeur, demande);
     expect(mailer.outbox).toEqual([]);
     expect(await listMyRequests(deps, demandeur)).toHaveLength(2);
+  });
+});
+
+describe("pastilles du menu du salarié", () => {
+  test("elles comptent ses clés approuvées à retirer et ses demandes à compléter, et rien pour un autre", async () => {
+    const approuvee = await createKeyRequest(deps, demandeur, demande);
+    await approveKeyRequest(deps, admin, approuvee.id, { models: ["mistral-small"], budget: 10, budgetDuration: "30d", days: 30, rpmLimit: null, tpmLimit: null });
+    const aCompleter = await createKeyRequest(deps, demandeur, { ...demande, project: "à préciser" });
+    await requestCompletion(deps, admin, aCompleter.id, "Précisez le projet");
+    await createKeyRequest(deps, demandeur, { ...demande, project: "en attente" });
+    expect(await countMyPending(deps, demandeur)).toEqual({ clesARetirer: 1, demandesACompleter: 1 });
+    expect(await countMyPending(deps, admin)).toEqual({ clesARetirer: 0, demandesACompleter: 0 });
   });
 });

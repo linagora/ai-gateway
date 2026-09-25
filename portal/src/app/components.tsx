@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import { DUREES_VALIDITE, optionsDuree } from "@/lib/durees";
-import { getCurrentUser } from "@/lib/session";
+import { countAdminPending } from "@/lib/services/admin-requests";
+import { getCurrentUser, getDeps } from "@/lib/session";
 import { changerLangueAction, signOutAction } from "./actions";
+import { Pastille } from "./pastille";
 
 /** Sélecteur FR | EN : chaque langue est nommée dans sa propre langue. */
 export async function SelecteurLangue() {
@@ -33,9 +35,15 @@ export async function SelecteurLangue() {
 export async function UserMenu() {
   const [user, t] = await Promise.all([getCurrentUser(), getTranslations("entete")]);
   if (!user) return null;
+  const aValider = user.isAdmin ? (await countAdminPending(getDeps(), user)).demandes : 0;
   return (
     <div className="ml-auto flex items-center gap-4">
-      {user.isAdmin && <Link href="/gestion/demandes">{t("gestion")}</Link>}
+      {user.isAdmin && (
+        <Link href="/gestion/demandes">
+          {t("gestion")}
+          <Pastille nombre={aValider} libelle={t("aValider", { nombre: aValider })} />
+        </Link>
+      )}
       <span>{user.name}</span>
       <form action={signOutAction}>
         <button type="submit" className="mt-0 border-neutral-400 bg-white text-neutral-800 hover:bg-neutral-100">

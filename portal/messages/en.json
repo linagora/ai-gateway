@@ -12,7 +12,10 @@
     "nouvelleDemande": "New request",
     "gestion": "Administration",
     "deconnexion": "Sign out",
-    "mesCles": "My keys"
+    "mesCles": "My keys",
+    "aRetirer": "{nombre, plural, one {# key to pick up} other {# keys to pick up}}",
+    "aCompleter": "{nombre, plural, one {# request to complete} other {# requests to complete}}",
+    "aValider": "{nombre, plural, one {# request to review} other {# requests to review}}"
   },
   "accueil": {
     "bonjour": "Hello {nom}",

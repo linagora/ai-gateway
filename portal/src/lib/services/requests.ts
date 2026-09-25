@@ -194,6 +194,16 @@ export async function listMyTeams(deps: RequestDeps, user: SessionUser): Promise
   return (await deps.litellm.getUser(user.uid))?.teams ?? [];
 }
 
+/** Pastilles du menu du salarié : ses clés approuvées à retirer, et ses demandes qu'un admin lui demande de compléter. */
+export async function countMyPending(deps: RequestDeps, user: SessionUser): Promise<{ clesARetirer: number; demandesACompleter: number }> {
+  await markExpired(deps.db, deps.now?.() ?? new Date());
+  const [clesARetirer, demandesACompleter] = await Promise.all([
+    deps.db.accessRequest.count({ where: { requesterUid: user.uid, kind: "CLE", status: "APPROUVEE" } }),
+    deps.db.accessRequest.count({ where: { requesterUid: user.uid, status: "A_COMPLETER" } }),
+  ]);
+  return { clesARetirer, demandesACompleter };
+}
+
 /** F-22 : équipes existantes que l'utilisateur peut demander à rejoindre. */
 export async function listJoinableTeams(deps: RequestDeps, user: SessionUser): Promise<LiteLLMTeamSummary[]> {
   const [mine, enCours] = await Promise.all([listMyTeams(deps, user), demandesDAccesEnCours(deps.db, user)]);

@@ -24,6 +24,8 @@ test("le titulaire retire sa clé, la voit une seule fois, et elle fonctionne au
   await demandeApprouvee(browser, page, salarie, "Essai retrait");
 
   await page.goto("/demandes");
+  // Une pastille du menu signale la clé approuvée à retirer.
+  await expect(page.getByRole("link", { name: /^Mes clés \(1 clé à retirer\)$/ })).toBeVisible();
   await page.getByRole("row", { name: /Clé d'API.*Approuvée/ }).getByRole("link", { name: "Retirer ma clé" }).click();
   await expect(page).toHaveURL(/\/cles$/);
   const aRetirer = page.getByRole("region", { name: "À retirer" });
@@ -43,6 +45,7 @@ test("le titulaire retire sa clé, la voit une seule fois, et elle fonctionne au
   await expect(carte).toContainText("Clé émise");
   await page.reload();
   expect(await page.content()).not.toContain(cle);
+  await expect(page.getByRole("link", { name: "Mes clés", exact: true })).toBeVisible();
 
   // Ticket #16 : la dépense de l'appel apparaît (LiteLLM la compte en quelques secondes), avec le budget approuvé.
   await expect(async () => {
