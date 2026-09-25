@@ -106,6 +106,8 @@ model AccessRequest {
   keyIssuedAt     DateTime?
   /// date d'expiration de la clé émise (le remplacement la conserve)
   keyExpiresAt    DateTime?
+  /// nombre de remplacements de la clé (suffixe -2, -3… de l'alias)
+  keyReplacements Int           @default(0)
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 

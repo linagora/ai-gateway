@@ -3,11 +3,22 @@
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
-import { retirerCleAction, type ResultatRetrait } from "../../actions";
+import type { ResultatRetrait } from "../../actions";
 import { BoutonCopier } from "../../bouton-copier";
 
-/** « Générer ma clé », puis affichage unique de la clé jusqu'à « J'ai copié ma clé ». */
-export function RetraitCle({ requestId }: { requestId: string }) {
+/**
+ * Génère une clé (retrait ou remplacement) puis l'affiche une seule fois, jusqu'à « J'ai copié ma clé » :
+ * la page n'est rafraîchie qu'ensuite, pour que le panneau reste ouvert.
+ */
+export function GenerationCle({
+  requestId,
+  action,
+  libelle,
+}: {
+  requestId: string;
+  action: (requestId: string) => Promise<ResultatRetrait>;
+  libelle: string;
+}) {
   const t = useTranslations("cles");
   const avis = useTranslations("avis");
   const router = useRouter();
@@ -40,8 +51,8 @@ export function RetraitCle({ requestId }: { requestId: string }) {
   }
   return (
     <div>
-      <button type="button" disabled={enCours} onClick={() => demarrer(async () => setResultat(await retirerCleAction(requestId)))}>
-        {enCours ? t("generation") : t("generer")}
+      <button type="button" disabled={enCours} onClick={() => demarrer(async () => setResultat(await action(requestId)))}>
+        {enCours ? t("generation") : libelle}
       </button>
       {resultat && !resultat.ok && (
         <p role="alert" className="mt-2 text-red-800">

@@ -161,6 +161,67 @@ export async function revokeKey(deps: KeyDeps, user: SessionUser, requestId: str
   await recordAudit(deps.db, { actorUid: user.uid, action: "KEY_REVOKED", targetId: request.id, details: { alias: request.keyAlias } });
 }
 
+/**
+ * F-41 : remplacement d'une clé perdue. La nouvelle clé reprend les paramètres de l'ancienne et expire à la
+ * même date ; son alias porte le rang du remplacement (-2, -3…). L'ancienne est supprimée ; si elle ne peut
+ * pas l'être, la nouvelle est retirée aussitôt et rien ne change : une clé perdue ne reste jamais active
+ * à côté de sa remplaçante.
+ */
+export async function replaceKey(deps: KeyDeps, user: SessionUser, requestId: string): Promise<{ key: string; alias: string }> {
+  const request = await deps.db.accessRequest.findUnique({ where: { id: requestId } });
+  if (!request || request.kind !== "CLE" || request.requesterUid !== user.uid || !request.keyTokenId || !request.dataLevel) {
+    throw new PortalError("introuvable", "Clé introuvable.", { objet: "demande_cle" });
+  }
+  if (request.status !== "CLE_EMISE") throw new PortalError("transition_interdite", "Cette clé n'est plus active.", { cas: "traitee" });
+  const maintenant = deps.now?.() ?? new Date();
+  if (!request.keyExpiresAt || request.keyExpiresAt <= maintenant) {
+    throw new PortalError("transition_interdite", "Cette clé a expiré : demandez son renouvellement.", { cas: "expiree" });
+  }
+  if (request.approvedBudget === null || !request.budgetDuration) throw new PortalError("parametre_manquant", "Paramètres de la clé incomplets.");
+  const rang = request.keyReplacements + 2;
+  let nouvelle;
+  try {
+    nouvelle = await deps.litellm.generateKey({
+      userId: request.requesterUid,
+      teamId: request.teamId,
+      models: request.approvedModels,
+      maxBudget: request.approvedBudget.toNumber(),
+      budgetDuration: request.budgetDuration,
+      // Durée restante, à la seconde : la nouvelle clé expire à la même date que l'ancienne.
+      duration: `${Math.ceil((request.keyExpiresAt.getTime() - maintenant.getTime()) / 1000)}s`,
+      rpmLimit: request.rpmLimit,
+      tpmLimit: request.tpmLimit,
+      alias: `${keyAlias(request)}-${rang}`,
+      metadata: {
+        request_id: request.id,
+        project: request.project,
+        data_level: request.dataLevel,
+        approved_by: request.decidedBy,
+        key_type: request.keyType,
+      },
+    });
+  } catch {
+    throw new PortalError("passerelle_indisponible", "La génération de la clé de remplacement a échoué.");
+  }
+  const retirerLaNouvelle = () => deps.litellm.deleteKey(nouvelle.tokenId).catch(() => undefined);
+  try {
+    await deleteFromGateway(deps.litellm, request.keyTokenId);
+  } catch (e) {
+    await retirerLaNouvelle();
+    throw e;
+  }
+  const { count } = await deps.db.accessRequest.updateMany({
+    where: { id: request.id, status: "CLE_EMISE", keyTokenId: request.keyTokenId },
+    data: { keyTokenId: nouvelle.tokenId, keyAlias: nouvelle.alias, keyIssuedAt: maintenant, keyExpiresAt: nouvelle.expiresAt, keyReplacements: { increment: 1 } },
+  });
+  if (count === 0) {
+    await retirerLaNouvelle();
+    throw new PortalError("transition_interdite", "La clé a été modifiée entre-temps ; rechargez la page.", { cas: "modifiee" });
+  }
+  await recordAudit(deps.db, { actorUid: user.uid, action: "KEY_REPLACED", targetId: request.id, details: { alias: nouvelle.alias, ancienAlias: request.keyAlias } });
+  return { key: nouvelle.key, alias: nouvelle.alias };
+}
+
 /** Supprime une clé de la passerelle ; une clé qu'elle ne connaît déjà plus (supprimée depuis la console) est acquise. */
 async function deleteFromGateway(litellm: LiteLLMClient, tokenId: string): Promise<void> {
   try {

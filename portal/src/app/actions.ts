@@ -16,7 +16,7 @@ import {
   requestCompletion,
 } from "@/lib/services/admin-requests";
 import { saveCatalogEntry } from "@/lib/services/catalog";
-import { pickUpKey, revokeKey } from "@/lib/services/keys";
+import { pickUpKey, replaceKey, revokeKey } from "@/lib/services/keys";
 import { cancelRequest, completeRequest, createKeyRequest, createTeamJoinRequest } from "@/lib/services/requests";
 import { saveSettings } from "@/lib/services/settings";
 import { getDeps, requireUser } from "@/lib/session";
@@ -178,8 +178,18 @@ export type ResultatRetrait = { ok: true; cle: string; alias: string } | { ok: f
  */
 export async function retirerCleAction(requestId: string): Promise<ResultatRetrait> {
   const user = await requireUser();
+  return afficherUneFois(() => pickUpKey(getDeps(), user, requestId));
+}
+
+/** F-41 : remplacement d'une clé perdue ; la nouvelle clé s'affiche une seule fois, comme au retrait. */
+export async function remplacerCleAction(requestId: string): Promise<ResultatRetrait> {
+  const user = await requireUser();
+  return afficherUneFois(() => replaceKey(getDeps(), user, requestId));
+}
+
+async function afficherUneFois(generer: () => Promise<{ key: string; alias: string }>): Promise<ResultatRetrait> {
   try {
-    const { key, alias } = await pickUpKey(getDeps(), user, requestId);
+    const { key, alias } = await generer();
     return { ok: true, cle: key, alias };
   } catch (e) {
     if (e instanceof PortalError) return { ok: false, erreur: e.code, details: e.params };

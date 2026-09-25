@@ -31,6 +31,8 @@ export class FakeLiteLLM implements LiteLLMClient {
   horloge: () => Date = () => new Date();
   /** Simule une passerelle injoignable pour les opérations sur les clés. */
   panne = false;
+  /** Empreintes des clés dont la suppression échoue. */
+  readonly indestructibles = new Set<string>();
 
   async getUser(userId: string): Promise<LiteLLMUser | null> {
     const user = this.users.get(userId);
@@ -87,6 +89,7 @@ export class FakeLiteLLM implements LiteLLMClient {
 
   async deleteKey(tokenId: string): Promise<void> {
     if (this.panne) throw new Error("LiteLLM injoignable");
+    if (this.indestructibles.has(tokenId)) throw new Error("suppression impossible");
     if (!this.keys.delete(tokenId)) throw new Error("clé inconnue");
   }
 

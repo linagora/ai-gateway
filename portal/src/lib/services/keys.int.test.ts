@@ -4,7 +4,7 @@ import { FakeLiteLLM } from "@/test/fake-litellm";
 import { approveKeyRequest } from "./admin-requests";
 import { listAudit } from "./audit";
 import { saveCatalogEntry } from "./catalog";
-import { listMyKeys, pickUpKey, revokeKey } from "./keys";
+import { listMyKeys, pickUpKey, replaceKey, revokeKey } from "./keys";
 import { createKeyRequest, type KeyRequestInput } from "./requests";
 import { saveSettings } from "./settings";
 
@@ -196,5 +196,54 @@ describe("révocation par le titulaire (ticket #17)", () => {
     await expect(revokeKey(deps, titulaire, id)).rejects.toMatchObject({ code: "passerelle_indisponible" });
     litellm.panne = false;
     expect((await listMyKeys(deps, titulaire)).keys[0].status).toBe("CLE_EMISE");
+  });
+});
+
+describe("remplacement d'une clé perdue (ticket #18)", () => {
+  test("la nouvelle clé garde les paramètres et la date d'expiration de l'ancienne, qui est supprimée ; l'alias porte le rang du remplacement", async () => {
+    const id = await demandeApprouvee();
+    const { key: ancienne } = await pickUpKey(deps, titulaire, id);
+    const expiration = new Date(maintenant.getTime() + 60 * JOUR);
+    maintenant = new Date(maintenant.getTime() + 10 * JOUR);
+
+    const { key: nouvelle, alias } = await replaceKey(deps, titulaire, id);
+    expect(alias).toBe(`mmaudet-r-d-compte-rendu-hebdo-${id.slice(-4)}-2`);
+    expect(nouvelle).not.toBe(ancienne);
+    expect([...litellm.keys.values()].map((k) => k.key)).toEqual([nouvelle]);
+    expect([...litellm.keys.values()][0]).toMatchObject({ models: ["mistral-small"], maxBudget: 15, budgetDuration: "30d", rpmLimit: 100, expiresAt: expiration });
+    expect((await listMyKeys(deps, titulaire)).keys).toEqual([expect.objectContaining({ alias, expiresAt: expiration, status: "CLE_EMISE" })]);
+
+    expect((await replaceKey(deps, titulaire, id)).alias).toBe(`mmaudet-r-d-compte-rendu-hebdo-${id.slice(-4)}-3`);
+  });
+
+  test("le remplacement est refusé sur une clé révoquée, sur une clé expirée, et sur la clé d'un autre salarié", async () => {
+    const revoquee = await demandeApprouvee();
+    await pickUpKey(deps, titulaire, revoquee);
+    await revokeKey(deps, titulaire, revoquee);
+    await expect(replaceKey(deps, titulaire, revoquee)).rejects.toMatchObject({ code: "transition_interdite" });
+
+    const expiree = await demandeApprouvee();
+    await pickUpKey(deps, titulaire, expiree);
+    await expect(replaceKey(deps, collegue, expiree)).rejects.toMatchObject({ code: "introuvable" });
+    maintenant = new Date(maintenant.getTime() + 61 * JOUR);
+    await expect(replaceKey(deps, titulaire, expiree)).rejects.toMatchObject({ code: "transition_interdite", params: { cas: "expiree" } });
+  });
+
+  test("si l'ancienne clé ne peut pas être supprimée, la nouvelle est retirée et rien ne change", async () => {
+    const id = await demandeApprouvee();
+    const { key: ancienne } = await pickUpKey(deps, titulaire, id);
+    litellm.indestructibles.add([...litellm.keys.values()].find((k) => k.key === ancienne)!.tokenId);
+    await expect(replaceKey(deps, titulaire, id)).rejects.toMatchObject({ code: "passerelle_indisponible" });
+    expect([...litellm.keys.values()].map((k) => k.key)).toEqual([ancienne]);
+    expect((await listMyKeys(deps, titulaire)).keys[0].alias).toBe(`mmaudet-r-d-compte-rendu-hebdo-${id.slice(-4)}`);
+  });
+
+  test("le remplacement est inscrit au journal d'audit, sans clé", async () => {
+    const id = await demandeApprouvee();
+    await pickUpKey(deps, titulaire, id);
+    const { key } = await replaceKey(deps, titulaire, id);
+    const journal = await listAudit(testDb);
+    expect(journal.map((e) => [e.actorUid, e.action, e.targetId])).toContainEqual(["mmaudet", "KEY_REPLACED", id]);
+    expect(JSON.stringify(journal)).not.toContain(key);
   });
 });

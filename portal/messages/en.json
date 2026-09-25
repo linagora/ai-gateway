@@ -90,7 +90,7 @@
       "parametre_manquant": "Budget, budget period and validity are required: enter them or configure default values.",
       "recommandation_hors_cas_usage": "A recommendation can only apply to a checked use case.",
       "tarif_eur_manquant": "Model {modele} has no price in euros: it cannot be made visible.",
-      "transition_interdite": "{cas, select, modifiee {The request was modified in the meantime; reload the page.} traitee {This request has already been processed.} other {This action is not possible in the current status of the request.}}",
+      "transition_interdite": "{cas, select, modifiee {The request was modified in the meantime; reload the page.} traitee {This request has already been processed.} expiree {This key has expired: request its renewal.} other {This action is not possible in the current status of the request.}}",
       "saisie_invalide": "Invalid input: check the fields {champs}.",
       "inconnue": "An error occurred.",
       "passerelle_indisponible": "The gateway is not responding: try again in a few moments."
@@ -459,6 +459,9 @@
     "exempleCopie": "Example copied",
     "revoquer": "Revoke this key",
     "revocationAvertissement": "The gateway will refuse the key within seconds. Revocation cannot be undone.",
-    "confirmerRevocation": "Confirm revocation"
+    "confirmerRevocation": "Confirm revocation",
+    "remplacer": "Replace my key (lost key)",
+    "remplacementExplication": "A new key replaces this one, with the same parameters and the same expiry date. The old key stops working at once.",
+    "confirmerRemplacement": "Generate the replacement key"
   }
 }

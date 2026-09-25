@@ -89,6 +89,28 @@ test("le titulaire révoque sa clé : la passerelle la refuse en quelques second
   await expect.poll(() => appel(request, cle), { timeout: 15_000, intervals: [1_000] }).toBe(401);
 });
 
+test("le titulaire remplace une clé perdue : même expiration, nouvel alias, l'ancienne est refusée (ticket #18)", async ({ browser, request }) => {
+  const salarie = personne("remplacement");
+  const page = await (await connecter(browser, salarie)).newPage();
+  await demandeApprouvee(browser, page, salarie, "Essai remplacement");
+  const ancienne = await retirerCle(page);
+  const carte = page.getByRole("region", { name: "Clés émises" }).getByRole("article");
+  const expiration = await carte.locator("dt", { hasText: "Expire le" }).locator("xpath=following-sibling::dd[1]").textContent();
+
+  await carte.getByText("Remplacer ma clé (clé perdue)").click();
+  await carte.getByRole("button", { name: "Générer la clé de remplacement" }).click();
+  const panneau = page.getByRole("region", { name: /Votre nouvelle clé .*-2$/ });
+  const nouvelle = ((await panneau.locator("code").textContent()) ?? "").trim();
+  expect(nouvelle).toMatch(/^sk-/);
+  expect(nouvelle).not.toBe(ancienne);
+  await panneau.getByRole("button", { name: "J'ai copié ma clé" }).click();
+
+  await expect(page.getByRole("article", { name: new RegExp(`^${salarie.uid}-r-d-essai-remplacement-.*-2$`) })).toBeVisible();
+  await expect(carte.locator("dt", { hasText: "Expire le" }).locator("xpath=following-sibling::dd[1]")).toHaveText(expiration ?? "");
+  expect(await appel(request, nouvelle)).toBe(200);
+  await expect.poll(() => appel(request, ancienne), { timeout: 15_000, intervals: [1_000] }).toBe(401);
+});
+
 test("« Mes clés » s'affiche en anglais", async ({ browser }) => {
   const page = await (await connecter(browser, personne("anglais"), "en-US")).newPage();
   await page.goto("/cles");

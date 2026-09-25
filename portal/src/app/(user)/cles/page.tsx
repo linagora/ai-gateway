@@ -3,10 +3,10 @@ import { getTranslations } from "next-intl/server";
 import { listMyKeys } from "@/lib/services/keys";
 import { getDeps, requireUser } from "@/lib/session";
 import { BoutonCopier } from "../../bouton-copier";
-import { revoquerCleAction } from "../../actions";
+import { remplacerCleAction, retirerCleAction, revoquerCleAction } from "../../actions";
 import { formats, Notice } from "../../components";
 import { exemplesAppel, LANGAGES } from "../../exemples-appel";
-import { RetraitCle } from "./retrait-cle";
+import { GenerationCle } from "./generation-cle";
 
 /** Tickets #15 et suivants : les demandes approuvées à retirer, puis les clés émises du titulaire. */
 export default async function MesClesPage(props: PageProps<"/cles">) {
@@ -38,7 +38,7 @@ export default async function MesClesPage(props: PageProps<"/cles">) {
                 </p>
                 <p className="text-sm">{d.models.join(", ")}</p>
                 <p className="text-sm">{d.pickupDeadline ? t("echeance", { date: date(d.pickupDeadline) }) : t("sansEcheance")}</p>
-                <RetraitCle requestId={d.requestId} />
+                <GenerationCle requestId={d.requestId} action={retirerCleAction} libelle={t("generer")} />
               </li>
             ))}
           </ul>
@@ -94,6 +94,13 @@ export default async function MesClesPage(props: PageProps<"/cles">) {
                     )}
                   </dl>
                   {!k.usage && k.status === "CLE_EMISE" && <p className="mt-2 text-sm italic">{t("infoIndisponible")}</p>}
+                  {k.status === "CLE_EMISE" && (
+                    <details className="mt-3">
+                      <summary className="cursor-pointer font-medium">{t("remplacer")}</summary>
+                      <p className="mt-2 text-sm">{t("remplacementExplication")}</p>
+                      <GenerationCle requestId={k.requestId} action={remplacerCleAction} libelle={t("confirmerRemplacement")} />
+                    </details>
+                  )}
                   {k.status === "CLE_EMISE" && (
                     <details className="mt-3">
                       <summary className="cursor-pointer font-medium">{t("revoquer")}</summary>
