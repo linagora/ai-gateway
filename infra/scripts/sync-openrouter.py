@@ -1,10 +1,11 @@
 """Déclare dans LiteLLM les modèles de la liste blanche OpenRouter (litellm/liste-blanche-openrouter.yaml)
 et vérifie qu'aucun autre modèle OpenRouter, ni aucun joker, n'y est déclaré. Idempotent.
 
-  cd /opt/linagora-ia && docker compose exec -T litellm python3 - [--appliquer] [--supprimer-hors-liste] < scripts/sync-openrouter.py
+  cd /opt/linagora-ia && docker compose exec -T litellm python3 - [--appliquer] [--seulement=nom,nom] [--supprimer-hors-liste] < scripts/sync-openrouter.py
 
 Sans option : affiche le plan et sort en erreur s'il reste un écart. --appliquer crée ou met à jour les
-modèles de la liste ; --supprimer-hors-liste supprime en plus les modèles OpenRouter qui n'y figurent pas.
+modèles de la liste ; --seulement=nom,nom limite ces créations et mises à jour aux modèles nommés (les autres
+écarts restent signalés) ; --supprimer-hors-liste supprime en plus les modèles OpenRouter qui n'y figurent pas.
 
 Pour chaque modèle : points d'accès OpenRouter de sa zone (API publique /models/<id>/endpoints), prix
 en € = prix le plus élevé de ces points d'accès × (1 + frais) × taux, routage limité à ces points
@@ -30,6 +31,12 @@ EDITEURS = {"mistralai": "Mistral AI", "google": "Google", "z-ai": "Z.ai (Zhipu)
 
 appliquer = "--appliquer" in sys.argv
 supprimer = "--supprimer-hors-liste" in sys.argv
+seulement = next((a.split("=", 1)[1].split(",") for a in sys.argv if a.startswith("--seulement=")), None)
+
+
+def agir(nom):
+    """Le modèle `nom` est-il créé ou mis à jour par ce passage ?"""
+    return appliquer and (seulement is None or nom in seulement)
 
 
 def http(methode, url, corps=None, auth=True):
@@ -134,14 +141,14 @@ for nom, v in voulus.items():
         print(f"✘ {nom} : déclaré {len(existants)} fois, à corriger à la main")
         reste += 1
     elif not existants:
-        print(f"+ {nom} : {'créé' if appliquer else 'à créer'} ({resume})")
-        if appliquer:
+        print(f"+ {nom} : {'créé' if agir(nom) else 'à créer'} ({resume})")
+        if agir(nom):
             http("POST", f"{PROXY}/model/new", v)
         else:
             reste += 1
     elif d := ecarts(v, existants[0]):
-        print(f"~ {nom} : {'mis à jour' if appliquer else 'à mettre à jour'} ({', '.join(d)}) ({resume})")
-        if appliquer:
+        print(f"~ {nom} : {'mis à jour' if agir(nom) else 'à mettre à jour'} ({', '.join(d)}) ({resume})")
+        if agir(nom):
             http("PATCH", f"{PROXY}/model/{existants[0]['model_info']['id']}/update", v)
         else:
             reste += 1
