@@ -11,7 +11,9 @@ function estLangue(valeur: string | undefined): valeur is Langue {
 
 /**
  * Langue d'une requête : le choix mémorisé, sinon la première langue du navigateur que le portail
- * connaît (dans l'ordre de préférence de l'en-tête Accept-Language), sinon le français.
+ * connaît (dans l'ordre de préférence de l'en-tête Accept-Language). Un navigateur qui n'indique ni le
+ * français ni l'anglais reçoit l'anglais ; le français reste la langue par défaut quand il n'indique
+ * aucune langue (décision du 2026-09-25).
  */
 export function langueDemandee(cookie: string | undefined, acceptLanguage: string | null): Langue {
   if (estLangue(cookie)) return cookie;
@@ -24,5 +26,7 @@ export function langueDemandee(cookie: string | undefined, acceptLanguage: strin
     })
     .filter((p) => p.langue && p.q > 0)
     .sort((a, b) => b.q - a.q || a.rang - b.rang);
-  return preferences.map((p) => p.langue).find(estLangue) ?? "fr";
+  const connue = preferences.map((p) => p.langue).find(estLangue);
+  if (connue) return connue;
+  return preferences.some((p) => p.langue !== "*") ? "en" : "fr";
 }

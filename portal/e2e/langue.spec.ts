@@ -14,12 +14,22 @@ test("un navigateur en anglais arrive en anglais", async ({ browser }) => {
   await context.close();
 });
 
-test("un navigateur sans langue reconnue par le portail arrive en français", async ({ browser }) => {
+test("un navigateur ni en français ni en anglais arrive en anglais", async ({ browser }) => {
   const context = await connecter(browser, personne("de"), "de-DE");
   const page = await context.newPage();
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: `Bonjour ${personne("de").name}` })).toBeVisible();
+  await expect(page.getByRole("heading", { name: `Hello ${personne("de").name}` })).toBeVisible();
   await context.close();
+});
+
+test("un navigateur qui préfère le français à l'anglais arrive en français, même avec une autre langue en tête", async ({ request }) => {
+  const reponse = await request.get("/connexion", { headers: { "Accept-Language": "de-DE,de;q=0.9,fr;q=0.8,en;q=0.7" } });
+  expect(await reponse.text()).toContain("Connexion au Portail IA");
+});
+
+test("sans langue indiquée par le navigateur, le portail s'affiche en français", async ({ request }) => {
+  const reponse = await request.get("/connexion", { headers: { "Accept-Language": "" } });
+  expect(await reponse.text()).toContain("Connexion au Portail IA");
 });
 
 test("une même adresse s'affiche dans la langue de celui qui l'ouvre", async ({ browser }) => {
