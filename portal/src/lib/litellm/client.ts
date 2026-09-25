@@ -93,6 +93,8 @@ const modelInfoSchema = z.object({
       model_info: z.object({
         id: z.string(),
         litellm_provider: z.string().nullish(),
+        /** Fournisseur affiché, déclaré par la passerelle quand la route de LiteLLM ne le dit pas (OpenRouter joint en openai/…). */
+        fournisseur: z.string().nullish(),
         input_cost_per_token: z.number().nullish(),
         output_cost_per_token: z.number().nullish(),
         pricing_currency: z.string().nullish(),
@@ -174,7 +176,7 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
       return modelInfoSchema.parse(data).data.map(({ model_name, model_info: mi }) => ({
         modelId: mi.id,
         modelName: model_name,
-        provider: mi.litellm_provider ?? null,
+        provider: mi.fournisseur ?? mi.litellm_provider ?? null,
         inputCostPerToken: mi.input_cost_per_token ?? null,
         outputCostPerToken: mi.output_cost_per_token ?? null,
         pricingCurrency: mi.pricing_currency ?? null,

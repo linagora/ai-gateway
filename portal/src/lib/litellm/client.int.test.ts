@@ -51,6 +51,17 @@ describe("modèles", () => {
       maxInputTokens: 128000,
     });
   });
+
+  test("un modèle joint par OpenRouter affiche le fournisseur déclaré, pas la route de LiteLLM", async () => {
+    const modelName = uniqueId("modele");
+    const created = await admin<{ model_info: { id: string } }>("POST", "/model/new", {
+      model_name: modelName,
+      litellm_params: { model: "openai/mistralai/ministral-3b-2512", api_key: "sk-factice", mock_response: "OK", input_cost_per_token: 0.0000001, output_cost_per_token: 0.0000001 },
+      model_info: { fournisseur: "OpenRouter", data_level: "N1", pricing_currency: "EUR", hosting: "UE" },
+    });
+    createdModels.push(created.model_info.id);
+    expect((await client.listModels()).find((m) => m.modelName === modelName)?.provider).toBe("OpenRouter");
+  });
 });
 
 async function newUser(): Promise<string> {
