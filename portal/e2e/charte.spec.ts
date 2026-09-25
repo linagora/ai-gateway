@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { expect, test } from "@playwright/test";
 import { connecter } from "./outils";
 
@@ -51,4 +52,13 @@ test("les quatre couleurs de niveau sont définies une seule fois, lisibles sur 
   await expect(page.getByRole("main").locator("header")).toHaveCSS("border-left-color", rgb(couleurs[2]));
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("N3 — Confidentiel");
   await context.close();
+});
+
+test("l'onglet affiche l'icône de linagora.ai, y compris avant la connexion", async ({ page, request }) => {
+  await page.goto("/connexion");
+  await expect(page.locator('link[rel="icon"]').first()).toHaveAttribute("href", /\/favicon\.ico/);
+  const icone = await request.get("/favicon.ico");
+  expect(icone.status()).toBe(200);
+  // Empreinte de l'icône publiée par https://linagora.ai/favicon.ico, relevée le 2026-09-25.
+  expect(createHash("sha256").update(await icone.body()).digest("hex")).toBe("d9715204ef42e10ce2bff91ff9ce2f76cfa612eccb88fdd89f3316b781c91457");
 });
