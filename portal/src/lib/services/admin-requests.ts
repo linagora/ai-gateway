@@ -152,7 +152,7 @@ export async function approveKeyRequest(deps: AdminDeps, actor: SessionUser, id:
   // Dans une équipe choisie par l'admin, l'approbation vaut adhésion : l'appartenance n'y est pas exigée.
   const bloquants = verdict.checks.filter((c) => !c.ok && !(reaffectee && c.id === "membre_equipe"));
   if (bloquants.length > 0) throw new PolicyViolationError(bloquants);
-  if (verdict.checks.some((c) => c.id === "membre_equipe" && !c.ok)) await deps.litellm.addTeamMember(equipe.teamId, request.requesterUid);
+  if (verdict.checks.some((c) => c.id === "membre_equipe" && !c.ok)) await ajouterMembre(deps.litellm, equipe.teamId, request.requesterUid);
   const approuveeLe = deps.now?.() ?? new Date();
   await transitionRequest(deps.db, request, "APPROUVEE", {
     data: {
@@ -221,10 +221,24 @@ export async function approveTeamJoinRequest(deps: AdminDeps, actor: SessionUser
   if (!request || request.kind !== "ADHESION_EQUIPE") throw new PortalError("introuvable", "Demande d'adhésion introuvable.", { objet: "demande_adhesion" });
   if (request.status !== "SOUMISE") throw new PortalError("transition_interdite", "Cette demande a déjà été traitée.", { cas: "traitee" });
   const equipe = await teamForApproval(deps, request, teamId);
-  await deps.litellm.addTeamMember(equipe.teamId, request.requesterUid);
+  await ajouterMembre(deps.litellm, equipe.teamId, request.requesterUid);
   await transitionRequest(deps.db, request, "APPROUVEE", { data: { ...equipe, decidedBy: actor.uid, decidedAt: new Date() } });
   await recordAudit(deps.db, { actorUid: actor.uid, action: "MEMBERSHIP_APPROVED", targetId: request.id, details: { teamAlias: equipe.teamAlias } });
   await notifyMembershipApproved(deps, request, equipe.teamAlias);
+}
+
+/**
+ * Ajoute le salarié à l'équipe dans LiteLLM. Déjà membre (demande en double, ajout depuis la console), il n'y a rien
+ * à faire : LiteLLM refuserait le doublon. Un autre échec est une indisponibilité de la passerelle, sans détail.
+ */
+async function ajouterMembre(litellm: LiteLLMClient, teamId: string, uid: string): Promise<void> {
+  const membre = async () => (await litellm.getTeam(teamId).catch(() => null))?.memberUids.includes(uid) ?? false;
+  if (await membre()) return;
+  try {
+    await litellm.addTeamMember(teamId, uid);
+  } catch {
+    if (!(await membre())) throw new PortalError("passerelle_indisponible", "L'ajout à l'équipe a échoué.");
+  }
 }
 
 /** Équipe retenue à l'approbation : celle de la demande, sauf si l'admin en choisit une autre, qui doit exister. */

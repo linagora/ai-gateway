@@ -181,6 +181,25 @@ describe("demande d'accès à une équipe (F-22)", () => {
     expect((await listMyRequests(deps, demandeur)).find((r) => r.id === id)).toMatchObject({ teamAlias: "LPS Paris", status: "APPROUVEE" });
   });
 
+  test("approuver la demande d'un salarié déjà membre de l'équipe l'approuve, sans nouvel ajout dans LiteLLM", async () => {
+    litellm.withTeam({ teamId: "equipe-data", teamAlias: "Data", models: [], memberUids: [] });
+    const { id } = await createTeamJoinRequest(deps, demandeur, { teamId: "equipe-data", justification: "Projet d'analyse" });
+    // Ajouté entre-temps, par une autre demande ou depuis la console de LiteLLM.
+    await litellm.addTeamMember("equipe-data", "mmaudet");
+    await approveTeamJoinRequest(deps, admin, id);
+    expect((await listMyRequests(deps, demandeur)).find((r) => r.id === id)).toMatchObject({ status: "APPROUVEE" });
+    expect((await litellm.getTeam("equipe-data"))?.memberUids.filter((uid) => uid === "mmaudet")).toHaveLength(1);
+  });
+
+  test("si la passerelle échoue à l'ajout, l'admin voit une indisponibilité et la demande reste à traiter", async () => {
+    litellm.withTeam({ teamId: "equipe-data", teamAlias: "Data", models: [], memberUids: [] });
+    const { id } = await createTeamJoinRequest(deps, demandeur, { teamId: "equipe-data", justification: "Projet d'analyse" });
+    litellm.panne = true;
+    await expect(approveTeamJoinRequest(deps, admin, id)).rejects.toMatchObject({ code: "passerelle_indisponible" });
+    litellm.panne = false;
+    expect((await listMyRequests(deps, demandeur)).find((r) => r.id === id)).toMatchObject({ status: "SOUMISE" });
+  });
+
   test("une équipe d'affectation inconnue est refusée, et la demande reste à traiter", async () => {
     litellm.withTeam({ teamId: "equipe-data", teamAlias: "Data", models: [], memberUids: [] });
     const { id } = await createTeamJoinRequest(deps, demandeur, { teamId: "equipe-data", justification: "Projet d'analyse" });
