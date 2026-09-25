@@ -153,6 +153,7 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       SMTP_FROM: ${SMTP_FROM}
       ADMIN_NOTIFICATION_EMAILS: ${ADMIN_NOTIFICATION_EMAILS}
+      PORTAL_TASK_TOKEN: ${PORTAL_TASK_TOKEN:-}
     depends_on:
       postgres:
         condition: service_healthy

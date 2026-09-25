@@ -194,6 +194,14 @@ ssh ia-host 'cd /opt/linagora-ia && docker compose --profile portal build portal
 - Prise en compte : `docker compose --profile portal up -d portal` (recrée le conteneur avec les nouvelles variables).
 - **Contrôle** : déposer une demande de test ; les admins reçoivent « Nouvelle demande de clé d'API / New API key request ». Sinon : `docker compose logs portal | grep "Courriel non envoyé"`.
 
+**Tâche quotidienne** (rappels J-3 et J-7, expirations) : route interne `POST /api/taches/quotidienne` du portail, protégée par `PORTAL_TASK_TOKEN` et bloquée par Caddy depuis Internet ; le cron du serveur l'appelle chaque jour à 7 h, heure de Paris.
+```bash
+rsync -av --exclude '.env' infra/ ia-host:/opt/linagora-ia/
+ssh ia-host 'sudo /opt/linagora-ia/scripts/installer-tache-quotidienne.sh && \
+  cd /opt/linagora-ia && docker compose --profile portal up -d portal && docker compose restart caddy'
+```
+**Contrôle** : `curl -s -o /dev/null -w '%{http_code}' -X POST https://ai-gateway.linagora.com/api/taches/quotidienne` → 404 ; passage manuel depuis le serveur (même commande que le cron, dans `/etc/cron.d/linagora-ia-portail`) → compte rendu JSON ; journal : `/opt/linagora-ia/logs/taches.log`.
+
 ## Phase 10 — Langfuse (phase 2, seconde instance recommandée)
 
 - Nouvelle instance (B2-15 ou plus), phases 0 et 1 identiques, reliée à la première par le **réseau privé OVH (vRack)** ; aucun port Langfuse exposé publiquement (ufw : autoriser le port web uniquement depuis l'IP privée de la première instance).

@@ -73,6 +73,11 @@
 	# 	reverse_proxy {$LANGFUSE_UPSTREAM}
 	# }
 
+	# --- Tâche quotidienne du portail : appelée depuis le serveur seulement, jamais par Internet.
+	handle /api/taches/* {
+		respond "Not Found" 404
+	}
+
 	# --- Tout le reste : Portail Linagora
 	handle {
 		reverse_proxy portal:3000
