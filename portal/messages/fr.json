@@ -256,6 +256,7 @@
       "eleve": "Prix élevé"
     },
     "prix": "{entree} en entrée, {sortie} en sortie, par million de jetons",
+    "prixImage": "Environ {prix} par image",
     "contexte": "{jetons} jetons, soit environ {pages} pages",
     "hypothesePages": "Hypothèse : une page de texte en français compte environ 750 jetons.",
     "contexteInconnu": "Taille du contexte non communiquée",
@@ -288,11 +289,16 @@
       "titre": "Une API de décision, pas un modèle de conversation",
       "explication": "Ce modèle est une API de décision (« System One ») : il ne converse pas. Le dernier message contient une requête JSON : « state » décrit la situation, « questions » liste les décisions attendues, chacune avec son type et ses instructions. La réponse est un JSON « answers », avec une réponse par question."
     },
+    "apiImage": {
+      "titre": "Modèle d'images",
+      "explication": "Ce modèle crée une image à partir de votre description. Appelez-le comme un modèle de conversation, en demandant une image en sortie (« modalities ») : l'image revient encodée en base64 dans la réponse, prête à enregistrer."
+    },
     "exempleAppel": "Exemple d'appel",
     "exemple": {
       "message": "Bonjour ! Résume en trois points les avantages du logiciel libre.",
       "etat": "Mes virements échouent depuis trois jours et cela bloque la paie.",
-      "question": "Le message exprime-t-il une urgence ?"
+      "question": "Le message exprime-t-il une urgence ?",
+      "image": "Aquarelle d'un phare breton au coucher du soleil"
     },
     "copier": "Copier l'exemple",
     "copie": "Exemple copié"

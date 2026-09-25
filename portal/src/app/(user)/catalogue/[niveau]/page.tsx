@@ -141,25 +141,32 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
                     ))}
                   </ul>
                 )}
-                <p>
-                  <span className="sr-only">{t(`repere.${REPERES[m.priceTier]}`)} : </span>
-                  <span aria-hidden="true" title={t(`repere.${REPERES[m.priceTier]}`)} className="text-lg font-semibold">
-                    {m.priceTier}
-                  </span>
-                  <span className="text-xs text-neutral-600">
-                    {" · "}
-                    {t("prix", { entree: euros(m.inputPricePerMillion), sortie: euros(m.outputPricePerMillion) })}
-                  </span>
-                </p>
-                <p className="text-sm">
-                  {m.context ? (
-                    <span title={t("hypothesePages")}>
-                      {t("contexte", { jetons: nombre(m.context.tokens), pages: nombre(m.context.pages) })} <span aria-hidden="true">ⓘ</span>
-                    </span>
-                  ) : (
-                    t("contexteInconnu")
-                  )}
-                </p>
+                {m.pricePerImage !== null ? (
+                  // Modèle d'images : un prix par image, plus parlant qu'un prix par million de jetons ; pas de contexte.
+                  <p className="text-sm">{t("prixImage", { prix: euros(m.pricePerImage) })}</p>
+                ) : (
+                  <>
+                    <p>
+                      <span className="sr-only">{t(`repere.${REPERES[m.priceTier]}`)} : </span>
+                      <span aria-hidden="true" title={t(`repere.${REPERES[m.priceTier]}`)} className="text-lg font-semibold">
+                        {m.priceTier}
+                      </span>
+                      <span className="text-xs text-neutral-600">
+                        {" · "}
+                        {t("prix", { entree: euros(m.inputPricePerMillion), sortie: euros(m.outputPricePerMillion) })}
+                      </span>
+                    </p>
+                    <p className="text-sm">
+                      {m.context ? (
+                        <span title={t("hypothesePages")}>
+                          {t("contexte", { jetons: nombre(m.context.tokens), pages: nombre(m.context.pages) })} <span aria-hidden="true">ⓘ</span>
+                        </span>
+                      ) : (
+                        t("contexteInconnu")
+                      )}
+                    </p>
+                  </>
+                )}
                 {m.useCases.length > 0 && (
                   <ul aria-label={t("casUsage")} className="flex flex-wrap gap-2 text-sm">
                     {m.useCases.map((u) => (
@@ -210,12 +217,19 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
               <p>{detailT("apiDecision.explication")}</p>
             </>
           )}
+          {detail.apiKind === "image" && (
+            <>
+              <h3 className="mt-3 font-medium">{detailT("apiImage.titre")}</h3>
+              <p>{detailT("apiImage.explication")}</p>
+            </>
+          )}
           <h3 className="mt-3 font-medium">{detailT("exempleAppel")}</h3>
           {(() => {
             const exemple = exemplesAppel(detail.modelName, detail.apiKind, {
               message: detailT("exemple.message"),
               etat: detailT("exemple.etat"),
               question: detailT("exemple.question"),
+              image: detailT("exemple.image"),
             }).curl;
             return (
               <>

@@ -13,6 +13,7 @@ test.beforeAll(async ({ browser }) => {
     { nom: "dev-interne", nomAffiche: "Modèle interne", niveau: "N2", casUsage: ["Rédaction et analyse", "Code"], recommandePour: ["Code"] },
     { nom: "dev-confidentiel", nomAffiche: "Modèle confidentiel", niveau: "N3", casUsage: ["Rédaction et analyse"], recommandePour: ["Rédaction et analyse"] },
     { nom: "dev-experimental", nomAffiche: "Modèle expérimental", niveau: "EXP", casUsage: [], recommandePour: [] },
+    { nom: "dev-image", nomAffiche: "Modèle graphique", niveau: "N1", casUsage: ["Création d'images"], recommandePour: ["Création d'images"] },
   ]) {
     await enrichirModele(page, modele);
   }
@@ -122,8 +123,9 @@ test.describe("vue d'ensemble des niveaux (ticket #5)", () => {
     const context = await connecter(browser, salarie);
     const page = await context.newPage();
     await page.goto("/catalogue");
-    // Données de démonstration : prix mixtes 0,175 € (public, expérimental), 0,30 € (interne), 0,975 € (confidentiel).
-    await expect(carte(page, "N1 Public")).toContainText(/3 modèles.*à partir de 0,175\s€/);
+    // Données de démonstration : prix mixtes 0,175 € (public, expérimental), 0,30 € (interne), 0,975 € (confidentiel),
+    // 2,50 € (modèle d'images, prix de sortie par jeton d'image).
+    await expect(carte(page, "N1 Public")).toContainText(/4 modèles.*à partir de 0,175\s€/);
     await expect(carte(page, "N2 Interne")).toContainText(/2 modèles.*à partir de 0,30\s€/);
     await expect(carte(page, "N3 Confidentiel")).toContainText(/1 modèle.*à partir de 0,975\s€/);
     await expect(carte(page, "Expérimental (bêta)")).toContainText(/1 modèle.*à partir de 0,175\s€/);
@@ -266,7 +268,7 @@ test.describe("filtres, tri et recommandations (ticket #8)", () => {
     await page.getByRole("searchbox", { name: "Rechercher un modèle ou un éditeur" }).fill("introuvable");
     await expect(page.getByRole("main")).toContainText("Aucun modèle ne correspond à ces critères. Élargissez la recherche ou retirez des filtres.");
     await page.getByRole("link", { name: "Réinitialiser les filtres" }).click();
-    await expect(page.getByRole("article")).toHaveCount(3);
+    await expect(page.getByRole("article")).toHaveCount(4);
     await context.close();
   });
 });
@@ -281,7 +283,7 @@ test.describe("filtres appliqués sans bouton (retours de recette du 2026-09-25)
     await recherche.fill("in");
     await page.waitForTimeout(800);
     await expect(page).not.toHaveURL(/q=/);
-    await expect(page.getByRole("article")).toHaveCount(3);
+    await expect(page.getByRole("article")).toHaveCount(4);
     await recherche.fill("int");
     await expect(page).toHaveURL(/q=int/);
     await expect(page.getByRole("article")).toHaveCount(1);
@@ -289,7 +291,7 @@ test.describe("filtres appliqués sans bouton (retours de recette du 2026-09-25)
     await expect(recherche).toBeFocused();
     await recherche.fill("");
     await expect(page).not.toHaveURL(/q=/);
-    await expect(page.getByRole("article")).toHaveCount(3);
+    await expect(page.getByRole("article")).toHaveCount(4);
     await page.getByRole("checkbox", { name: "UE uniquement" }).check();
     await expect(page).toHaveURL(/ue=1/);
     await expect(page.getByRole("article")).toHaveCount(2);
@@ -349,6 +351,22 @@ test.describe("détail d'un modèle (ticket #9)", () => {
     await expect(page).toHaveURL(/\/catalogue\/n1\?ue=1&tri=nom$/);
     await expect(page.getByRole("checkbox", { name: "UE uniquement" })).toBeChecked();
     await expect(page.getByRole("combobox", { name: "Trier par" })).toHaveValue("nom");
+    await context.close();
+  });
+
+  test("un modèle d'images annonce un prix par image, sans contexte en jetons, et son exemple d'appel demande une image", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    await page.goto("/catalogue/n1");
+    const carte = page.getByRole("article", { name: "Modèle graphique" });
+    await expect(carte).toContainText("Génération d'images");
+    await expect(carte).toContainText("Notre choix pour : Création d'images");
+    await expect(carte).toContainText(/Environ 0,03\s€ par image/);
+    await expect(carte).not.toContainText("jetons");
+    await carte.getByRole("link", { name: "Modèle graphique" }).click();
+    await expect(panneau(page).getByRole("heading", { name: "Modèle d'images" })).toBeVisible();
+    await expect(panneau(page).locator("pre")).toContainText('"modalities": [');
+    await expect(panneau(page).locator("pre")).toContainText("base64");
     await context.close();
   });
 
@@ -446,7 +464,7 @@ test.describe("sélection de modèles et demande préremplie (ticket #10)", () =
     for (const [niveau, attendus] of [
       [/^N3 Confidentiel/, ["dev-confidentiel"]],
       [/^N2 Interne/, ["dev-confidentiel", "dev-interne"]],
-      [/^N1 Public/, ["dev-confidentiel", "dev-interne", "dev-public"]],
+      [/^N1 Public/, ["dev-confidentiel", "dev-image", "dev-interne", "dev-public"]],
       [/^Expérimental/, ["dev-experimental"]],
     ] as const) {
       await page.getByRole("radio", { name: niveau }).check();

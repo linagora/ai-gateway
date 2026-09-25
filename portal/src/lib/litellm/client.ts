@@ -50,10 +50,11 @@ export const CAPABILITIES: readonly Capability[] = ["images", "generation_images
 export type ExecutionRegion = "UE" | "HORS_UE";
 
 /**
- * Manière d'appeler un modèle : conversation (par défaut), ou API de décision comme JEV (« System One »),
- * qui attend dans le dernier message une requête JSON et non un texte libre.
+ * Manière d'appeler un modèle : conversation (par défaut), API de décision comme JEV (« System One »), qui
+ * attend dans le dernier message une requête JSON et non un texte libre, ou modèle d'images, appelé comme un
+ * modèle de conversation en demandant une image en sortie.
  */
-export type ApiKind = "conversation" | "decision";
+export type ApiKind = "conversation" | "decision" | "image";
 
 /**
  * Modèle déclaré dans LiteLLM. Les prix, déclarés dans litellm_params, sont relus via model_info.
@@ -68,6 +69,8 @@ export interface LiteLLMModel {
   hosts: string[];
   executionRegion: ExecutionRegion | null;
   apiKind: ApiKind;
+  /** Prix indicatif d'une image en euros, déclaré par la passerelle pour un modèle d'images ; null sinon. */
+  imagePrice: number | null;
   inputCostPerToken: number | null;
   outputCostPerToken: number | null;
   pricingCurrency: string | null;
@@ -169,6 +172,7 @@ const modelInfoSchema = z.object({
         hebergeurs: z.array(z.string()).nullish(),
         zone: z.string().nullish(),
         type_api: z.string().nullish(),
+        prix_image_eur: z.number().nullish(),
         input_cost_per_token: z.number().nullish(),
         output_cost_per_token: z.number().nullish(),
         pricing_currency: z.string().nullish(),
@@ -273,7 +277,8 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
         capabilities: (mi.capacites ?? []).filter((c): c is Capability => CAPABILITIES.includes(c as Capability)),
         hosts: mi.hebergeurs ?? [],
         executionRegion: mi.zone === "UE" ? "UE" : mi.zone === "monde" ? "HORS_UE" : null,
-        apiKind: mi.type_api === "decision" ? "decision" : "conversation",
+        apiKind: mi.type_api === "decision" ? "decision" : mi.type_api === "image" ? "image" : "conversation",
+        imagePrice: mi.prix_image_eur ?? null,
         inputCostPerToken: mi.input_cost_per_token ?? null,
         outputCostPerToken: mi.output_cost_per_token ?? null,
         pricingCurrency: mi.pricing_currency ?? null,

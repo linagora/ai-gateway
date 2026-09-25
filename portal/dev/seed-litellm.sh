@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Données de démonstration pour le LiteLLM de dev : 4 modèles à réponses simulées (aucun appel externe),
+# Données de démonstration pour le LiteLLM de dev : 5 modèles à réponses simulées (aucun appel externe),
 # tarifés en euros, et une équipe « R&D » sans membre. Idempotent. Valeurs FACTICES.
 #   ./dev/seed-litellm.sh
 set -euo pipefail
 B="${LITELLM_BASE_URL:-http://127.0.0.1:54400/admin}"
 H=(-H "Authorization: Bearer ${LITELLM_MASTER_KEY:-sk-dev-master-key}" -H "Content-Type: application/json")
 
-model() { # nom, niveau, hébergement, prix entrée, prix sortie (€ par jeton), fournisseur, éditeur, capacités, hébergeurs (JSON), zone[, contexte[, type d'API]]
+model() { # nom, niveau, hébergement, prix entrée, prix sortie (€ par jeton), fournisseur, éditeur, capacités, hébergeurs (JSON), zone[, contexte[, type d'API[, prix d'une image (€)]]]
   local info id
-  info=$(jq -n --arg l "$2" --arg h "$3" --arg f "$6" --arg e "$7" --argjson c "$8" --argjson hb "$9" --arg z "${10}" --argjson ctx "${11:-128000}" --arg t "${12:-}" \
+  info=$(jq -n --arg l "$2" --arg h "$3" --arg f "$6" --arg e "$7" --argjson c "$8" --argjson hb "$9" --arg z "${10}" --argjson ctx "${11:-128000}" --arg t "${12:-}" --argjson pi "${13:-null}" \
     '{data_level: $l, hosting: $h, pricing_currency: "EUR", max_input_tokens: $ctx, fournisseur: $f, editeur: $e, capacites: $c, hebergeurs: $hb, zone: $z}
-     + (if $t == "" then {} else {type_api: $t} end)')
+     + (if $t == "" then {} else {type_api: $t} end) + (if $pi == null then {} else {prix_image_eur: $pi} end)')
   id=$(curl -fsS "${H[@]}" "$B/model/info" | jq -r --arg n "$1" 'first(.data[] | select(.model_name == $n) | .model_info.id) // empty')
   if [[ -n "$id" ]]; then
     curl -fsS "${H[@]}" -X PATCH "$B/model/$id/update" -d "$(jq -n --argjson i "$info" '{model_info: $i}')" >/dev/null
@@ -31,8 +31,10 @@ model dev-interne N2 UE 0.0000002 0.0000006 OpenRouter "Mistral AI" '["images"]'
 model dev-confidentiel N3 INTERNE 0.0000004 0.0000027 OVHcloud "Alibaba (Qwen)" '["images","raisonnement"]' '["OVHcloud"]' UE 262144
 # Comme JEV : une API de décision (« System One »), et non un modèle de conversation.
 model dev-experimental EXP HORS_UE 0.0000001 0.0000004 Typesafe Typesafe '[]' '["Typesafe"]' monde 128000 decision
+# Comme FLUX.2 [pro] : un modèle d'images, facturé au jeton d'image, avec un prix indicatif par image.
+model dev-image N1 HORS_UE 0 0.00001 OpenRouter "Black Forest Labs" '["images","generation_images"]' '["Black Forest Labs"]' monde 46864 image 0.03
 
-MODELS='["dev-public", "dev-interne", "dev-confidentiel", "dev-experimental"]'
+MODELS='["dev-public", "dev-interne", "dev-confidentiel", "dev-experimental", "dev-image"]'
 
 TEAM_ID=$(curl -fsS "${H[@]}" "$B/team/list" | jq -r 'first(.[] | select(.team_alias == "R&D") | .team_id) // empty')
 if [[ -n "$TEAM_ID" ]]; then

@@ -48,6 +48,7 @@ describe("modèles", () => {
       hosts: [],
       executionRegion: null,
       apiKind: "conversation",
+      imagePrice: null,
       inputCostPerToken: 0.000001,
       outputCostPerToken: 0.000004,
       pricingCurrency: "EUR",
@@ -87,6 +88,32 @@ describe("modèles", () => {
     const models = await client.listModels();
     expect(models.find((m) => m.modelName === decision)?.apiKind).toBe("decision");
     expect(models.find((m) => m.modelName === conversation)?.apiKind).toBe("conversation");
+  });
+
+  test("un modèle d'images l'expose, avec sa capacité de génération et son prix indicatif par image", async () => {
+    const modelName = uniqueId("image");
+    const created = await admin<{ model_info: { id: string } }>("POST", "/model/new", {
+      model_name: modelName,
+      litellm_params: { model: "openai/black-forest-labs/flux.2-pro", api_key: "sk-factice", mock_response: "OK", input_cost_per_token: 0, output_cost_per_token: 0.000009063 },
+      model_info: {
+        fournisseur: "OpenRouter",
+        editeur: "Black Forest Labs",
+        capacites: ["images", "generation_images"],
+        hebergeurs: ["Black Forest Labs"],
+        zone: "monde",
+        data_level: "N1",
+        pricing_currency: "EUR",
+        type_api: "image",
+        prix_image_eur: 0.0278,
+      },
+    });
+    createdModels.push(created.model_info.id);
+    expect((await client.listModels()).find((m) => m.modelName === modelName)).toMatchObject({
+      apiKind: "image",
+      capabilities: ["images", "generation_images"],
+      imagePrice: 0.0278,
+      executionRegion: "HORS_UE",
+    });
   });
 
   test("un modèle joint par OpenRouter affiche le fournisseur déclaré, pas la route de LiteLLM", async () => {

@@ -13,6 +13,8 @@ export interface TextesExemple {
   message: string;
   etat: string;
   question: string;
+  /** Description de l'image demandée à un modèle d'images. */
+  image: string;
 }
 
 export const LANGAGES = ["curl", "python", "javascript"] as const;
@@ -24,6 +26,7 @@ export type Langage = (typeof LANGAGES)[number];
  * JEV reçoit dans le dernier message sa requête « System One » en JSON : un état et des questions typées.
  */
 export function exemplesAppel(modelName: string, apiKind: ApiKind, textes: TextesExemple): Record<Langage, string> {
+  if (apiKind === "image") return exemplesImage(modelName, textes.image);
   const adresse = adresseApi();
   const contenu =
     apiKind === "decision"
@@ -58,6 +61,53 @@ export function exemplesAppel(modelName: string, apiKind: ApiKind, textes: Texte
       `  messages: [{ role: "user", content: ${litteral} }],`,
       "});",
       "console.log(response.choices[0].message.content);",
+    ].join("\n"),
+  };
+}
+
+/**
+ * Modèle d'images : une description et une image en sortie (« modalities »). L'image revient dans
+ * message.images, en URL data: encodée en base64 ; l'exemple l'enregistre dans image.png.
+ */
+function exemplesImage(modelName: string, description: string): Record<Langage, string> {
+  const adresse = adresseApi();
+  const corps = JSON.stringify({ model: modelName, modalities: ["image"], messages: [{ role: "user", content: description }] }, null, 2);
+  const litteral = JSON.stringify(description);
+  return {
+    curl: [
+      `curl ${adresse}/chat/completions \\`,
+      `  -H "Authorization: Bearer $LINAGORA_API_KEY" \\`,
+      `  -H "Content-Type: application/json" \\`,
+      `  -d '${corps.replaceAll("'", "'\\''")}' \\`,
+      "  | jq -r '.choices[0].message.images[0].image_url.url' | cut -d, -f2 | base64 --decode > image.png",
+    ].join("\n"),
+    python: [
+      "import base64",
+      "import os",
+      "from openai import OpenAI",
+      "",
+      `client = OpenAI(base_url="${adresse}", api_key=os.environ["LINAGORA_API_KEY"])`,
+      "response = client.chat.completions.create(",
+      `    model="${modelName}",`,
+      `    messages=[{"role": "user", "content": ${litteral}}],`,
+      '    extra_body={"modalities": ["image"]},',
+      ")",
+      'image = response.choices[0].message.images[0]["image_url"]["url"]',
+      'with open("image.png", "wb") as f:',
+      '    f.write(base64.b64decode(image.split(",", 1)[1]))',
+    ].join("\n"),
+    javascript: [
+      'import { writeFileSync } from "node:fs";',
+      'import OpenAI from "openai";',
+      "",
+      `const client = new OpenAI({ baseURL: "${adresse}", apiKey: process.env.LINAGORA_API_KEY });`,
+      "const response = await client.chat.completions.create({",
+      `  model: "${modelName}",`,
+      `  messages: [{ role: "user", content: ${litteral} }],`,
+      '  modalities: ["image"],',
+      "});",
+      "const image = response.choices[0].message.images[0].image_url.url;",
+      'writeFileSync("image.png", Buffer.from(image.split(",")[1], "base64"));',
     ].join("\n"),
   };
 }
