@@ -132,6 +132,29 @@ test("un admin voit toutes les clés émises et révoque celle d'un salarié (ti
   await expect(page.getByRole("article")).toContainText("Révoquée");
 });
 
+test("un admin bloque une clé, que la passerelle refuse et que le titulaire ne peut plus remplacer, puis la débloque (ticket #20)", async ({ browser, request }) => {
+  const salarie = personne("blocage");
+  const page = await (await connecter(browser, salarie)).newPage();
+  await demandeApprouvee(browser, page, salarie, "Essai blocage");
+  const cle = await retirerCle(page);
+
+  const admin = await (await connecter(browser, ADMIN)).newPage();
+  await admin.goto("/gestion/cles");
+  const ligne = () => admin.getByRole("row", { name: new RegExp(`${salarie.uid}-r-d-essai-blocage-`) });
+  await ligne().getByRole("button", { name: "Bloquer" }).click();
+  await expect(admin.getByRole("status")).toHaveText("Clé bloquée.");
+  await expect(ligne()).toContainText("bloquée");
+  await expect.poll(() => appel(request, cle), { timeout: 15_000, intervals: [1_000] }).not.toBe(200);
+
+  await page.goto("/cles");
+  await expect(page.getByRole("article")).toContainText("Clé émise · bloquée");
+  await expect(page.getByText("Remplacer ma clé (clé perdue)")).toHaveCount(0);
+
+  await ligne().getByRole("button", { name: "Débloquer" }).click();
+  await expect(admin.getByRole("status")).toHaveText("Clé débloquée.");
+  await expect.poll(() => appel(request, cle), { timeout: 15_000, intervals: [1_000] }).toBe(200);
+});
+
 test("« Mes clés » s'affiche en anglais", async ({ browser }) => {
   const page = await (await connecter(browser, personne("anglais"), "en-US")).newPage();
   await page.goto("/cles");

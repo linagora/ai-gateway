@@ -122,6 +122,10 @@ export interface LiteLLMClient {
   getKeyInfo(tokenId: string): Promise<KeyInfo | null>;
   /** F-43 : supprime une clé d'après son empreinte ; la passerelle la refuse ensuite. */
   deleteKey(tokenId: string): Promise<void>;
+  /** F-43 : bloque une clé (suspension temporaire et réversible). */
+  blockKey(tokenId: string): Promise<void>;
+  /** F-43 : débloque une clé bloquée. */
+  unblockKey(tokenId: string): Promise<void>;
 }
 
 const teamSummarySchema = z.object({
@@ -317,6 +321,16 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
     async deleteKey(tokenId) {
       const { status, data } = await call("POST", "/key/delete", { keys: [tokenId] });
       if (status !== 200) fail("POST", "/key/delete", status, data);
+    },
+
+    async blockKey(tokenId) {
+      const { status, data } = await call("POST", "/key/block", { key: tokenId });
+      if (status !== 200) fail("POST", "/key/block", status, data);
+    },
+
+    async unblockKey(tokenId) {
+      const { status, data } = await call("POST", "/key/unblock", { key: tokenId });
+      if (status !== 200) fail("POST", "/key/unblock", status, data);
     },
   };
 }

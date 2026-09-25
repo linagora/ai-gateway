@@ -93,6 +93,21 @@ export class FakeLiteLLM implements LiteLLMClient {
     if (!this.keys.delete(tokenId)) throw new Error("clé inconnue");
   }
 
+  async blockKey(tokenId: string): Promise<void> {
+    this.cleConnue(tokenId).blocked = true;
+  }
+
+  async unblockKey(tokenId: string): Promise<void> {
+    this.cleConnue(tokenId).blocked = false;
+  }
+
+  private cleConnue(tokenId: string): FakeKey {
+    if (this.panne) throw new Error("LiteLLM injoignable");
+    const k = this.keys.get(tokenId);
+    if (!k) throw new Error("clé inconnue");
+    return k;
+  }
+
   // --- préparation des scénarios ---
 
   withTeam(team: { teamId: string; teamAlias?: string; models: string[]; memberUids: string[] }): this {

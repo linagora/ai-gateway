@@ -16,7 +16,7 @@ import {
   requestCompletion,
 } from "@/lib/services/admin-requests";
 import { saveCatalogEntry } from "@/lib/services/catalog";
-import { pickUpKey, replaceKey, revokeKey } from "@/lib/services/keys";
+import { blockKey, pickUpKey, replaceKey, revokeKey, unblockKey } from "@/lib/services/keys";
 import { cancelRequest, completeRequest, createKeyRequest, createTeamJoinRequest } from "@/lib/services/requests";
 import { saveSettings } from "@/lib/services/settings";
 import { getDeps, requireUser } from "@/lib/session";
@@ -175,6 +175,18 @@ export async function revoquerCleAdminAction(formData: FormData): Promise<void> 
   await run("/gestion/cles", () => revokeKey(getDeps(), user, text(formData, "id")), { path: "/gestion/cles", message: "cleRevoquee" });
 }
 
+/** F-43 : blocage d'une clé par un admin (suspension temporaire et réversible). */
+export async function bloquerCleAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  await run("/gestion/cles", () => blockKey(getDeps(), user, text(formData, "id")), { path: "/gestion/cles", message: "cleBloquee" });
+}
+
+/** F-43 : déblocage d'une clé par un admin. */
+export async function debloquerCleAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  await run("/gestion/cles", () => unblockKey(getDeps(), user, text(formData, "id")), { path: "/gestion/cles", message: "cleDebloquee" });
+}
+
 /** Résultat du retrait d'une clé : la clé n'y figure qu'une fois, et nulle part ailleurs. */
 export type ResultatRetrait = { ok: true; cle: string; alias: string } | { ok: false; erreur: string; details: Record<string, string> };
 
@@ -215,7 +227,9 @@ type CleSucces =
   | "demandeRefusee"
   | "complementDemande"
   | "parametresEnregistres"
-  | "cleRevoquee";
+  | "cleRevoquee"
+  | "cleBloquee"
+  | "cleDebloquee";
 
 /** Exécute le cas d'usage ; en cas d'erreur métier, revient sur `errorPath` avec le message. */
 async function run(errorPath: string, action: () => Promise<unknown>, success: { path: string; message: CleSucces }): Promise<void> {

@@ -214,6 +214,11 @@ export async function replaceKey(deps: KeyDeps, user: SessionUser, requestId: st
     throw new PortalError("transition_interdite", "Cette clé a expiré : demandez son renouvellement.", { cas: "expiree" });
   }
   if (request.approvedBudget === null || !request.budgetDuration) throw new PortalError("parametre_manquant", "Paramètres de la clé incomplets.");
+  // Une clé bloquée par un admin ne se remplace pas : le blocage serait contourné.
+  const etat = await deps.litellm.getKeyInfo(request.keyTokenId).catch(() => {
+    throw new PortalError("passerelle_indisponible", "L'état de la clé n'a pas pu être vérifié.");
+  });
+  if (etat?.blocked) throw new PortalError("transition_interdite", "Cette clé est bloquée par un administrateur.", { cas: "bloquee" });
   const rang = request.keyReplacements + 2;
   let nouvelle;
   try {
@@ -256,6 +261,29 @@ export async function replaceKey(deps: KeyDeps, user: SessionUser, requestId: st
   }
   await recordAudit(deps.db, { actorUid: user.uid, action: "KEY_REPLACED", targetId: request.id, details: { alias: nouvelle.alias, ancienAlias: request.keyAlias } });
   return { key: nouvelle.key, alias: nouvelle.alias };
+}
+
+/** F-43 : blocage d'une clé par un admin (suspension temporaire et réversible) ; la demande reste « Clé émise ». */
+export async function blockKey(deps: KeyDeps, actor: SessionUser, requestId: string): Promise<void> {
+  await changeBlocking(deps, actor, requestId, true);
+}
+
+/** F-43 : déblocage d'une clé bloquée par un admin. */
+export async function unblockKey(deps: KeyDeps, actor: SessionUser, requestId: string): Promise<void> {
+  await changeBlocking(deps, actor, requestId, false);
+}
+
+async function changeBlocking(deps: KeyDeps, actor: SessionUser, requestId: string, bloquer: boolean): Promise<void> {
+  requireAdmin(actor);
+  const request = await deps.db.accessRequest.findUnique({ where: { id: requestId } });
+  if (!request || request.kind !== "CLE" || !request.keyTokenId) throw new PortalError("introuvable", "Clé introuvable.", { objet: "demande_cle" });
+  if (request.status !== "CLE_EMISE") throw new PortalError("transition_interdite", "Cette clé n'est plus active.", { cas: "traitee" });
+  try {
+    await (bloquer ? deps.litellm.blockKey(request.keyTokenId) : deps.litellm.unblockKey(request.keyTokenId));
+  } catch {
+    throw new PortalError("passerelle_indisponible", bloquer ? "Le blocage de la clé a échoué." : "Le déblocage de la clé a échoué.");
+  }
+  await recordAudit(deps.db, { actorUid: actor.uid, action: bloquer ? "KEY_BLOCKED" : "KEY_UNBLOCKED", targetId: request.id, details: { alias: request.keyAlias } });
 }
 
 /** Supprime une clé de la passerelle ; une clé qu'elle ne connaît déjà plus (supprimée depuis la console) est acquise. */

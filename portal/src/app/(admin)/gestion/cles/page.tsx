@@ -1,7 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { listAllKeys } from "@/lib/services/keys";
 import { getDeps, requireAdminPage } from "@/lib/session";
-import { revoquerCleAdminAction } from "../../../actions";
+import { bloquerCleAction, debloquerCleAction, revoquerCleAdminAction } from "../../../actions";
 import { formats, Notice } from "../../../components";
 import { AdminNav } from "../admin-nav";
 
@@ -65,6 +65,14 @@ export default async function GestionClesPage(props: PageProps<"/gestion/cles">)
                   {k.usage?.blocked && ` · ${cles("bloquee")}`}
                 </td>
                 <td>
+                  {k.status === "CLE_EMISE" && (
+                    <form action={k.usage?.blocked ? debloquerCleAction : bloquerCleAction}>
+                      <input type="hidden" name="id" value={k.requestId} />
+                      <button type="submit" className="mt-0 border-neutral-400 bg-white text-neutral-800 hover:bg-neutral-100">
+                        {k.usage?.blocked ? t("debloquer") : t("bloquer")}
+                      </button>
+                    </form>
+                  )}
                   {k.status === "CLE_EMISE" && (
                     <details>
                       <summary className="cursor-pointer">{t("revoquer")}</summary>

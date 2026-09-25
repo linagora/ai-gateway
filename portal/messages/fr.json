@@ -78,7 +78,9 @@
       "demandeRefusee": "Demande refusée.",
       "complementDemande": "Demande renvoyée au demandeur pour complément.",
       "parametresEnregistres": "Paramètres enregistrés.",
-      "cleRevoquee": "Clé révoquée."
+      "cleRevoquee": "Clé révoquée.",
+      "cleBloquee": "Clé bloquée.",
+      "cleDebloquee": "Clé débloquée."
     },
     "erreurs": {
       "controles_en_echec": "La demande ne respecte pas la politique d'accès aux modèles. Contrôles en échec : {controles}.",
@@ -90,7 +92,7 @@
       "parametre_manquant": "Budget, période du budget et durée de validité sont obligatoires : saisissez-les ou configurez des valeurs par défaut.",
       "recommandation_hors_cas_usage": "Une recommandation ne peut porter que sur un cas d'usage coché.",
       "tarif_eur_manquant": "Le modèle {modele} n'a pas de tarif en euros : il ne peut pas être rendu visible.",
-      "transition_interdite": "{cas, select, modifiee {La demande a été modifiée entre-temps ; rechargez la page.} traitee {Cette demande a déjà été traitée.} expiree {Cette clé a expiré : demandez son renouvellement.} other {Cette action n'est pas possible au statut actuel de la demande.}}",
+      "transition_interdite": "{cas, select, modifiee {La demande a été modifiée entre-temps ; rechargez la page.} traitee {Cette demande a déjà été traitée.} expiree {Cette clé a expiré : demandez son renouvellement.} bloquee {Cette clé est bloquée par un administrateur.} other {Cette action n'est pas possible au statut actuel de la demande.}}",
       "saisie_invalide": "Saisie invalide : vérifiez les champs {champs}.",
       "inconnue": "Une erreur est survenue.",
       "passerelle_indisponible": "La passerelle ne répond pas : réessayez dans quelques instants."
@@ -421,7 +423,9 @@
       },
       "revoquer": "Révoquer",
       "revocationAvertissement": "La passerelle refusera la clé dans les secondes qui suivent. La révocation est définitive.",
-      "confirmerRevocation": "Confirmer la révocation"
+      "confirmerRevocation": "Confirmer la révocation",
+      "bloquer": "Bloquer",
+      "debloquer": "Débloquer"
     }
   },
   "introuvable": {

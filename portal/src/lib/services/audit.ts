@@ -10,7 +10,9 @@ export type AuditAction =
   | "MEMBERSHIP_APPROVED"
   | "KEY_GENERATED"
   | "KEY_REPLACED"
-  | "KEY_REVOKED";
+  | "KEY_REVOKED"
+  | "KEY_BLOCKED"
+  | "KEY_UNBLOCKED";
 
 /** Entrée du journal d'audit : qui, quoi, sur quelle cible, avec quels détails. Jamais de secret. */
 export interface AuditEntry {

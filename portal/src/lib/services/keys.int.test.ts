@@ -4,7 +4,7 @@ import { FakeLiteLLM } from "@/test/fake-litellm";
 import { approveKeyRequest } from "./admin-requests";
 import { listAudit } from "./audit";
 import { saveCatalogEntry } from "./catalog";
-import { listAllKeys, listMyKeys, pickUpKey, replaceKey, revokeKey } from "./keys";
+import { blockKey, listAllKeys, listMyKeys, pickUpKey, replaceKey, revokeKey, unblockKey } from "./keys";
 import { createKeyRequest, type KeyRequestInput } from "./requests";
 import { saveSettings } from "./settings";
 
@@ -283,5 +283,38 @@ describe("« Gestion — Clés » et révocation par un admin (ticket #19)", () 
     expect([...litellm.keys.values()].some((k) => k.key === key)).toBe(false);
     expect((await listAllKeys(deps, admin))[0]).toMatchObject({ requestId: id, status: "REVOQUEE" });
     expect((await listAudit(testDb)).map((e) => [e.actorUid, e.action, e.targetId])).toContainEqual(["jdupont", "KEY_REVOKED", id]);
+  });
+});
+
+describe("blocage et déblocage d'une clé (ticket #20)", () => {
+  test("un admin bloque puis débloque une clé ; la demande reste « Clé émise » et l'état bloqué se voit dans « Mes clés »", async () => {
+    const id = await demandeApprouvee();
+    const { key } = await pickUpKey(deps, titulaire, id);
+    await blockKey(deps, admin, id);
+    expect([...litellm.keys.values()].find((k) => k.key === key)?.blocked).toBe(true);
+    expect((await listMyKeys(deps, titulaire)).keys[0]).toMatchObject({ status: "CLE_EMISE", usage: { blocked: true } });
+    await unblockKey(deps, admin, id);
+    expect((await listMyKeys(deps, titulaire)).keys[0]).toMatchObject({ status: "CLE_EMISE", usage: { blocked: false } });
+    expect((await listAudit(testDb)).filter((e) => e.actorUid === "jdupont").map((e) => [e.action, e.targetId])).toEqual([
+      ["REQUEST_APPROVED", id],
+      ["KEY_BLOCKED", id],
+      ["KEY_UNBLOCKED", id],
+    ]);
+  });
+
+  test("le blocage est réservé aux admins, sur une clé émise", async () => {
+    const id = await demandeApprouvee();
+    await pickUpKey(deps, titulaire, id);
+    await expect(blockKey(deps, titulaire, id)).rejects.toMatchObject({ code: "interdit" });
+    await revokeKey(deps, titulaire, id);
+    await expect(blockKey(deps, admin, id)).rejects.toMatchObject({ code: "transition_interdite" });
+  });
+
+  test("une clé bloquée ne peut pas être remplacée", async () => {
+    const id = await demandeApprouvee();
+    await pickUpKey(deps, titulaire, id);
+    await blockKey(deps, admin, id);
+    await expect(replaceKey(deps, titulaire, id)).rejects.toMatchObject({ code: "transition_interdite", params: { cas: "bloquee" } });
+    expect(litellm.keys.size).toBe(1);
   });
 });

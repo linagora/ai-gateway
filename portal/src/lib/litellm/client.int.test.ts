@@ -223,4 +223,23 @@ describe("clés", () => {
     expect(await client.getKeyInfo(cle.tokenId)).toBeNull();
     await expect.poll(appel, { timeout: 15_000, interval: 1_000 }).toBe(401);
   });
+
+  test("une clé bloquée est signalée et refusée par la passerelle ; débloquée, elle fonctionne à nouveau", async () => {
+    const { userId, teamId } = await titulaire();
+    const alias = uniqueId("cle");
+    createdKeyAliases.push(alias);
+    const cle = await client.generateKey({ userId, teamId, models: ["dev-public"], maxBudget: 5, budgetDuration: "30d", duration: "90d", rpmLimit: null, tpmLimit: null, alias, metadata: {} });
+    const appel = () =>
+      fetch(`${baseUrl}/v1/chat/completions`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${cle.key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: "dev-public", messages: [{ role: "user", content: "Bonjour" }] }),
+      }).then((r) => r.status);
+    await client.blockKey(cle.tokenId);
+    expect((await client.getKeyInfo(cle.tokenId))?.blocked).toBe(true);
+    await expect.poll(appel, { timeout: 15_000, interval: 1_000 }).not.toBe(200);
+    await client.unblockKey(cle.tokenId);
+    expect((await client.getKeyInfo(cle.tokenId))?.blocked).toBe(false);
+    await expect.poll(appel, { timeout: 15_000, interval: 1_000 }).toBe(200);
+  });
 });
