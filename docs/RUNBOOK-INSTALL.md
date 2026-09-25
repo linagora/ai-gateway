@@ -88,9 +88,24 @@ curl -s -o /dev/null -w '%{http_code}\n' https://ai-gateway.linagora.com/admin/u
 ```
 Vérifier dans les logs LiteLLM l'absence du message « Cannot apply server_root_path replacements to UI » (sinon l'UI sous `/admin` ne chargera pas ses assets : il faudra une image dérivée pré-traitée). Vérifier aussi qu'aucun port autre que 22/80/443 n'écoute publiquement : `ssh ia-host 'sudo ss -tlnp'` (Postgres ne doit **pas** être sur 0.0.0.0).
 
-**Premiers modèles** (via l'UI admin `https://ai-gateway.linagora.com/admin/ui`, connexion locale `UI_USERNAME`/`UI_PASSWORD`), en suivant les exemples de `litellm/config.yaml` :
-- un modèle OpenRouter N1 ou N2 ;
-- le modèle N3 **Qwen3.8 sur l'endpoint OVHcloud** (`openai/<modèle>` + `api_base` = `OVH_QWEN_API_BASE`), après un test direct de l'endpoint (`curl <api_base>/models`).
+**Premiers modèles** :
+- le modèle N3 **Qwen3.8 sur l'endpoint OVHcloud** (`openai/<modèle>` + `api_base` = `OVH_QWEN_API_BASE`), après un test direct de l'endpoint (`curl <api_base>/models`), par l'API ou l'UI admin (`https://ai-gateway.linagora.com/admin/ui`, connexion locale `UI_USERNAME`/`UI_PASSWORD`) ;
+- les modèles **OpenRouter**, uniquement par la liste blanche (ci-dessous), jamais à la main ni par l'UI ;
+- **JEV** (Typesafe, niveau Expérimental) : `docker compose exec -T litellm python3 - < scripts/declare-jev.py`.
+
+**Liste blanche OpenRouter** (`litellm/liste-blanche-openrouter.yaml`, versionnée) : seuls ses modèles sont déclarés ; aucun joker (`openrouter/*`). Chaque modèle a une **zone d'exécution** : `UE` (points d'accès `mistral/eu`, `google-vertex/eu`, Inceptron, NextBit) ou `monde` (fournisseurs au siège américain, sans conservation des données). Le routage d'OpenRouter est limité à ces points d'accès, sans repli (`provider.only`, `allow_fallbacks: false`). Prix déclarés en € = prix OpenRouter le plus élevé de la zone × 1,055 (frais d'achat de crédits) × taux BCE ; plafond facultatif `prix_max_usd` transmis à OpenRouter.
+```bash
+cd /opt/linagora-ia
+docker compose exec -T litellm python3 - < scripts/sync-openrouter.py               # plan et écarts (code 1 s'il en reste)
+docker compose exec -T litellm python3 - --appliquer < scripts/sync-openrouter.py   # création / mise à jour
+docker compose exec -T litellm python3 - < scripts/test-liste-blanche.py            # recette (42 contrôles, < 0,01 €)
+```
+- Les modèles OpenRouter sont joints en `openai/<id>` sur `https://openrouter.ai/api/v1`, **pas** par la route `openrouter/` de LiteLLM : celle-ci enregistre le coût renvoyé par OpenRouter, **en dollars**, à la place des tarifs en euros (vérifié sur la 1.102.1).
+- Un modèle OpenRouter hors liste est signalé par `sync-openrouter.py` ; `--supprimer-hors-liste` le supprime.
+- La **garde** (`litellm/garde.py`, chargée par `litellm_settings.callbacks`) refuse les paramètres qui changeraient de modèle ou de fournisseur : `models`, `route`, `provider`, `plugins`, `preset`, `usage`, `extra_body`, `additional_drop_params`, `fallbacks`… Sans elle, une requête pourrait nommer un modèle de repli hors liste ou un fournisseur hors zone : ses paramètres priment sur ceux du modèle.
+- Revoir le taux et les prix chaque trimestre (modifier `taux_usd_eur`, puis `--appliquer`).
+
+**JEV** : fournisseur personnalisé (`litellm/jev.py`, `litellm_settings.custom_provider_map`), modèle `jev-latest`, appelé comme tout modèle par `/v1/chat/completions`. Le dernier message contient la requête System One de Typesafe en JSON (`{"state": …, "questions": {…}}`), la réponse est le JSON des réponses. Coût sur les jetons comptés par Typesafe. Une route dédiée (« pass-through ») n'est pas possible : ouvrir une telle route à une clé (`allowed_passthrough_routes`) est réservé à l'édition Enterprise. Clé Typesafe : `scripts/set-env-var.sh TYPESAFE_API_KEY`, puis recréer le conteneur `litellm`.
 
 Chaque modèle reçoit :
 - dans **`litellm_params`** : `input_cost_per_token` et `output_cost_per_token` **en EUR**. Depuis LiteLLM 1.10x, les prix placés dans `model_info` sont considérés comme dérivés de la table de coûts publique et **supprimés à l'enregistrement** ; `/model/info` les recopie ensuite dans `model_info` pour l'affichage ;
