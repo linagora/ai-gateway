@@ -176,7 +176,7 @@ export async function pickUpKey(deps: KeyDeps, user: SessionUser, requestId: str
 }
 
 /** Paramètres LiteLLM d'une clé, figés à l'approbation de sa demande (F-40). */
-function keyParams(request: AccessRequest, alias: string, duration: string): KeyParams {
+function keyParams(request: AccessRequest, alias: string, duration: string, spend?: number): KeyParams {
   if (request.approvedBudget === null || !request.budgetDuration) throw new PortalError("parametre_manquant", "Paramètres de la clé incomplets.");
   return {
     userId: request.requesterUid,
@@ -195,6 +195,7 @@ function keyParams(request: AccessRequest, alias: string, duration: string): Key
       approved_by: request.decidedBy,
       key_type: request.keyType,
     },
+    spend,
   };
 }
 
@@ -290,9 +291,10 @@ export async function replaceKey(deps: KeyDeps, user: SessionUser, requestId: st
   const rang = request.keyReplacements + 2;
   let nouvelle;
   try {
-    // Durée restante, à la seconde : la nouvelle clé expire à la même date que l'ancienne.
+    // Durée restante, à la seconde : la nouvelle clé expire à la même date que l'ancienne, et reprend sa
+    // dépense, pour qu'un remplacement ne remette pas le budget à zéro.
     const duree = `${Math.ceil((request.keyExpiresAt.getTime() - maintenant.getTime()) / 1000)}s`;
-    nouvelle = await deps.litellm.generateKey(keyParams(request, `${keyAlias(request)}-${rang}`, duree));
+    nouvelle = await deps.litellm.generateKey(keyParams(request, `${keyAlias(request)}-${rang}`, duree, etat?.spend));
   } catch (e) {
     throw e instanceof PortalError ? e : new PortalError("passerelle_indisponible", "La génération de la clé de remplacement a échoué.");
   }

@@ -218,6 +218,14 @@ describe("remplacement d'une clé perdue (ticket #18)", () => {
     expect((await replaceKey(deps, titulaire, id)).alias).toBe(`mmaudet-r-d-compte-rendu-hebdo-${id.slice(-4)}-3`);
   });
 
+  test("le remplacement reprend la dépense de l'ancienne clé : il ne remet pas le budget à zéro", async () => {
+    const id = await demandeApprouvee();
+    const { key: ancienne } = await pickUpKey(deps, titulaire, id);
+    [...litellm.keys.values()].find((k) => k.key === ancienne)!.spend = 12.5;
+    const { key: nouvelle } = await replaceKey(deps, titulaire, id);
+    expect([...litellm.keys.values()].find((k) => k.key === nouvelle)?.spend).toBe(12.5);
+  });
+
   test("le remplacement est refusé sur une clé révoquée, sur une clé expirée, et sur la clé d'un autre salarié", async () => {
     const revoquee = await demandeApprouvee();
     await pickUpKey(deps, titulaire, revoquee);

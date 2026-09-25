@@ -207,6 +207,14 @@ describe("clés", () => {
     expect(await client.getKeyInfo("0".repeat(64))).toBeNull();
   });
 
+  test("une clé générée peut reprendre une dépense (remplacement d'une clé perdue)", async () => {
+    const { userId, teamId } = await titulaire();
+    const alias = uniqueId("cle");
+    createdKeyAliases.push(alias);
+    const cle = await client.generateKey({ userId, teamId, models: ["dev-public"], maxBudget: 5, budgetDuration: "30d", duration: "90d", rpmLimit: null, tpmLimit: null, alias, metadata: {}, spend: 1.5 });
+    expect((await client.getKeyInfo(cle.tokenId))?.spend).toBe(1.5);
+  });
+
   test("une clé supprimée n'est plus connue, et la passerelle la refuse en quelques secondes", async () => {
     const { userId, teamId } = await titulaire();
     const alias = uniqueId("cle");

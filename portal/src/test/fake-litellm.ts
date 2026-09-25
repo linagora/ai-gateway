@@ -77,7 +77,7 @@ export class FakeLiteLLM implements LiteLLMClient {
     const maintenant = this.horloge().getTime();
     const expiresAt = new Date(maintenant + durationMs(params.duration));
     const budgetResetAt = new Date(maintenant + durationMs(params.budgetDuration));
-    this.keys.set(tokenId, { ...params, key, tokenId, expiresAt, spend: 0, budgetResetAt, blocked: false });
+    this.keys.set(tokenId, { ...params, key, tokenId, expiresAt, spend: params.spend ?? 0, budgetResetAt, blocked: false });
     return { key, tokenId, alias: params.alias, expiresAt };
   }
 

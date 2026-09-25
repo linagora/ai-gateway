@@ -85,6 +85,8 @@ export interface KeyParams {
   tpmLimit: number | null;
   alias: string;
   metadata: Record<string, string | null>;
+  /** Dépense de départ : un remplacement reprend celle de la clé remplacée. */
+  spend?: number;
 }
 
 /** Clé générée : `key` n'est rendue qu'une fois et ne doit jamais être conservée ; `tokenId` est son empreinte. */
@@ -294,6 +296,7 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
         metadata: params.metadata,
         ...(params.rpmLimit === null ? {} : { rpm_limit: params.rpmLimit }),
         ...(params.tpmLimit === null ? {} : { tpm_limit: params.tpmLimit }),
+        ...(params.spend ? { spend: params.spend } : {}),
       };
       const { status, data } = await call("POST", "/key/generate", body);
       if (status !== 200) fail("POST", "/key/generate", status, data);
