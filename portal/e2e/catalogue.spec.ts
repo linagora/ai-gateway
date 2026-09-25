@@ -281,3 +281,62 @@ test.describe("détail d'un modèle (ticket #9)", () => {
     await context.close();
   });
 });
+
+test.describe("sélection de modèles et demande préremplie (ticket #10)", () => {
+  const bouton = (page: Page) => page.getByRole("button", { name: "Demander une clé pour la sélection" });
+
+  test("sur la page N2, le salarié sélectionne deux modèles, dont un N3, et soumet une demande déclarée au niveau N2", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    await page.goto("/catalogue/n2");
+    await expect(bouton(page)).toBeDisabled();
+    await page.getByRole("checkbox", { name: "Sélectionner Modèle interne" }).check();
+    await expect(bouton(page)).toBeEnabled();
+    await page.getByRole("checkbox", { name: "Sélectionner Modèle confidentiel" }).check();
+    await bouton(page).click();
+
+    await expect(page).toHaveURL(/\/demandes\/nouvelle\?/);
+    await expect(page.getByRole("radio", { name: /^N2 — Interne/ })).toBeChecked();
+    await expect(page.getByLabel(/Modèle interne/)).toBeChecked();
+    await expect(page.getByLabel(/Modèle confidentiel/)).toBeChecked();
+    await expect(page.getByLabel(/Modèle public/)).not.toBeChecked();
+    await page.getByLabel("Équipe").selectOption({ label: "R&D" });
+    await page.getByLabel("Motif").fill("Synthèse de documents internes");
+    await page.getByLabel(/Je m'engage/).check();
+    await page.getByRole("button", { name: "Envoyer la demande" }).click();
+    await expect(page.getByRole("status")).toHaveText("Demande envoyée aux administrateurs.");
+    await expect(page.getByRole("row", { name: /Clé d'API.*R&D.*N2 — Interne.*dev-interne, dev-confidentiel.*Soumise/ })).toBeVisible();
+    await context.close();
+  });
+
+  test("décocher tous les modèles désactive le bouton ; ouvrir puis fermer un détail garde la sélection", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    await page.goto("/catalogue/n1?tri=nom");
+    const selection = page.getByRole("checkbox", { name: "Sélectionner Modèle public" });
+    await selection.check();
+    await page.getByRole("article", { name: "Modèle interne" }).getByRole("link", { name: "Modèle interne" }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.getByRole("dialog").getByRole("link", { name: "Fermer" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(selection).toBeChecked();
+    await expect(bouton(page)).toBeEnabled();
+    await selection.uncheck();
+    await expect(bouton(page)).toBeDisabled();
+    await context.close();
+  });
+
+  test("une adresse préremplie modifiée à la main ne contourne pas les contrôles de la demande", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    await page.goto("/demandes/nouvelle?niveau=N3&modeles=dev-public");
+    await expect(page.getByRole("radio", { name: /^N3 — Confidentiel/ })).toBeChecked();
+    await expect(page.getByLabel(/Modèle public/)).toBeChecked();
+    await page.getByLabel("Équipe").selectOption({ label: "R&D" });
+    await page.getByLabel("Motif").fill("Contrats clients");
+    await page.getByLabel(/Je m'engage/).check();
+    await page.getByRole("button", { name: "Envoyer la demande" }).click();
+    await expect(page.getByRole("main").getByRole("alert")).toContainText("Les modèles acceptent le niveau de confidentialité déclaré (dev-public)");
+    await context.close();
+  });
+});

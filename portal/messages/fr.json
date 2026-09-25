@@ -191,7 +191,6 @@
     "hypothesePages": "Hypothèse : une page de texte en français compte environ 750 jetons.",
     "contexteInconnu": "Taille du contexte non communiquée",
     "casUsage": "Cas d'usage",
-    "demanderCle": "Demander une clé pour ce modèle",
     "filtres": "Filtres",
     "recherche": "Rechercher un modèle ou un éditeur",
     "tousCasUsage": "Tous les cas d'usage",
@@ -206,7 +205,10 @@
     "filtrer": "Filtrer",
     "reinitialiser": "Réinitialiser les filtres",
     "aucunResultat": "Aucun modèle ne correspond à ces critères. Élargissez la recherche ou retirez des filtres.",
-    "notreChoix": "Notre choix pour : {cas}"
+    "notreChoix": "Notre choix pour : {cas}",
+    "selectionner": "Sélectionner",
+    "selectionnerModele": "Sélectionner {nom}",
+    "demanderSelection": "Demander une clé pour la sélection"
   },
   "detail": {
     "fermer": "Fermer",

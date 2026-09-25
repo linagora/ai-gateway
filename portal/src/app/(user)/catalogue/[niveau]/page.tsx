@@ -10,6 +10,7 @@ import { USE_CASES } from "@/lib/use-cases";
 import { formats, Notice } from "../../../components";
 import { COULEURS_NIVEAUX } from "../couleurs";
 import { BoutonCopier } from "./bouton-copier";
+import { BoutonSelection } from "./bouton-selection";
 import { exempleAppel } from "./exemple-appel";
 
 /** Icônes des capacités, toujours accompagnées de leur libellé. */
@@ -17,8 +18,9 @@ const ICONES: Record<Capability, string> = { images: "🖼️", audio_video: "�
 const REPERES: Record<PriceTier, "bas" | "moyen" | "eleve"> = { "€": "bas", "€€": "moyen", "€€€": "eleve" };
 
 /**
- * Tickets #7 à #9 : les modèles d'un niveau, en cartes (lecture cumulative, niveau Expérimental à part),
- * avec recherche, filtres et tri portés par l'adresse, et le détail d'un modèle dans un panneau (?modele=).
+ * Tickets #7 à #10 : les modèles d'un niveau, en cartes (lecture cumulative, niveau Expérimental à part),
+ * avec recherche, filtres et tri portés par l'adresse, le détail d'un modèle dans un panneau (?modele=),
+ * et la sélection de modèles envoyée au formulaire de demande avec le niveau de la page.
  */
 export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">) {
   await requireUser();
@@ -98,69 +100,76 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
       )}
       {modelCount > 0 && models.length === 0 && <p className="mt-6 italic">{t("aucunResultat")}</p>}
       {models.length > 0 && (
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {models.map((m, index) => (
-            <article key={m.modelName} aria-labelledby={`modele-${index}`} className="flex flex-col gap-2 rounded border border-neutral-300 p-4">
-              <h2 id={`modele-${index}`} className="my-0">
-                <Link href={levelPageHref(level, searchParams, m.modelName)} scroll={false}>
-                  {m.displayName}
-                </Link>
-              </h2>
-              <p className="text-sm">
-                {m.publisher ?? "—"} · {m.executionRegion ? domaine(`zones.${m.executionRegion}`) : "—"}
-              </p>
-              <code className="text-xs break-all text-neutral-600">{m.modelName}</code>
-              {m.recommendedFor.length > 0 && (
-                <p className="self-start rounded bg-amber-100 px-2 text-sm font-medium">
-                  <span aria-hidden="true">★ </span>
-                  {t("notreChoix", { cas: m.recommendedFor.map((u) => domaine(`casUsage.${u}`)).join(", ") })}
+        <form action="/demandes/nouvelle" method="get" className="mt-6">
+          <input type="hidden" name="niveau" value={level} />
+          <p className="text-right">
+            <BoutonSelection />
+          </p>
+          <div className="mt-2 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {models.map((m, index) => (
+              <article key={m.modelName} aria-labelledby={`modele-${index}`} className="flex flex-col gap-2 rounded border border-neutral-300 p-4">
+                <h2 id={`modele-${index}`} className="my-0">
+                  <Link href={levelPageHref(level, searchParams, m.modelName)} scroll={false}>
+                    {m.displayName}
+                  </Link>
+                </h2>
+                <p className="text-sm">
+                  {m.publisher ?? "—"} · {m.executionRegion ? domaine(`zones.${m.executionRegion}`) : "—"}
                 </p>
-              )}
-              {m.acceptsUpTo && (
-                <p className="self-start rounded border border-neutral-400 px-2 text-sm">{t("accepteJusqua", { niveau: m.acceptsUpTo })}</p>
-              )}
-              <p>{m.shortDescription}</p>
-              {m.capabilities.length > 0 && (
-                <ul aria-label={t("capacites")} className="flex flex-wrap gap-x-3 text-sm">
-                  {m.capabilities.map((c) => (
-                    <li key={c}>
-                      <span aria-hidden="true">{ICONES[c]}</span> {domaine(`capacites.${c}`)}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <p className="text-sm">
-                <span className="sr-only">{t(`repere.${REPERES[m.priceTier]}`)} : </span>
-                <span aria-hidden="true" title={t(`repere.${REPERES[m.priceTier]}`)} className="font-semibold">
-                  {m.priceTier}
-                </span>
-                {" · "}
-                {t("prix", { entree: euros(m.inputPricePerMillion), sortie: euros(m.outputPricePerMillion) })}
-              </p>
-              <p className="text-sm">
-                {m.context ? (
-                  <span title={t("hypothesePages")}>
-                    {t("contexte", { jetons: nombre(m.context.tokens), pages: nombre(m.context.pages) })} <span aria-hidden="true">ⓘ</span>
-                  </span>
-                ) : (
-                  t("contexteInconnu")
+                <code className="text-xs break-all text-neutral-600">{m.modelName}</code>
+                {m.recommendedFor.length > 0 && (
+                  <p className="self-start rounded bg-amber-100 px-2 text-sm font-medium">
+                    <span aria-hidden="true">★ </span>
+                    {t("notreChoix", { cas: m.recommendedFor.map((u) => domaine(`casUsage.${u}`)).join(", ") })}
+                  </p>
                 )}
-              </p>
-              {m.useCases.length > 0 && (
-                <ul aria-label={t("casUsage")} className="flex flex-wrap gap-2 text-sm">
-                  {m.useCases.map((u) => (
-                    <li key={u} className="rounded bg-neutral-100 px-2">
-                      {domaine(`casUsage.${u}`)}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <p className="mt-auto pt-2">
-                <Link href={`/demandes/nouvelle?niveau=${level}&modele=${encodeURIComponent(m.modelName)}`}>{t("demanderCle")}</Link>
-              </p>
-            </article>
-          ))}
-        </div>
+                {m.acceptsUpTo && (
+                  <p className="self-start rounded border border-neutral-400 px-2 text-sm">{t("accepteJusqua", { niveau: m.acceptsUpTo })}</p>
+                )}
+                <p>{m.shortDescription}</p>
+                {m.capabilities.length > 0 && (
+                  <ul aria-label={t("capacites")} className="flex flex-wrap gap-x-3 text-sm">
+                    {m.capabilities.map((c) => (
+                      <li key={c}>
+                        <span aria-hidden="true">{ICONES[c]}</span> {domaine(`capacites.${c}`)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <p className="text-sm">
+                  <span className="sr-only">{t(`repere.${REPERES[m.priceTier]}`)} : </span>
+                  <span aria-hidden="true" title={t(`repere.${REPERES[m.priceTier]}`)} className="font-semibold">
+                    {m.priceTier}
+                  </span>
+                  {" · "}
+                  {t("prix", { entree: euros(m.inputPricePerMillion), sortie: euros(m.outputPricePerMillion) })}
+                </p>
+                <p className="text-sm">
+                  {m.context ? (
+                    <span title={t("hypothesePages")}>
+                      {t("contexte", { jetons: nombre(m.context.tokens), pages: nombre(m.context.pages) })} <span aria-hidden="true">ⓘ</span>
+                    </span>
+                  ) : (
+                    t("contexteInconnu")
+                  )}
+                </p>
+                {m.useCases.length > 0 && (
+                  <ul aria-label={t("casUsage")} className="flex flex-wrap gap-2 text-sm">
+                    {m.useCases.map((u) => (
+                      <li key={u} className="rounded bg-neutral-100 px-2">
+                        {domaine(`casUsage.${u}`)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <label className="mt-auto pt-2 font-normal">
+                  <input type="checkbox" name="modeles" value={m.modelName} aria-label={t("selectionnerModele", { nom: m.displayName })} />{" "}
+                  {t("selectionner")}
+                </label>
+              </article>
+            ))}
+          </div>
+        </form>
       )}
       {detail && (
         <aside

@@ -16,9 +16,10 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
   const user = await requireUser();
   const searchParams = await props.searchParams;
   const completing = typeof searchParams.completer === "string" ? searchParams.completer : "";
-  const preselected = typeof searchParams.modele === "string" ? searchParams.modele : "";
-  // Niveau choisi depuis le catalogue (« Demander une clé de ce niveau »), s'il est valide.
+  // Préremplissage depuis le catalogue : niveau de la page et modèles sélectionnés. Ce ne sont que des
+  // valeurs proposées : les contrôles de la demande restent ceux du serveur.
   const niveau = DATA_LEVELS.find((l) => l === searchParams.niveau) ?? null;
+  const preselected = [searchParams.modeles].flat().filter((m): m is string => typeof m === "string");
   const deps = getDeps();
   const [teams, catalog] = await Promise.all([listMyTeams(deps, user), listCatalog(deps)]);
 
@@ -58,7 +59,7 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
             <legend className="font-medium">Modèles (niveau maximal accepté par chaque modèle)</legend>
             {catalog.map((m) => (
               <label key={m.modelName} className="font-normal">
-                <input type="checkbox" name="models" value={m.modelName} defaultChecked={m.modelName === preselected} /> {m.displayName} (
+                <input type="checkbox" name="models" value={m.modelName} defaultChecked={preselected.includes(m.modelName)} /> {m.displayName} (
                 {LEVEL_LABELS[m.dataLevel]})
               </label>
             ))}
