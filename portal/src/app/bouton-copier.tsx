@@ -1,11 +1,9 @@
 "use client";
 
-import { useTranslations } from "next-intl";
 import { useState } from "react";
 
-/** Copie un texte dans le presse-papiers et le confirme. */
-export function BoutonCopier({ texte }: { texte: string }) {
-  const t = useTranslations("detail");
+/** Copie un texte dans le presse-papiers et le confirme ; libellés fournis par la page, dans sa langue. */
+export function BoutonCopier({ texte, libelle, libelleCopie }: { texte: string; libelle: string; libelleCopie: string }) {
   const [copie, setCopie] = useState(false);
   return (
     <button
@@ -15,7 +13,7 @@ export function BoutonCopier({ texte }: { texte: string }) {
         setCopie(true);
       }}
     >
-      {copie ? t("copie") : t("copier")}
+      {copie ? libelleCopie : libelle}
     </button>
   );
 }

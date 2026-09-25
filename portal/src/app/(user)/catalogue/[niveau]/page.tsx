@@ -8,8 +8,8 @@ import { LEVEL_SORTS, levelModels, modelDetail, type PriceTier } from "@/lib/ser
 import { getDeps, requireUser } from "@/lib/session";
 import { USE_CASES } from "@/lib/use-cases";
 import { formats, Notice } from "../../../components";
+import { BoutonCopier } from "../../../bouton-copier";
 import { COULEURS_NIVEAUX } from "../couleurs";
-import { BoutonCopier } from "./bouton-copier";
 import { BoutonSelection } from "./bouton-selection";
 import { exempleAppel } from "./exemple-appel";
 
@@ -222,7 +222,7 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
                   <code>{exemple}</code>
                 </pre>
                 <div>
-                  <BoutonCopier texte={exemple} />
+                  <BoutonCopier texte={exemple} libelle={detailT("copier")} libelleCopie={detailT("copie")} />
                 </div>
               </>
             );
