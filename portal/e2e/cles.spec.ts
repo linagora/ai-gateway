@@ -49,6 +49,9 @@ test("le titulaire retire sa clé, la voit une seule fois, et elle fonctionne au
   // La carte donne l'adresse de l'API (endpoint), celle des exemples d'appel.
   await expect(carte).toContainText("Adresse de l'API");
   await expect(carte).toContainText("http://127.0.0.1:54400/admin/v1");
+  // Le bouton de copie est centré verticalement sur l'adresse.
+  const [adresse, copier] = await Promise.all([carte.locator("dd code").first().boundingBox(), carte.getByRole("button", { name: "Copier l'adresse" }).boundingBox()]);
+  expect(Math.abs(adresse!.y + adresse!.height / 2 - (copier!.y + copier!.height / 2))).toBeLessThanOrEqual(2);
 
   // Ticket #16 : la dépense de l'appel apparaît (LiteLLM la compte en quelques secondes), avec le budget approuvé.
   await expect(async () => {

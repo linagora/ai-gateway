@@ -87,7 +87,7 @@ export default async function MesClesPage(props: PageProps<"/cles">) {
                       <dt className="font-medium">{t("adresseApi")}</dt>
                       <dd className="flex flex-wrap items-center gap-2">
                         <code className="break-all">{adresseApi()}</code>
-                        <BoutonCopier texte={adresseApi()} libelle={t("copierAdresse")} libelleCopie={t("adresseCopiee")} />
+                        <BoutonCopier texte={adresseApi()} libelle={t("copierAdresse")} libelleCopie={t("adresseCopiee")} className="mt-0 py-0.5 text-sm" />
                       </dd>
                     </>
                   )}
