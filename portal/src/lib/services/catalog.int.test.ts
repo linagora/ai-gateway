@@ -194,6 +194,14 @@ describe("filtres, tri et recommandations (ticket #8)", () => {
     expect(await noms(litellm, { search: "MÉDIUM" })).toEqual(["Mistral Medium 3.5"]);
   });
 
+  test("une recherche de moins de trois caractères ne filtre pas", async () => {
+    const litellm = await catalogueFiltrable();
+    const tous = await noms(litellm, {});
+    expect(await noms(litellm, { search: "ki" })).toEqual(tous);
+    expect(await noms(litellm, { search: " k " })).toEqual(tous);
+    expect(await noms(litellm, { search: "kim" })).toEqual(["Kimi K3"]);
+  });
+
   test("les filtres par cas d'usage, par capacités et « UE uniquement » se combinent, sans changer le nombre de modèles du niveau", async () => {
     const litellm = await catalogueFiltrable();
     expect(await noms(litellm, { useCase: "CODING" })).toEqual(["Kimi K3", "Mistral Medium 3.5"]);

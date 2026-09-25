@@ -231,7 +231,6 @@ test.describe("filtres, tri et recommandations (ticket #8)", () => {
     await expect(modele(page, "Modèle public")).toContainText("Notre choix pour : Traduction");
     await expect(modele(page, "Modèle interne")).not.toContainText("Notre choix");
     await page.getByRole("combobox", { name: "Cas d'usage" }).selectOption({ label: "Code" });
-    await page.getByRole("button", { name: "Filtrer" }).click();
     await expect(page).toHaveURL(/cas=CODING/);
     await expect(page.getByRole("article")).toHaveCount(1);
     await expect(modele(page, "Modèle interne")).toBeVisible();
@@ -250,10 +249,35 @@ test.describe("filtres, tri et recommandations (ticket #8)", () => {
     await expect(page.getByRole("article")).toHaveCount(1);
     await expect(modele(page, "Modèle confidentiel")).toBeVisible();
     await page.getByRole("searchbox", { name: "Rechercher un modèle ou un éditeur" }).fill("introuvable");
-    await page.getByRole("button", { name: "Filtrer" }).click();
     await expect(page.getByRole("main")).toContainText("Aucun modèle ne correspond à ces critères. Élargissez la recherche ou retirez des filtres.");
     await page.getByRole("link", { name: "Réinitialiser les filtres" }).click();
     await expect(page.getByRole("article")).toHaveCount(3);
+    await context.close();
+  });
+});
+
+test.describe("filtres appliqués sans bouton (retours de recette du 2026-09-25)", () => {
+  test("chaque critère s'applique dès qu'il change ; la recherche attend trois caractères", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    await page.goto("/catalogue/n1");
+    await expect(page.getByRole("button", { name: "Filtrer" })).toHaveCount(0);
+    const recherche = page.getByRole("searchbox", { name: "Rechercher un modèle ou un éditeur" });
+    await recherche.fill("in");
+    await page.waitForTimeout(800);
+    await expect(page).not.toHaveURL(/q=/);
+    await expect(page.getByRole("article")).toHaveCount(3);
+    await recherche.fill("int");
+    await expect(page).toHaveURL(/q=int/);
+    await expect(page.getByRole("article")).toHaveCount(1);
+    await expect(page.getByRole("article", { name: "Modèle interne" })).toBeVisible();
+    await expect(recherche).toBeFocused();
+    await recherche.fill("");
+    await expect(page).not.toHaveURL(/q=/);
+    await expect(page.getByRole("article")).toHaveCount(3);
+    await page.getByRole("checkbox", { name: "UE uniquement" }).check();
+    await expect(page).toHaveURL(/ue=1/);
+    await expect(page.getByRole("article")).toHaveCount(2);
     await context.close();
   });
 });

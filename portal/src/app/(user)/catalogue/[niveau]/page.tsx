@@ -4,7 +4,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { CAPABILITIES, type Capability } from "@/lib/litellm/client";
 import type { Langue } from "@/lib/langue";
 import { levelCriteria, levelFromSegment, levelPageHref, levelSegment, sortParam } from "@/lib/level-routes";
-import { LEVEL_SORTS, levelModels, modelDetail, type PriceTier } from "@/lib/services/catalog";
+import { LEVEL_SORTS, levelModels, modelDetail, type PriceTier, RECHERCHE_MINIMUM } from "@/lib/services/catalog";
 import { getDeps, requireUser } from "@/lib/session";
 import { USE_CASES } from "@/lib/use-cases";
 import { formats, Notice } from "../../../components";
@@ -12,6 +12,7 @@ import { BoutonCopier } from "../../../bouton-copier";
 import { exemplesAppel } from "../../../exemples-appel";
 import { COULEURS_NIVEAUX } from "../couleurs";
 import { BoutonSelection } from "./bouton-selection";
+import { FiltrageAutomatique } from "./filtrage-automatique";
 
 /** Icônes des capacités, toujours accompagnées de leur libellé. */
 const ICONES: Record<Capability, string> = { images: "🖼️", audio_video: "🎧", raisonnement: "🧠" };
@@ -94,8 +95,9 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
               ))}
             </select>
           </label>
-          <button type="submit">{t("filtrer")}</button>
-          <Link href={pageSansCritere}>{t("reinitialiser")}</Link>
+          {/* Les critères s'appliquent dès qu'ils changent ; la réinitialisation recharge la page pour décocher les cases. */}
+          <FiltrageAutomatique minimum={RECHERCHE_MINIMUM} />
+          <a href={pageSansCritere}>{t("reinitialiser")}</a>
         </form>
       )}
       {modelCount > 0 && models.length === 0 && <p className="mt-6 italic">{t("aucunResultat")}</p>}

@@ -267,7 +267,6 @@
       "context": "Context, largest first",
       "name": "Name"
     },
-    "filtrer": "Filter",
     "reinitialiser": "Reset filters",
     "aucunResultat": "No model matches these criteria. Broaden your search or remove some filters.",
     "notreChoix": "Our pick for: {cas}",
