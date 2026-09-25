@@ -52,24 +52,24 @@ export default async function GestionClesPage(props: PageProps<"/gestion/cles">)
                 <td>{k.teamAlias}</td>
                 <td>{domaine(`niveaux.${k.dataLevel}`)}</td>
                 <td>
-                  {k.usage
+                  {k.gatewayState
                     ? cles("depenseSur", {
-                        depense: k.usage.spend > 0 && k.usage.spend < 0.01 ? cles("moinsDunCentime") : euros(k.usage.spend),
-                        budget: euros(k.usage.maxBudget),
+                        depense: k.gatewayState.spend > 0 && k.gatewayState.spend < 0.01 ? cles("moinsDunCentime") : euros(k.gatewayState.spend),
+                        budget: euros(k.gatewayState.maxBudget),
                       })
                     : "—"}
                 </td>
                 <td>{k.expiresAt ? date(k.expiresAt) : "—"}</td>
                 <td>
                   {domaine(`statuts.${k.status}`)}
-                  {k.usage?.blocked && ` · ${cles("bloquee")}`}
+                  {k.gatewayState?.blocked && ` · ${cles("bloquee")}`}
                 </td>
                 <td>
                   {k.status === "CLE_EMISE" && (
-                    <form action={k.usage?.blocked ? debloquerCleAction : bloquerCleAction}>
+                    <form action={k.gatewayState?.blocked ? debloquerCleAction : bloquerCleAction}>
                       <input type="hidden" name="id" value={k.requestId} />
                       <button type="submit" className="mt-0 border-neutral-400 bg-white text-neutral-800 hover:bg-neutral-100">
-                        {k.usage?.blocked ? t("debloquer") : t("bloquer")}
+                        {k.gatewayState?.blocked ? t("debloquer") : t("bloquer")}
                       </button>
                     </form>
                   )}

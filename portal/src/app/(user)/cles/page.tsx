@@ -66,40 +66,45 @@ export default async function MesClesPage(props: PageProps<"/cles">) {
                     <dt className="font-medium">{t("colonnes.statut")}</dt>
                     <dd>
                       {domaine(`statuts.${k.status}`)}
-                      {k.usage?.blocked && ` · ${t("bloquee")}`}
+                      {k.gatewayState?.blocked && ` · ${t("bloquee")}`}
                     </dd>
                     <dt className="font-medium">{t("colonnes.emise")}</dt>
                     <dd>{date(k.issuedAt)}</dd>
                     <dt className="font-medium">{t("colonnes.expiration")}</dt>
                     <dd>{k.expiresAt ? date(k.expiresAt) : "—"}</dd>
-                    {k.usage && (
+                    {k.gatewayState && (
                       <>
                         <dt className="font-medium">{t("depense")}</dt>
                         <dd>
-                          {k.usage.maxBudget !== null && (
-                            <progress value={Math.min(k.usage.spend, k.usage.maxBudget)} max={k.usage.maxBudget} aria-hidden="true" className="mr-2 align-middle" />
+                          {k.gatewayState.maxBudget !== null && (
+                            <progress
+                              value={Math.min(k.gatewayState.spend, k.gatewayState.maxBudget)}
+                              max={k.gatewayState.maxBudget}
+                              aria-hidden="true"
+                              className="mr-2 align-middle"
+                            />
                           )}
                           {t("depenseSur", {
-                            depense: k.usage.spend > 0 && k.usage.spend < 0.01 ? t("moinsDunCentime") : euros(k.usage.spend),
-                            budget: euros(k.usage.maxBudget),
+                            depense: k.gatewayState.spend > 0 && k.gatewayState.spend < 0.01 ? t("moinsDunCentime") : euros(k.gatewayState.spend),
+                            budget: euros(k.gatewayState.maxBudget),
                           })}
                         </dd>
-                        {k.usage.budgetResetAt && (
+                        {k.gatewayState.budgetResetAt && (
                           <>
                             <dt className="font-medium">{t("remiseAZero")}</dt>
-                            <dd>{date(k.usage.budgetResetAt)}</dd>
+                            <dd>{date(k.gatewayState.budgetResetAt)}</dd>
                           </>
                         )}
                       </>
                     )}
                   </dl>
-                  {!k.usage && k.status === "CLE_EMISE" && <p className="mt-2 text-sm italic">{t("infoIndisponible")}</p>}
+                  {!k.gatewayState && k.status === "CLE_EMISE" && <p className="mt-2 text-sm italic">{t("infoIndisponible")}</p>}
                   {(k.status === "CLE_EMISE" || k.status === "EXPIREE" || k.status === "REVOQUEE") && (
                     <p className="mt-2">
                       <Link href={`/demandes/nouvelle?renouvelle=${k.requestId}`}>{t("renouveler")}</Link>
                     </p>
                   )}
-                  {k.status === "CLE_EMISE" && !k.usage?.blocked && (
+                  {k.status === "CLE_EMISE" && !k.gatewayState?.blocked && (
                     <details className="mt-3">
                       <summary className="cursor-pointer font-medium">{t("remplacer")}</summary>
                       <p className="mt-2 text-sm">{t("remplacementExplication")}</p>

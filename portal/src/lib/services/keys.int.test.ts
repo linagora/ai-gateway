@@ -135,7 +135,7 @@ describe("dépense, budget et exemple d'appel dans « Mes clés » (ticket #16)"
     const { key } = await pickUpKey(deps, titulaire, id);
     const generee = [...litellm.keys.values()].find((k) => k.key === key)!;
     generee.spend = 2.5;
-    expect((await listMyKeys(deps, titulaire)).keys[0].usage).toEqual({
+    expect((await listMyKeys(deps, titulaire)).keys[0].gatewayState).toEqual({
       spend: 2.5,
       maxBudget: 15,
       budgetResetAt: new Date(maintenant.getTime() + 30 * JOUR),
@@ -147,7 +147,7 @@ describe("dépense, budget et exemple d'appel dans « Mes clés » (ticket #16)"
     const id = await demandeApprouvee();
     await pickUpKey(deps, titulaire, id);
     litellm.panne = true;
-    expect((await listMyKeys(deps, titulaire)).keys).toEqual([expect.objectContaining({ requestId: id, usage: null })]);
+    expect((await listMyKeys(deps, titulaire)).keys).toEqual([expect.objectContaining({ requestId: id, gatewayState: null })]);
   });
 
   test("l'exemple d'appel d'une clé porte son premier modèle et le type d'API de celui-ci", async () => {
@@ -172,7 +172,7 @@ describe("révocation par le titulaire (ticket #17)", () => {
     const { key } = await pickUpKey(deps, titulaire, id);
     await revokeKey(deps, titulaire, id);
     expect([...litellm.keys.values()].some((k) => k.key === key)).toBe(false);
-    expect((await listMyKeys(deps, titulaire)).keys).toEqual([expect.objectContaining({ requestId: id, status: "REVOQUEE", usage: null })]);
+    expect((await listMyKeys(deps, titulaire)).keys).toEqual([expect.objectContaining({ requestId: id, status: "REVOQUEE", gatewayState: null })]);
     expect((await listAudit(testDb)).map((e) => [e.actorUid, e.action, e.targetId])).toContainEqual(["mmaudet", "KEY_REVOKED", id]);
   });
 
@@ -278,9 +278,9 @@ describe("« Gestion — Clés » et révocation par un admin (ticket #19)", () 
       alias: `mmaudet-r-d-compte-rendu-hebdo-${id.slice(-4)}`,
       status: "CLE_EMISE",
       expiresAt: new Date(maintenant.getTime() + 60 * JOUR),
-      usage: { spend: 1.25, maxBudget: 15, blocked: false },
+      gatewayState: { spend: 1.25, maxBudget: 15, blocked: false },
     });
-    expect(cles.find((k) => k.requestId === idCollegue)).toMatchObject({ holderUid: "pmartin", usage: { spend: 0, maxBudget: 10 } });
+    expect(cles.find((k) => k.requestId === idCollegue)).toMatchObject({ holderUid: "pmartin", gatewayState: { spend: 0, maxBudget: 10 } });
   });
 
   test("un salarié n'accède pas à la liste des clés", async () => {
@@ -303,9 +303,9 @@ describe("blocage et déblocage d'une clé (ticket #20)", () => {
     const { key } = await pickUpKey(deps, titulaire, id);
     await blockKey(deps, admin, id);
     expect([...litellm.keys.values()].find((k) => k.key === key)?.blocked).toBe(true);
-    expect((await listMyKeys(deps, titulaire)).keys[0]).toMatchObject({ status: "CLE_EMISE", usage: { blocked: true } });
+    expect((await listMyKeys(deps, titulaire)).keys[0]).toMatchObject({ status: "CLE_EMISE", gatewayState: { blocked: true } });
     await unblockKey(deps, admin, id);
-    expect((await listMyKeys(deps, titulaire)).keys[0]).toMatchObject({ status: "CLE_EMISE", usage: { blocked: false } });
+    expect((await listMyKeys(deps, titulaire)).keys[0]).toMatchObject({ status: "CLE_EMISE", gatewayState: { blocked: false } });
     expect((await listAudit(testDb)).filter((e) => e.actorUid === "jdupont").map((e) => [e.action, e.targetId])).toEqual([
       ["REQUEST_APPROVED", id],
       ["KEY_BLOCKED", id],

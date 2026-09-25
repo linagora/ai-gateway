@@ -50,7 +50,7 @@ export interface IssuedKey {
   expiresAt: Date | null;
   status: RequestStatus;
   /** Dépense, budget, remise à zéro et blocage, lus en direct dans la passerelle ; null s'ils sont indisponibles. */
-  usage: Omit<KeyInfo, "expiresAt"> | null;
+  gatewayState: Omit<KeyInfo, "expiresAt"> | null;
   /** Modèle et type d'API de l'exemple d'appel (premier modèle de la clé). */
   example: { model: string; apiKind: ApiKind } | null;
 }
@@ -102,12 +102,12 @@ async function toIssuedKey(litellm: LiteLLMClient, r: AccessRequest): Promise<Om
     issuedAt: r.keyIssuedAt as Date,
     expiresAt: r.keyExpiresAt,
     status: r.status,
-    usage: r.status === "CLE_EMISE" && r.keyTokenId ? await keyUsage(litellm, r.keyTokenId) : null,
+    gatewayState: r.status === "CLE_EMISE" && r.keyTokenId ? await gatewayState(litellm, r.keyTokenId) : null,
   };
 }
 
 /** Dépense, budget, remise à zéro et blocage d'une clé ; null si la passerelle ne répond pas ou ne la connaît pas. */
-async function keyUsage(litellm: LiteLLMClient, tokenId: string): Promise<IssuedKey["usage"]> {
+async function gatewayState(litellm: LiteLLMClient, tokenId: string): Promise<IssuedKey["gatewayState"]> {
   try {
     const info = await litellm.getKeyInfo(tokenId);
     return info ? { spend: info.spend, maxBudget: info.maxBudget, budgetResetAt: info.budgetResetAt, blocked: info.blocked } : null;
