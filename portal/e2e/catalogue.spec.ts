@@ -26,8 +26,8 @@ test("le catalogue montre l'éditeur et la zone d'exécution, jamais le fourniss
   const context = await connecter(browser, salarie);
   const page = await context.newPage();
   await page.goto("/catalogue/n1");
-  await expect(page.getByRole("row", { name: /Modèle interne/ }).getByRole("cell").first()).toContainText("Mistral AI · UE");
-  await expect(page.getByRole("row", { name: /Modèle public/ }).getByRole("cell").first()).toContainText("Moonshot AI · Hors UE");
+  await expect(page.getByRole("article", { name: "Modèle interne" })).toContainText("Mistral AI · UE");
+  await expect(page.getByRole("article", { name: "Modèle public" })).toContainText("Moonshot AI · Hors UE");
   await expect(page.getByRole("main")).not.toContainText("openai");
   await context.close();
 });
@@ -108,7 +108,7 @@ test.describe("vue d'ensemble des niveaux (ticket #5)", () => {
     await context.close();
   });
 
-  test("un niveau sans modèle visible affiche un message", async ({ browser }) => {
+  test("un niveau sans modèle visible affiche un message qui indique à qui s'adresser, sur sa carte et sur sa page (tickets #5 et #7)", async ({ browser }) => {
     const admin = await connecter(browser, ADMIN);
     const pageAdmin = await admin.newPage();
     await pageAdmin.goto("/gestion/catalogue");
@@ -120,7 +120,82 @@ test.describe("vue d'ensemble des niveaux (ticket #5)", () => {
     const page = await context.newPage();
     await page.goto("/catalogue");
     await expect(carte(page, "Expérimental (bêta)")).toContainText("Aucun modèle n'est encore ouvert à ce niveau");
+    await page.goto("/catalogue/experimental");
+    await expect(page.getByRole("main")).toContainText("Aucun modèle n'est encore ouvert à ce niveau. Pour en demander un, écrivez aux administrateurs du portail.");
     await enrichirModele(pageAdmin, { nom: "dev-experimental", nomAffiche: "Modèle expérimental", niveau: "EXP" });
     await Promise.all([admin.close(), context.close()]);
+  });
+});
+
+test.describe("page d'un niveau (ticket #7)", () => {
+  const modele = (page: Page, nom: string | RegExp) => page.getByRole("article", { name: nom });
+
+  test("depuis la vue d'ensemble, la page N2 montre les modèles N2 et N3, ces derniers avec le badge « Accepte jusqu'à N3 »", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    await page.goto("/catalogue");
+    await page.getByRole("region", { name: "N2 — Interne" }).getByRole("link", { name: "Voir les modèles" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("N2 — Interne");
+    await expect(modele(page, "Modèle interne")).toContainText("Mistral AI · UE");
+    await expect(modele(page, "Modèle interne")).not.toContainText("Accepte jusqu'à");
+    await expect(modele(page, "Modèle confidentiel")).toContainText("Accepte jusqu'à N3");
+    await expect(page.getByRole("article")).toHaveCount(2);
+    await context.close();
+  });
+
+  test("la page Expérimental ne montre que le modèle expérimental", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    await page.goto("/catalogue/experimental");
+    await expect(modele(page, "Modèle expérimental")).toBeVisible();
+    await expect(page.getByRole("article")).toHaveCount(1);
+    await context.close();
+  });
+
+  test("une carte donne les capacités, le repère de prix, les prix exacts et le contexte en pages, en français et en anglais", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    await page.goto("/catalogue/n3");
+    // Modèle confidentiel de démonstration : 0,40 € en entrée, 2,70 € en sortie, soit un prix mixte de 0,975 € (€€).
+    const carte = modele(page, "Modèle confidentiel");
+    await expect(carte).toContainText("Images");
+    await expect(carte).toContainText("Raisonnement");
+    await expect(carte).toContainText(/€€\s*·\s*0,40\s€ en entrée, 2,70\s€ en sortie/);
+    await expect(carte).toContainText(/262\s000 jetons, soit environ 350 pages/);
+    await expect(carte.getByTitle(/environ 750 jetons/)).toBeVisible();
+    await context.close();
+
+    const anglais = await connecter(browser, salarie, "en-US");
+    const pageEn = await anglais.newPage();
+    await pageEn.goto("/catalogue/n3");
+    const carteEn = modele(pageEn, /Modèle confidentiel|Confidential model/);
+    await expect(carteEn).toContainText(/€€\s*·\s*€0\.40 input, €2\.70 output/);
+    await expect(carteEn).toContainText("262,000 tokens, or about 350 pages");
+    await anglais.close();
+  });
+
+  test("en anglais, un modèle que l'admin n'a pas traduit s'affiche avec ses textes français", async ({ browser }) => {
+    const context = await connecter(browser, salarie, "en-US");
+    const page = await context.newPage();
+    await page.goto("/catalogue/n2");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("N2 — Internal");
+    await expect(modele(page, "Modèle interne")).toContainText("Modèle de démonstration N2");
+    await expect(modele(page, /Modèle confidentiel|Confidential model/)).toContainText("Accepts up to N3");
+    await context.close();
+  });
+
+  test("sur un écran étroit, les cartes s'empilent", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto("/catalogue/n1");
+    const cadres = await Promise.all((await page.getByRole("article").all()).map((carte) => carte.boundingBox()));
+    expect(cadres.length).toBeGreaterThan(1);
+    for (const [precedent, suivant] of cadres.slice(1).map((cadre, i) => [cadres[i]!, cadre!])) {
+      expect(suivant.x).toBe(precedent.x);
+      expect(suivant.y).toBeGreaterThanOrEqual(precedent.y + precedent.height);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    await context.close();
   });
 });

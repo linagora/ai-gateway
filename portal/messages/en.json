@@ -176,5 +176,21 @@
         "garanties": "Beta service without guarantee: a model may change or be withdrawn without notice. Dedicated key, limited to experimental models."
       }
     }
+  },
+  "niveau": {
+    "tousLesNiveaux": "← All levels",
+    "accepteJusqua": "Accepts up to {niveau}",
+    "capacites": "Capabilities",
+    "repere": {
+      "bas": "Low price",
+      "moyen": "Medium price",
+      "eleve": "High price"
+    },
+    "prix": "{entree} input, {sortie} output, per million tokens",
+    "contexte": "{jetons} tokens, or about {pages} pages",
+    "hypothesePages": "Assumption: a page of text in French is about 750 tokens.",
+    "contexteInconnu": "Context size not disclosed",
+    "casUsage": "Use cases",
+    "demanderCle": "Request a key for this model"
   }
 }

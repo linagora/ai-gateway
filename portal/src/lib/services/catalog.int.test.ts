@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, test } from "vitest";
+import type { Langue } from "@/lib/langue";
+import { DATA_LEVELS, type DataLevel } from "@/lib/policy";
 import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
-import { type CatalogEntryInput, levelOverview, listCatalog, listCatalogForAdmin, saveCatalogEntry } from "./catalog";
+import { type CatalogEntryInput, levelModels, levelOverview, listCatalog, listCatalogForAdmin, saveCatalogEntry } from "./catalog";
 
 beforeEach(resetDb);
 
@@ -44,24 +46,24 @@ describe("fiche de modèle bilingue (ticket #6)", () => {
   });
 });
 
-describe("vue d'ensemble des niveaux (ticket #5)", () => {
-  // Prix par jeton en euros : prix mixte = (3 × entrée + sortie) / 4, par million de jetons.
-  const modeles = [
-    { modelName: "public", dataLevel: "N1" as const, inputCostPerToken: 0.0000001, outputCostPerToken: 0.0000004 }, // mixte 0,175 €
-    { modelName: "interne", dataLevel: "N2" as const, inputCostPerToken: 0.0000002, outputCostPerToken: 0.0000006 }, // mixte 0,30 €
-    { modelName: "confidentiel", dataLevel: "N3" as const, inputCostPerToken: 0.0000004, outputCostPerToken: 0.0000027 }, // mixte 0,975 €
-    { modelName: "beta", dataLevel: "EXP" as const, inputCostPerToken: 0.0000002, outputCostPerToken: 0 }, // mixte 0,15 €
-  ];
+// Un modèle par niveau. Prix par jeton en euros : prix mixte = (3 × entrée + sortie) / 4, par million de jetons.
+const modeles = [
+  { modelName: "public", dataLevel: "N1" as const, inputCostPerToken: 0.0000001, outputCostPerToken: 0.0000004 }, // mixte 0,175 €
+  { modelName: "interne", dataLevel: "N2" as const, inputCostPerToken: 0.0000002, outputCostPerToken: 0.0000006 }, // mixte 0,30 €
+  { modelName: "confidentiel", dataLevel: "N3" as const, inputCostPerToken: 0.0000004, outputCostPerToken: 0.0000027 }, // mixte 0,975 €
+  { modelName: "beta", dataLevel: "EXP" as const, inputCostPerToken: 0.0000002, outputCostPerToken: 0 }, // mixte 0,15 €
+];
 
-  async function catalogueDeDemonstration(visibles = modeles.map((m) => m.modelName)) {
-    const litellm = new FakeLiteLLM();
-    for (const m of modeles) litellm.withModel({ modelName: m.modelName, inputCostPerToken: m.inputCostPerToken, outputCostPerToken: m.outputCostPerToken });
-    for (const m of modeles) {
-      await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName: m.modelName, dataLevel: m.dataLevel, visible: visibles.includes(m.modelName) });
-    }
-    return litellm;
+async function catalogueDeDemonstration(visibles = modeles.map((m) => m.modelName)) {
+  const litellm = new FakeLiteLLM();
+  for (const m of modeles) litellm.withModel({ modelName: m.modelName, inputCostPerToken: m.inputCostPerToken, outputCostPerToken: m.outputCostPerToken });
+  for (const m of modeles) {
+    await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName: m.modelName, dataLevel: m.dataLevel, visible: visibles.includes(m.modelName) });
   }
+  return litellm;
+}
 
+describe("vue d'ensemble des niveaux (ticket #5)", () => {
   test("chaque niveau compte ses modèles en lecture cumulative, le niveau Expérimental à part", async () => {
     const litellm = await catalogueDeDemonstration();
     expect((await levelOverview({ db: testDb, litellm })).map((n) => [n.level, n.modelCount])).toEqual([
@@ -85,6 +87,83 @@ describe("vue d'ensemble des niveaux (ticket #5)", () => {
   test("un niveau sans modèle visible n'a ni modèle ni prix de départ", async () => {
     const litellm = await catalogueDeDemonstration(["public", "interne", "confidentiel"]);
     expect((await levelOverview({ db: testDb, litellm })).find((n) => n.level === "EXP")).toEqual({ level: "EXP", modelCount: 0, startingPricePerMillion: null });
+  });
+});
+
+describe("page d'un niveau (ticket #7)", () => {
+  test("la carte d'un modèle montre son nom, son éditeur, sa zone, ses capacités, ses prix, sa description courte et ses cas d'usage", async () => {
+    const litellm = new FakeLiteLLM().withModel({
+      modelName: "qwen3.8",
+      publisher: "Alibaba (Qwen)",
+      executionRegion: "UE",
+      capabilities: ["images", "raisonnement"],
+      inputCostPerToken: 0.0000004,
+      outputCostPerToken: 0.0000027,
+    });
+    await saveCatalogEntry({ db: testDb, litellm }, admin, qwen);
+    expect(await levelModels({ db: testDb, litellm }, { level: "N3", language: "fr" })).toMatchObject([
+      {
+        modelName: "qwen3.8",
+        displayName: "Qwen 3.8 27B",
+        shortDescription: "Modèle généraliste hébergé par OVHcloud",
+        publisher: "Alibaba (Qwen)",
+        executionRegion: "UE",
+        capabilities: ["images", "raisonnement"],
+        inputPricePerMillion: 0.4,
+        outputPricePerMillion: 2.7,
+        useCases: ["WRITING", "DOCUMENT_ANALYSIS"],
+      },
+    ]);
+  });
+
+  const niveau = async (litellm: FakeLiteLLM, level: DataLevel, language: Langue = "fr") => levelModels({ db: testDb, litellm }, { level, language });
+
+  test("la page N2 montre les modèles de niveau maximal N2 et N3, ces derniers avec le badge « accepte jusqu'à N3 »", async () => {
+    const litellm = await catalogueDeDemonstration();
+    expect(Object.fromEntries((await niveau(litellm, "N2")).map((m) => [m.modelName, m.acceptsUpTo]))).toEqual({ interne: null, confidentiel: "N3" });
+  });
+
+  test("la page Expérimental ne montre que les modèles expérimentaux, qui n'apparaissent sur aucune autre page", async () => {
+    const litellm = await catalogueDeDemonstration();
+    const pages = await Promise.all(DATA_LEVELS.map(async (level) => [level, (await niveau(litellm, level)).map((m) => m.modelName).sort()]));
+    expect(Object.fromEntries(pages)).toEqual({ N1: ["confidentiel", "interne", "public"], N2: ["confidentiel", "interne"], N3: ["confidentiel"], EXP: ["beta"] });
+  });
+
+  test("le repère de prix suit le prix mixte : 0,29 € donne €, 0,30 € donne €€, 1 € donne €€€", async () => {
+    const litellm = new FakeLiteLLM()
+      .withModel({ modelName: "a-0,29", inputCostPerToken: 0.0000002, outputCostPerToken: 0.00000056 }) // (3 × 0,20 + 0,56) / 4 = 0,29 €
+      .withModel({ modelName: "b-0,30", inputCostPerToken: 0.0000002, outputCostPerToken: 0.0000006 }) // (3 × 0,20 + 0,60) / 4 = 0,30 €
+      .withModel({ modelName: "c-1", inputCostPerToken: 0.000001, outputCostPerToken: 0.000001 }); // (3 × 1 + 1) / 4 = 1 €
+    for (const { modelName } of litellm.models) await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName, dataLevel: "N1" });
+    expect(Object.fromEntries((await niveau(litellm, "N1")).map((m) => [m.modelName, m.priceTier]))).toEqual({ "a-0,29": "€", "b-0,30": "€€", "c-1": "€€€" });
+  });
+
+  test("le contexte est arrondi au millier de jetons et converti en pages d'environ 750 jetons", async () => {
+    const litellm = new FakeLiteLLM()
+      .withModel({ modelName: "qwen", maxInputTokens: 262_144 }) // 349,5 pages
+      .withModel({ modelName: "gemini", maxInputTokens: 1_048_576 }) // 1 398 pages, arrondies à deux chiffres significatifs
+      .withModel({ modelName: "petit", maxInputTokens: 32_768 }) // 43,7 pages
+      .withModel({ modelName: "inconnu", maxInputTokens: null });
+    for (const { modelName } of litellm.models) await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName, dataLevel: "N1" });
+    expect(Object.fromEntries((await niveau(litellm, "N1")).map((m) => [m.modelName, m.context]))).toEqual({
+      qwen: { tokens: 262_000, pages: 350 },
+      gemini: { tokens: 1_049_000, pages: 1_400 },
+      petit: { tokens: 33_000, pages: 44 },
+      inconnu: null,
+    });
+  });
+
+  test("en anglais, un modèle montre ses textes anglais, et ses textes français quand l'admin ne les a pas traduits", async () => {
+    const litellm = new FakeLiteLLM().withModel({ modelName: "qwen3.8" }).withModel({ modelName: "mistral-medium" });
+    await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, displayNameEn: "Qwen 3.8 27B (EN)", shortDescriptionEn: "General-purpose model hosted by OVHcloud" });
+    await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName: "mistral-medium", displayNameFr: "Mistral Medium", shortDescriptionFr: "Modèle polyvalent de Mistral AI" });
+    const textes = async (language: Langue) =>
+      Object.fromEntries((await niveau(litellm, "N3", language)).map((m) => [m.modelName, [m.displayName, m.shortDescription]]));
+    expect(await textes("en")).toEqual({
+      "qwen3.8": ["Qwen 3.8 27B (EN)", "General-purpose model hosted by OVHcloud"],
+      "mistral-medium": ["Mistral Medium", "Modèle polyvalent de Mistral AI"],
+    });
+    expect((await textes("fr"))["qwen3.8"]).toEqual(["Qwen 3.8 27B", "Modèle généraliste hébergé par OVHcloud"]);
   });
 });
 

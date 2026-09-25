@@ -65,7 +65,7 @@ test("un salarié demande à rejoindre l'équipe R&D et un admin l'y ajoute (F-2
 test("critère 4 : le salarié voit le catalogue et soumet une demande N2", async () => {
   await salariePage.goto("/catalogue");
   await salariePage.getByRole("region", { name: "N2 — Interne" }).getByRole("link", { name: "Voir les modèles" }).click();
-  await expect(salariePage.getByRole("cell", { name: /Modèle interne/ })).toBeVisible();
+  await expect(salariePage.getByRole("article", { name: "Modèle interne" })).toBeVisible();
 
   await salariePage.goto("/demandes/nouvelle");
   await salariePage.getByLabel("Équipe").selectOption({ label: "R&D" });
@@ -103,8 +103,9 @@ test("un admin approuve la demande N2 et le salarié la voit approuvée", async 
 test("un salarié demande une clé Expérimental pour essayer un modèle en bêta", async () => {
   await salariePage.goto("/catalogue");
   await salariePage.getByRole("region", { name: "Expérimental (bêta)" }).getByRole("link", { name: "Voir les modèles" }).click();
-  await expect(salariePage.getByRole("row", { name: /Modèle expérimental.*Expérimental \(bêta\)/ })).toBeVisible();
-  await expect(salariePage.getByRole("cell", { name: /Modèle interne/ })).toHaveCount(0);
+  await expect(salariePage.getByRole("heading", { level: 1 })).toHaveText("Expérimental (bêta)");
+  await expect(salariePage.getByRole("article", { name: "Modèle expérimental" })).toBeVisible();
+  await expect(salariePage.getByRole("article", { name: "Modèle interne" })).toHaveCount(0);
 
   await salariePage.goto("/demandes/nouvelle");
   await salariePage.getByLabel("Équipe").selectOption({ label: "R&D" });

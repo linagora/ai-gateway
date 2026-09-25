@@ -4,9 +4,7 @@ import { levelSegment } from "@/lib/level-routes";
 import { levelOverview } from "@/lib/services/catalog";
 import { getDeps, requireUser } from "@/lib/session";
 import { formats, Notice } from "../../components";
-
-/** Couleur d'un niveau, toujours accompagnée de son nom (jamais la couleur seule). */
-const COULEURS = { N1: "border-green-700", N2: "border-amber-700", N3: "border-red-700", EXP: "border-violet-700" } as const;
+import { COULEURS_NIVEAUX } from "./couleurs";
 
 /** Ticket #5 : vue d'ensemble des niveaux de confidentialité, point d'entrée du catalogue. */
 export default async function CataloguePage(props: PageProps<"/catalogue">) {
@@ -26,7 +24,7 @@ export default async function CataloguePage(props: PageProps<"/catalogue">) {
       <Notice searchParams={searchParams} />
       <div className="mt-6 grid gap-6 md:grid-cols-2">
         {niveaux.map(({ level, modelCount, startingPricePerMillion }) => (
-          <section key={level} aria-labelledby={`niveau-${level}`} className={`rounded border-l-8 border border-neutral-200 p-4 ${COULEURS[level]}`}>
+          <section key={level} aria-labelledby={`niveau-${level}`} className={`rounded border-l-8 border border-neutral-200 p-4 ${COULEURS_NIVEAUX[level]}`}>
             <h2 id={`niveau-${level}`} className="mt-0">
               {domaine(`niveaux.${level}`)}
             </h2>

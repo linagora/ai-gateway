@@ -176,5 +176,21 @@
         "garanties": "Service en bêta, sans garantie : un modèle peut changer ou être retiré sans préavis. Clé dédiée, limitée aux modèles expérimentaux."
       }
     }
+  },
+  "niveau": {
+    "tousLesNiveaux": "← Tous les niveaux",
+    "accepteJusqua": "Accepte jusqu'à {niveau}",
+    "capacites": "Capacités",
+    "repere": {
+      "bas": "Prix bas",
+      "moyen": "Prix moyen",
+      "eleve": "Prix élevé"
+    },
+    "prix": "{entree} en entrée, {sortie} en sortie, par million de jetons",
+    "contexte": "{jetons} jetons, soit environ {pages} pages",
+    "hypothesePages": "Hypothèse : une page de texte en français compte environ 750 jetons.",
+    "contexteInconnu": "Taille du contexte non communiquée",
+    "casUsage": "Cas d'usage",
+    "demanderCle": "Demander une clé pour ce modèle"
   }
 }

@@ -3,6 +3,7 @@ import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
 import type { Capability, ExecutionRegion, LiteLLMClient, LiteLLMModel } from "@/lib/litellm/client";
 import { PortalError } from "@/lib/errors";
+import type { Langue } from "@/lib/langue";
 import { DATA_LEVELS, type DataLevel, modelAcceptsLevel } from "@/lib/policy";
 import { UseCase } from "@/lib/use-cases";
 import { requireAdmin } from "@/lib/rbac";
@@ -56,25 +57,91 @@ interface CatalogDeps {
 
 /** F-10 : modèles de LiteLLM enrichis et rendus visibles par un admin. */
 export async function listCatalog(deps: CatalogDeps): Promise<CatalogItem[]> {
+  return (await visibleModels(deps)).map(({ entry, model, inputPricePerMillion, outputPricePerMillion }) => ({
+    modelName: entry.modelName,
+    displayName: entry.displayNameFr,
+    description: entry.shortDescriptionFr,
+    useCases: entry.useCases,
+    publisher: model.publisher,
+    executionRegion: model.executionRegion,
+    dataLevel: entry.dataLevel,
+    inputPricePerMillion,
+    outputPricePerMillion,
+    maxInputTokens: model.maxInputTokens,
+  }));
+}
+
+/** Fiches visibles dont le modèle est déclaré dans LiteLLM avec ses prix, en euros par million de jetons. */
+async function visibleModels(deps: CatalogDeps) {
   const [models, entries] = await Promise.all([deps.litellm.listModels(), deps.db.catalogEntry.findMany({ where: { visible: true } })]);
   return entries.flatMap((entry) => {
     const model = models.find((m) => m.modelName === entry.modelName);
     if (!model || model.inputCostPerToken === null || model.outputCostPerToken === null) return [];
-    return [
-      {
-        modelName: entry.modelName,
-        displayName: entry.displayNameFr,
-        description: entry.shortDescriptionFr,
-        useCases: entry.useCases,
-        publisher: model.publisher,
-        executionRegion: model.executionRegion,
-        dataLevel: entry.dataLevel,
-        inputPricePerMillion: perMillion(model.inputCostPerToken),
-        outputPricePerMillion: perMillion(model.outputCostPerToken),
-        maxInputTokens: model.maxInputTokens,
-      },
-    ];
+    return [{ entry, model, inputPricePerMillion: perMillion(model.inputCostPerToken), outputPricePerMillion: perMillion(model.outputCostPerToken) }];
   });
+}
+
+/** Carte d'un modèle sur la page d'un niveau (ticket #7), dans la langue du salarié. Prix en euros par million de jetons. */
+export interface LevelModel {
+  modelName: string;
+  displayName: string;
+  shortDescription: string;
+  publisher: string | null;
+  executionRegion: ExecutionRegion | null;
+  capabilities: Capability[];
+  inputPricePerMillion: number;
+  outputPricePerMillion: number;
+  useCases: UseCase[];
+  /** Niveau maximal du modèle quand il dépasse celui de la page (badge « accepte jusqu'à N3 »), sinon null. */
+  acceptsUpTo: DataLevel | null;
+  priceTier: PriceTier;
+  /** Contexte arrondi au millier de jetons et son équivalent en pages ; null si la passerelle ne le déclare pas. */
+  context: { tokens: number; pages: number } | null;
+}
+
+/** Hypothèse de conversion, indiquée en infobulle : une page de texte en français compte environ 750 jetons. */
+export const TOKENS_PER_PAGE = 750;
+
+function context(maxInputTokens: number | null): LevelModel["context"] {
+  if (maxInputTokens === null) return null;
+  return { tokens: Math.round(maxInputTokens / 1000) * 1000, pages: approximately(maxInputTokens / TOKENS_PER_PAGE) };
+}
+
+/** Valeur annoncée « environ » : entière sous 100, arrondie à deux chiffres significatifs au-delà (1 398 donne 1 400). */
+function approximately(value: number): number {
+  if (value < 100) return Math.round(value);
+  const step = 10 ** (Math.floor(Math.log10(value)) - 1);
+  return Math.round(value / step) * step;
+}
+
+/** Repère de prix d'un modèle, calculé sur son prix mixte. */
+export type PriceTier = "€" | "€€" | "€€€";
+
+/** Seuils fixes, indépendants du contenu du catalogue : € sous 0,30 €, €€ jusqu'à 1 € exclu, €€€ au-delà. */
+function priceTier(blended: number): PriceTier {
+  return blended < 0.3 ? "€" : blended < 1 ? "€€" : "€€€";
+}
+
+/** Modèles d'un niveau : ceux qui acceptent des données de ce niveau, selon la règle de la politique d'accès. */
+export async function levelModels(deps: CatalogDeps, { level, language }: { level: DataLevel; language: Langue }): Promise<LevelModel[]> {
+  // Un texte que l'admin n'a pas traduit s'affiche en français.
+  const text = (fr: string, en: string | null) => (language === "en" && en) || fr;
+  return (await visibleModels(deps))
+    .filter(({ entry }) => modelAcceptsLevel(entry.dataLevel, level))
+    .map(({ entry, model, inputPricePerMillion, outputPricePerMillion }) => ({
+      modelName: entry.modelName,
+      displayName: text(entry.displayNameFr, entry.displayNameEn),
+      shortDescription: text(entry.shortDescriptionFr, entry.shortDescriptionEn),
+      publisher: model.publisher,
+      executionRegion: model.executionRegion,
+      capabilities: model.capabilities,
+      inputPricePerMillion,
+      outputPricePerMillion,
+      useCases: entry.useCases,
+      acceptsUpTo: entry.dataLevel === level ? null : entry.dataLevel,
+      priceTier: priceTier(blendedPricePerMillion(inputPricePerMillion, outputPricePerMillion)),
+      context: context(model.maxInputTokens),
+    }));
 }
 
 /** Vue d'ensemble d'un niveau de confidentialité (ticket #5). */
