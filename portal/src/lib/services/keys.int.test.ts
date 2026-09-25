@@ -371,6 +371,13 @@ describe("renouvellement d'une clé (ticket #21)", () => {
     expect((await getRequestReview(deps, admin, renouvelee)).renewal).toEqual({ alias: `mmaudet-r-d-compte-rendu-hebdo-${origine.slice(-4)}`, spend: 3 });
   });
 
+  test("la fiche de validation donne aussi la dépense d'une clé d'origine expirée", async () => {
+    const { origine, renouvelee, ancienne } = await renouvellement();
+    [...litellm.keys.values()].find((k) => k.key === ancienne)!.spend = 3;
+    maintenant = new Date(maintenant.getTime() + 61 * JOUR);
+    expect((await getRequestReview(deps, admin, renouvelee)).renewal).toEqual({ alias: `mmaudet-r-d-compte-rendu-hebdo-${origine.slice(-4)}`, spend: 3 });
+  });
+
   test("au retrait de la nouvelle clé, la clé d'origine encore émise est révoquée", async () => {
     const { origine, renouvelee, ancienne } = await renouvellement();
     await approveKeyRequest(deps, admin, renouvelee, { models: ["mistral-small"], budget: 15, budgetDuration: "30d", days: 60, rpmLimit: null, tpmLimit: null });

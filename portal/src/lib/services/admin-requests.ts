@@ -61,7 +61,7 @@ export interface RequestReview extends PendingRequest {
   /** Paramètres figés à l'approbation (F-40), null tant que la demande n'est pas approuvée. */
   approved: ApprovalInput | null;
   checks: PolicyCheck[];
-  /** Renouvellement : alias de la clé d'origine et sa dépense (null si elle n'est plus active ou illisible). */
+  /** Renouvellement : alias de la clé d'origine et sa dépense (null si elle a été révoquée ou si la passerelle ne répond pas). */
   renewal: { alias: string; spend: number | null } | null;
 }
 
@@ -110,8 +110,9 @@ export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: 
 async function renewalOrigin(deps: AdminDeps, requestId: string): Promise<RequestReview["renewal"]> {
   const origine = await deps.db.accessRequest.findUnique({ where: { id: requestId } });
   if (!origine?.keyAlias) return null;
-  const info =
-    origine.status === "CLE_EMISE" && origine.keyTokenId ? await deps.litellm.getKeyInfo(origine.keyTokenId).catch(() => null) : null;
+  // Une clé expirée reste connue de la passerelle, avec sa dépense ; une clé révoquée en a été supprimée.
+  const lisible = (origine.status === "CLE_EMISE" || origine.status === "EXPIREE") && origine.keyTokenId;
+  const info = lisible ? await deps.litellm.getKeyInfo(lisible).catch(() => null) : null;
   return { alias: origine.keyAlias, spend: info?.spend ?? null };
 }
 
