@@ -86,13 +86,6 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
             {t("duree")}
             <input name="requestedDays" type="number" min="1" step="1" defaultValue={renouvellement?.requestedDays ?? ""} />
           </label>
-          <label>
-            {t("typeCle")}
-            <select name="keyType" defaultValue={renouvellement?.keyType}>
-              <option value="PERSONNELLE">{domaine("typesCle.PERSONNELLE")}</option>
-              <option value="SERVICE">{domaine("typesCle.SERVICE")}</option>
-            </select>
-          </label>
           <label className="font-normal">
             <input type="checkbox" name="commitment" required /> {t("engagement")}
             <Obligatoire />

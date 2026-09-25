@@ -45,7 +45,6 @@ const demande: KeyRequestInput = {
   project: "Compte-rendu hebdo",
   requestedBudget: 20,
   requestedDays: 90,
-  keyType: "PERSONNELLE",
   commitment: true,
 };
 
@@ -73,8 +72,9 @@ describe("retrait d'une clé (ticket #15)", () => {
       rpmLimit: 100,
       tpmLimit: null,
       alias: `mmaudet-r-d-compte-rendu-hebdo-${id.slice(-4)}`,
-      metadata: { request_id: id, project: "Compte-rendu hebdo", data_level: "N2", approved_by: "jdupont", key_type: "PERSONNELLE" },
+      metadata: { request_id: id, project: "Compte-rendu hebdo", data_level: "N2", approved_by: "jdupont" },
     });
+    expect(generee?.metadata).not.toHaveProperty("key_type");
     expect((await listMyKeys(deps, titulaire)).keys).toEqual([
       expect.objectContaining({
         requestId: id,
@@ -355,7 +355,6 @@ describe("renouvellement d'une clé (ticket #21)", () => {
       project: "Compte-rendu hebdo",
       requestedBudget: 15,
       requestedDays: 60,
-      keyType: "PERSONNELLE",
       alias: `mmaudet-r-d-compte-rendu-hebdo-${origine.slice(-4)}`,
     });
     const { renouvelee } = await renouvellement();

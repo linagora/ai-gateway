@@ -33,7 +33,6 @@ const demande: KeyRequestInput = {
   project: "compte-rendu",
   requestedBudget: 20,
   requestedDays: 90,
-  keyType: "PERSONNELLE",
   commitment: true,
 };
 

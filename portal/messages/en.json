@@ -60,10 +60,6 @@
     "typesDemande": {
       "CLE": "API key",
       "ADHESION_EQUIPE": "Team access"
-    },
-    "typesCle": {
-      "PERSONNELLE": "Personal",
-      "SERVICE": "Service (application)"
     }
   },
   "avis": {
@@ -322,7 +318,6 @@
     "projet": "Project or deal",
     "budget": "Requested budget (€)",
     "duree": "Requested duration (days)",
-    "typeCle": "Key type",
     "engagement": "I commit to not submitting data above the declared level (Experimental level: public data only).",
     "envoyer": "Send request",
     "resoumettre": "Resubmit",
@@ -376,7 +371,6 @@
       "niveau": "Declared level",
       "modeles": "Requested models",
       "projet": "Project",
-      "typeCle": "Key type",
       "budgetDuree": "Requested budget / duration",
       "jours": "{nombre, plural, one {# day} other {# days}}",
       "motif": "Reason",

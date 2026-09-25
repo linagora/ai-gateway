@@ -271,7 +271,6 @@ function keyRequestFromForm(formData: FormData) {
     project: optionalText(formData, "project"),
     requestedBudget: optionalNumber(formData, "requestedBudget"),
     requestedDays: optionalNumber(formData, "requestedDays"),
-    keyType: text(formData, "keyType") as "PERSONNELLE" | "SERVICE",
     commitment: formData.get("commitment") === "on",
     renewsRequestId: optionalText(formData, "renewsRequestId"),
   };

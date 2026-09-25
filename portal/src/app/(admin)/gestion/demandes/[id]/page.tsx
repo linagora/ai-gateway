@@ -86,8 +86,6 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
             <dd>{review.models.join(", ")}</dd>
             <dt>{t("projet")}</dt>
             <dd>{review.project ?? "—"}</dd>
-            <dt>{t("typeCle")}</dt>
-            <dd>{review.keyType ? domaine(`typesCle.${review.keyType}`) : "—"}</dd>
             <dt>{t("budgetDuree")}</dt>
             <dd>
               {euros(review.requestedBudget)} / {review.requestedDays ? t("jours", { nombre: review.requestedDays }) : "—"}

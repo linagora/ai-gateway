@@ -60,10 +60,6 @@
     "typesDemande": {
       "CLE": "Clé d'API",
       "ADHESION_EQUIPE": "Accès à une équipe"
-    },
-    "typesCle": {
-      "PERSONNELLE": "Personnelle",
-      "SERVICE": "Service (application)"
     }
   },
   "avis": {
@@ -322,7 +318,6 @@
     "projet": "Projet ou affaire",
     "budget": "Budget souhaité (€)",
     "duree": "Durée souhaitée (jours)",
-    "typeCle": "Type de clé",
     "engagement": "Je m'engage à ne pas soumettre de données d'un niveau supérieur à celui déclaré (niveau Expérimental : données publiques uniquement).",
     "envoyer": "Envoyer la demande",
     "resoumettre": "Resoumettre",
@@ -376,7 +371,6 @@
       "niveau": "Niveau déclaré",
       "modeles": "Modèles demandés",
       "projet": "Projet",
-      "typeCle": "Type de clé",
       "budgetDuree": "Budget / durée souhaités",
       "jours": "{nombre, plural, one {# jour} other {# jours}}",
       "motif": "Motif",

@@ -53,7 +53,6 @@ export interface RequestReview extends PendingRequest {
   requesterEmail: string;
   teamId: string;
   justification: string;
-  keyType: "PERSONNELLE" | "SERVICE" | null;
   requestedBudget: number | null;
   requestedDays: number | null;
   decidedBy: string | null;
@@ -85,7 +84,6 @@ export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: 
     models: r.models,
     project: r.project,
     justification: r.justification,
-    keyType: r.keyType,
     requestedBudget: r.requestedBudget?.toNumber() ?? null,
     requestedDays: r.requestedDays,
     status: r.status,

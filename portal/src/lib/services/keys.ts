@@ -202,7 +202,6 @@ function keyParams(request: AccessRequest, alias: string, duration: string, spen
       project: request.project,
       data_level: request.dataLevel,
       approved_by: request.decidedBy,
-      key_type: request.keyType,
     },
     spend,
   };
@@ -218,7 +217,6 @@ export async function renewalDraft(deps: KeyDeps, user: SessionUser, requestId: 
     project: origine.project,
     requestedBudget: origine.approvedBudget?.toNumber() ?? null,
     requestedDays: origine.approvedDays,
-    keyType: origine.keyType ?? "PERSONNELLE",
     alias: origine.keyAlias as string,
   };
 }

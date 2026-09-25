@@ -25,7 +25,6 @@ export const keyRequestInputSchema = z.object({
   project: z.string().trim().nullable(),
   requestedBudget: z.number().positive().nullable(),
   requestedDays: z.number().int().positive().nullable(),
-  keyType: z.enum(["PERSONNELLE", "SERVICE"]),
   commitment: z.boolean(),
   /** Renouvellement : la demande dont la clé est renouvelée (clé du demandeur, émise, expirée ou révoquée). */
   renewsRequestId: z.string().min(1).nullish(),
@@ -96,7 +95,6 @@ async function validateKeyRequest(deps: RequestDeps, user: SessionUser, input: K
     models: data.models,
     justification: data.justification,
     project: data.project,
-    keyType: data.keyType,
     requestedBudget: data.requestedBudget,
     requestedDays: data.requestedDays,
   };

@@ -36,6 +36,8 @@ test("les champs obligatoires d'un salarié portent une petite étoile rouge, ex
     "Motif",
     expect.stringMatching(/^Je m'engage/),
   ]);
+  // Le salarié ne précise plus de type de clé.
+  await expect(page.getByLabel("Type de clé")).toHaveCount(0);
 });
 
 test("en anglais, l'explication des étoiles est traduite", async ({ browser }) => {
