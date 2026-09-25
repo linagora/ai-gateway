@@ -5,11 +5,13 @@ import type { ApiKind, KeyInfo, LiteLLMClient } from "@/lib/litellm/client";
 import type { DataLevel, RequestStatus } from "@/lib/policy";
 import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
+import { markExpired } from "./echeances";
+import { type NotificationDeps, notifyExpiryReminder, notifyPickupReminder } from "./notifications";
 import { ownKeyToRenew, transitionRequest } from "./requests";
 import { readSettings } from "./settings";
 
 /** Dépendances du service des clés ; la date du jour est injectée pour rendre les échéances testables. */
-export interface KeyDeps {
+export interface KeyDeps extends NotificationDeps {
   db: Db;
   litellm: LiteLLMClient;
   now?: () => Date;
@@ -52,6 +54,7 @@ export interface MyKeys {
 
 /** « Mes clés » : les demandes approuvées à retirer, puis les clés émises, du titulaire seulement. */
 export async function listMyKeys(deps: KeyDeps, user: SessionUser): Promise<MyKeys> {
+  await markExpired(deps.db, deps.now?.() ?? new Date());
   const [rows, settings] = await Promise.all([
     deps.db.accessRequest.findMany({ where: { requesterUid: user.uid, kind: "CLE" }, orderBy: { createdAt: "asc" } }),
     readSettings(deps.db),
@@ -109,6 +112,7 @@ async function keyUsage(litellm: LiteLLMClient, tokenId: string): Promise<Issued
  * n'en garde que l'empreinte, l'alias et les dates. L'unicité des alias dans LiteLLM empêche un double retrait.
  */
 export async function pickUpKey(deps: KeyDeps, user: SessionUser, requestId: string): Promise<{ key: string; alias: string }> {
+  await markExpired(deps.db, deps.now?.() ?? new Date());
   const request = await deps.db.accessRequest.findUnique({ where: { id: requestId } });
   if (!request || request.kind !== "CLE" || request.requesterUid !== user.uid || !request.dataLevel) {
     throw new PortalError("introuvable", "Demande de clé introuvable.", { objet: "demande_cle" });
@@ -194,6 +198,7 @@ export interface AdminKey extends Omit<IssuedKey, "example"> {
 /** F-43 : toutes les clés émises, les actives d'abord puis les plus récentes, avec leur dépense lue en direct. */
 export async function listAllKeys(deps: KeyDeps, actor: SessionUser): Promise<AdminKey[]> {
   requireAdmin(actor);
+  await markExpired(deps.db, deps.now?.() ?? new Date());
   const rows = await deps.db.accessRequest.findMany({
     where: { kind: "CLE", keyAlias: { not: null }, keyIssuedAt: { not: null } },
     orderBy: { keyIssuedAt: "desc" },
@@ -348,4 +353,46 @@ function slug(texte: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 40);
+}
+
+/** Compte rendu de la tâche quotidienne. */
+export interface DailyTaskReport {
+  rappelsRetrait: number;
+  rappelsExpiration: number;
+  demandesExpirees: number;
+  clesExpirees: number;
+}
+
+/**
+ * F-45 : tâche quotidienne. Elle fait expirer ce qui est échu, puis envoie une seule fois chacun les rappels :
+ * trois jours avant l'échéance de retrait, sept jours avant l'expiration d'une clé.
+ */
+export async function runDailyTask(deps: KeyDeps): Promise<DailyTaskReport> {
+  const maintenant = deps.now?.() ?? new Date();
+  const expirations = await markExpired(deps.db, maintenant);
+  const delai = (await readSettings(deps.db)).pickup_days;
+  let rappelsRetrait = 0;
+  let rappelsExpiration = 0;
+  if (delai) {
+    const debut = new Date(maintenant.getTime() - Number(delai) * JOUR);
+    const aRetirer = await deps.db.accessRequest.findMany({
+      where: { kind: "CLE", status: "APPROUVEE", pickupReminderSentAt: null, decidedAt: { gt: debut, lte: new Date(debut.getTime() + 3 * JOUR) } },
+    });
+    for (const r of aRetirer) {
+      const { count } = await deps.db.accessRequest.updateMany({ where: { id: r.id, pickupReminderSentAt: null }, data: { pickupReminderSentAt: maintenant } });
+      if (count === 0 || !r.decidedAt) continue;
+      rappelsRetrait++;
+      await notifyPickupReminder(deps, { to: r.requesterEmail, equipe: r.teamAlias, echeance: new Date(r.decidedAt.getTime() + Number(delai) * JOUR) });
+    }
+  }
+  const aExpirer = await deps.db.accessRequest.findMany({
+    where: { kind: "CLE", status: "CLE_EMISE", expiryReminderSentAt: null, keyExpiresAt: { gt: maintenant, lte: new Date(maintenant.getTime() + 7 * JOUR) } },
+  });
+  for (const r of aExpirer) {
+    const { count } = await deps.db.accessRequest.updateMany({ where: { id: r.id, expiryReminderSentAt: null }, data: { expiryReminderSentAt: maintenant } });
+    if (count === 0 || !r.keyExpiresAt || !r.keyAlias) continue;
+    rappelsExpiration++;
+    await notifyExpiryReminder(deps, { to: r.requesterEmail, alias: r.keyAlias, echeance: r.keyExpiresAt });
+  }
+  return { rappelsRetrait, rappelsExpiration, ...expirations };
 }

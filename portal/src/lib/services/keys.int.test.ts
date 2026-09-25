@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
+import { FakeMailer } from "@/test/fake-mailer";
 import { approveKeyRequest, getRequestReview, refuseRequest } from "./admin-requests";
 import { listAudit } from "./audit";
 import { saveCatalogEntry } from "./catalog";
-import { blockKey, listAllKeys, listMyKeys, pickUpKey, renewalDraft, replaceKey, revokeKey, unblockKey } from "./keys";
-import { createKeyRequest, type KeyRequestInput } from "./requests";
+import { blockKey, listAllKeys, listMyKeys, pickUpKey, renewalDraft, replaceKey, revokeKey, runDailyTask, unblockKey } from "./keys";
+import { createKeyRequest, type KeyRequestInput, listMyRequests } from "./requests";
 import { saveSettings } from "./settings";
 
 const admin = { uid: "jdupont", email: "jdupont@linagora.com", name: "Jeanne Dupont", isAdmin: true };
@@ -380,5 +381,58 @@ describe("renouvellement d'une clé (ticket #21)", () => {
     await refuseRequest(deps, admin, second.renouvelee, "Budget à revoir");
     expect([...litellm.keys.values()].some((k) => k.key === second.ancienne)).toBe(true);
     expect((await listMyKeys(deps, titulaire)).keys.find((k) => k.requestId === second.origine)?.status).toBe("CLE_EMISE");
+  });
+});
+
+describe("tâche quotidienne : échéances et rappels (ticket #25)", () => {
+  let mailer: FakeMailer;
+  const tache = () => runDailyTask({ ...deps, mailer, portalUrl: "https://portail.test" });
+  const sujets = () => mailer.outbox.map((c) => [c.to[0], c.subject]);
+  const approuveeLe = new Date("2026-10-01T09:00:00Z");
+
+  beforeEach(() => {
+    mailer = new FakeMailer();
+  });
+
+  test("le rappel de retrait part trois jours avant l'échéance, une seule fois", async () => {
+    await demandeApprouvee();
+    maintenant = new Date(approuveeLe.getTime() + 10 * JOUR);
+    await tache();
+    expect(mailer.outbox).toEqual([]);
+    maintenant = new Date(approuveeLe.getTime() + 11 * JOUR + 3_600_000);
+    expect(await tache()).toMatchObject({ rappelsRetrait: 1 });
+    await tache();
+    expect(sujets()).toEqual([["mmaudet@linagora.com", "Rappel : votre clé est à retirer / Reminder: your key is waiting to be picked up"]]);
+    expect(mailer.outbox[0].text).toContain("Retirez-la avant le 15 octobre 2026 dans « Mes clés »");
+  });
+
+  test("le rappel d'expiration part sept jours avant l'expiration de la clé, une seule fois", async () => {
+    const id = await demandeApprouvee();
+    await pickUpKey(deps, titulaire, id);
+    maintenant = new Date(approuveeLe.getTime() + 53 * JOUR + 3_600_000);
+    expect(await tache()).toMatchObject({ rappelsExpiration: 1 });
+    await tache();
+    expect(sujets()).toEqual([
+      ["mmaudet@linagora.com", `Rappel : votre clé mmaudet-r-d-compte-rendu-hebdo-${id.slice(-4)} expire bientôt / Reminder: your key mmaudet-r-d-compte-rendu-hebdo-${id.slice(-4)} expires soon`],
+    ]);
+    expect(mailer.outbox[0].text).toContain("https://portail.test/cles");
+  });
+
+  test("une demande non retirée dans le délai expire, à la lecture comme par la tâche, et ne se retire plus", async () => {
+    const id = await demandeApprouvee();
+    maintenant = new Date(approuveeLe.getTime() + 15 * JOUR);
+    expect((await listMyKeys(deps, titulaire)).toPickUp).toEqual([]);
+    expect((await listMyRequests(deps, titulaire)).find((r) => r.id === id)?.status).toBe("EXPIREE");
+    await expect(pickUpKey(deps, titulaire, id)).rejects.toMatchObject({ code: "transition_interdite" });
+    expect((await listAudit(testDb)).map((e) => [e.actorUid, e.action, e.targetId])).toContainEqual(["systeme", "REQUEST_EXPIRED", id]);
+  });
+
+  test("une clé arrivée à expiration passe en « Expirée » par la tâche, qui en rend compte", async () => {
+    const id = await demandeApprouvee();
+    await pickUpKey(deps, titulaire, id);
+    maintenant = new Date(approuveeLe.getTime() + 61 * JOUR);
+    expect(await tache()).toMatchObject({ demandesExpirees: 0, clesExpirees: 1 });
+    expect((await listMyKeys(deps, titulaire)).keys[0].status).toBe("EXPIREE");
+    expect((await listAudit(testDb)).map((e) => [e.actorUid, e.action, e.targetId])).toContainEqual(["systeme", "KEY_EXPIRED", id]);
   });
 });

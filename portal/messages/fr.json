@@ -515,6 +515,14 @@
     "adhesionAcceptee": {
       "sujet": "Votre adhésion est acceptée",
       "corps": "Vous êtes désormais membre de l'équipe {equipe}. Vous pouvez y demander une clé d'API."
+    },
+    "rappelRetrait": {
+      "sujet": "Rappel : votre clé est à retirer",
+      "corps": "Votre clé d'API pour l'équipe {equipe} vous attend. Retirez-la avant le {date, date, long} dans « Mes clés » : passé ce délai, la demande expire."
+    },
+    "rappelExpiration": {
+      "sujet": "Rappel : votre clé {alias} expire bientôt",
+      "corps": "Votre clé d'API {alias} expire le {date, date, long}. Pour continuer à l'utiliser, demandez son renouvellement dans « Mes clés »."
     }
   }
 }

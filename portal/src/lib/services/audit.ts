@@ -13,7 +13,9 @@ export type AuditAction =
   | "KEY_REPLACED"
   | "KEY_REVOKED"
   | "KEY_BLOCKED"
-  | "KEY_UNBLOCKED";
+  | "KEY_UNBLOCKED"
+  | "REQUEST_EXPIRED"
+  | "KEY_EXPIRED";
 
 /** Entrée du journal d'audit : qui, quoi, sur quelle cible, avec quels détails. Jamais de secret. */
 export interface AuditEntry {

@@ -6,11 +6,14 @@ import { PolicyViolationError, PortalError } from "@/lib/errors";
 import type { Prisma } from "@/generated/prisma/client";
 import { type CatalogModel, checkKeyRequest, checkTransition, DATA_LEVELS, type DataLevel, type KeyRequestDraft, type PolicyVerdict, type RequestStatus } from "@/lib/policy";
 import { recordAudit } from "./audit";
+import { markExpired } from "./echeances";
 import { type NotificationDeps, notifyNewRequest } from "./notifications";
 
 interface RequestDeps extends NotificationDeps {
   db: Db;
   litellm: LiteLLMClient;
+  /** Date du jour, injectée par les tests ; l'heure réelle sinon. */
+  now?: () => Date;
 }
 
 /** F-20 / F-21 : formulaire de demande de clé. */
@@ -168,6 +171,7 @@ export async function evaluateKeyRequest(deps: RequestDeps, draft: KeyRequestDra
 
 /** F-24 : demandes de l'utilisateur, les plus récentes d'abord. */
 export async function listMyRequests(deps: RequestDeps, user: SessionUser): Promise<RequestSummary[]> {
+  await markExpired(deps.db, deps.now?.() ?? new Date());
   const rows = await deps.db.accessRequest.findMany({ where: { requesterUid: user.uid }, orderBy: { createdAt: "desc" } });
   return rows.map((r) => ({
     id: r.id,

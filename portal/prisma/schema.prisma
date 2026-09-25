@@ -110,6 +110,9 @@ model AccessRequest {
   keyReplacements Int           @default(0)
   /// demande dont cette demande renouvelle la clé
   renewsRequestId String?
+  /// rappels envoyés par la tâche quotidienne (une seule fois chacun)
+  pickupReminderSentAt DateTime?
+  expiryReminderSentAt DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 

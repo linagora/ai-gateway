@@ -110,3 +110,24 @@ export async function notifyMembershipApproved(deps: NotificationDeps, avis: { t
   );
   await envoyer(deps, [avis.to], message);
 }
+
+/** Rappel J-3 : une clé approuvée attend son retrait avant l'échéance. */
+export async function notifyPickupReminder(deps: NotificationDeps, avis: { to: string; equipe: string; echeance: Date }): Promise<void> {
+  const message = bilingue(
+    (t) => ({ sujet: t("courriels.rappelRetrait.sujet"), corps: t("courriels.rappelRetrait.corps", { equipe: avis.equipe, date: avis.echeance }) }),
+    lienVers(deps, "/cles"),
+  );
+  await envoyer(deps, [avis.to], message);
+}
+
+/** Rappel J-7 : une clé expire bientôt ; son renouvellement se demande dans « Mes clés ». */
+export async function notifyExpiryReminder(deps: NotificationDeps, avis: { to: string; alias: string; echeance: Date }): Promise<void> {
+  const message = bilingue(
+    (t) => ({
+      sujet: t("courriels.rappelExpiration.sujet", { alias: avis.alias }),
+      corps: t("courriels.rappelExpiration.corps", { alias: avis.alias, date: avis.echeance }),
+    }),
+    lienVers(deps, "/cles"),
+  );
+  await envoyer(deps, [avis.to], message);
+}

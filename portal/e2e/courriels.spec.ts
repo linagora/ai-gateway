@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { ADMIN, ajouterAEquipe, connecter, courriels, demandeApprouvee, enrichirModele } from "./outils";
 
 /* Courriels du portail (spécification #14), lus dans Mailpit. Admins à notifier : admins-e2e@example.org (.env). */
@@ -44,4 +44,38 @@ test("le demandeur reçoit l'approbation de sa demande, avec l'échéance de ret
   expect(courriel.text).toMatch(/Votre demande de clé d'API pour l'équipe R&D est approuvée\. Retirez votre clé avant le \d{1,2} \S+ \d{4} dans « Mes clés »\./);
   expect(courriel.text).toContain("Lien : http://localhost:3100/cles");
   expect(courriel.text).not.toMatch(/sk-/);
+});
+
+/** Délai de retrait (jours) réglé par l'admin dans les valeurs par défaut. */
+async function delaiDeRetrait(admin: Page, jours: string): Promise<void> {
+  await admin.goto("/gestion/parametres");
+  await admin.getByLabel("Délai de retrait d'une clé approuvée (jours)").fill(jours);
+  await admin.getByRole("button", { name: "Enregistrer" }).click();
+  await expect(admin.getByRole("status")).toHaveText("Paramètres enregistrés.");
+}
+
+test("la route de la tâche quotidienne refuse un appel sans le bon jeton (ticket #25)", async ({ request }) => {
+  expect((await request.post("/api/taches/quotidienne")).status()).toBe(401);
+  expect((await request.post("/api/taches/quotidienne", { headers: { Authorization: "Bearer mauvais-jeton" } })).status()).toBe(401);
+});
+
+test("la tâche quotidienne rappelle au titulaire le retrait de sa clé avant l'échéance (ticket #25)", async ({ browser, request }) => {
+  const admin = await (await connecter(browser, ADMIN)).newPage();
+  // Délai de retrait d'un jour : l'échéance tombe dans les trois jours, le rappel part au passage de la tâche.
+  await delaiDeRetrait(admin, "1");
+  try {
+    const salarie = personne("rappel");
+    const page = await (await connecter(browser, salarie)).newPage();
+    await demandeApprouvee(browser, page, salarie, "Essai rappel");
+    const reponse = await request.post("/api/taches/quotidienne", { headers: { Authorization: "Bearer dev-task-token" } });
+    expect(reponse.status()).toBe(200);
+    expect(await reponse.json()).toMatchObject({ rappelsRetrait: expect.any(Number), clesExpirees: expect.any(Number) });
+
+    await expect.poll(async () => (await courriels(`to:${salarie.email} subject:Rappel`)).length, { timeout: 15_000 }).toBe(1);
+    const [rappel] = await courriels(`to:${salarie.email} subject:Rappel`);
+    expect(rappel.subject).toBe("Rappel : votre clé est à retirer / Reminder: your key is waiting to be picked up");
+    expect(rappel.text).toContain("Lien : http://localhost:3100/cles");
+  } finally {
+    await delaiDeRetrait(admin, "14");
+  }
 });

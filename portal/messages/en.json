@@ -515,6 +515,14 @@
     "adhesionAcceptee": {
       "sujet": "Your team membership is accepted",
       "corps": "You are now a member of the {equipe} team. You can request an API key for it."
+    },
+    "rappelRetrait": {
+      "sujet": "Reminder: your key is waiting to be picked up",
+      "corps": "Your API key for the {equipe} team is waiting for you. Pick it up before {date, date, long} in “My keys”: after that, the request expires."
+    },
+    "rappelExpiration": {
+      "sujet": "Reminder: your key {alias} expires soon",
+      "corps": "Your API key {alias} expires on {date, date, long}. To keep using it, request its renewal in “My keys”."
     }
   }
 }
