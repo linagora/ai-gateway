@@ -110,21 +110,28 @@ async function keyUsage(litellm: LiteLLMClient, tokenId: string): Promise<Issued
 /**
  * F-40 / F-41 : retrait d'une clé par son titulaire. La clé est générée avec les paramètres figés à
  * l'approbation, sa validité court à partir du retrait, et elle n'est rendue qu'une fois : le portail
- * n'en garde que l'empreinte, l'alias et les dates. L'unicité des alias dans LiteLLM empêche un double retrait.
+ * n'en garde que l'empreinte, l'alias et les dates. La demande est verrouillée avant la génération (brief,
+ * règle 6) : un second retrait simultané échoue, et un échec rend la demande à retirer.
  */
 export async function pickUpKey(deps: KeyDeps, user: SessionUser, requestId: string): Promise<{ key: string; alias: string }> {
-  await markExpired(deps.db, deps.now?.() ?? new Date());
+  const maintenant = deps.now?.() ?? new Date();
+  await markExpired(deps.db, maintenant);
   const request = await deps.db.accessRequest.findUnique({ where: { id: requestId } });
   if (!request || request.kind !== "CLE" || request.requesterUid !== user.uid || !request.dataLevel) {
     throw new PortalError("introuvable", "Demande de clé introuvable.", { objet: "demande_cle" });
   }
   if (request.status !== "APPROUVEE") throw new PortalError("transition_interdite", "Cette demande n'a pas de clé à retirer.", { cas: "traitee" });
   if (!request.approvedDays) throw new PortalError("parametre_manquant", "Paramètres de la clé incomplets.");
-  const maintenant = deps.now?.() ?? new Date();
+  const { count } = await deps.db.accessRequest.updateMany({ where: { id: request.id, status: "APPROUVEE" }, data: { status: "CLE_EMISE", keyIssuedAt: maintenant } });
+  if (count === 0) throw new PortalError("transition_interdite", "La demande a été modifiée entre-temps ; rechargez la page.", { cas: "modifiee" });
+  const rendreARetirer = () =>
+    deps.db.accessRequest.updateMany({ where: { id: request.id, status: "CLE_EMISE", keyTokenId: null }, data: { status: "APPROUVEE", keyIssuedAt: null } });
+
   let generee;
   try {
     generee = await deps.litellm.generateKey(keyParams(request, keyAlias(request), `${request.approvedDays}d`));
   } catch (e) {
+    await rendreARetirer();
     // Le détail de l'erreur ne quitte pas le serveur : il pourrait décrire la requête envoyée.
     throw e instanceof PortalError ? e : new PortalError("passerelle_indisponible", "La génération de la clé a échoué.");
   }
@@ -136,11 +143,13 @@ export async function pickUpKey(deps: KeyDeps, user: SessionUser, requestId: str
       await deleteFromGateway(deps.litellm, origineActive.keyTokenId);
     } catch (e) {
       await deps.litellm.deleteKey(generee.tokenId).catch(() => undefined);
+      await rendreARetirer();
       throw e;
     }
   }
-  await transitionRequest(deps.db, request, "CLE_EMISE", {
-    data: { keyAlias: generee.alias, keyTokenId: generee.tokenId, keyIssuedAt: maintenant, keyExpiresAt: generee.expiresAt },
+  await deps.db.accessRequest.update({
+    where: { id: request.id },
+    data: { keyAlias: generee.alias, keyTokenId: generee.tokenId, keyExpiresAt: generee.expiresAt },
   });
   await recordAudit(deps.db, { actorUid: user.uid, action: "KEY_GENERATED", targetId: request.id, details: { alias: generee.alias } });
   if (origineActive) {

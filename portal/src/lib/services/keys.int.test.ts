@@ -476,3 +476,13 @@ describe("courriels des actions d'un admin sur une clé (ticket #26)", () => {
     expect(mailer.outbox).toEqual([]);
   });
 });
+
+describe("robustesse du retrait (revue de code)", () => {
+  test("deux retraits simultanés de la même demande : un seul aboutit, sans clé orpheline", async () => {
+    const id = await demandeApprouvee();
+    const resultats = await Promise.allSettled([pickUpKey(deps, titulaire, id), pickUpKey(deps, titulaire, id)]);
+    expect(resultats.map((r) => r.status).sort()).toEqual(["fulfilled", "rejected"]);
+    expect(resultats.find((r) => r.status === "rejected")).toMatchObject({ reason: { code: "transition_interdite" } });
+    expect(litellm.keys.size).toBe(1);
+  });
+});
