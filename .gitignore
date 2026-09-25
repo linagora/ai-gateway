@@ -23,10 +23,11 @@ service-account*.json
 *.bundle
 backups/
 
-# Documents de conception et journal d'installation : tenus hors du dépôt
+# Documents de conception, glossaire du domaine et journal d'installation : tenus hors du dépôt
 docs/PRD.md
 docs/PORTAL-BRIEF.md
 docs/INSTALL-LOG.md
+CONTEXT.md
 
 # Dépendances et constructions
 node_modules/
