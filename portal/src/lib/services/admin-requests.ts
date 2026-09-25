@@ -100,6 +100,8 @@ export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: 
 
 /** Paramètres de la clé fixés par l'admin (F-31). Durées au format LiteLLM : 30d, 12h… */
 export const approvalInputSchema = z.object({
+  /** Équipe de la clé : celle de la demande, sauf si l'admin en choisit une autre. */
+  teamId: z.string().min(1).optional(),
   models: z.array(z.string().min(1)),
   budget: z.number().positive().nullable(),
   budgetDuration: z.string().regex(/^\d+[smhd]$/).nullable(),
@@ -110,7 +112,11 @@ export const approvalInputSchema = z.object({
 
 export type ApprovalInput = z.infer<typeof approvalInputSchema>;
 
-/** F-31 : approuve une demande de clé en figeant ses paramètres (statut APPROUVEE). */
+/**
+ * F-31 : approuve une demande de clé en figeant ses paramètres (statut APPROUVEE). L'admin peut rattacher
+ * la clé à une autre équipe : les contrôles sont rejoués pour celle-ci, et l'approbation y ajoute le
+ * demandeur s'il n'en est pas membre (décision du 2026-09-25).
+ */
 export async function approveKeyRequest(deps: AdminDeps, actor: SessionUser, id: string, input: ApprovalInput): Promise<void> {
   requireAdmin(actor);
   const params = withDefaults(approvalInputSchema.parse(input), await readSettings(deps.db));
@@ -122,11 +128,17 @@ export async function approveKeyRequest(deps: AdminDeps, actor: SessionUser, id:
   }
   const request = await deps.db.accessRequest.findUnique({ where: { id } });
   if (!request || request.kind !== "CLE" || !request.dataLevel) throw new PortalError("introuvable", "Demande de clé introuvable.", { objet: "demande_cle" });
-  const draft = { requesterUid: request.requesterUid, teamId: request.teamId, dataLevel: request.dataLevel, models: params.models };
+  const equipe = await teamForApproval(deps, request, params.teamId);
+  const reaffectee = equipe.teamId !== request.teamId;
+  const draft = { requesterUid: request.requesterUid, teamId: equipe.teamId, dataLevel: request.dataLevel, models: params.models };
   const verdict = await evaluateKeyRequest(deps, draft);
-  if (!verdict.ok) throw new PolicyViolationError(verdict.checks.filter((c) => !c.ok));
+  // Dans une équipe choisie par l'admin, l'approbation vaut adhésion : l'appartenance n'y est pas exigée.
+  const bloquants = verdict.checks.filter((c) => !c.ok && !(reaffectee && c.id === "membre_equipe"));
+  if (bloquants.length > 0) throw new PolicyViolationError(bloquants);
+  if (verdict.checks.some((c) => c.id === "membre_equipe" && !c.ok)) await deps.litellm.addTeamMember(equipe.teamId, request.requesterUid);
   await transitionRequest(deps.db, request, "APPROUVEE", {
     data: {
+      ...equipe,
       approvedModels: params.models,
       approvedBudget: params.budget,
       budgetDuration: params.budgetDuration,
@@ -143,6 +155,7 @@ export async function approveKeyRequest(deps: AdminDeps, actor: SessionUser, id:
 function withDefaults(params: ApprovalInput, settings: SettingValues): ApprovalInput {
   const num = (value: string | undefined) => (value === undefined ? null : Number(value));
   return {
+    teamId: params.teamId,
     models: params.models,
     budget: params.budget ?? num(settings.default_budget),
     budgetDuration: params.budgetDuration ?? settings.default_budget_duration ?? null,
@@ -174,14 +187,27 @@ export async function requestCompletion(deps: AdminDeps, actor: SessionUser, id:
 }
 
 /**
- * F-22 : approuve une demande d'adhésion en ajoutant le demandeur à l'équipe dans LiteLLM.
- * LiteLLM d'abord : en cas d'échec, la demande reste SOUMISE et peut être rejouée.
+ * F-22 : approuve une demande d'adhésion en ajoutant le demandeur dans LiteLLM à l'équipe demandée, ou à
+ * celle que choisit l'admin (réaffectation). LiteLLM d'abord : en cas d'échec, la demande reste SOUMISE.
  */
-export async function approveTeamJoinRequest(deps: AdminDeps, actor: SessionUser, id: string): Promise<void> {
+export async function approveTeamJoinRequest(deps: AdminDeps, actor: SessionUser, id: string, teamId?: string): Promise<void> {
   requireAdmin(actor);
   const request = await deps.db.accessRequest.findUnique({ where: { id } });
   if (!request || request.kind !== "ADHESION_EQUIPE") throw new PortalError("introuvable", "Demande d'adhésion introuvable.", { objet: "demande_adhesion" });
   if (request.status !== "SOUMISE") throw new PortalError("transition_interdite", "Cette demande a déjà été traitée.", { cas: "traitee" });
-  await deps.litellm.addTeamMember(request.teamId, request.requesterUid);
-  await transitionRequest(deps.db, request, "APPROUVEE", { data: { decidedBy: actor.uid, decidedAt: new Date() } });
+  const equipe = await teamForApproval(deps, request, teamId);
+  await deps.litellm.addTeamMember(equipe.teamId, request.requesterUid);
+  await transitionRequest(deps.db, request, "APPROUVEE", { data: { ...equipe, decidedBy: actor.uid, decidedAt: new Date() } });
+}
+
+/** Équipe retenue à l'approbation : celle de la demande, sauf si l'admin en choisit une autre, qui doit exister. */
+async function teamForApproval(
+  deps: AdminDeps,
+  request: { teamId: string; teamAlias: string },
+  teamId: string | undefined,
+): Promise<{ teamId: string; teamAlias: string }> {
+  if (!teamId || teamId === request.teamId) return { teamId: request.teamId, teamAlias: request.teamAlias };
+  const team = await deps.litellm.getTeam(teamId);
+  if (!team) throw new PortalError("introuvable", `Équipe introuvable : ${teamId}.`, { objet: "equipe" });
+  return { teamId: team.teamId, teamAlias: team.teamAlias };
 }

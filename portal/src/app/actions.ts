@@ -114,6 +114,7 @@ export async function approveKeyRequestAction(formData: FormData): Promise<void>
     `/gestion/demandes/${id}`,
     () =>
       approveKeyRequest(getDeps(), user, id, {
+        teamId: optionalText(formData, "teamId") ?? undefined,
         models: formData.getAll("models").map(String),
         budget: optionalNumber(formData, "budget"),
         budgetDuration: optionalText(formData, "budgetDuration"),
@@ -128,7 +129,7 @@ export async function approveKeyRequestAction(formData: FormData): Promise<void>
 export async function approveTeamJoinRequestAction(formData: FormData): Promise<void> {
   const user = await requireUser();
   const id = text(formData, "id");
-  await run(`/gestion/demandes/${id}`, () => approveTeamJoinRequest(getDeps(), user, id), {
+  await run(`/gestion/demandes/${id}`, () => approveTeamJoinRequest(getDeps(), user, id, optionalText(formData, "teamId") ?? undefined), {
     path: "/gestion/demandes",
     message: "adhesionApprouvee",
   });

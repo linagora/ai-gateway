@@ -379,12 +379,15 @@
       "rpm": "Requests per minute limit (optional)",
       "tpm": "Tokens per minute limit (optional)",
       "approuver": "Approve",
-      "approuverAdhesion": "Approve: add {uid} to the {equipe} team",
+      "approuverAdhesion": "Approve: add {uid} to the chosen team",
       "refuserOuCompleter": "Refuse or ask for more information",
       "motifRefus": "Reason for refusal (required)",
       "refuser": "Refuse",
       "complement": "Information requested",
-      "demanderComplement": "Ask for more information"
+      "demanderComplement": "Ask for more information",
+      "equipeCle": "Key team",
+      "equipeAffectation": "Assigned team",
+      "aideEquipe": "If the requester is not a member of the chosen team, approval adds them to it."
     },
     "parametres": {
       "titre": "Default key values",

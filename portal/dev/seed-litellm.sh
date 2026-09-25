@@ -42,3 +42,11 @@ else
   curl -fsS "${H[@]}" -X POST "$B/team/new" -d "$(jq -n --argjson m "$MODELS" '{team_alias: "R&D", models: $m}')" >/dev/null
   echo "• équipe R&D : créée"
 fi
+
+# Comme les équipes du groupe en production : sans liste de modèles (le portail contrôle niveau et visibilité).
+if curl -fsS "${H[@]}" "$B/team/list" | jq -e 'any(.[]; .team_alias == "LPS Paris")' >/dev/null; then
+  echo "• équipe LPS Paris : déjà présente"
+else
+  curl -fsS "${H[@]}" -X POST "$B/team/new" -d '{"team_alias": "LPS Paris"}' >/dev/null
+  echo "• équipe LPS Paris : créée"
+fi

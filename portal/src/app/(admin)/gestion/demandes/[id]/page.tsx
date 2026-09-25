@@ -32,7 +32,24 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
     if (e instanceof PortalError && e.code === "introuvable") notFound();
     throw e;
   });
-  const [settings, catalog] = await Promise.all([readSettings(deps.db), listCatalog(deps, language)]);
+  const [settings, catalog, teams] = await Promise.all([readSettings(deps.db), listCatalog(deps, language), deps.litellm.listTeams()]);
+  // Équipes proposées à la validation : celle de la demande (même si elle a disparu de LiteLLM) et les autres, par nom.
+  const equipes = [
+    { teamId: review.teamId, teamAlias: review.teamAlias },
+    ...teams.filter((team) => team.teamId !== review.teamId).sort((a, b) => a.teamAlias.localeCompare(b.teamAlias, language)),
+  ];
+  const choixEquipe = (libelle: string) => (
+    <label>
+      {libelle}
+      <select name="teamId" defaultValue={review.teamId}>
+        {equipes.map((team) => (
+          <option key={team.teamId} value={team.teamId}>
+            {team.teamAlias}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
   const pending = review.status === "SOUMISE";
 
   return (
@@ -98,6 +115,8 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
           <h2>{t("approuverCle")}</h2>
           <form action={approveKeyRequestAction}>
             <input type="hidden" name="id" value={review.id} />
+            {choixEquipe(t("equipeCle"))}
+            <p className="text-sm text-neutral-600">{t("aideEquipe")}</p>
             <fieldset>
               <legend className="font-medium">{t("modelesAccordes")}</legend>
               {catalog.map((m) => (
@@ -135,7 +154,8 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
       {pending && review.kind === "ADHESION_EQUIPE" && (
         <form action={approveTeamJoinRequestAction}>
           <input type="hidden" name="id" value={review.id} />
-          <button type="submit">{t("approuverAdhesion", { uid: review.requesterUid, equipe: review.teamAlias })}</button>
+          {choixEquipe(t("equipeAffectation"))}
+          <button type="submit">{t("approuverAdhesion", { uid: review.requesterUid })}</button>
         </form>
       )}
 

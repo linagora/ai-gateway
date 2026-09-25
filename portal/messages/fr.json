@@ -379,12 +379,15 @@
       "rpm": "Limite de requêtes par minute (facultatif)",
       "tpm": "Limite de jetons par minute (facultatif)",
       "approuver": "Approuver",
-      "approuverAdhesion": "Approuver : ajouter {uid} à l'équipe {equipe}",
+      "approuverAdhesion": "Approuver : ajouter {uid} à l'équipe choisie",
       "refuserOuCompleter": "Refuser ou demander un complément",
       "motifRefus": "Motif du refus (obligatoire)",
       "refuser": "Refuser",
       "complement": "Complément demandé",
-      "demanderComplement": "Demander un complément"
+      "demanderComplement": "Demander un complément",
+      "equipeCle": "Équipe de la clé",
+      "equipeAffectation": "Équipe d'affectation",
+      "aideEquipe": "Si le demandeur n'est pas membre de l'équipe choisie, l'approbation l'y ajoute."
     },
     "parametres": {
       "titre": "Valeurs par défaut des clés",

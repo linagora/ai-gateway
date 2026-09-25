@@ -93,6 +93,41 @@ describe("approbation (F-31)", () => {
   });
 });
 
+describe("équipe choisie par l'admin à l'approbation d'une clé", () => {
+  test("l'admin rattache la clé à une autre équipe : l'approbation y ajoute le demandeur", async () => {
+    litellm.withTeam({ teamId: "equipe-lps", teamAlias: "LPS Paris", models: [], memberUids: [] });
+    const { id } = await createKeyRequest(deps, demandeur, demande);
+    await approveKeyRequest(deps, admin, id, { ...parametres, teamId: "equipe-lps" });
+    expect(await getRequestReview(deps, admin, id)).toMatchObject({ status: "APPROUVEE", teamId: "equipe-lps", teamAlias: "LPS Paris" });
+    expect((await litellm.getTeam("equipe-lps"))?.memberUids).toContain("mmaudet");
+  });
+
+  test("les contrôles sont rejoués pour l'équipe choisie, et un refus ne touche à aucune équipe", async () => {
+    litellm.withTeam({ teamId: "equipe-restreinte", teamAlias: "Restreinte", models: ["qwen3.8"], memberUids: [] });
+    const { id } = await createKeyRequest(deps, demandeur, demande);
+    await expect(approveKeyRequest(deps, admin, id, { ...parametres, teamId: "equipe-restreinte" })).rejects.toMatchObject({
+      code: "controles_en_echec",
+      failedChecks: [{ id: "modeles_equipe", ok: false, offending: ["mistral-small"] }],
+    });
+    expect((await litellm.getTeam("equipe-restreinte"))?.memberUids).toEqual([]);
+    expect(await getRequestReview(deps, admin, id)).toMatchObject({ status: "SOUMISE", teamAlias: "R&D" });
+  });
+
+  test("sans changement d'équipe, un demandeur qui n'en est plus membre bloque toujours l'approbation", async () => {
+    const { id } = await createKeyRequest(deps, demandeur, demande);
+    litellm.withTeam({ teamId: "equipe-rd", teamAlias: "R&D", models: ["mistral-small", "qwen3.8"], memberUids: ["pmartin"] });
+    await expect(approveKeyRequest(deps, admin, id, parametres)).rejects.toMatchObject({
+      code: "controles_en_echec",
+      failedChecks: [{ id: "membre_equipe", ok: false, offending: ["mmaudet"] }],
+    });
+  });
+
+  test("une équipe inconnue est refusée", async () => {
+    const { id } = await createKeyRequest(deps, demandeur, demande);
+    await expect(approveKeyRequest(deps, admin, id, { ...parametres, teamId: "equipe-inconnue" })).rejects.toMatchObject({ code: "introuvable" });
+  });
+});
+
 describe("refus (F-31)", () => {
   test("refuser sans motif est impossible", async () => {
     const { id } = await createKeyRequest(deps, demandeur, demande);
@@ -133,5 +168,22 @@ describe("adhésion à une équipe (F-22)", () => {
     const { id } = await createTeamJoinRequest(deps, demandeur, { teamId: "equipe-data", justification: "Projet d'analyse" });
     await approveTeamJoinRequest(deps, admin, id);
     expect((await litellm.getTeam("equipe-data"))?.memberUids).toContain("mmaudet");
+  });
+
+  test("l'admin peut affecter le demandeur à une autre équipe que celle demandée", async () => {
+    litellm.withTeam({ teamId: "equipe-data", teamAlias: "Data", models: [], memberUids: [] });
+    litellm.withTeam({ teamId: "equipe-lps", teamAlias: "LPS Paris", models: [], memberUids: [] });
+    const { id } = await createTeamJoinRequest(deps, demandeur, { teamId: "equipe-data", justification: "Projet d'analyse" });
+    await approveTeamJoinRequest(deps, admin, id, "equipe-lps");
+    expect((await litellm.getTeam("equipe-lps"))?.memberUids).toContain("mmaudet");
+    expect((await litellm.getTeam("equipe-data"))?.memberUids).not.toContain("mmaudet");
+    expect((await listMyRequests(deps, demandeur)).find((r) => r.id === id)).toMatchObject({ teamAlias: "LPS Paris", status: "APPROUVEE" });
+  });
+
+  test("une équipe d'affectation inconnue est refusée, et la demande reste à traiter", async () => {
+    litellm.withTeam({ teamId: "equipe-data", teamAlias: "Data", models: [], memberUids: [] });
+    const { id } = await createTeamJoinRequest(deps, demandeur, { teamId: "equipe-data", justification: "Projet d'analyse" });
+    await expect(approveTeamJoinRequest(deps, admin, id, "equipe-inconnue")).rejects.toMatchObject({ code: "introuvable" });
+    expect((await listMyRequests(deps, demandeur)).find((r) => r.id === id)).toMatchObject({ teamAlias: "Data", status: "SOUMISE" });
   });
 });
