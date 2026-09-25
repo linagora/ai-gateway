@@ -5,10 +5,12 @@ Plateforme d'accès aux modèles d'IA : **LiteLLM Proxy (communautaire)** + **Po
 ## Contenu
 | Chemin | Rôle |
 |---|---|
-| `docs/PRD.md` | PRD simplifié : besoin, architecture, composants, exigences, critères d'acceptation |
+| `docs/PRD.md` | PRD simplifié : besoin, architecture, composants, exigences, critères d'acceptation (hors dépôt) |
 | `docs/RUNBOOK-INSTALL.md` | Installation distante pas à pas, pilotée par un agent de code via SSH |
-| `docs/PORTAL-BRIEF.md` | Brief de développement du portail (Next.js / TypeScript) |
+| `docs/PORTAL-BRIEF.md` | Brief de développement du portail (Next.js / TypeScript) (hors dépôt) |
 | `infra/` | Fichiers déployés dans `/opt/linagora-ia` : compose, Caddy, LiteLLM, Postgres, vues de reporting, Superset, scripts |
+
+Les documents de conception (`docs/PRD.md`, `docs/PORTAL-BRIEF.md`) et le journal d'installation (`docs/INSTALL-LOG.md`) sont tenus hors du dépôt.
 
 ## Démarrer avec un agent de code (sur votre PC)
 
