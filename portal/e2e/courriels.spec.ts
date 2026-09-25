@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { ajouterAEquipe, connecter, courriels, enrichirModele, ADMIN } from "./outils";
+import { ADMIN, ajouterAEquipe, connecter, courriels, demandeApprouvee, enrichirModele } from "./outils";
 
 /* Courriels du portail (spécification #14), lus dans Mailpit. Admins à notifier : admins-e2e@example.org (.env). */
 const suffixe = Date.now().toString(36);
@@ -31,4 +31,17 @@ test("une nouvelle demande de clé est notifiée aux admins par un courriel bili
   expect(courriel.text).toContain(`${salarie.uid} a demandé une clé d'API pour l'équipe R&D (N1 — Public).`);
   expect(courriel.text).toContain(`${salarie.uid} requested an API key for the R&D team (N1 — Public).`);
   expect(courriel.text).toMatch(/Lien : http:\/\/localhost:3100\/gestion\/demandes\/\w+/);
+});
+
+test("le demandeur reçoit l'approbation de sa demande, avec l'échéance de retrait et un lien vers « Mes clés » (ticket #24)", async ({ browser }) => {
+  const salarie = personne("approbation");
+  const page = await (await connecter(browser, salarie)).newPage();
+  await demandeApprouvee(browser, page, salarie, "Essai approbation");
+
+  await expect.poll(async () => (await courriels(`to:${salarie.email}`)).length, { timeout: 15_000 }).toBe(1);
+  const [courriel] = await courriels(`to:${salarie.email}`);
+  expect(courriel.subject).toBe("Votre demande de clé est approuvée / Your key request is approved");
+  expect(courriel.text).toMatch(/Votre demande de clé d'API pour l'équipe R&D est approuvée\. Retirez votre clé avant le \d{1,2} \S+ \d{4} dans « Mes clés »\./);
+  expect(courriel.text).toContain("Lien : http://localhost:3100/cles");
+  expect(courriel.text).not.toMatch(/sk-/);
 });

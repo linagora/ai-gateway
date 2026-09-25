@@ -498,6 +498,23 @@
     "nouvelleDemandeAdhesion": {
       "sujet": "New team membership request",
       "corps": "{uid} asks to join the {equipe} team."
+    },
+    "demandeApprouvee": {
+      "sujet": "Your key request is approved",
+      "corps": "Your API key request for the {equipe} team is approved. Pick up your key before {date, date, long} in “My keys”.",
+      "corpsSansEcheance": "Your API key request for the {equipe} team is approved. Pick up your key in “My keys”."
+    },
+    "demandeRefusee": {
+      "sujet": "Your request is refused",
+      "corps": "Your request for the {equipe} team is refused.\nReason: {motif}"
+    },
+    "complementDemande": {
+      "sujet": "Your request needs more information",
+      "corps": "An administrator asks for more information on your request for the {equipe} team.\nComment: {commentaire}"
+    },
+    "adhesionAcceptee": {
+      "sujet": "Your team membership is accepted",
+      "corps": "You are now a member of the {equipe} team. You can request an API key for it."
     }
   }
 }

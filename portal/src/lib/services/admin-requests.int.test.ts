@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
+import { FakeMailer } from "@/test/fake-mailer";
 import { approveKeyRequest, approveTeamJoinRequest, getRequestReview, listPendingRequests, refuseRequest, requestCompletion } from "./admin-requests";
 import { listAudit } from "./audit";
 import { saveCatalogEntry } from "./catalog";
@@ -225,5 +226,59 @@ describe("journal d'audit des décisions (ticket #22)", () => {
       ["mmaudet", "REQUEST_CREATED", { kind: "ADHESION_EQUIPE", teamAlias: "Data" }],
       ["jdupont", "MEMBERSHIP_APPROVED", { teamAlias: "LPS Paris" }],
     ]);
+  });
+});
+
+describe("courriels des décisions au demandeur (ticket #24)", () => {
+  let mailer: FakeMailer;
+  const avecCourriel = () => ({ ...deps, mailer, adminEmails: [], portalUrl: "https://portail.test", now: () => new Date("2026-10-01T09:00:00Z") });
+  const recus = () => mailer.outbox.map((c) => ({ to: c.to, subject: c.subject, text: c.text }));
+
+  beforeEach(async () => {
+    mailer = new FakeMailer();
+    await saveSettings(deps, admin, { pickup_days: "14" });
+  });
+
+  test("approbation : l'échéance de retrait et un lien vers « Mes clés », jamais de clé", async () => {
+    const { id } = await createKeyRequest(deps, demandeur, demande);
+    await approveKeyRequest(avecCourriel(), admin, id, parametres);
+    expect(recus()).toEqual([
+      {
+        to: ["mmaudet@linagora.com"],
+        subject: "Votre demande de clé est approuvée / Your key request is approved",
+        text: expect.stringContaining("Votre demande de clé d'API pour l'équipe R&D est approuvée. Retirez votre clé avant le 15 octobre 2026 dans « Mes clés »."),
+      },
+    ]);
+    expect(recus()[0].text).toContain("Your API key request for the R&D team is approved. Pick up your key before October 15, 2026 in “My keys”.");
+    expect(recus()[0].text).toContain("https://portail.test/cles");
+  });
+
+  test("refus, avec le motif", async () => {
+    const { id } = await createKeyRequest(deps, demandeur, demande);
+    await refuseRequest(avecCourriel(), admin, id, "Budget non justifié");
+    expect(recus()).toEqual([
+      { to: ["mmaudet@linagora.com"], subject: "Votre demande est refusée / Your request is refused", text: expect.stringContaining("Motif : Budget non justifié") },
+    ]);
+    expect(recus()[0].text).toContain("Reason: Budget non justifié");
+  });
+
+  test("complément demandé, avec le commentaire de l'admin et un lien vers « Mes demandes »", async () => {
+    const { id } = await createKeyRequest(deps, demandeur, demande);
+    await requestCompletion(avecCourriel(), admin, id, "Précisez le projet");
+    expect(recus()).toEqual([
+      { to: ["mmaudet@linagora.com"], subject: "Votre demande est à compléter / Your request needs more information", text: expect.stringContaining("Commentaire : Précisez le projet") },
+    ]);
+    expect(recus()[0].text).toContain("https://portail.test/demandes");
+  });
+
+  test("adhésion acceptée, avec l'équipe retenue", async () => {
+    litellm.withTeam({ teamId: "equipe-data", teamAlias: "Data", models: [], memberUids: [] });
+    litellm.withTeam({ teamId: "equipe-lps", teamAlias: "LPS Paris", models: [], memberUids: [] });
+    const { id } = await createTeamJoinRequest(deps, demandeur, { teamId: "equipe-data", justification: "Projet d'analyse" });
+    await approveTeamJoinRequest(avecCourriel(), admin, id, "equipe-lps");
+    expect(recus()).toEqual([
+      { to: ["mmaudet@linagora.com"], subject: "Votre adhésion est acceptée / Your team membership is accepted", text: expect.stringContaining("Vous êtes désormais membre de l'équipe LPS Paris.") },
+    ]);
+    expect(recus()[0].text).toContain("You are now a member of the LPS Paris team.");
   });
 });

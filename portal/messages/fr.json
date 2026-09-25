@@ -498,6 +498,23 @@
     "nouvelleDemandeAdhesion": {
       "sujet": "Nouvelle demande d'adhésion",
       "corps": "{uid} demande à rejoindre l'équipe {equipe}."
+    },
+    "demandeApprouvee": {
+      "sujet": "Votre demande de clé est approuvée",
+      "corps": "Votre demande de clé d'API pour l'équipe {equipe} est approuvée. Retirez votre clé avant le {date, date, long} dans « Mes clés ».",
+      "corpsSansEcheance": "Votre demande de clé d'API pour l'équipe {equipe} est approuvée. Retirez votre clé dans « Mes clés »."
+    },
+    "demandeRefusee": {
+      "sujet": "Votre demande est refusée",
+      "corps": "Votre demande pour l'équipe {equipe} est refusée.\nMotif : {motif}"
+    },
+    "complementDemande": {
+      "sujet": "Votre demande est à compléter",
+      "corps": "Un administrateur demande un complément sur votre demande pour l'équipe {equipe}.\nCommentaire : {commentaire}"
+    },
+    "adhesionAcceptee": {
+      "sujet": "Votre adhésion est acceptée",
+      "corps": "Vous êtes désormais membre de l'équipe {equipe}. Vous pouvez y demander une clé d'API."
     }
   }
 }

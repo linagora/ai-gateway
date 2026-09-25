@@ -12,7 +12,10 @@ export interface NotificationDeps {
   portalUrl?: string;
 }
 
-const TRADUCTEURS = [createTranslator({ locale: "fr", messages: fr }), createTranslator({ locale: "en", messages: en })] as const;
+const TRADUCTEURS = [
+  createTranslator({ locale: "fr", messages: fr, timeZone: "Europe/Paris" }),
+  createTranslator({ locale: "en", messages: en, timeZone: "Europe/Paris" }),
+] as const;
 type Traducteur = (typeof TRADUCTEURS)[number];
 
 /**
@@ -62,4 +65,48 @@ export async function notifyNewRequest(
     lienVers(deps, `/gestion/demandes/${demande.id}`),
   );
   await envoyer(deps, deps.adminEmails ?? [], message);
+}
+
+/** F-40 : demande de clé approuvée, avec l'échéance de retrait et un lien vers « Mes clés » ; jamais de clé. */
+export async function notifyKeyApproved(deps: NotificationDeps, avis: { to: string; equipe: string; echeance: Date | null }): Promise<void> {
+  const message = bilingue(
+    (t) => ({
+      sujet: t("courriels.demandeApprouvee.sujet"),
+      corps: avis.echeance
+        ? t("courriels.demandeApprouvee.corps", { equipe: avis.equipe, date: avis.echeance })
+        : t("courriels.demandeApprouvee.corpsSansEcheance", { equipe: avis.equipe }),
+    }),
+    lienVers(deps, "/cles"),
+  );
+  await envoyer(deps, [avis.to], message);
+}
+
+/** Demande refusée, avec le motif. */
+export async function notifyRefused(deps: NotificationDeps, avis: { to: string; equipe: string; motif: string }): Promise<void> {
+  const message = bilingue(
+    (t) => ({ sujet: t("courriels.demandeRefusee.sujet"), corps: t("courriels.demandeRefusee.corps", { equipe: avis.equipe, motif: avis.motif }) }),
+    lienVers(deps, "/demandes"),
+  );
+  await envoyer(deps, [avis.to], message);
+}
+
+/** Complément demandé, avec le commentaire de l'admin. */
+export async function notifyCompletionRequested(deps: NotificationDeps, avis: { to: string; equipe: string; commentaire: string | null }): Promise<void> {
+  const message = bilingue(
+    (t) => ({
+      sujet: t("courriels.complementDemande.sujet"),
+      corps: t("courriels.complementDemande.corps", { equipe: avis.equipe, commentaire: avis.commentaire || "—" }),
+    }),
+    lienVers(deps, "/demandes"),
+  );
+  await envoyer(deps, [avis.to], message);
+}
+
+/** Adhésion acceptée, avec l'équipe retenue. */
+export async function notifyMembershipApproved(deps: NotificationDeps, avis: { to: string; equipe: string }): Promise<void> {
+  const message = bilingue(
+    (t) => ({ sujet: t("courriels.adhesionAcceptee.sujet"), corps: t("courriels.adhesionAcceptee.corps", { equipe: avis.equipe }) }),
+    lienVers(deps, "/demandes/nouvelle"),
+  );
+  await envoyer(deps, [avis.to], message);
 }
