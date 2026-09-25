@@ -1,11 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { signOut } from "@/auth";
 import { PolicyViolationError, PortalError } from "@/lib/errors";
 import { CHECK_LABELS } from "@/lib/labels";
+import { COOKIE_LANGUE, LANGUES, type Langue } from "@/lib/langue";
 import type { DataLevel } from "@/lib/policy";
 import {
   approveKeyRequest,
@@ -25,6 +27,19 @@ import { getDeps, requireUser } from "@/lib/session";
 
 export async function signOutAction(): Promise<void> {
   await signOut({ redirectTo: "/" });
+}
+
+/** Sélecteur FR | EN : mémorise la langue choisie ; Next.js réaffiche alors la page courante. */
+export async function changerLangueAction(formData: FormData): Promise<void> {
+  const langue = formData.get("langue");
+  if (!(LANGUES as readonly unknown[]).includes(langue)) return;
+  (await cookies()).set(COOKIE_LANGUE, langue as Langue, {
+    path: "/",
+    maxAge: 365 * 24 * 60 * 60,
+    sameSite: "lax",
+    httpOnly: true,
+    secure: (process.env.AUTH_URL ?? "").startsWith("https://"),
+  });
 }
 
 export async function createKeyRequestAction(formData: FormData): Promise<void> {

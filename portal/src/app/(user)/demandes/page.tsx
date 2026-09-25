@@ -3,11 +3,12 @@ import { KIND_LABELS, LEVEL_LABELS, STATUS_LABELS } from "@/lib/labels";
 import { listMyRequests } from "@/lib/services/requests";
 import { getDeps, requireUser } from "@/lib/session";
 import { cancelRequestAction } from "../../actions";
-import { dateFr, Notice } from "../../components";
+import { Notice, formats } from "../../components";
 
 /** F-24 : mes demandes, leur statut et le commentaire de l'admin ; annuler ou compléter. */
 export default async function MyRequestsPage(props: PageProps<"/demandes">) {
   const user = await requireUser();
+  const { date } = await formats();
   const searchParams = await props.searchParams;
   const requests = await listMyRequests(getDeps(), user);
 
@@ -34,7 +35,7 @@ export default async function MyRequestsPage(props: PageProps<"/demandes">) {
         <tbody>
           {requests.map((r) => (
             <tr key={r.id}>
-              <td>{dateFr(r.createdAt)}</td>
+              <td>{date(r.createdAt)}</td>
               <td>{KIND_LABELS[r.kind]}</td>
               <td>{r.teamAlias}</td>
               <td>{r.dataLevel ? LEVEL_LABELS[r.dataLevel] : "—"}</td>

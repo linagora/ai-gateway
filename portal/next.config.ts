@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import createNextIntlPlugin from "next-intl/plugin";
 
 const nextConfig: NextConfig = {
   // Image Docker minimale (brief §1) : .next/standalone + public + .next/static.
@@ -11,4 +12,5 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Textes du portail en français et en anglais : configuration par requête dans src/i18n/request.ts.
+export default createNextIntlPlugin()(nextConfig);

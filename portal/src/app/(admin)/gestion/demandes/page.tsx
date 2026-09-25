@@ -2,12 +2,13 @@ import Link from "next/link";
 import { KIND_LABELS, LEVEL_LABELS } from "@/lib/labels";
 import { listPendingRequests } from "@/lib/services/admin-requests";
 import { getDeps, requireAdminPage } from "@/lib/session";
-import { dateFr, Notice } from "../../../components";
+import { Notice, formats } from "../../../components";
 import { AdminNav } from "../admin-nav";
 
 /** F-30 : demandes en attente, de la plus ancienne à la plus récente. */
 export default async function PendingRequestsPage(props: PageProps<"/gestion/demandes">) {
   const admin = await requireAdminPage();
+  const { date } = await formats();
   const searchParams = await props.searchParams;
   const pending = await listPendingRequests(getDeps(), admin);
 
@@ -32,7 +33,7 @@ export default async function PendingRequestsPage(props: PageProps<"/gestion/dem
         <tbody>
           {pending.map((r) => (
             <tr key={r.id}>
-              <td>{dateFr(r.createdAt)}</td>
+              <td>{date(r.createdAt)}</td>
               <td>{r.requesterUid}</td>
               <td>{KIND_LABELS[r.kind]}</td>
               <td>{r.teamAlias}</td>

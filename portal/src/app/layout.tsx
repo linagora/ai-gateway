@@ -1,33 +1,39 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
-import { UserMenu } from "./components";
+import { SelecteurLangue, UserMenu } from "./components";
 import "./globals.css";
 
-export const metadata: Metadata = {
-  title: "Portail IA Linagora",
-  description: "Catalogue des modèles d'IA et demandes de clés d'API",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("metadonnees");
+  return { title: t("titre"), description: t("description") };
+}
 
 // Interface minimale (V1) : l'ergonomie et le graphisme seront repris dans un second temps.
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const [locale, t] = await Promise.all([getLocale(), getTranslations("entete")]);
   return (
-    <html lang="fr">
+    <html lang={locale}>
       <body>
-        <header className="flex flex-wrap items-center gap-4 border-b px-6 py-3">
-          <Link href="/" className="font-semibold">
-            Portail IA Linagora
-          </Link>
-          <nav className="flex gap-4">
-            <Link href="/catalogue">Catalogue</Link>
-            <Link href="/demandes">Mes demandes</Link>
-            <Link href="/demandes/nouvelle">Nouvelle demande</Link>
-          </nav>
-          <Suspense fallback={null}>
-            <UserMenu />
-          </Suspense>
-        </header>
-        <main className="mx-auto max-w-6xl px-6 py-6">{children}</main>
+        <NextIntlClientProvider>
+          <header className="flex flex-wrap items-center gap-4 border-b px-6 py-3">
+            <Link href="/" className="font-semibold">
+              {t("portail")}
+            </Link>
+            <nav className="flex gap-4" aria-label={t("navigation")}>
+              <Link href="/catalogue">{t("catalogue")}</Link>
+              <Link href="/demandes">{t("mesDemandes")}</Link>
+              <Link href="/demandes/nouvelle">{t("nouvelleDemande")}</Link>
+            </nav>
+            <Suspense fallback={null}>
+              <UserMenu />
+            </Suspense>
+            <SelecteurLangue />
+          </header>
+          <main className="mx-auto max-w-6xl px-6 py-6">{children}</main>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

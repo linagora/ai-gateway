@@ -3,11 +3,12 @@ import { HOSTING_LABELS, LEVEL_DESCRIPTIONS, LEVEL_LABELS } from "@/lib/labels";
 import { DATA_LEVELS } from "@/lib/policy";
 import { listCatalog } from "@/lib/services/catalog";
 import { getDeps, requireUser } from "@/lib/session";
-import { euros, Notice } from "../../components";
+import { Notice, formats } from "../../components";
 
 /** F-10 à F-12 : catalogue des modèles visibles, filtrable par niveau, fournisseur et catégorie. */
 export default async function CataloguePage(props: PageProps<"/catalogue">) {
   await requireUser();
+  const { euros, nombre } = await formats();
   const searchParams = await props.searchParams;
   const pick = (name: string) => (typeof searchParams[name] === "string" ? (searchParams[name] as string) : "");
   const [level, provider, category] = [pick("niveau"), pick("fournisseur"), pick("categorie")];
@@ -81,7 +82,7 @@ export default async function CataloguePage(props: PageProps<"/catalogue">) {
               <td>
                 {euros(m.inputPricePerMillion)} / {euros(m.outputPricePerMillion)}
               </td>
-              <td>{m.maxInputTokens?.toLocaleString("fr-FR") ?? "—"}</td>
+              <td>{nombre(m.maxInputTokens)}</td>
               <td>
                 {m.description}
                 {m.useCases && <p className="text-sm text-neutral-600">Cas d&apos;usage : {m.useCases}</p>}

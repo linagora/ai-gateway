@@ -1,0 +1,24 @@
+{
+  "metadonnees": {
+    "titre": "Linagora AI Portal",
+    "description": "AI model catalog and API key requests"
+  },
+  "entete": {
+    "portail": "Linagora AI Portal",
+    "langue": "Language",
+    "navigation": "Main navigation",
+    "catalogue": "Catalog",
+    "mesDemandes": "My requests",
+    "nouvelleDemande": "New request",
+    "gestion": "Administration",
+    "deconnexion": "Sign out"
+  },
+  "accueil": {
+    "bonjour": "Hello {nom}",
+    "presentation": "This portal gives access to Linagora's AI models through an OpenAI-compatible API. Each API key is approved by an administrator and limited to the models compatible with the confidentiality level of your data.",
+    "catalogue": "Browse the model catalog",
+    "demander": "Request an API key",
+    "suivre": "Track my requests",
+    "valider": "Review requests (administrators)"
+  }
+}

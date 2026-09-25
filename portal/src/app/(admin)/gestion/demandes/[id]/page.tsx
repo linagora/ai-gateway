@@ -11,12 +11,13 @@ import {
   refuseRequestAction,
   requestCompletionAction,
 } from "../../../../actions";
-import { dateFr, euros, Notice } from "../../../../components";
+import { Notice, formats } from "../../../../components";
 import { AdminNav } from "../../admin-nav";
 
 /** F-31 / F-32 : fiche d'une demande, contrôles de politique ✔/✘ et décisions. */
 export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id]">) {
   const admin = await requireAdminPage();
+  const { date, euros } = await formats();
   const { id } = await props.params;
   const searchParams = await props.searchParams;
   const deps = getDeps();
@@ -38,7 +39,7 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
         <dt>Statut</dt>
         <dd>{STATUS_LABELS[review.status]}</dd>
         <dt>Soumise le</dt>
-        <dd>{dateFr(review.createdAt)}</dd>
+        <dd>{date(review.createdAt)}</dd>
         <dt>Demandeur</dt>
         <dd>
           {review.requesterUid} ({review.requesterEmail})

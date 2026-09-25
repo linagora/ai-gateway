@@ -1,0 +1,24 @@
+{
+  "metadonnees": {
+    "titre": "Portail IA Linagora",
+    "description": "Catalogue des modèles d'IA et demandes de clés d'API"
+  },
+  "entete": {
+    "portail": "Portail IA Linagora",
+    "langue": "Langue",
+    "navigation": "Navigation principale",
+    "catalogue": "Catalogue",
+    "mesDemandes": "Mes demandes",
+    "nouvelleDemande": "Nouvelle demande",
+    "gestion": "Gestion",
+    "deconnexion": "Se déconnecter"
+  },
+  "accueil": {
+    "bonjour": "Bonjour {nom}",
+    "presentation": "Ce portail donne accès aux modèles d'IA de Linagora par une API compatible OpenAI. Chaque clé d'API est validée par un administrateur et limitée aux modèles compatibles avec le niveau de confidentialité de vos données.",
+    "catalogue": "Consulter le catalogue des modèles",
+    "demander": "Demander une clé d'API",
+    "suivre": "Suivre mes demandes",
+    "valider": "Valider les demandes (administrateurs)"
+  }
+}

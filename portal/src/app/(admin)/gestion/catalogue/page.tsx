@@ -3,12 +3,13 @@ import { DATA_LEVELS } from "@/lib/policy";
 import { listCatalogForAdmin } from "@/lib/services/catalog";
 import { getDeps, requireAdminPage } from "@/lib/session";
 import { saveCatalogEntryAction } from "../../../actions";
-import { euros, Notice } from "../../../components";
+import { Notice, formats } from "../../../components";
 import { AdminNav } from "../admin-nav";
 
 /** F-50 (sans la synchronisation vers LiteLLM) : enrichissement des modèles déclarés dans LiteLLM. */
 export default async function AdminCataloguePage(props: PageProps<"/gestion/catalogue">) {
   const admin = await requireAdminPage();
+  const { euros } = await formats();
   const searchParams = await props.searchParams;
   const models = await listCatalogForAdmin(getDeps(), admin);
 
