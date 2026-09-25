@@ -23,7 +23,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           <header className="flex flex-wrap items-center gap-4 border-t-4 border-b border-t-linagora px-6 py-3">
             <Link href="/" className="flex items-center gap-2 font-semibold text-neutral-900 no-underline">
               {/* Logo de référence : Linagora-logo.png de Wikimedia Commons (656 × 138), servi tel quel. */}
-              <Image src="/linagora-logo.png" alt="Linagora" width={114} height={24} priority unoptimized />
+              <Image src="/linagora-logo.png" alt="Linagora" width={114} height={24} loading="eager" unoptimized />
               {t("portail")}
             </Link>
             {user && (
