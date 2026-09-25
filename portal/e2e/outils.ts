@@ -23,15 +23,7 @@ export async function connecter(browser: Browser, personne: Personne, langueNavi
 
 export const ADMIN: Personne = { uid: "mmaudet", email: "mmaudet@linagora.com", name: "Admin E2E" };
 
-const CAS_USAGE = [
-  "Rédaction et synthèse",
-  "Code",
-  "Analyse de documents longs",
-  "Traduction",
-  "Extraction et classement",
-  "Raisonnement et analyse",
-  "Décision structurée",
-];
+const CAS_USAGE = ["Rédaction et analyse", "Code", "Extraction et automatisation", "Création d'images"];
 
 /**
  * Enrichit un modèle de démonstration depuis la gestion du catalogue (session admin), et le rend visible.

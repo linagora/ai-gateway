@@ -20,8 +20,8 @@ const qwen: CatalogEntryInput = {
   longDescriptionEn: null,
   limitationsFr: null,
   limitationsEn: null,
-  useCases: ["WRITING", "DOCUMENT_ANALYSIS"],
-  recommendedFor: ["WRITING"],
+  useCases: ["WRITING_ANALYSIS", "CODING"],
+  recommendedFor: ["WRITING_ANALYSIS"],
   dataLevel: "N3",
   visible: true,
 };
@@ -41,8 +41,8 @@ describe("fiche de modèle bilingue (ticket #6)", () => {
       displayNameFr: "Qwen 3.8 27B",
       displayNameEn: "Qwen 3.8 27B",
       shortDescriptionEn: "General-purpose model hosted by OVHcloud",
-      useCases: ["WRITING", "DOCUMENT_ANALYSIS"],
-      recommendedFor: ["WRITING"],
+      useCases: ["WRITING_ANALYSIS", "CODING"],
+      recommendedFor: ["WRITING_ANALYSIS"],
     });
   });
 });
@@ -112,7 +112,7 @@ describe("page d'un niveau (ticket #7)", () => {
         capabilities: ["images", "raisonnement"],
         inputPricePerMillion: 0.4,
         outputPricePerMillion: 2.7,
-        useCases: ["WRITING", "DOCUMENT_ANALYSIS"],
+        useCases: ["WRITING_ANALYSIS", "CODING"],
       },
     ]);
   });
@@ -177,9 +177,9 @@ describe("filtres, tri et recommandations (ticket #8)", () => {
       .withModel({ modelName: "ministral-8b", publisher: "Mistral AI", executionRegion: "UE", capabilities: [], inputCostPerToken: 0.0000001, outputCostPerToken: 0.0000001, maxInputTokens: 32_768 });
     const fiche = (modelName: string, displayNameFr: string, useCases: UseCase[], recommendedFor: UseCase[]) =>
       saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName, displayNameFr, useCases, recommendedFor, dataLevel: "N1" });
-    await fiche("mistral-medium", "Mistral Medium 3.5", ["WRITING", "CODING"], []);
-    await fiche("kimi-k3", "Kimi K3", ["CODING", "REASONING"], ["CODING"]);
-    await fiche("ministral-8b", "Ministral 8B", ["EXTRACTION", "TRANSLATION"], []);
+    await fiche("mistral-medium", "Mistral Medium 3.5", ["WRITING_ANALYSIS", "CODING"], []);
+    await fiche("kimi-k3", "Kimi K3", ["CODING", "WRITING_ANALYSIS"], ["CODING"]);
+    await fiche("ministral-8b", "Ministral 8B", ["EXTRACTION_AUTOMATION", "WRITING_ANALYSIS"], []);
     return litellm;
   }
 
@@ -194,19 +194,34 @@ describe("filtres, tri et recommandations (ticket #8)", () => {
     expect(await noms(litellm, { search: "MÉDIUM" })).toEqual(["Mistral Medium 3.5"]);
   });
 
-  test("le cas d'usage « Transcription » trouve les modèles qui transcrivent l'audio, avec sa recommandation", async () => {
+  test("le cas d'usage « Création d'images » trouve les modèles qui génèrent des images, avec sa recommandation", async () => {
     const litellm = await catalogueFiltrable();
-    litellm.withModel({ modelName: "voxtral-small", publisher: "Mistral AI", executionRegion: "UE", capabilities: ["audio_video"], inputCostPerToken: 0.0000001, outputCostPerToken: 0.0000003, maxInputTokens: 32_000 });
+    litellm.withModel({
+      modelName: "flux.2-pro",
+      publisher: "Black Forest Labs",
+      executionRegion: "HORS_UE",
+      capabilities: ["images", "generation_images"],
+      apiKind: "image",
+      imagePrice: 0.0278,
+      inputCostPerToken: 0,
+      outputCostPerToken: 0.000009,
+      maxInputTokens: 46_864,
+    });
     await saveCatalogEntry({ db: testDb, litellm }, admin, {
       ...qwen,
-      modelName: "voxtral-small",
-      displayNameFr: "Voxtral Small",
-      useCases: ["TRANSCRIPTION", "EXTRACTION"],
-      recommendedFor: ["TRANSCRIPTION"],
+      modelName: "flux.2-pro",
+      displayNameFr: "FLUX.2 [pro]",
+      useCases: ["IMAGE_CREATION"],
+      recommendedFor: ["IMAGE_CREATION"],
       dataLevel: "N1",
     });
-    const { models } = await levelModels({ db: testDb, litellm }, { level: "N1", language: "fr", criteria: { useCase: "TRANSCRIPTION" } });
-    expect(models.map((m) => [m.displayName, m.recommendedFor])).toEqual([["Voxtral Small", ["TRANSCRIPTION"]]]);
+    const { models } = await levelModels({ db: testDb, litellm }, { level: "N1", language: "fr", criteria: { useCase: "IMAGE_CREATION" } });
+    expect(models.map((m) => [m.displayName, m.recommendedFor])).toEqual([["FLUX.2 [pro]", ["IMAGE_CREATION"]]]);
+    // Un modèle d'images annonce un prix par image ; son contexte en jetons ne dit rien d'utile au salarié.
+    expect(models[0]).toMatchObject({ apiKind: "image", pricePerImage: 0.0278, context: null });
+    // La capacité « génération d'images » les distingue des modèles qui lisent seulement les images.
+    expect(await noms(litellm, { capabilities: ["generation_images"] })).toEqual(["FLUX.2 [pro]"]);
+    expect(await noms(litellm, { capabilities: ["images"] })).toEqual(["FLUX.2 [pro]", "Kimi K3", "Mistral Medium 3.5"]);
   });
 
   test("une recherche de moins de trois caractères ne filtre pas", async () => {
@@ -233,8 +248,8 @@ describe("filtres, tri et recommandations (ticket #8)", () => {
     const litellm = await catalogueDeDemonstration();
     const recommandations = async (level: DataLevel) =>
       Object.fromEntries((await levelModels({ db: testDb, litellm }, { level, language: "fr" })).models.map((m) => [m.modelName, m.recommendedFor]));
-    expect(await recommandations("N2")).toEqual({ interne: ["WRITING"], confidentiel: [] });
-    expect(await recommandations("N3")).toEqual({ confidentiel: ["WRITING"] });
+    expect(await recommandations("N2")).toEqual({ interne: ["WRITING_ANALYSIS"], confidentiel: [] });
+    expect(await recommandations("N3")).toEqual({ confidentiel: ["WRITING_ANALYSIS"] });
   });
 
   test("le tri par défaut place en tête les modèles recommandés, puis les autres par prix mixte croissant ; les autres tris suivent le prix, le contexte ou le nom", async () => {
@@ -299,7 +314,7 @@ describe("validation de la fiche (ticket #6)", () => {
   const litellm = () => new FakeLiteLLM().withModel({ modelName: "qwen3.8" });
 
   test("une recommandation pour un cas d'usage non coché est refusée", async () => {
-    await expect(saveCatalogEntry({ db: testDb, litellm: litellm() }, admin, { ...qwen, useCases: ["WRITING"], recommendedFor: ["CODING"] })).rejects.toMatchObject({
+    await expect(saveCatalogEntry({ db: testDb, litellm: litellm() }, admin, { ...qwen, useCases: ["WRITING_ANALYSIS"], recommendedFor: ["CODING"] })).rejects.toMatchObject({
       code: "recommandation_hors_cas_usage",
     });
   });
@@ -369,7 +384,7 @@ describe("catalogue des utilisateurs (F-10)", () => {
         modelName: "qwen3.8",
         displayName: "Qwen 3.8 27B",
         description: "Modèle généraliste hébergé par OVHcloud",
-        useCases: ["WRITING", "DOCUMENT_ANALYSIS"],
+        useCases: ["WRITING_ANALYSIS", "CODING"],
         publisher: null,
         executionRegion: "UE",
         dataLevel: "N3",

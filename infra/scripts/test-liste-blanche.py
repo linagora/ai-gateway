@@ -1,9 +1,10 @@
 """Recette de la liste blanche OpenRouter, de la garde et de JEV. Crée une équipe et trois clés de test,
-supprimées à la fin. Coût : un appel au modèle testé et un appel à JEV (moins de 0,01 €).
+supprimées à la fin. Coût : un appel au modèle testé et un appel à JEV (moins de 0,01 €) ; aucun modèle
+d'images n'est appelé.
 
   cd /opt/linagora-ia && docker compose exec -T litellm python3 - [modèle] < scripts/test-liste-blanche.py
 
-Le modèle testé (par défaut ministral-3b, le moins cher de la liste) doit figurer dans la liste blanche.
+Le modèle testé (par défaut ministral-8b, le moins cher de la liste) doit figurer dans la liste blanche.
 """
 import json
 import os
@@ -16,7 +17,7 @@ import yaml
 
 PROXY = "http://localhost:4000/admin"
 LISTE = "/app/passerelle/liste-blanche-openrouter.yaml"
-MODELE = sys.argv[1] if len(sys.argv) > 1 else "ministral-3b"
+MODELE = sys.argv[1] if len(sys.argv) > 1 else "ministral-8b"
 JEV = "jev-latest"
 MAITRE = os.environ["LITELLM_MASTER_KEY"]
 echecs = []
@@ -67,15 +68,21 @@ for nom, m in sorted(openrouter.items()):
     controle(f"{nom} : servi uniquement dans sa zone, sans repli", bool(p.get("only")) and set(p["only"]) <= set(zone) and p.get("allow_fallbacks") is False, json.dumps(p))
 
 # 1 bis. Faits techniques déclarés pour le catalogue du portail : éditeur, capacités, hébergeurs, zone
-CAPACITES = {"images", "audio_video", "raisonnement"}
+CAPACITES = {"images", "generation_images", "audio_video", "raisonnement"}
 for nom in sorted(set(openrouter) | {"qwen3.8", JEV}):
     mi = next((m.get("model_info") or {} for m in modeles if m["model_name"] == nom), {})
     faits = {k: mi.get(k) for k in ("fournisseur", "editeur", "capacites", "hebergeurs", "zone")}
     controle(f"{nom} : fournisseur, éditeur, capacités, hébergeurs et zone déclarés",
              bool(mi.get("fournisseur")) and bool(mi.get("editeur")) and isinstance(mi.get("capacites"), list)
              and set(mi["capacites"]) <= CAPACITES and bool(mi.get("hebergeurs")) and mi.get("zone") in ("UE", "monde"), json.dumps(faits, ensure_ascii=False))
-    # Type d'API : JEV est une API de décision (« System One ») ; sans déclaration, un modèle est de conversation.
-    controle(f"{nom} : type d'API déclaré", mi.get("type_api") == ("decision" if nom == JEV else None), f"type_api = {mi.get('type_api')!r}")
+    # Type d'API : JEV est une API de décision (« System One ») ; un modèle d'images de la liste (jetons_par_image)
+    # déclare son type et son prix indicatif par image ; sans déclaration, un modèle est de conversation.
+    images = "jetons_par_image" in (liste.get(nom) or {})
+    attendu = "decision" if nom == JEV else "image" if images else None
+    controle(f"{nom} : type d'API déclaré", mi.get("type_api") == attendu, f"type_api = {mi.get('type_api')!r}")
+    if images:
+        controle(f"{nom} : génération d'images et prix par image déclarés",
+                 "generation_images" in (mi.get("capacites") or []) and (mi.get("prix_image_eur") or 0) > 0, json.dumps(faits | {"prix_image_eur": mi.get("prix_image_eur")}, ensure_ascii=False))
 
 # 2. Équipe et clés de test : sans restriction de modèle, N1 limitée au modèle testé, Expérimental limitée à JEV
 _, equipe = http("POST", "/team/new", {"team_alias": "recette-liste-blanche"})
@@ -105,6 +112,11 @@ try:
                           "fallbacks": [JEV], "additional_drop_params": ["provider"]}.items():
         s, rep = conversation(cle["key"], **{param: valeur})
         controle(f"paramètre « {param} » refusé", s == 400 and "Paramètre refusé" in json.dumps(rep, ensure_ascii=False), f"HTTP {s} {json.dumps(rep, ensure_ascii=False)[:200]}")
+
+    # 5 bis. API d'images et de vidéos de LiteLLM, qui n'y compte pas le coût de nos modèles : refusées par la garde
+    for chemin, corps in [("/v1/images/generations", {"model": MODELE, "prompt": "essai"}), ("/v1/videos", {"model": MODELE, "prompt": "essai"})]:
+        s, rep = http("POST", chemin, corps, cle["key"])
+        controle(f"API refusée : {chemin}", s == 400 and "API refusée" in json.dumps(rep, ensure_ascii=False), f"HTTP {s} {json.dumps(rep, ensure_ascii=False)[:200]}")
 
     # 6. JEV : modèle de la passerelle, réservé aux clés qui le portent
     question = json.dumps({"state": "Mes virements échouent depuis trois jours, c'est bloquant.",

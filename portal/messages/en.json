@@ -37,17 +37,14 @@
       "HORS_UE": "Outside the EU"
     },
     "casUsage": {
-      "WRITING": "Writing & summarizing",
+      "WRITING_ANALYSIS": "Writing & analysis",
       "CODING": "Coding",
-      "DOCUMENT_ANALYSIS": "Long-document analysis",
-      "TRANSLATION": "Translation",
-      "TRANSCRIPTION": "Transcription",
-      "EXTRACTION": "Extraction & classification",
-      "REASONING": "Reasoning & analysis",
-      "STRUCTURED_DECISIONS": "Structured decisions"
+      "EXTRACTION_AUTOMATION": "Extraction & automation",
+      "IMAGE_CREATION": "Image creation"
     },
     "capacites": {
-      "images": "Images",
+      "images": "Image input",
+      "generation_images": "Image generation",
       "audio_video": "Audio & video",
       "raisonnement": "Reasoning"
     },
@@ -259,6 +256,7 @@
       "eleve": "High price"
     },
     "prix": "{entree} input, {sortie} output, per million tokens",
+    "prixImage": "About {prix} per image",
     "contexte": "{jetons} tokens, or about {pages} pages",
     "hypothesePages": "Assumption: a page of text in French is about 750 tokens.",
     "contexteInconnu": "Context size not disclosed",
@@ -291,11 +289,16 @@
       "titre": "A decision API, not a chat model",
       "explication": "This model is a decision API (“System One”): it does not chat. The last message holds a JSON request: “state” describes the situation, “questions” lists the expected decisions, each with its type and instructions. The response is an “answers” JSON object, with one answer per question."
     },
+    "apiImage": {
+      "titre": "Image model",
+      "explication": "This model creates an image from your description. Call it like a chat model, asking for an image as output (\"modalities\"): the image comes back base64-encoded in the response, ready to save."
+    },
     "exempleAppel": "Example call",
     "exemple": {
       "message": "Hello! Summarize the benefits of free software in three points.",
       "etat": "My transfers have been failing for three days and payroll is blocked.",
-      "question": "Does the message express urgency?"
+      "question": "Does the message express urgency?",
+      "image": "Watercolor of a Breton lighthouse at sunset"
     },
     "copier": "Copy the example",
     "copie": "Example copied"

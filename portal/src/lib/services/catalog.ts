@@ -104,7 +104,12 @@ export interface LevelModel {
   /** Cas d'usage pour lesquels l'admin recommande le modèle, sur la seule page de son niveau maximal. */
   recommendedFor: UseCase[];
   priceTier: PriceTier;
-  /** Contexte arrondi au millier de jetons et son équivalent en pages ; null si la passerelle ne le déclare pas. */
+  /** Prix indicatif d'une image, en euros, pour un modèle d'images ; null pour les autres modèles. */
+  pricePerImage: number | null;
+  /**
+   * Contexte arrondi au millier de jetons et son équivalent en pages ; null si la passerelle ne le déclare pas,
+   * ou pour un modèle d'images, dont le contexte en jetons ne dit rien d'utile au salarié.
+   */
   context: { tokens: number; pages: number } | null;
 }
 
@@ -228,7 +233,8 @@ function modelsOfLevel(visible: VisibleModel[], level: DataLevel, language: Lang
       acceptsUpTo: entry.dataLevel === level ? null : entry.dataLevel,
       recommendedFor: entry.dataLevel === level ? entry.recommendedFor : [],
       priceTier: priceTier(blendedPricePerMillion(inputPricePerMillion, outputPricePerMillion)),
-      context: context(model.maxInputTokens),
+      pricePerImage: model.apiKind === "image" ? model.imagePrice : null,
+      context: model.apiKind === "image" ? null : context(model.maxInputTokens),
       longDescription: text(entry.longDescriptionFr, entry.longDescriptionEn),
       limitations: text(entry.limitationsFr, entry.limitationsEn),
       hosts: model.hosts,
