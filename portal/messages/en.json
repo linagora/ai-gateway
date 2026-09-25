@@ -277,6 +277,7 @@
     "notreChoix": "Our pick for: {cas}",
     "selectionner": "Select",
     "selectionnerModele": "Select {nom}",
+    "voirFiche": "View details<masque> of {nom}</masque>",
     "demanderSelection": "Request a key for the selection"
   },
   "detail": {

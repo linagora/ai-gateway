@@ -277,6 +277,7 @@
     "notreChoix": "Notre choix pour : {cas}",
     "selectionner": "Sélectionner",
     "selectionnerModele": "Sélectionner {nom}",
+    "voirFiche": "Voir la fiche détaillée<masque> de {nom}</masque>",
     "demanderSelection": "Demander une clé pour la sélection"
   },
   "detail": {

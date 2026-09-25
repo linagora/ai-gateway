@@ -74,7 +74,7 @@ test("un parcours complet en anglais, de la connexion à la validation admin, ne
   await page.getByRole("region", { name: "N2 Internal" }).getByRole("link", { name: "See the models" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("N2 Internal");
   await sansFrancais(page, "page d'un niveau");
-  await page.getByRole("article", { name: "Modèle interne" }).getByRole("link", { name: "Modèle interne" }).click();
+  await page.getByRole("article", { name: "Modèle interne" }).getByRole("link", { name: "Modèle interne", exact: true }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await sansFrancais(page, "détail");
   await page.getByRole("dialog").getByRole("link", { name: "Close" }).click();

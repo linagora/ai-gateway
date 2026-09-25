@@ -176,10 +176,17 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
                     ))}
                   </ul>
                 )}
-                <label className="mt-auto pt-2 font-normal">
-                  <input type="checkbox" name="modeles" value={m.modelName} aria-label={t("selectionnerModele", { nom: m.displayName })} />{" "}
-                  {t("selectionner")}
-                </label>
+                {/* Le nom du modèle mène aussi à sa fiche, mais un lien explicite se remarque mieux (retours de recette). */}
+                <div className="mt-auto flex flex-wrap items-center justify-between gap-x-4 gap-y-1 pt-2">
+                  <label className="mt-0 font-normal">
+                    <input type="checkbox" name="modeles" value={m.modelName} aria-label={t("selectionnerModele", { nom: m.displayName })} />{" "}
+                    {t("selectionner")}
+                  </label>
+                  <Link href={levelPageHref(level, searchParams, m.modelName)} scroll={false} className="text-sm">
+                    {t.rich("voirFiche", { nom: m.displayName, masque: (texte) => <span className="sr-only">{texte}</span> })}{" "}
+                    <span aria-hidden="true">→</span>
+                  </Link>
+                </div>
               </article>
             ))}
           </div>
