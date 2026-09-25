@@ -541,7 +541,8 @@
     },
     "rappelExpiration": {
       "sujet": "Reminder: your key {alias} expires soon",
-      "corps": "Your API key {alias} expires on {date, date, long}. To keep using it, request its renewal in “My keys”."
+      "corps": "Your API key {alias} expires {delai}, on {date, date, long}. To keep using it, request its renewal in “My keys”.",
+      "delai": "{jours, plural, =0 {today} =1 {tomorrow} =30 {in a month} other {in # days}}"
     },
     "cleRevoquee": {
       "sujet": "Your key {alias} has been revoked",

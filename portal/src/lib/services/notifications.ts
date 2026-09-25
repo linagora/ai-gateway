@@ -120,12 +120,16 @@ export async function notifyPickupReminder(deps: NotificationDeps, avis: { to: s
   await envoyer(deps, [avis.to], message);
 }
 
-/** Rappel J-7 : une clé expire bientôt ; son renouvellement se demande dans « Mes clés ». */
-export async function notifyExpiryReminder(deps: NotificationDeps, avis: { to: string; alias: string; echeance: Date }): Promise<void> {
+/** Rappel d'expiration (un mois, sept jours ou la veille) : son renouvellement se demande dans « Mes clés ». */
+export async function notifyExpiryReminder(deps: NotificationDeps, avis: { to: string; alias: string; echeance: Date; jours: number }): Promise<void> {
   const message = bilingue(
     (t) => ({
       sujet: t("courriels.rappelExpiration.sujet", { alias: avis.alias }),
-      corps: t("courriels.rappelExpiration.corps", { alias: avis.alias, date: avis.echeance }),
+      corps: t("courriels.rappelExpiration.corps", {
+        alias: avis.alias,
+        date: avis.echeance,
+        delai: t("courriels.rappelExpiration.delai", { jours: avis.jours }),
+      }),
     }),
     lienVers(deps, "/cles"),
   );

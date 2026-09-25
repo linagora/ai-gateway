@@ -541,7 +541,8 @@
     },
     "rappelExpiration": {
       "sujet": "Rappel : votre clé {alias} expire bientôt",
-      "corps": "Votre clé d'API {alias} expire le {date, date, long}. Pour continuer à l'utiliser, demandez son renouvellement dans « Mes clés »."
+      "corps": "Votre clé d'API {alias} expire {delai}, le {date, date, long}. Pour continuer à l'utiliser, demandez son renouvellement dans « Mes clés ».",
+      "delai": "{jours, plural, =0 {aujourd'hui} =1 {demain} =30 {dans un mois} other {dans # jours}}"
     },
     "cleRevoquee": {
       "sujet": "Votre clé {alias} a été révoquée",
