@@ -3,7 +3,7 @@ supprimées à la fin. Coût : un appel au modèle testé et un appel à JEV (mo
 
   cd /opt/linagora-ia && docker compose exec -T litellm python3 - [modèle] < scripts/test-liste-blanche.py
 
-Le modèle testé (par défaut ministral-3b, le moins cher de la liste) doit figurer dans la liste blanche.
+Le modèle testé (par défaut ministral-8b, le moins cher de la liste) doit figurer dans la liste blanche.
 """
 import json
 import os
@@ -16,7 +16,7 @@ import yaml
 
 PROXY = "http://localhost:4000/admin"
 LISTE = "/app/passerelle/liste-blanche-openrouter.yaml"
-MODELE = sys.argv[1] if len(sys.argv) > 1 else "ministral-3b"
+MODELE = sys.argv[1] if len(sys.argv) > 1 else "ministral-8b"
 JEV = "jev-latest"
 MAITRE = os.environ["LITELLM_MASTER_KEY"]
 echecs = []
