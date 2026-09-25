@@ -107,16 +107,22 @@ ssh ia-host 'cd /opt/linagora-ia && MK=$(grep ^LITELLM_MASTER_KEY= .env | cut -d
 ```
 Puis `/admin/key/generate` avec ce `team_id`, appel `https://ai-api.linagora.com/v1/chat/completions` (une fois avec le modèle OpenRouter, une fois avec Qwen3.8) avec la clé de test, vérification de la dépense (`/admin/key/info` : montant cohérent avec le tarif EUR), et **suppression** de la clé et de l'équipe de test (`/admin/key/delete`, `/admin/team/delete`).
 
-## Phase 6 — SSO admin LiteLLM (🧑 LemonLDAP::NG)
+## Phase 6 — SSO : client OIDC unique et point de contrôle (🧑 LemonLDAP::NG)
 
-🧑 L'utilisateur déclare dans LemonLDAP::NG les clients OIDC du PRD §4.3 (au minimum `litellm-admin` et `superset` ; `portail-ia` peut attendre la phase 9), avec **une règle d'accès limitant `litellm-admin` aux uid admins**, et renseigne les secrets dans `.env`.
+Un seul client OIDC, celui du portail (PRD §4.3). `/admin` et `/stats` sont protégés par le point de contrôle du portail (`caddy/portal-gate.caddy`), avec les listes `PORTAL_ADMIN_UIDS` et `PORTAL_REPORTING_UIDS` du `.env`. Ni LiteLLM ni Superset n'ont de SSO propre.
 
-L'agent vérifie les endpoints réels : `curl -s https://sso.linagora.com/.well-known/openid-configuration | jq '{authorization_endpoint, token_endpoint, userinfo_endpoint}'` et corrige les variables `GENERIC_*` si besoin. Consulter la doc LiteLLM « SSO for Admin UI » de la version déployée pour la désignation des admins (attribut de rôle ou `PROXY_ADMIN_ID`).
+🧑 L'utilisateur fait déclarer le client `portail-ia` : redirect URI `https://ai-gateway.linagora.com/api/auth/callback/lemonldap`, tous les salariés, scopes `openid profile email`, claims `sub` (= uid), `email` et `name` dans l'ID token, PKCE S256. Il saisit ensuite le secret : `ssh -t ia-host '/opt/linagora-ia/scripts/set-env-var.sh OIDC_CLIENT_SECRET'`.
 
+L'agent vérifie l'issuer : `curl -s https://sso.linagora.com/.well-known/openid-configuration | jq '{issuer, authorization_endpoint, code_challenge_methods_supported}'`.
+
+⚠️ Tant que le portail n'est pas déployé (phase 9), `/admin` et `/stats` répondent 502 (fermeture par défaut). Accès de secours à la console LiteLLM par un tunnel SSH :
 ```bash
-ssh ia-host 'cd /opt/linagora-ia && docker compose up -d litellm'
+IP=$(ssh ia-host "docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' linagora-ia-litellm-1")
+ssh -N -L 14000:$IP:4000 ia-host    # puis http://localhost:14000/admin/ui (compte UI_USERNAME / UI_PASSWORD)
 ```
-**Contrôle** : connexion à `https://ai-gateway.linagora.com/admin/ui` via « Login with SSO » (redirect URI `https://ai-gateway.linagora.com/admin/sso/callback`) avec un uid admin ; un uid non admin est refusé par LemonLDAP.
+Mot de passe de la console : `ssh -t ia-host '/opt/linagora-ia/scripts/set-env-var.sh UI_PASSWORD'`, puis `docker compose up -d litellm`.
+
+**Contrôle** (après la phase 9) : un admin atteint `https://ai-gateway.linagora.com/admin/ui` puis se connecte avec le compte local ; un salarié non admin reçoit 403 ; un lecteur listé dans `PORTAL_REPORTING_UIDS` atteint `/stats/` ; sans session, les deux renvoient vers la connexion SSO du portail. Le même fragment Caddy est testé automatiquement : `portal/e2e/point-de-controle.spec.ts`.
 
 ## Phase 7 — Reporting (Superset) et sauvegardes
 
@@ -133,8 +139,8 @@ ssh ia-host 'cd /opt/linagora-ia && docker compose up -d litellm'
         --firstname Admin --lastname IA --email admin-ia@linagora.com --password "$(openssl rand -hex 16)" && \
      docker compose run --rm superset superset init && docker compose up -d redis superset'
    ```
-   Connexion OIDC sur `https://ai-gateway.linagora.com/stats/` avec l'uid admin. **Recette du sous-chemin** : pages, graphiques, exports CSV, liens de partage. Si les assets sont servis correctement sous `/stats/static/`, retirer `/static/*` du Caddyfile ; si le sous-chemin est trop instable dans la version retenue, 🧑 le signaler (repli possible : sous-domaine dédié). Ajouter la base « LiteLLM reporting » : `postgresql+psycopg2://reporting_ro:<REPORTING_RO_PASSWORD>@postgres:5432/litellm` (saisie par l'utilisateur dans l'UI, ou par l'agent via la CLI Superset sans afficher le mot de passe). Script prêt : `superset/init-reporting.py` (connexion + un jeu de données par vue, idempotent ; le mot de passe passe par l'entrée standard, voir l'en-tête du script). Créer les datasets à partir des vues `reporting.*` (montants en €), le tableau de bord « Vue d'ensemble » (PRD §7.1) et un graphique de contrôle sur `v_check_pricing_eur` (doit rester vide).
-   Autres lecteurs : les créer dans Superset (Paramètres → Utilisateurs) avec `username = uid`, rôle `Gamma` + accès aux datasets.
+   Connexion par le point de contrôle du portail (après la phase 9) sur `https://ai-gateway.linagora.com/stats/`. **Recette du sous-chemin** : pages, graphiques, exports CSV, liens de partage. Si les assets sont servis correctement sous `/stats/static/`, retirer `/static/*` du Caddyfile ; si le sous-chemin est trop instable dans la version retenue, 🧑 le signaler (repli possible : sous-domaine dédié). Ajouter la base « LiteLLM reporting » : `postgresql+psycopg2://reporting_ro:<REPORTING_RO_PASSWORD>@postgres:5432/litellm` (saisie par l'utilisateur dans l'UI, ou par l'agent via la CLI Superset sans afficher le mot de passe). Script prêt : `superset/init-reporting.py` (connexion + un jeu de données par vue, idempotent ; le mot de passe passe par l'entrée standard, voir l'en-tête du script). Créer les datasets à partir des vues `reporting.*` (montants en €), le tableau de bord « Vue d'ensemble » (PRD §7.1) et un graphique de contrôle sur `v_check_pricing_eur` (doit rester vide).
+   Autres lecteurs : ajouter leur uid à `PORTAL_REPORTING_UIDS` dans le `.env`, puis `docker compose --profile portal up -d portal`. Leur compte Superset est créé à la première visite, avec le rôle « Lecteur reporting » (créé par `superset/init-reporting.py`).
 3. Sauvegardes :
    ```bash
    ssh ia-host '(sudo crontab -l 2>/dev/null; echo "30 2 * * * /opt/linagora-ia/scripts/backup.sh >> /var/log/linagora-ia-backup.log 2>&1") | sort -u | sudo crontab - && sudo /opt/linagora-ia/scripts/backup.sh'
@@ -153,7 +159,7 @@ ssh ia-host 'cd /opt/linagora-ia && docker compose --profile portal build portal
   docker compose --profile portal run --rm portal-migrate && \
   docker compose --profile portal up -d portal'
 ```
-**Contrôle** : critères 4, 5, 6, 8 du PRD §9.
+**Contrôle** : critères 4, 5, 6, 8 du PRD §9, puis contrôles du point de contrôle (phase 6), qui devient actif avec le portail.
 
 ## Phase 10 — Langfuse (phase 2, seconde instance recommandée)
 
@@ -176,5 +182,6 @@ ssh ia-host 'cd /opt/linagora-ia && docker compose --profile portal build portal
 ## Dépannage rapide
 - `docker compose logs -f <service>` ; `docker stats --no-stream` (mémoire : la B2-15 est juste).
 - Certificat non émis : DNS non propagé ou port 80 bloqué → `docker compose logs caddy`.
-- SSO en échec : comparer l'URI de redirection déclarée dans LemonLDAP avec celle du PRD §4.3 (schéma, domaine, chemin exacts, préfixes `/admin`, `/stats`, `/traces` compris).
+- SSO en échec : comparer l'URI de redirection déclarée dans LemonLDAP avec celle du PRD §4.3 (`https://ai-gateway.linagora.com/api/auth/callback/lemonldap`, à l'identique).
+- `/admin` ou `/stats` en 502 : le portail n'est pas démarré (point de contrôle) ; 403 : uid absent de `PORTAL_ADMIN_UIDS` / `PORTAL_REPORTING_UIDS`.
 - Session perdue en passant du portail à `/stats` ou `/admin` : collision de cookies sur le même domaine → vérifier les noms de cookies (Superset : `superset_session`).
