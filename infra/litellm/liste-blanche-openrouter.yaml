@@ -11,12 +11,17 @@
 #           (Mistral publie aussi /zdr et /us, Google Vertex /global et /us).
 #   monde : fournisseurs dont OpenRouter publie un siège aux États-Unis (liste du 2026-09-25), sans
 #           conservation des données (data_collection: deny) ; fournisseurs chinois exclus. Données
-#           publiques uniquement.
+#           publiques uniquement. S'y ajoute Black Forest Labs (Allemagne), dont OpenRouter ne publie
+#           ni le siège ni la zone : décision de l'utilisateur du 2026-09-25, pour les modèles FLUX.2.
 #
 # Prix déclarés en € = prix OpenRouter en $ (le plus élevé des points d'accès autorisés)
 #                      × (1 + frais d'achat de crédits) × taux USD→EUR.
 # prix_max_usd (facultatif) : plafond en $ par million de jetons (entrée, sortie), transmis à
 # OpenRouter (provider.max_price) : les points d'accès plus chers sont exclus du routage.
+#
+# Modèles d'images : appelés par la conversation (modalities), facturés au jeton d'image.
+# jetons_par_image : jetons d'une image par défaut, pour le prix indicatif affiché au catalogue.
+# majoration (facultative) : coefficient des prix déclarés, quand le fournisseur facture un minimum par image.
 
 taux_usd_eur: 0.87974        # BCE, 2026-09-24 : 1 EUR = 1,1367 USD. À revoir chaque trimestre.
 frais_openrouter: 0.055      # frais d'achat de crédits par carte (modèles facturés au prix des fournisseurs)
@@ -29,7 +34,7 @@ zones:
           google-vertex, groq, heygen, inference-net, io-net, ionstream, krea, mara, meta, modal,
           modelrun, modular, morph, novita, nvidia, open-inference, openai, parasail, perceptron,
           perplexity, phala, runway, sail-research, sambanova, switchpoint, tenstorrent, together,
-          venice, wafer, xai]
+          venice, wafer, xai, black-forest-labs]
 
 modeles:
   # --- Mistral (France), point d'accès UE de Mistral ---
@@ -55,3 +60,10 @@ modeles:
   # --- Kimi (Moonshot) : aucun fournisseur en UE, zone monde ---
   - {nom: kimi-k2.5, openrouter: moonshotai/kimi-k2.5, zone: monde}
   - {nom: kimi-k3, openrouter: moonshotai/kimi-k3, zone: monde, prix_max_usd: [3, 15]}   # hors offres « fast »
+
+  # --- Modèles d'images : aucun point d'accès OpenRouter en UE, zone monde (décision du 2026-09-25) ---
+  # Black Forest Labs facture au moins un mégapixel (4 096 jetons d'image), alors qu'une image par défaut
+  # en fait 3 072 (1024 × 768) : majoration de 4/3, pour que le coût compté ne soit jamais sous la facture.
+  - {nom: flux.2-pro, openrouter: black-forest-labs/flux.2-pro, zone: monde, jetons_par_image: 3072, majoration: 1.3334}
+  - {nom: flux.2-klein-4b, openrouter: black-forest-labs/flux.2-klein-4b, zone: monde, jetons_par_image: 3072, majoration: 1.3334}
+  - {nom: gemini-3.1-flash-image, openrouter: google/gemini-3.1-flash-image, zone: monde, jetons_par_image: 1120}
