@@ -37,14 +37,10 @@
       "HORS_UE": "Outside the EU"
     },
     "casUsage": {
-      "WRITING": "Writing & summarizing",
+      "WRITING_ANALYSIS": "Writing & analysis",
       "CODING": "Coding",
-      "DOCUMENT_ANALYSIS": "Long-document analysis",
-      "TRANSLATION": "Translation",
-      "TRANSCRIPTION": "Transcription",
-      "EXTRACTION": "Extraction & classification",
-      "REASONING": "Reasoning & analysis",
-      "STRUCTURED_DECISIONS": "Structured decisions"
+      "EXTRACTION_AUTOMATION": "Extraction & automation",
+      "IMAGE_CREATION": "Image creation"
     },
     "capacites": {
       "images": "Images",

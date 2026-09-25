@@ -37,14 +37,10 @@
       "HORS_UE": "Hors UE"
     },
     "casUsage": {
-      "WRITING": "Rédaction et synthèse",
+      "WRITING_ANALYSIS": "Rédaction et analyse",
       "CODING": "Code",
-      "DOCUMENT_ANALYSIS": "Analyse de documents longs",
-      "TRANSLATION": "Traduction",
-      "TRANSCRIPTION": "Transcription",
-      "EXTRACTION": "Extraction et classement",
-      "REASONING": "Raisonnement et analyse",
-      "STRUCTURED_DECISIONS": "Décision structurée"
+      "EXTRACTION_AUTOMATION": "Extraction et automatisation",
+      "IMAGE_CREATION": "Création d'images"
     },
     "capacites": {
       "images": "Images",

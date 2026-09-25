@@ -39,15 +39,13 @@ enum KeyType {
 }
 
 /// Cas d'usage d'un modèle : liste fermée commune à tous les modèles, libellés dans les dictionnaires.
+/// Quatre cas depuis le 2026-09-25 : rédaction et analyse (dont traduction, documents longs, raisonnement et
+/// transcription), code, extraction et automatisation (dont décision structurée), création d'images.
 enum UseCase {
-  WRITING
+  WRITING_ANALYSIS
   CODING
-  DOCUMENT_ANALYSIS
-  TRANSLATION
-  TRANSCRIPTION
-  EXTRACTION
-  REASONING
-  STRUCTURED_DECISIONS
+  EXTRACTION_AUTOMATION
+  IMAGE_CREATION
 }
 
 /// Fiche d'un modèle LiteLLM (model_name), saisie par l'admin : textes en français (obligatoires,

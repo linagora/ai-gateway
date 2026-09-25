@@ -9,9 +9,9 @@ test.beforeAll(async ({ browser }) => {
   const context = await connecter(browser, ADMIN);
   const page = await context.newPage();
   for (const modele of [
-    { nom: "dev-public", nomAffiche: "Modèle public", niveau: "N1", casUsage: ["Traduction"], recommandePour: ["Traduction"] },
-    { nom: "dev-interne", nomAffiche: "Modèle interne", niveau: "N2", casUsage: ["Rédaction et synthèse", "Code"], recommandePour: ["Code"] },
-    { nom: "dev-confidentiel", nomAffiche: "Modèle confidentiel", niveau: "N3", casUsage: ["Rédaction et synthèse"], recommandePour: ["Rédaction et synthèse"] },
+    { nom: "dev-public", nomAffiche: "Modèle public", niveau: "N1", casUsage: ["Extraction et automatisation"], recommandePour: ["Extraction et automatisation"] },
+    { nom: "dev-interne", nomAffiche: "Modèle interne", niveau: "N2", casUsage: ["Rédaction et analyse", "Code"], recommandePour: ["Code"] },
+    { nom: "dev-confidentiel", nomAffiche: "Modèle confidentiel", niveau: "N3", casUsage: ["Rédaction et analyse"], recommandePour: ["Rédaction et analyse"] },
     { nom: "dev-experimental", nomAffiche: "Modèle expérimental", niveau: "EXP", casUsage: [], recommandePour: [] },
   ]) {
     await enrichirModele(page, modele);
@@ -40,12 +40,12 @@ test("l'admin complète une fiche en anglais, coche ses cas d'usage et voit les 
   await expect(fiche()).toContainText("Alibaba (Qwen)");
   await expect(fiche()).toContainText("OVHcloud");
   await fiche().getByLabel("Nom affiché (anglais)").fill("Confidential model");
-  await fiche().getByRole("group", { name: "Cas d'usage" }).getByLabel("Rédaction et synthèse").check();
-  await fiche().getByRole("group", { name: "Recommandé pour" }).getByLabel("Rédaction et synthèse").check();
+  await fiche().getByRole("group", { name: "Cas d'usage" }).getByLabel("Rédaction et analyse").check();
+  await fiche().getByRole("group", { name: "Recommandé pour" }).getByLabel("Rédaction et analyse").check();
   await fiche().getByRole("button", { name: "Enregistrer" }).click();
   await expect(page.getByRole("status")).toHaveText("Catalogue mis à jour.");
   await expect(fiche().getByLabel("Nom affiché (anglais)")).toHaveValue("Confidential model");
-  await expect(fiche().getByRole("group", { name: "Recommandé pour" }).getByLabel("Rédaction et synthèse")).toBeChecked();
+  await expect(fiche().getByRole("group", { name: "Recommandé pour" }).getByLabel("Rédaction et analyse")).toBeChecked();
 
   // Une recommandation pour un cas d'usage non coché est refusée.
   await fiche().getByRole("group", { name: "Recommandé pour" }).getByLabel("Code").check();
@@ -243,7 +243,7 @@ test.describe("filtres, tri et recommandations (ticket #8)", () => {
     const context = await connecter(browser, salarie);
     const page = await context.newPage();
     await page.goto("/catalogue/n1");
-    await expect(modele(page, "Modèle public")).toContainText("Notre choix pour : Traduction");
+    await expect(modele(page, "Modèle public")).toContainText("Notre choix pour : Extraction et automatisation");
     await expect(modele(page, "Modèle interne")).not.toContainText("Notre choix");
     await page.getByRole("combobox", { name: "Cas d'usage" }).selectOption({ label: "Code" });
     await expect(page).toHaveURL(/cas=CODING/);
@@ -296,11 +296,17 @@ test.describe("filtres appliqués sans bouton (retours de recette du 2026-09-25)
     await context.close();
   });
 
-  test("le filtre des cas d'usage propose « Transcription »", async ({ browser }) => {
+  test("le filtre propose les quatre cas d'usage, dont la création d'images", async ({ browser }) => {
     const context = await connecter(browser, salarie);
     const page = await context.newPage();
     await page.goto("/catalogue/n1");
-    await expect(page.getByRole("combobox", { name: "Cas d'usage" }).locator("option", { hasText: /^Transcription$/ })).toHaveCount(1);
+    await expect(page.getByRole("combobox", { name: "Cas d'usage" }).locator("option")).toHaveText([
+      "Tous les cas d'usage",
+      "Rédaction et analyse",
+      "Code",
+      "Extraction et automatisation",
+      "Création d'images",
+    ]);
     await context.close();
   });
 
