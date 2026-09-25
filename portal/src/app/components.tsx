@@ -81,8 +81,12 @@ function parametresErreur(lire: (nom: string) => string | null, t: Awaited<Retur
       return enCause ? `${libelle} (${enCause.split(",").join(", ")})` : libelle;
     })
     .join(" ; ");
+  // Champs d'une saisie invalide : leur libellé dans la langue de l'utilisateur, jamais leur nom technique.
+  const champs = [...new Set((details.champs ?? "").split(", ").filter(Boolean).map((chemin) => chemin.split(".")[0]))]
+    .map((champ) => (t.has(`champs.${champ}`) ? t(`champs.${champ}`) : champ))
+    .join(", ");
   // Paramètres attendus par les messages (ICU) : une valeur vide choisit la variante par défaut.
-  return { objet: "", cas: "", modele: "", equipe: "", champs: "", ...details, controles };
+  return { objet: "", cas: "", modele: "", equipe: "", ...details, champs, controles };
 }
 
 /** Montants, nombres et dates au format de la langue de la requête (1 234,56 € en français, €1,234.56 en anglais). */

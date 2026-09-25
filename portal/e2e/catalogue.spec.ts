@@ -63,6 +63,25 @@ test("l'admin complète une fiche en anglais, coche ses cas d'usage et voit les 
   await anglais.close();
 });
 
+test("une saisie invalide nomme les champs en cause dans la langue de l'admin (ticket #6)", async ({ browser }) => {
+  for (const [langue, libelle, enregistrer] of [
+    ["fr-FR", "Nom affiché (français)", "Enregistrer"],
+    ["en-US", "Display name (French)", "Save"],
+  ]) {
+    const context = await connecter(browser, ADMIN, langue);
+    const page = await context.newPage();
+    await page.goto("/gestion/catalogue");
+    const fiche = page.locator("section").filter({ has: page.locator("code", { hasText: /^dev-experimental$/ }) });
+    // Des espaces passent le contrôle du navigateur, pas celui du serveur.
+    await fiche.getByLabel(libelle).fill("   ");
+    await fiche.getByRole("button", { name: enregistrer }).click();
+    const alerte = page.getByRole("main").getByRole("alert");
+    await expect(alerte).toContainText(libelle);
+    await expect(alerte).not.toContainText("displayNameFr");
+    await context.close();
+  }
+});
+
 test.describe("vue d'ensemble des niveaux (ticket #5)", () => {
   const carte = (page: Page, nom: string) => page.getByRole("region", { name: nom });
 
