@@ -3,6 +3,7 @@ import type { Db } from "@/lib/db";
 import { PortalError } from "@/lib/errors";
 import type { AccessRequest } from "@/generated/prisma/client";
 import type { ApiKind, KeyInfo, KeyParams, LiteLLMClient } from "@/lib/litellm/client";
+import { SANS_EXPIRATION } from "@/lib/durees";
 import type { DataLevel, RequestStatus } from "@/lib/policy";
 import type { LimiteDeDebit } from "@/lib/limite-de-debit";
 import { requireAdmin } from "@/lib/rbac";
@@ -140,7 +141,7 @@ export async function pickUpKey(deps: KeyDeps, user: SessionUser, requestId: str
     throw new PortalError("introuvable", "Demande de clé introuvable.", { objet: "demande_cle" });
   }
   if (request.status !== "APPROUVEE") throw new PortalError("transition_interdite", "Cette demande n'a pas de clé à retirer.", { cas: "traitee" });
-  if (!request.approvedDays) throw new PortalError("parametre_manquant", "Paramètres de la clé incomplets.");
+  if (request.approvedDays === null) throw new PortalError("parametre_manquant", "Paramètres de la clé incomplets.");
   verifierFrequence(deps, user, maintenant);
   const { count } = await deps.db.accessRequest.updateMany({ where: { id: request.id, status: "APPROUVEE" }, data: { status: "CLE_EMISE", keyIssuedAt: maintenant } });
   if (count === 0) throw new PortalError("transition_interdite", "La demande a été modifiée entre-temps ; rechargez la page.", { cas: "modifiee" });
@@ -149,7 +150,8 @@ export async function pickUpKey(deps: KeyDeps, user: SessionUser, requestId: str
 
   let generee;
   try {
-    generee = await deps.litellm.generateKey(keyParams(request, keyAlias(request), `${request.approvedDays}d`));
+    const duree = request.approvedDays === SANS_EXPIRATION ? null : `${request.approvedDays}d`;
+    generee = await deps.litellm.generateKey(keyParams(request, keyAlias(request), duree));
   } catch (e) {
     await rendreARetirer();
     // Le détail de l'erreur ne quitte pas le serveur : il pourrait décrire la requête envoyée.
@@ -185,7 +187,7 @@ export async function pickUpKey(deps: KeyDeps, user: SessionUser, requestId: str
 }
 
 /** Paramètres LiteLLM d'une clé, figés à l'approbation de sa demande (F-40). */
-function keyParams(request: AccessRequest, alias: string, duration: string, spend?: number): KeyParams {
+function keyParams(request: AccessRequest, alias: string, duration: string | null, spend?: number): KeyParams {
   if (request.approvedBudget === null || !request.budgetDuration) throw new PortalError("parametre_manquant", "Paramètres de la clé incomplets.");
   return {
     userId: request.requesterUid,
@@ -263,7 +265,7 @@ export async function revokeKey(deps: KeyDeps, user: SessionUser, requestId: str
 export async function replaceKey(deps: KeyDeps, user: SessionUser, requestId: string): Promise<{ key: string; alias: string }> {
   const request = await activeKeyRequest(deps.db, requestId, (r) => r.requesterUid === user.uid);
   const maintenant = deps.now?.() ?? new Date();
-  if (!request.keyExpiresAt || request.keyExpiresAt <= maintenant) {
+  if (request.keyExpiresAt && request.keyExpiresAt <= maintenant) {
     throw new PortalError("transition_interdite", "Cette clé a expiré : demandez son renouvellement.", { cas: "expiree" });
   }
   // Une clé bloquée par un admin ne se remplace pas : le blocage serait contourné.
@@ -275,9 +277,9 @@ export async function replaceKey(deps: KeyDeps, user: SessionUser, requestId: st
   const rang = request.keyReplacements + 2;
   let nouvelle;
   try {
-    // Durée restante, à la seconde : la nouvelle clé expire à la même date que l'ancienne, et reprend sa
-    // dépense, pour qu'un remplacement ne remette pas le budget à zéro.
-    const duree = `${Math.ceil((request.keyExpiresAt.getTime() - maintenant.getTime()) / 1000)}s`;
+    // Durée restante, à la seconde : la nouvelle clé expire à la même date que l'ancienne (jamais, si l'ancienne
+    // n'expirait pas), et reprend sa dépense, pour qu'un remplacement ne remette pas le budget à zéro.
+    const duree = request.keyExpiresAt ? `${Math.ceil((request.keyExpiresAt.getTime() - maintenant.getTime()) / 1000)}s` : null;
     nouvelle = await deps.litellm.generateKey(keyParams(request, `${keyAlias(request)}-${rang}`, duree, etat?.spend));
   } catch (e) {
     throw e instanceof PortalError ? e : new PortalError("passerelle_indisponible", "La génération de la clé de remplacement a échoué.");

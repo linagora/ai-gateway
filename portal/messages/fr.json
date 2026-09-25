@@ -60,7 +60,17 @@
     "typesDemande": {
       "CLE": "Clé d'API",
       "ADHESION_EQUIPE": "Accès à une équipe"
-    }
+    },
+    "durees": {
+      "1": "24 heures",
+      "7": "1 semaine",
+      "30": "1 mois",
+      "90": "3 mois",
+      "180": "6 mois",
+      "365": "1 an",
+      "0": "N'expire jamais"
+    },
+    "dureeEnJours": "{nombre, plural, one {# jour} other {# jours}}"
   },
   "avis": {
     "succes": {
@@ -316,7 +326,7 @@
     "aucunModeleNiveau": "Aucun modèle du catalogue n'accepte encore ce niveau.",
     "motif": "Motif",
     "projet": "Projet ou affaire",
-    "duree": "Durée souhaitée (jours)",
+    "duree": "Durée souhaitée",
     "engagement": "Je m'engage à ne pas soumettre de données d'un niveau supérieur à celui déclaré (niveau Expérimental : données publiques uniquement).",
     "envoyer": "Envoyer la demande",
     "resoumettre": "Resoumettre",
@@ -371,7 +381,6 @@
       "modeles": "Modèles demandés",
       "projet": "Projet",
       "budgetDuree": "Budget / durée souhaités",
-      "jours": "{nombre, plural, one {# jour} other {# jours}}",
       "motif": "Motif",
       "dernierCommentaire": "Dernier commentaire",
       "controles": "Contrôles de politique (état actuel)",
@@ -379,7 +388,7 @@
       "modelesAccordes": "Modèles accordés",
       "budget": "Budget (€)",
       "periode": "Période du budget (ex. 30d)",
-      "validite": "Durée de validité (jours)",
+      "validite": "Durée de validité",
       "rpm": "Limite de requêtes par minute (facultatif)",
       "tpm": "Limite de jetons par minute (facultatif)",
       "approuver": "Approuver",

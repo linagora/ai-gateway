@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
+import { DUREES_VALIDITE, optionsDuree } from "@/lib/durees";
 import { getCurrentUser } from "@/lib/session";
 import { changerLangueAction, signOutAction } from "./actions";
 
@@ -93,6 +94,26 @@ function parametresErreur(lire: (nom: string) => string | null, t: Awaited<Retur
 export async function ExplicationObligatoires() {
   const t = await getTranslations("formulaire");
   return <p className="text-sm text-neutral-600">{t.rich("obligatoires", { etoile: (etoile) => <span className="obligatoire">{etoile}</span> })}</p>;
+}
+
+/** Nom d'une durée de validité : « 3 mois », « N'expire jamais », ou « 60 jours » pour une durée hors liste. */
+export function libelleDuree(domaine: Awaited<ReturnType<typeof getTranslations<"domaine">>>, jours: number): string {
+  return (DUREES_VALIDITE as readonly number[]).includes(jours) ? domaine(`durees.${jours}`) : domaine("dureeEnJours", { nombre: jours });
+}
+
+/** Liste des durées de validité ; sans valeur courante, rien n'est présélectionné. */
+export async function ChoixDuree({ name, valeur }: { name: string; valeur: number | null }) {
+  const domaine = await getTranslations("domaine");
+  return (
+    <select name={name} defaultValue={valeur ?? ""}>
+      {valeur === null && <option value="">—</option>}
+      {optionsDuree(valeur).map((jours) => (
+        <option key={jours} value={jours}>
+          {libelleDuree(domaine, jours)}
+        </option>
+      ))}
+    </select>
+  );
 }
 
 /** Dépense d'une clé sur son budget ; une dépense non nulle de moins d'un centime s'affiche comme telle. */

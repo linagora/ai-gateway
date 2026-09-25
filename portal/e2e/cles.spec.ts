@@ -1,5 +1,5 @@
 import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
-import { ADMIN, connecter, demandeApprouvee, enrichirModele } from "./outils";
+import { ADMIN, ajouterAEquipe, connecter, demandeApprouvee, enrichirModele } from "./outils";
 
 /* Chantier « Mes clés » (spécification #14). La passerelle de développement répond par des modèles simulés. */
 const suffixe = Date.now().toString(36);
@@ -184,6 +184,38 @@ test("le titulaire renouvelle sa clé : demande préremplie, validée, et l'anci
   expect(await appel(request, nouvelle)).toBe(200);
   await expect(page.getByRole("article", { name: alias })).toContainText("Révoquée");
   await expect.poll(() => appel(request, ancienne), { timeout: 15_000, intervals: [1_000] }).toBe(401);
+});
+
+test("la durée se choisit dans une liste ; une clé qui n'expire jamais l'indique dans « Mes clés »", async ({ browser, request }) => {
+  const salarie = personne("sans-expiration");
+  const page = await (await connecter(browser, salarie)).newPage();
+  await ajouterAEquipe(salarie.uid, "R&D");
+  await page.goto("/demandes/nouvelle");
+  const duree = page.getByLabel("Durée souhaitée");
+  await expect(duree.locator("option")).toHaveText(["24 heures", "1 semaine", "1 mois", "3 mois", "6 mois", "1 an", "N'expire jamais"]);
+  await page.getByLabel("Équipe").selectOption({ label: "R&D" });
+  await page.getByRole("radio", { name: /^N1 — Public/ }).check();
+  await page.getByLabel(/Modèle public/).check();
+  await page.getByLabel("Motif").fill("Intégration continue");
+  await duree.selectOption({ label: "N'expire jamais" });
+  await page.getByLabel(/Je m'engage/).check();
+  await page.getByRole("button", { name: "Envoyer la demande" }).click();
+  await expect(page.getByRole("status")).toHaveText("Demande envoyée aux administrateurs.");
+
+  const admin = await (await connecter(browser, ADMIN)).newPage();
+  await admin.goto("/gestion/demandes");
+  await admin.getByRole("row", { name: new RegExp(`${salarie.uid}.*Clé d'API`) }).getByRole("link", { name: "Examiner" }).click();
+  await expect(admin.getByLabel("Durée de validité")).toHaveValue("0");
+  await admin.getByLabel("Budget (€)").fill("5");
+  await admin.getByLabel("Période du budget (ex. 30d)").fill("30d");
+  await admin.getByRole("button", { name: "Approuver", exact: true }).click();
+  await expect(admin.getByRole("status")).toHaveText("Demande approuvée.");
+  await admin.context().close();
+
+  const cle = await retirerCle(page);
+  const carte = page.getByRole("article", { name: new RegExp(`^${salarie.uid}-r-d-cle-`) });
+  await expect(carte).toContainText("N'expire jamais");
+  expect(await appel(request, cle)).toBe(200);
 });
 
 test("« Mes clés » s'affiche en anglais", async ({ browser }) => {

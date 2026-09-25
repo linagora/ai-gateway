@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test } from "vitest";
+import { SANS_EXPIRATION } from "@/lib/durees";
 import { LimiteDeDebit } from "@/lib/limite-de-debit";
 import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
@@ -532,5 +533,40 @@ describe("robustesse du retrait (revue de code)", () => {
     await expect(replaceKey(limites, titulaire, id)).rejects.toMatchObject({ code: "trop_de_generations" });
     maintenant = new Date(maintenant.getTime() + 10 * 60_000 + 1);
     await expect(replaceKey(limites, titulaire, id)).resolves.toMatchObject({ key: expect.stringMatching(/^sk-/) });
+  });
+});
+
+describe("clé sans expiration (décision du 2026-09-25)", () => {
+  /** Demande approuvée pour une clé qui n'expire jamais. */
+  async function demandeSansExpiration(): Promise<string> {
+    const { id } = await createKeyRequest(deps, titulaire, { ...demande, requestedDays: SANS_EXPIRATION });
+    await approveKeyRequest(deps, admin, id, { models: ["mistral-small"], budget: 15, budgetDuration: "30d", days: SANS_EXPIRATION, rpmLimit: null, tpmLimit: null });
+    return id;
+  }
+
+  test("la clé est générée sans durée et ne passe jamais en « Expirée »", async () => {
+    const id = await demandeSansExpiration();
+    const { key } = await pickUpKey(deps, titulaire, id);
+    expect([...litellm.keys.values()].find((k) => k.key === key)).toMatchObject({ duration: null, expiresAt: null });
+    maintenant = new Date(maintenant.getTime() + 10 * 365 * JOUR);
+    expect((await listMyKeys(deps, titulaire)).keys).toEqual([expect.objectContaining({ requestId: id, status: "CLE_EMISE", expiresAt: null })]);
+  });
+
+  test("elle se remplace, et sa remplaçante n'expire pas non plus", async () => {
+    const id = await demandeSansExpiration();
+    await pickUpKey(deps, titulaire, id);
+    const { key } = await replaceKey(deps, titulaire, id);
+    expect([...litellm.keys.values()].find((k) => k.key === key)).toMatchObject({ duration: null, expiresAt: null });
+  });
+
+  test("elle ne reçoit aucun rappel d'expiration", async () => {
+    const mailer = new FakeMailer();
+    const id = await demandeSansExpiration();
+    await pickUpKey(deps, titulaire, id);
+    for (const jours of [1, 30, 365]) {
+      maintenant = new Date(maintenant.getTime() + jours * JOUR);
+      await runDailyTask({ ...deps, mailer });
+    }
+    expect(mailer.outbox).toEqual([]);
   });
 });

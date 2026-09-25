@@ -54,7 +54,7 @@ export default async function GestionClesPage(props: PageProps<"/gestion/cles">)
                 <td>
                   {k.gatewayState ? <DepenseSurBudget spend={k.gatewayState.spend} maxBudget={k.gatewayState.maxBudget} /> : "—"}
                 </td>
-                <td>{k.expiresAt ? date(k.expiresAt) : "—"}</td>
+                <td>{k.expiresAt ? date(k.expiresAt) : domaine("durees.0")}</td>
                 <td>
                   {domaine(`statuts.${k.status}`)}
                   {k.gatewayState?.blocked && ` · ${cles("bloquee")}`}

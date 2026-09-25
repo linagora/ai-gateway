@@ -25,7 +25,8 @@ export const keyRequestInputSchema = z.object({
   project: z.string().trim().nullable(),
   /** Budget souhaité : plus demandé au salarié ; un renouvellement reprend celui de la clé d'origine. */
   requestedBudget: z.number().positive().nullable(),
-  requestedDays: z.number().int().positive().nullable(),
+  /** Durée souhaitée, en jours ; SANS_EXPIRATION (0) : la clé n'expire jamais. */
+  requestedDays: z.number().int().nonnegative().nullable(),
   commitment: z.boolean(),
   /** Renouvellement : la demande dont la clé est renouvelée (clé du demandeur, émise, expirée ou révoquée). */
   renewsRequestId: z.string().min(1).nullish(),

@@ -5,9 +5,10 @@ import { DATA_LEVELS } from "@/lib/policy";
 import { listCatalog } from "@/lib/services/catalog";
 import { renewalDraft } from "@/lib/services/keys";
 import { listMyTeams } from "@/lib/services/requests";
+import { readSettings } from "@/lib/services/settings";
 import { getDeps, requireUser } from "@/lib/session";
 import { createKeyRequestAction } from "../../../actions";
-import { ExplicationObligatoires, Notice } from "../../../components";
+import { ChoixDuree, ExplicationObligatoires, Notice } from "../../../components";
 import { Obligatoire } from "../../../obligatoire";
 import { NiveauEtModeles } from "./niveau-et-modeles";
 
@@ -33,7 +34,8 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
     typeof searchParams.renouvelle === "string" ? await renewalDraft(deps, user, searchParams.renouvelle).catch(() => null) : null;
   const niveau = renouvellement?.dataLevel ?? DATA_LEVELS.find((l) => l === searchParams.niveau) ?? null;
   const preselected = renouvellement?.models ?? [searchParams.modeles].flat().filter((m): m is string => typeof m === "string");
-  const [teams, catalog] = await Promise.all([listMyTeams(deps, user), listCatalog(deps, language)]);
+  const [teams, catalog, settings] = await Promise.all([listMyTeams(deps, user), listCatalog(deps, language), readSettings(deps.db)]);
+  const dureeParDefaut = settings.default_days ? Number(settings.default_days) : null;
 
   return (
     <>
@@ -82,7 +84,7 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
           {renouvellement?.requestedBudget != null && <input type="hidden" name="requestedBudget" value={renouvellement.requestedBudget} />}
           <label>
             {t("duree")}
-            <input name="requestedDays" type="number" min="1" step="1" defaultValue={renouvellement?.requestedDays ?? ""} />
+            <ChoixDuree name="requestedDays" valeur={renouvellement?.requestedDays ?? dureeParDefaut} />
           </label>
           <label className="font-normal">
             <input type="checkbox" name="commitment" required /> {t("engagement")}

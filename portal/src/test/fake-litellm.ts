@@ -5,7 +5,7 @@ import type { GeneratedKey, KeyInfo, KeyParams, LiteLLMClient, LiteLLMModel, Lit
 export interface FakeKey extends KeyParams {
   key: string;
   tokenId: string;
-  expiresAt: Date;
+  expiresAt: Date | null;
   spend: number;
   budgetResetAt: Date;
   blocked: boolean;
@@ -75,7 +75,7 @@ export class FakeLiteLLM implements LiteLLMClient {
     const key = `sk-${randomBytes(12).toString("hex")}`;
     const tokenId = randomBytes(32).toString("hex");
     const maintenant = this.horloge().getTime();
-    const expiresAt = new Date(maintenant + durationMs(params.duration));
+    const expiresAt = params.duration === null ? null : new Date(maintenant + durationMs(params.duration));
     const budgetResetAt = new Date(maintenant + durationMs(params.budgetDuration));
     this.keys.set(tokenId, { ...params, key, tokenId, expiresAt, spend: params.spend ?? 0, budgetResetAt, blocked: false });
     return { key, tokenId, alias: params.alias, expiresAt };

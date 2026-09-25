@@ -121,7 +121,8 @@ export const approvalInputSchema = z.object({
   models: z.array(z.string().min(1)),
   budget: z.number().positive().nullable(),
   budgetDuration: z.string().regex(/^\d+[smhd]$/).nullable(),
-  days: z.number().int().positive().nullable(),
+  /** Durée de validité en jours ; SANS_EXPIRATION (0) : la clé n'expire jamais. */
+  days: z.number().int().nonnegative().nullable(),
   rpmLimit: z.number().int().positive().nullable(),
   tpmLimit: z.number().int().positive().nullable(),
 });

@@ -60,7 +60,17 @@
     "typesDemande": {
       "CLE": "API key",
       "ADHESION_EQUIPE": "Team access"
-    }
+    },
+    "durees": {
+      "1": "24 hours",
+      "7": "1 week",
+      "30": "1 month",
+      "90": "3 months",
+      "180": "6 months",
+      "365": "1 year",
+      "0": "Never expires"
+    },
+    "dureeEnJours": "{nombre, plural, one {# day} other {# days}}"
   },
   "avis": {
     "succes": {
@@ -316,7 +326,7 @@
     "aucunModeleNiveau": "No model in the catalogue accepts this level yet.",
     "motif": "Reason",
     "projet": "Project or deal",
-    "duree": "Requested duration (days)",
+    "duree": "Requested duration",
     "engagement": "I commit to not submitting data above the declared level (Experimental level: public data only).",
     "envoyer": "Send request",
     "resoumettre": "Resubmit",
@@ -371,7 +381,6 @@
       "modeles": "Requested models",
       "projet": "Project",
       "budgetDuree": "Requested budget / duration",
-      "jours": "{nombre, plural, one {# day} other {# days}}",
       "motif": "Reason",
       "dernierCommentaire": "Last comment",
       "controles": "Policy checks (current state)",
@@ -379,7 +388,7 @@
       "modelesAccordes": "Granted models",
       "budget": "Budget (€)",
       "periode": "Budget period (e.g. 30d)",
-      "validite": "Validity (days)",
+      "validite": "Validity",
       "rpm": "Requests per minute limit (optional)",
       "tpm": "Tokens per minute limit (optional)",
       "approuver": "Approve",

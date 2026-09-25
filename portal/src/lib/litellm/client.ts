@@ -80,7 +80,8 @@ export interface KeyParams {
   models: string[];
   maxBudget: number;
   budgetDuration: string;
-  duration: string;
+  /** Durée de validité (90d, 3600s…) ; null pour une clé qui n'expire jamais. */
+  duration: string | null;
   rpmLimit: number | null;
   tpmLimit: number | null;
   alias: string;
@@ -94,7 +95,8 @@ export interface GeneratedKey {
   key: string;
   tokenId: string;
   alias: string;
-  expiresAt: Date;
+  /** null pour une clé qui n'expire jamais. */
+  expiresAt: Date | null;
 }
 
 /** Informations d'une clé émise, lues dans LiteLLM : dépense et budget en euros (tarifs déclarés en EUR). */
@@ -291,7 +293,7 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
         models: params.models,
         max_budget: params.maxBudget,
         budget_duration: params.budgetDuration,
-        duration: params.duration,
+        ...(params.duration === null ? {} : { duration: params.duration }),
         key_alias: params.alias,
         metadata: params.metadata,
         ...(params.rpmLimit === null ? {} : { rpm_limit: params.rpmLimit }),
@@ -302,8 +304,8 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
       if (status !== 200) fail("POST", "/key/generate", status, data);
       const generated = generatedKeySchema.parse(data);
       const tokenId = generated.token_id ?? generated.token;
-      if (!tokenId || !generated.expires) throw new LiteLLMError(status, "LiteLLM POST /key/generate : réponse incomplète");
-      return { key: generated.key, tokenId, alias: generated.key_alias ?? params.alias, expiresAt: new Date(generated.expires) };
+      if (!tokenId || (params.duration !== null && !generated.expires)) throw new LiteLLMError(status, "LiteLLM POST /key/generate : réponse incomplète");
+      return { key: generated.key, tokenId, alias: generated.key_alias ?? params.alias, expiresAt: generated.expires ? new Date(generated.expires) : null };
     },
 
     async getKeyInfo(tokenId) {

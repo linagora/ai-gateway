@@ -92,7 +92,7 @@ export async function demandeApprouvee(browser: Browser, page: Page, salarie: Pe
   await admin.getByRole("row", { name: new RegExp(`${salarie.uid}.*Clé d'API`) }).getByRole("link", { name: "Examiner" }).click();
   await admin.getByLabel("Budget (€)").fill("5");
   await admin.getByLabel("Période du budget (ex. 30d)").fill("30d");
-  await admin.getByLabel("Durée de validité (jours)").fill("30");
+  await admin.getByLabel("Durée de validité").selectOption({ label: "1 mois" });
   await admin.getByRole("button", { name: "Approuver", exact: true }).click();
   await expect(admin.getByRole("status")).toHaveText("Demande approuvée.");
   await admin.context().close();

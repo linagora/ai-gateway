@@ -69,7 +69,7 @@ export default async function MesClesPage(props: PageProps<"/cles">) {
                   <dt className="font-medium">{t("colonnes.emise")}</dt>
                   <dd>{date(k.issuedAt)}</dd>
                   <dt className="font-medium">{t("colonnes.expiration")}</dt>
-                  <dd>{k.expiresAt ? date(k.expiresAt) : "—"}</dd>
+                  <dd>{k.expiresAt ? date(k.expiresAt) : domaine("durees.0")}</dd>
                   {k.gatewayState && (
                     <>
                       <dt className="font-medium">{t("depense")}</dt>

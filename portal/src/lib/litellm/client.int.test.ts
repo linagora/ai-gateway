@@ -189,8 +189,8 @@ describe("clés", () => {
     expect(cle.key).toMatch(/^sk-/);
     expect(cle.tokenId).toMatch(/^[0-9a-f]{64}$/);
     expect(cle.alias).toBe(alias);
-    expect(cle.expiresAt.getTime()).toBeGreaterThan(avant + 89 * 86_400_000);
-    expect(cle.expiresAt.getTime()).toBeLessThan(avant + 91 * 86_400_000);
+    expect(cle.expiresAt?.getTime()).toBeGreaterThan(avant + 89 * 86_400_000);
+    expect(cle.expiresAt?.getTime()).toBeLessThan(avant + 91 * 86_400_000);
     await expect(client.generateKey(parametres)).rejects.toThrow(/alias/i);
   });
 
@@ -213,6 +213,15 @@ describe("clés", () => {
     createdKeyAliases.push(alias);
     const cle = await client.generateKey({ userId, teamId, models: ["dev-public"], maxBudget: 5, budgetDuration: "30d", duration: "90d", rpmLimit: null, tpmLimit: null, alias, metadata: {}, spend: 1.5 });
     expect((await client.getKeyInfo(cle.tokenId))?.spend).toBe(1.5);
+  });
+
+  test("une clé générée sans durée n'expire jamais", async () => {
+    const { userId, teamId } = await titulaire();
+    const alias = uniqueId("cle");
+    createdKeyAliases.push(alias);
+    const cle = await client.generateKey({ userId, teamId, models: ["dev-public"], maxBudget: 5, budgetDuration: "30d", duration: null, rpmLimit: null, tpmLimit: null, alias, metadata: {} });
+    expect(cle.expiresAt).toBeNull();
+    expect((await client.getKeyInfo(cle.tokenId))?.expiresAt).toBeNull();
   });
 
   test("une clé supprimée n'est plus connue, et la passerelle la refuse en quelques secondes", async () => {

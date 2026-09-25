@@ -13,7 +13,7 @@ import {
   refuseRequestAction,
   requestCompletionAction,
 } from "../../../../actions";
-import { ExplicationObligatoires, Notice, formats } from "../../../../components";
+import { ChoixDuree, ExplicationObligatoires, libelleDuree, Notice, formats } from "../../../../components";
 import { Obligatoire } from "../../../../obligatoire";
 import { AdminNav } from "../../admin-nav";
 
@@ -88,7 +88,7 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
             <dd>{review.project ?? "—"}</dd>
             <dt>{t("budgetDuree")}</dt>
             <dd>
-              {euros(review.requestedBudget)} / {review.requestedDays ? t("jours", { nombre: review.requestedDays }) : "—"}
+              {euros(review.requestedBudget)} / {review.requestedDays !== null ? libelleDuree(domaine, review.requestedDays) : "—"}
             </dd>
           </>
         )}
@@ -149,7 +149,7 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
             </label>
             <label>
               {t("validite")}
-              <input name="days" type="number" min="1" step="1" defaultValue={review.requestedDays ?? settings.default_days ?? ""} />
+              <ChoixDuree name="days" valeur={review.requestedDays ?? (settings.default_days ? Number(settings.default_days) : null)} />
             </label>
             <label>
               {t("rpm")}
