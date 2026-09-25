@@ -174,6 +174,8 @@ describe("notification des admins (ticket #23)", () => {
     expect(courriel.text).toContain("Michel-Marie Maudet (mmaudet@linagora.com) submitted an API key request:\n- Team: R&D\n- Confidentiality level: N2 Internal");
     expect(courriel.text).toContain(`https://portail.test/gestion/demandes/${id}`);
     expect(courriel.text.indexOf("a déposé")).toBeLessThan(courriel.text.indexOf("submitted"));
+    // Aucun tiret quadratin, pas même entre les deux langues.
+    expect(courriel.text).not.toContain("—");
   });
 
   test("une nouvelle demande d'accès aussi", async () => {
