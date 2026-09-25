@@ -115,6 +115,9 @@ export async function createTeamJoinRequest(deps: RequestDeps, user: SessionUser
   const team = await deps.litellm.getTeam(data.teamId);
   if (!team) throw new PortalError("introuvable", "Équipe introuvable.", { objet: "equipe" });
   if (team.memberUids.includes(user.uid)) throw new PortalError("deja_membre", `Vous êtes déjà membre de l'équipe ${team.teamAlias}.`, { equipe: team.teamAlias });
+  if ((await demandesDAccesEnCours(deps.db, user, team.teamId)).length > 0) {
+    throw new PortalError("demande_en_cours", `Vous avez déjà une demande d'accès en cours pour l'équipe ${team.teamAlias}.`, { equipe: team.teamAlias });
+  }
   const created = await deps.db.accessRequest.create({
     data: {
       kind: "ADHESION_EQUIPE",
@@ -193,6 +196,15 @@ export async function listMyTeams(deps: RequestDeps, user: SessionUser): Promise
 
 /** F-22 : équipes existantes que l'utilisateur peut demander à rejoindre. */
 export async function listJoinableTeams(deps: RequestDeps, user: SessionUser): Promise<LiteLLMTeamSummary[]> {
-  const mine = new Set((await listMyTeams(deps, user)).map((t) => t.teamId));
-  return (await deps.litellm.listTeams()).filter((t) => !mine.has(t.teamId)).sort((a, b) => a.teamAlias.localeCompare(b.teamAlias));
+  const [mine, enCours] = await Promise.all([listMyTeams(deps, user), demandesDAccesEnCours(deps.db, user)]);
+  const exclues = new Set([...mine.map((t) => t.teamId), ...enCours.map((r) => r.teamId)]);
+  return (await deps.litellm.listTeams()).filter((t) => !exclues.has(t.teamId)).sort((a, b) => a.teamAlias.localeCompare(b.teamAlias));
+}
+
+/** Demandes d'accès du salarié encore en cours (soumises ou à compléter). */
+function demandesDAccesEnCours(db: Db, user: SessionUser, teamId?: string) {
+  return db.accessRequest.findMany({
+    where: { requesterUid: user.uid, kind: "ADHESION_EQUIPE", status: { in: ["SOUMISE", "A_COMPLETER"] }, ...(teamId ? { teamId } : {}) },
+    select: { teamId: true },
+  });
 }

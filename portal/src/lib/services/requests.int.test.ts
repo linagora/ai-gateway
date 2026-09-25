@@ -97,6 +97,18 @@ describe("demandes d'accès à une équipe (F-22)", () => {
     expect(await listMyRequests(deps, demandeur)).toMatchObject([{ kind: "ADHESION_EQUIPE", teamAlias: "Data", status: "SOUMISE" }]);
   });
 
+  test("une seconde demande d'accès à la même équipe est refusée tant que la première est en cours ; l'équipe n'est plus proposée", async () => {
+    const { id } = await createTeamJoinRequest(deps, demandeur, { teamId: "equipe-data", justification: "Rejoindre le projet d'analyse" });
+    await expect(createTeamJoinRequest(deps, demandeur, { teamId: "equipe-data", justification: "Relance" })).rejects.toMatchObject({
+      code: "demande_en_cours",
+      params: { equipe: "Data" },
+    });
+    expect((await listJoinableTeams(deps, demandeur)).map((t) => t.teamId)).not.toContain("equipe-data");
+    await cancelRequest(deps, demandeur, id);
+    expect((await listJoinableTeams(deps, demandeur)).map((t) => t.teamId)).toContain("equipe-data");
+    await expect(createTeamJoinRequest(deps, demandeur, { teamId: "equipe-data", justification: "Relance" })).resolves.toMatchObject({ id: expect.any(String) });
+  });
+
   test("un membre de l'équipe ne peut pas demander à la rejoindre", async () => {
     await expect(createTeamJoinRequest(deps, demandeur, { teamId: "equipe-rd", justification: "…" })).rejects.toMatchObject({ code: "deja_membre" });
   });

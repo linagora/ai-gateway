@@ -92,6 +92,7 @@
     "erreurs": {
       "controles_en_echec": "La demande ne respecte pas la politique d'accès aux modèles. Contrôles en échec : {controles}.",
       "deja_membre": "Vous êtes déjà membre de l'équipe {equipe}.",
+      "demande_en_cours": "Vous avez déjà une demande d'accès en cours pour l'équipe {equipe}.",
       "engagement_requis": "Engagez-vous à ne pas soumettre de données d'un niveau supérieur à celui déclaré.",
       "interdit": "Action réservée aux administrateurs.",
       "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} other {Demande introuvable.}}",
@@ -334,7 +335,7 @@
   },
   "adhesion": {
     "titre": "Demander à rejoindre une équipe",
-    "aucuneEquipe": "Aucune autre équipe n'existe pour l'instant : contactez un administrateur.",
+    "aucuneEquipe": "Aucune équipe à rejoindre pour l'instant : vous êtes membre des autres équipes, ou votre demande d'accès est en cours (voir « Mes demandes »).",
     "equipe": "Équipe",
     "motif": "Motif",
     "envoyer": "Envoyer la demande"
