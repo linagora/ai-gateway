@@ -229,6 +229,40 @@ export interface AdminKey extends Omit<IssuedKey, "examples"> {
   holderEmail: string;
 }
 
+/** Clé approuvée qui attend son retrait, vue par les admins : avec son titulaire et l'échéance de retrait. */
+export interface AdminKeyToPickUp {
+  requestId: string;
+  holderUid: string;
+  holderEmail: string;
+  teamAlias: string;
+  dataLevel: DataLevel;
+  models: string[];
+  approvedAt: Date | null;
+  approvedBy: string | null;
+  pickupDeadline: Date | null;
+}
+
+/** Clés approuvées que leur titulaire n'a pas encore retirées, de la plus ancienne approbation à la plus récente. */
+export async function listKeysToPickUp(deps: KeyDeps, actor: SessionUser): Promise<AdminKeyToPickUp[]> {
+  requireAdmin(actor);
+  await markExpired(deps.db, deps.now?.() ?? new Date());
+  const [rows, delai] = await Promise.all([
+    deps.db.accessRequest.findMany({ where: { kind: "CLE", status: "APPROUVEE" }, orderBy: { decidedAt: "asc" } }),
+    readPickupDays(deps.db),
+  ]);
+  return rows.map((r) => ({
+    requestId: r.id,
+    holderUid: r.requesterUid,
+    holderEmail: r.requesterEmail,
+    teamAlias: r.teamAlias,
+    dataLevel: r.dataLevel as DataLevel,
+    models: r.approvedModels,
+    approvedAt: r.decidedAt,
+    approvedBy: r.decidedBy,
+    pickupDeadline: delai !== null && r.decidedAt ? pickupDeadline(r.decidedAt, delai) : null,
+  }));
+}
+
 /** F-43 : toutes les clés émises, les actives d'abord puis les plus récentes, avec leur dépense lue en direct. */
 export async function listAllKeys(deps: KeyDeps, actor: SessionUser): Promise<AdminKey[]> {
   requireAdmin(actor);

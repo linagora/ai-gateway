@@ -119,8 +119,8 @@ test("un admin voit toutes les clés émises et révoque celle d'un salarié (ti
 
   const admin = await (await connecter(browser, ADMIN)).newPage();
   await admin.goto("/gestion/demandes");
-  await admin.getByRole("navigation", { name: "Administration" }).getByRole("link", { name: "Clés", exact: true }).click();
-  await expect(admin.getByRole("heading", { level: 1 })).toHaveText("Clés émises");
+  await admin.getByRole("navigation", { name: "Administration" }).getByRole("link", { name: /^Clés/ }).click();
+  await expect(admin.getByRole("heading", { level: 1 })).toHaveText("Clés d'API");
   const ligne = admin.getByRole("row", { name: new RegExp(`${salarie.uid}.*${salarie.uid}-r-d-essai-gestion-.*R&D.*N1 — Public.*sur 5,00 €.*Clé émise`) });
   await ligne.getByText("Révoquer").click();
   await ligne.getByRole("button", { name: "Confirmer la révocation" }).click();

@@ -357,7 +357,9 @@
       "demandes": "Requests",
       "catalogue": "Catalog",
       "parametres": "Default values",
-      "cles": "Keys"
+      "cles": "Keys",
+      "aValider": "{nombre, plural, one {# request to review} other {# requests to review}}",
+      "aRetirer": "{nombre, plural, one {# key to pick up} other {# keys to pick up}}"
     },
     "file": {
       "titre": "Requests awaiting validation",
@@ -371,7 +373,17 @@
         "projet": "Project"
       },
       "examiner": "Review",
-      "aucune": "No pending request."
+      "aucune": "No pending request.",
+      "archive": {
+        "titre": "Archive: processed requests",
+        "aucune": "No processed request yet.",
+        "colonnes": {
+          "date": "Last update",
+          "statut": "Status",
+          "decision": "Decision"
+        },
+        "voir": "View"
+      }
     },
     "fiche": {
       "statut": "Status",
@@ -419,7 +431,7 @@
       "enregistrer": "Save"
     },
     "cles": {
-      "titre": "Issued keys",
+      "titre": "API keys",
       "aucune": "No key has been picked up yet.",
       "colonnes": {
         "titulaire": "Holder",
@@ -434,7 +446,24 @@
       "revocationAvertissement": "The gateway will refuse the key within seconds. Revocation cannot be undone.",
       "confirmerRevocation": "Confirm revocation",
       "bloquer": "Block",
-      "debloquer": "Unblock"
+      "debloquer": "Unblock",
+      "aRetirer": {
+        "titre": "Approved keys, waiting for pickup by the employee",
+        "colonnes": {
+          "modeles": "Models",
+          "approuvee": "Approved on",
+          "echeance": "Pickup deadline"
+        }
+      },
+      "actives": "Active keys",
+      "aucuneActive": "No active key.",
+      "archive": {
+        "titre": "Archive: revoked or expired keys",
+        "aucune": "No revoked or expired key.",
+        "colonnes": {
+          "emise": "Issued on"
+        }
+      }
     }
   },
   "introuvable": {

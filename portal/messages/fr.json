@@ -357,7 +357,9 @@
       "demandes": "Demandes",
       "catalogue": "Catalogue",
       "parametres": "Valeurs par défaut",
-      "cles": "Clés"
+      "cles": "Clés",
+      "aValider": "{nombre, plural, one {# demande à valider} other {# demandes à valider}}",
+      "aRetirer": "{nombre, plural, one {# clé à retirer} other {# clés à retirer}}"
     },
     "file": {
       "titre": "Demandes en attente de validation",
@@ -371,7 +373,17 @@
         "projet": "Projet"
       },
       "examiner": "Examiner",
-      "aucune": "Aucune demande en attente."
+      "aucune": "Aucune demande en attente.",
+      "archive": {
+        "titre": "Archive : demandes traitées",
+        "aucune": "Aucune demande traitée pour l'instant.",
+        "colonnes": {
+          "date": "Dernière mise à jour",
+          "statut": "Statut",
+          "decision": "Décision"
+        },
+        "voir": "Voir"
+      }
     },
     "fiche": {
       "statut": "Statut",
@@ -419,7 +431,7 @@
       "enregistrer": "Enregistrer"
     },
     "cles": {
-      "titre": "Clés émises",
+      "titre": "Clés d'API",
       "aucune": "Aucune clé n'a encore été retirée.",
       "colonnes": {
         "titulaire": "Titulaire",
@@ -434,7 +446,24 @@
       "revocationAvertissement": "La passerelle refusera la clé dans les secondes qui suivent. La révocation est définitive.",
       "confirmerRevocation": "Confirmer la révocation",
       "bloquer": "Bloquer",
-      "debloquer": "Débloquer"
+      "debloquer": "Débloquer",
+      "aRetirer": {
+        "titre": "Clés approuvées, à retirer par le salarié",
+        "colonnes": {
+          "modeles": "Modèles",
+          "approuvee": "Approuvée le",
+          "echeance": "Échéance de retrait"
+        }
+      },
+      "actives": "Clés actives",
+      "aucuneActive": "Aucune clé active.",
+      "archive": {
+        "titre": "Archive : clés révoquées ou expirées",
+        "aucune": "Aucune clé révoquée ou expirée.",
+        "colonnes": {
+          "emise": "Émise le"
+        }
+      }
     }
   },
   "introuvable": {

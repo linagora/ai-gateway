@@ -48,6 +48,47 @@ export async function listPendingRequests(deps: AdminDeps, actor: SessionUser): 
   }));
 }
 
+/** Pastilles du menu d'administration : demandes à valider, et clés approuvées que leur titulaire n'a pas retirées. */
+export async function countAdminPending(deps: AdminDeps, actor: SessionUser): Promise<{ demandes: number; clesARetirer: number }> {
+  requireAdmin(actor);
+  await markExpired(deps.db, deps.now?.() ?? new Date());
+  const [demandes, clesARetirer] = await Promise.all([
+    deps.db.accessRequest.count({ where: { status: "SOUMISE" } }),
+    deps.db.accessRequest.count({ where: { kind: "CLE", status: "APPROUVEE" } }),
+  ]);
+  return { demandes, clesARetirer };
+}
+
+/** Demande traitée, telle que l'archive la présente : avec la décision et son auteur. */
+export interface ProcessedRequest extends PendingRequest {
+  decidedAt: Date | null;
+  decidedBy: string | null;
+  decisionComment: string | null;
+  updatedAt: Date;
+}
+
+/** Archive des demandes (F-30) : toutes celles qui ne sont plus à valider, la plus récemment modifiée d'abord. */
+export async function listProcessedRequests(deps: AdminDeps, actor: SessionUser): Promise<ProcessedRequest[]> {
+  requireAdmin(actor);
+  await markExpired(deps.db, deps.now?.() ?? new Date());
+  const rows = await deps.db.accessRequest.findMany({ where: { status: { not: "SOUMISE" } }, orderBy: { updatedAt: "desc" } });
+  return rows.map((r) => ({
+    id: r.id,
+    kind: r.kind,
+    requesterUid: r.requesterUid,
+    teamAlias: r.teamAlias,
+    dataLevel: r.dataLevel,
+    models: r.approvedModels.length > 0 ? r.approvedModels : r.models,
+    project: r.project,
+    status: r.status,
+    createdAt: r.createdAt,
+    decidedAt: r.decidedAt,
+    decidedBy: r.decidedBy,
+    decisionComment: r.decisionComment,
+    updatedAt: r.updatedAt,
+  }));
+}
+
 /** Fiche de validation (F-32) : la demande et ses contrôles, rejoués avec l'état actuel (règle 4). */
 export interface RequestReview extends PendingRequest {
   requesterEmail: string;

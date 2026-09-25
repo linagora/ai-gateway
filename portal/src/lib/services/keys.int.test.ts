@@ -8,7 +8,7 @@ import { approveKeyRequest, getRequestReview, refuseRequest } from "./admin-requ
 import { listAudit } from "./audit";
 import { saveCatalogEntry } from "./catalog";
 import { runDailyTask } from "./echeances";
-import { blockKey, listAllKeys, listMyKeys, pickUpKey, renewalDraft, replaceKey, revokeKey, unblockKey } from "./keys";
+import { blockKey, listAllKeys, listKeysToPickUp, listMyKeys, pickUpKey, renewalDraft, replaceKey, revokeKey, unblockKey } from "./keys";
 import { createKeyRequest, type KeyRequestInput, listMyRequests } from "./requests";
 import { saveSettings } from "./settings";
 
@@ -287,6 +287,16 @@ describe("« Gestion — Clés » et révocation par un admin (ticket #19)", () 
       gatewayState: { spend: 1.25, maxBudget: 15, blocked: false },
     });
     expect(cles.find((k) => k.requestId === idCollegue)).toMatchObject({ holderUid: "pmartin", gatewayState: { spend: 0, maxBudget: 10 } });
+  });
+
+  test("les admins voient les clés approuvées qui attendent leur retrait, avec l'échéance de retrait", async () => {
+    const id = await demandeApprouvee();
+    const retiree = await demandeApprouvee({ project: "Déjà retirée" });
+    await pickUpKey(deps, titulaire, retiree);
+    expect(await listKeysToPickUp(deps, admin)).toEqual([
+      expect.objectContaining({ requestId: id, holderUid: "mmaudet", teamAlias: "R&D", pickupDeadline: new Date("2026-10-15T09:00:00Z") }),
+    ]);
+    await expect(listKeysToPickUp(deps, titulaire)).rejects.toMatchObject({ code: "interdit" });
   });
 
   test("un salarié n'accède pas à la liste des clés", async () => {
