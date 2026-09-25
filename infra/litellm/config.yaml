@@ -23,23 +23,10 @@ litellm_settings:
   # turn_off_message_logging: true     # métadonnées seulement, tant que la politique RGPD n'est pas validée
   # (variables LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY / LANGFUSE_HOST à ajouter au service litellm)
 
-# Exemple de déclaration (à reproduire plutôt via l'UI admin) :
+# Modèles OpenRouter : uniquement ceux de liste-blanche-openrouter.yaml, déclarés par
+# scripts/sync-openrouter.py (jamais à la main ni par l'UI, jamais de joker « openrouter/* »).
+# Autres modèles : déclarés en base par l'API, par exemple le modèle N3 :
 # model_list:
-#   - model_name: mistral-small            # nom exposé aux utilisateurs
-#     litellm_params:
-#       model: openrouter/mistralai/mistral-small-3.2-24b-instruct
-#       api_key: os.environ/OPENROUTER_API_KEY
-#       # N2 : restreindre le routage OpenRouter aux fournisseurs sans collecte/conservation
-#       # (paramètre "provider" d'OpenRouter — syntaxe exacte à vérifier dans la doc LiteLLM/OpenRouter)
-#       # Prix : dans litellm_params (LiteLLM ≥ 1.10x supprime les prix placés dans model_info)
-#       input_cost_per_token: 0.00000009    # EUR par token (prix USD × fx_rate_usd_eur)
-#       output_cost_per_token: 0.00000028
-#     model_info:
-#       pricing_currency: EUR               # obligatoire pour être visible dans le portail
-#       fx_rate_usd_eur: 0.92               # taux interne, revu chaque trimestre
-#       data_level: N2                      # recopié depuis le portail (source de vérité)
-#       hosting: UE
-#
 #   - model_name: qwen3.8                  # N3 — endpoint OVHcloud (déclaré en base le 2026-09-24)
 #     litellm_params:
 #       model: openai/Qwen3.8-27B
