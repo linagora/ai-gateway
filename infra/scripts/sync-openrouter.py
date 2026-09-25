@@ -12,6 +12,10 @@ en € = prix le plus élevé de ces points d'accès × (1 + frais) × taux, rou
 d'accès sans repli. Déclaration « openai/<id> » sur l'API d'OpenRouter, et non par la route
 « openrouter/ » de LiteLLM : celle-ci enregistre le coût renvoyé par OpenRouter, en dollars, à la
 place de nos tarifs en euros (vérifié sur la 1.102.1).
+Modèles d'images (sortie « image ») : appelés par la conversation (modalities), où LiteLLM compte les jetons
+d'image au prix de sortie déclaré ; son API d'images, qui enregistre 0 €, est refusée par la garde. Prix de
+sortie = prix du jeton d'image × majoration (facultative, pour un minimum facturé par image) ; prix indicatif
+d'une image = ce prix × jetons_par_image, pour le catalogue du portail.
 """
 import json
 import os
@@ -72,6 +76,13 @@ def declaration(entree, cfg):
                          f"(disponibles : {', '.join(e['tag'] for e in tous)})")
     usd_in = max(float(e["pricing"]["prompt"]) for e in retenus)
     usd_out = max(float(e["pricing"]["completion"]) for e in retenus)
+    # Modèle d'images : ses jetons de sortie sont surtout des jetons d'image, au prix le plus élevé. La majoration
+    # couvre un minimum facturé par image (Black Forest Labs : un mégapixel, même pour une image plus petite).
+    sorties = set((donnees.get("architecture") or {}).get("output_modalities") or [])
+    image = "image" in sorties
+    if image:
+        usd_out = max(usd_out, max(float((e.get("pricing") or {}).get("image_output") or 0) for e in retenus))
+    majoration = entree.get("majoration", 1)
     k = (1 + cfg["frais_openrouter"]) * cfg["taux_usd_eur"]
     provider = {"only": sorted({z for e in retenus for z in dans_zone(e["tag"], zone)}), "allow_fallbacks": False}
     if entree["zone"] == "monde":
@@ -92,8 +103,15 @@ def declaration(entree, cfg):
     # Capacités affichées au catalogue ; les outils et les sorties JSON, communs à tous les modèles, n'en sont pas.
     entrees = set((donnees.get("architecture") or {}).get("input_modalities") or [])
     raisonne = any({"reasoning", "include_reasoning"} & set(e.get("supported_parameters") or []) for e in retenus)
-    capacites = [c for c, oui in [("images", "image" in entrees), ("audio_video", bool(entrees & {"audio", "video"})),
-                                  ("raisonnement", raisonne)] if oui]
+    capacites = [c for c, oui in [("images", "image" in entrees), ("generation_images", image),
+                                  ("audio_video", bool(entrees & {"audio", "video"})), ("raisonnement", raisonne)] if oui]
+    if image:
+        if "jetons_par_image" not in entree:
+            raise SystemExit(f"✘ {entree['nom']} : modèle d'images sans jetons_par_image dans la liste blanche")
+        # Type d'API et prix indicatif d'une image (deux chiffres significatifs), lus par le portail.
+        supplements_info = {"type_api": "image", "prix_image_eur": float(f"{usd_out * k * majoration * entree['jetons_par_image']:.2g}")}
+    else:
+        supplements_info = {}
     auteur = entree["openrouter"].split("/")[0]
     return {
         "model_name": entree["nom"],
@@ -101,8 +119,8 @@ def declaration(entree, cfg):
             "model": f"openai/{entree['openrouter']}",
             "api_base": OPENROUTER,
             "api_key": "os.environ/OPENROUTER_API_KEY",
-            "input_cost_per_token": arrondi(usd_in * k),
-            "output_cost_per_token": arrondi(usd_out * k),
+            "input_cost_per_token": arrondi(usd_in * k * majoration),
+            "output_cost_per_token": arrondi(usd_out * k * majoration),
             **supplements,
             "provider": provider,
         },
@@ -122,6 +140,7 @@ def declaration(entree, cfg):
             "frais_openrouter": cfg["frais_openrouter"],
             "prix_usd_par_mtoken": [arrondi(usd_in * 1e6), arrondi(usd_out * 1e6)],
             "max_input_tokens": min(e["context_length"] for e in retenus),
+            **supplements_info,
         },
     }
 
