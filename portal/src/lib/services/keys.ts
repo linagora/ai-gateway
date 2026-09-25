@@ -313,28 +313,34 @@ export async function replaceKey(deps: KeyDeps, user: SessionUser, requestId: st
   return { key: nouvelle.key, alias: nouvelle.alias };
 }
 
+/** Blocage et déblocage : appel à la passerelle, message d'échec, action du journal d'audit, courriel au titulaire. */
+const BLOCAGE = {
+  bloquer: { appel: (l: LiteLLMClient, id: string) => l.blockKey(id), echec: "Le blocage de la clé a échoué.", audit: "KEY_BLOCKED", courriel: "blocage" },
+  debloquer: { appel: (l: LiteLLMClient, id: string) => l.unblockKey(id), echec: "Le déblocage de la clé a échoué.", audit: "KEY_UNBLOCKED", courriel: "deblocage" },
+} as const;
+
 /** F-43 : blocage d'une clé par un admin (suspension temporaire et réversible) ; la demande reste « Clé émise ». */
 export async function blockKey(deps: KeyDeps, actor: SessionUser, requestId: string): Promise<void> {
-  await changeBlocking(deps, actor, requestId, true);
+  await changeBlocking(deps, actor, requestId, BLOCAGE.bloquer);
 }
 
 /** F-43 : déblocage d'une clé bloquée par un admin. */
 export async function unblockKey(deps: KeyDeps, actor: SessionUser, requestId: string): Promise<void> {
-  await changeBlocking(deps, actor, requestId, false);
+  await changeBlocking(deps, actor, requestId, BLOCAGE.debloquer);
 }
 
-async function changeBlocking(deps: KeyDeps, actor: SessionUser, requestId: string, bloquer: boolean): Promise<void> {
+async function changeBlocking(deps: KeyDeps, actor: SessionUser, requestId: string, sens: (typeof BLOCAGE)[keyof typeof BLOCAGE]): Promise<void> {
   requireAdmin(actor);
   const request = await deps.db.accessRequest.findUnique({ where: { id: requestId } });
   if (!request || request.kind !== "CLE" || !request.keyTokenId) throw new PortalError("introuvable", "Clé introuvable.", { objet: "demande_cle" });
   if (request.status !== "CLE_EMISE") throw new PortalError("transition_interdite", "Cette clé n'est plus active.", { cas: "traitee" });
   try {
-    await (bloquer ? deps.litellm.blockKey(request.keyTokenId) : deps.litellm.unblockKey(request.keyTokenId));
+    await sens.appel(deps.litellm, request.keyTokenId);
   } catch {
-    throw new PortalError("passerelle_indisponible", bloquer ? "Le blocage de la clé a échoué." : "Le déblocage de la clé a échoué.");
+    throw new PortalError("passerelle_indisponible", sens.echec);
   }
-  await recordAudit(deps.db, { actorUid: actor.uid, action: bloquer ? "KEY_BLOCKED" : "KEY_UNBLOCKED", targetId: request.id, details: { alias: request.keyAlias } });
-  if (request.keyAlias) await notifyAdminKeyAction(deps, { to: request.requesterEmail, alias: request.keyAlias, action: bloquer ? "blocage" : "deblocage" });
+  await recordAudit(deps.db, { actorUid: actor.uid, action: sens.audit, targetId: request.id, details: { alias: request.keyAlias } });
+  if (request.keyAlias) await notifyAdminKeyAction(deps, { to: request.requesterEmail, alias: request.keyAlias, action: sens.courriel });
 }
 
 /** Supprime une clé de la passerelle ; une clé qu'elle ne connaît déjà plus (supprimée depuis la console) est acquise. */
