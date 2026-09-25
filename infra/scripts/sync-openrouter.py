@@ -78,6 +78,17 @@ def declaration(entree, cfg):
         provider["data_collection"] = "deny"
     if plafond is not None:
         provider["max_price"] = {"prompt": plafond[0], "completion": plafond[1]}
+    # Tarifs qu'OpenRouter facture à part et que LiteLLM sait compter : l'audio en entrée (au jeton audio, soit à la
+    # seconde pour Voxtral) et le contexte long (au-delà de 200 000 jetons). Sans eux, LiteLLM compterait l'audio au
+    # prix du texte, et les budgets des clés sous-estimeraient la dépense.
+    supplements = {}
+    audio = max(float((e.get("pricing") or {}).get("audio") or 0) for e in retenus)
+    if audio > 0:
+        supplements["input_cost_per_audio_token"] = arrondi(audio * k)
+    paliers = [o for e in retenus for o in (e.get("pricing") or {}).get("overrides") or [] if o.get("min_prompt_tokens") == 200_000]
+    if paliers:
+        supplements["input_cost_per_token_above_200k_tokens"] = arrondi(max(float(o["prompt"]) for o in paliers) * k)
+        supplements["output_cost_per_token_above_200k_tokens"] = arrondi(max(float(o["completion"]) for o in paliers) * k)
     # Capacités affichées au catalogue ; les outils et les sorties JSON, communs à tous les modèles, n'en sont pas.
     entrees = set((donnees.get("architecture") or {}).get("input_modalities") or [])
     raisonne = any({"reasoning", "include_reasoning"} & set(e.get("supported_parameters") or []) for e in retenus)
@@ -92,6 +103,7 @@ def declaration(entree, cfg):
             "api_key": "os.environ/OPENROUTER_API_KEY",
             "input_cost_per_token": arrondi(usd_in * k),
             "output_cost_per_token": arrondi(usd_out * k),
+            **supplements,
             "provider": provider,
         },
         "model_info": {
