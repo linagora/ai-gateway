@@ -25,7 +25,17 @@ export function mailerFromEnv(env: Record<string, string | undefined> = process.
   const port = Number(renseignee(env.SMTP_PORT) ?? 587);
   const user = renseignee(env.SMTP_USER);
   const pass = renseignee(env.SMTP_PASSWORD);
-  const transport = nodemailer.createTransport({ host, port, secure: port === 465, auth: user && pass ? { user, pass } : undefined });
+  const transport = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: user && pass ? { user, pass } : undefined,
+    // L'action qui envoie le courriel l'attend : un serveur SMTP lent ou muet ne la retient que quelques secondes
+    // (par défaut, nodemailer attend jusqu'à deux minutes la connexion et dix minutes sur un échange bloqué).
+    connectionTimeout: 5_000,
+    greetingTimeout: 5_000,
+    socketTimeout: 10_000,
+  });
   return {
     async send(message) {
       await transport.sendMail({ from, to: message.to, subject: message.subject, text: message.text });
