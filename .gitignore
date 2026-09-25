@@ -28,6 +28,8 @@ docs/PRD.md
 docs/PORTAL-BRIEF.md
 docs/INSTALL-LOG.md
 CONTEXT.md
+docs/adr/
+docs/agents/
 
 # Dépendances et constructions
 node_modules/
