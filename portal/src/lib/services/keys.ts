@@ -1,7 +1,8 @@
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
 import { PortalError } from "@/lib/errors";
-import type { ApiKind, KeyInfo, LiteLLMClient } from "@/lib/litellm/client";
+import type { AccessRequest } from "@/generated/prisma/client";
+import type { ApiKind, KeyInfo, KeyParams, LiteLLMClient } from "@/lib/litellm/client";
 import type { DataLevel, RequestStatus } from "@/lib/policy";
 import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
@@ -118,34 +119,14 @@ export async function pickUpKey(deps: KeyDeps, user: SessionUser, requestId: str
     throw new PortalError("introuvable", "Demande de clé introuvable.", { objet: "demande_cle" });
   }
   if (request.status !== "APPROUVEE") throw new PortalError("transition_interdite", "Cette demande n'a pas de clé à retirer.", { cas: "traitee" });
-  if (request.approvedBudget === null || !request.budgetDuration || !request.approvedDays) {
-    throw new PortalError("parametre_manquant", "Paramètres de la clé incomplets.");
-  }
+  if (!request.approvedDays) throw new PortalError("parametre_manquant", "Paramètres de la clé incomplets.");
   const maintenant = deps.now?.() ?? new Date();
-  const alias = keyAlias(request);
   let generee;
   try {
-    generee = await deps.litellm.generateKey({
-      userId: request.requesterUid,
-      teamId: request.teamId,
-      models: request.approvedModels,
-      maxBudget: request.approvedBudget.toNumber(),
-      budgetDuration: request.budgetDuration,
-      duration: `${request.approvedDays}d`,
-      rpmLimit: request.rpmLimit,
-      tpmLimit: request.tpmLimit,
-      alias,
-      metadata: {
-        request_id: request.id,
-        project: request.project,
-        data_level: request.dataLevel,
-        approved_by: request.decidedBy,
-        key_type: request.keyType,
-      },
-    });
-  } catch {
+    generee = await deps.litellm.generateKey(keyParams(request, keyAlias(request), `${request.approvedDays}d`));
+  } catch (e) {
     // Le détail de l'erreur ne quitte pas le serveur : il pourrait décrire la requête envoyée.
-    throw new PortalError("passerelle_indisponible", "La génération de la clé a échoué.");
+    throw e instanceof PortalError ? e : new PortalError("passerelle_indisponible", "La génération de la clé a échoué.");
   }
   // Renouvellement : la clé d'origine encore émise est supprimée ; sinon, la nouvelle est retirée et rien ne change.
   const origine = request.renewsRequestId ? await deps.db.accessRequest.findUnique({ where: { id: request.renewsRequestId } }) : null;
@@ -172,6 +153,29 @@ export async function pickUpKey(deps: KeyDeps, user: SessionUser, requestId: str
     });
   }
   return { key: generee.key, alias: generee.alias };
+}
+
+/** Paramètres LiteLLM d'une clé, figés à l'approbation de sa demande (F-40). */
+function keyParams(request: AccessRequest, alias: string, duration: string): KeyParams {
+  if (request.approvedBudget === null || !request.budgetDuration) throw new PortalError("parametre_manquant", "Paramètres de la clé incomplets.");
+  return {
+    userId: request.requesterUid,
+    teamId: request.teamId,
+    models: request.approvedModels,
+    maxBudget: request.approvedBudget.toNumber(),
+    budgetDuration: request.budgetDuration,
+    duration,
+    rpmLimit: request.rpmLimit,
+    tpmLimit: request.tpmLimit,
+    alias,
+    metadata: {
+      request_id: request.id,
+      project: request.project,
+      data_level: request.dataLevel,
+      approved_by: request.decidedBy,
+      key_type: request.keyType,
+    },
+  };
 }
 
 /** F-44 : brouillon de la demande de renouvellement d'une clé, prérempli avec ses paramètres. */
@@ -257,7 +261,6 @@ export async function replaceKey(deps: KeyDeps, user: SessionUser, requestId: st
   if (!request.keyExpiresAt || request.keyExpiresAt <= maintenant) {
     throw new PortalError("transition_interdite", "Cette clé a expiré : demandez son renouvellement.", { cas: "expiree" });
   }
-  if (request.approvedBudget === null || !request.budgetDuration) throw new PortalError("parametre_manquant", "Paramètres de la clé incomplets.");
   // Une clé bloquée par un admin ne se remplace pas : le blocage serait contourné.
   const etat = await deps.litellm.getKeyInfo(request.keyTokenId).catch(() => {
     throw new PortalError("passerelle_indisponible", "L'état de la clé n'a pas pu être vérifié.");
@@ -266,27 +269,11 @@ export async function replaceKey(deps: KeyDeps, user: SessionUser, requestId: st
   const rang = request.keyReplacements + 2;
   let nouvelle;
   try {
-    nouvelle = await deps.litellm.generateKey({
-      userId: request.requesterUid,
-      teamId: request.teamId,
-      models: request.approvedModels,
-      maxBudget: request.approvedBudget.toNumber(),
-      budgetDuration: request.budgetDuration,
-      // Durée restante, à la seconde : la nouvelle clé expire à la même date que l'ancienne.
-      duration: `${Math.ceil((request.keyExpiresAt.getTime() - maintenant.getTime()) / 1000)}s`,
-      rpmLimit: request.rpmLimit,
-      tpmLimit: request.tpmLimit,
-      alias: `${keyAlias(request)}-${rang}`,
-      metadata: {
-        request_id: request.id,
-        project: request.project,
-        data_level: request.dataLevel,
-        approved_by: request.decidedBy,
-        key_type: request.keyType,
-      },
-    });
-  } catch {
-    throw new PortalError("passerelle_indisponible", "La génération de la clé de remplacement a échoué.");
+    // Durée restante, à la seconde : la nouvelle clé expire à la même date que l'ancienne.
+    const duree = `${Math.ceil((request.keyExpiresAt.getTime() - maintenant.getTime()) / 1000)}s`;
+    nouvelle = await deps.litellm.generateKey(keyParams(request, `${keyAlias(request)}-${rang}`, duree));
+  } catch (e) {
+    throw e instanceof PortalError ? e : new PortalError("passerelle_indisponible", "La génération de la clé de remplacement a échoué.");
   }
   const retirerLaNouvelle = () => deps.litellm.deleteKey(nouvelle.tokenId).catch(() => undefined);
   try {
