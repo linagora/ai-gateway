@@ -17,6 +17,11 @@ litellm_settings:
   # Garde de la passerelle (garde.py, à côté de ce fichier) : refus des paramètres qui changeraient
   # de modèle ou de fournisseur
   callbacks: garde.garde
+  # JEV (Typesafe, niveau Expérimental) : fournisseur personnalisé (jev.py), modèle
+  # « typesafe/jev-latest ». Pas de route dédiée : dans l'édition communautaire, une clé ne peut pas
+  # ouvrir une route « pass-through » (allowed_passthrough_routes est réservé à l'édition Enterprise).
+  custom_provider_map:
+    - {"provider": "typesafe", "custom_handler": jev.jev}
   # --- Phase 2 : Langfuse ------------------------------------------------------
   # success_callback: ["langfuse"]
   # failure_callback: ["langfuse"]
