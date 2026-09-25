@@ -73,7 +73,7 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
               ))}
             </select>
           </label>
-          <fieldset className="flex flex-wrap gap-x-4">
+          <fieldset className="flex flex-col">
             <legend className="font-medium">{t("capacites")}</legend>
             {CAPABILITIES.map((c) => (
               <label key={c} className="mt-0 font-normal">

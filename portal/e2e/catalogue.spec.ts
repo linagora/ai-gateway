@@ -280,6 +280,19 @@ test.describe("filtres appliqués sans bouton (retours de recette du 2026-09-25)
     await expect(page.getByRole("article")).toHaveCount(2);
     await context.close();
   });
+
+  test("les capacités se choisissent dans une colonne", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    await page.goto("/catalogue/n1");
+    const capacites = page.getByRole("group", { name: "Capacités" }).getByRole("checkbox");
+    await expect(capacites).toHaveCount(3);
+    const positions = await capacites.evaluateAll((cases) => cases.map((c) => c.getBoundingClientRect()).map((r) => ({ x: Math.round(r.left), y: Math.round(r.top) })));
+    expect(new Set(positions.map((p) => p.x)).size).toBe(1);
+    expect(positions.map((p) => p.y)).toEqual([...positions.map((p) => p.y)].sort((a, b) => a - b));
+    expect(new Set(positions.map((p) => p.y)).size).toBe(3);
+    await context.close();
+  });
 });
 
 test.describe("détail d'un modèle (ticket #9)", () => {
