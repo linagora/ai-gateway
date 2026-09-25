@@ -138,13 +138,15 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
                     ))}
                   </ul>
                 )}
-                <p className="text-sm">
+                <p>
                   <span className="sr-only">{t(`repere.${REPERES[m.priceTier]}`)} : </span>
-                  <span aria-hidden="true" title={t(`repere.${REPERES[m.priceTier]}`)} className="font-semibold">
+                  <span aria-hidden="true" title={t(`repere.${REPERES[m.priceTier]}`)} className="text-lg font-semibold">
                     {m.priceTier}
                   </span>
-                  {" · "}
-                  {t("prix", { entree: euros(m.inputPricePerMillion), sortie: euros(m.outputPricePerMillion) })}
+                  <span className="text-xs text-neutral-600">
+                    {" · "}
+                    {t("prix", { entree: euros(m.inputPricePerMillion), sortie: euros(m.outputPricePerMillion) })}
+                  </span>
                 </p>
                 <p className="text-sm">
                   {m.context ? (
