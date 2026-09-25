@@ -89,6 +89,21 @@ function parametresErreur(lire: (nom: string) => string | null, t: Awaited<Retur
   return { objet: "", cas: "", modele: "", equipe: "", ...details, champs, controles };
 }
 
+/** Marque d'un champ obligatoire : une petite étoile rouge ; l'attribut required l'annonce aux lecteurs d'écran. */
+export function Obligatoire() {
+  return (
+    <span className="obligatoire" aria-hidden="true">
+      *
+    </span>
+  );
+}
+
+/** Explication des étoiles, en tête d'un formulaire qui a des champs obligatoires. */
+export async function ExplicationObligatoires() {
+  const t = await getTranslations("formulaire");
+  return <p className="text-sm text-neutral-600">{t.rich("obligatoires", { etoile: (etoile) => <span className="obligatoire">{etoile}</span> })}</p>;
+}
+
 /** Dépense d'une clé sur son budget ; une dépense non nulle de moins d'un centime s'affiche comme telle. */
 export async function DepenseSurBudget({ spend, maxBudget }: { spend: number; maxBudget: number | null }) {
   const [{ euros }, t] = await Promise.all([formats(), getTranslations("cles")]);

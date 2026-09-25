@@ -390,7 +390,7 @@
       "approuver": "Approve",
       "approuverAdhesion": "Approve: add {uid} to the chosen team",
       "refuserOuCompleter": "Refuse or ask for more information",
-      "motifRefus": "Reason for refusal (required)",
+      "motifRefus": "Reason for refusal",
       "refuser": "Refuse",
       "complement": "Information requested",
       "demanderComplement": "Ask for more information",
@@ -441,6 +441,9 @@
     "titre": "An error occurred",
     "message": "The page could not be displayed. Try again; if the problem persists, contact a portal administrator.",
     "reessayer": "Try again"
+  },
+  "formulaire": {
+    "obligatoires": "Fields followed by an asterisk (<etoile>*</etoile>) are required."
   },
   "cles": {
     "titre": "My keys",

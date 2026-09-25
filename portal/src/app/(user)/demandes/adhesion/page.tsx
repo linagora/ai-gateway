@@ -2,7 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { listJoinableTeams } from "@/lib/services/requests";
 import { getDeps, requireUser } from "@/lib/session";
 import { createTeamJoinRequestAction } from "../../../actions";
-import { Notice } from "../../../components";
+import { ExplicationObligatoires, Notice, Obligatoire } from "../../../components";
 
 /** F-22 : demander à rejoindre une équipe existante ; un administrateur valide. */
 export default async function TeamJoinPage(props: PageProps<"/demandes/adhesion">) {
@@ -18,8 +18,10 @@ export default async function TeamJoinPage(props: PageProps<"/demandes/adhesion"
         <p>{t("aucuneEquipe")}</p>
       ) : (
         <form action={createTeamJoinRequestAction}>
+          <ExplicationObligatoires />
           <label>
             {t("equipe")}
+            <Obligatoire />
             <select name="teamId" required>
               {teams.map((team) => (
                 <option key={team.teamId} value={team.teamId}>
@@ -30,6 +32,7 @@ export default async function TeamJoinPage(props: PageProps<"/demandes/adhesion"
           </label>
           <label>
             {t("motif")}
+            <Obligatoire />
             <textarea name="justification" required rows={3} />
           </label>
           <button type="submit">{t("envoyer")}</button>

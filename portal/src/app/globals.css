@@ -86,3 +86,10 @@
     margin-top: 0.75rem;
   }
 }
+
+/* Champ obligatoire : petite étoile rouge discrète après le libellé, expliquée en tête du formulaire. */
+.obligatoire {
+  margin-left: 0.15em;
+  color: var(--linagora);
+  font-weight: 400;
+}

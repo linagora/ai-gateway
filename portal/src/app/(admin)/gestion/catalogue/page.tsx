@@ -4,7 +4,7 @@ import { listCatalogForAdmin } from "@/lib/services/catalog";
 import { getDeps, requireAdminPage } from "@/lib/session";
 import { USE_CASES } from "@/lib/use-cases";
 import { saveCatalogEntryAction } from "../../../actions";
-import { formats, Notice } from "../../../components";
+import { ExplicationObligatoires, formats, Notice, Obligatoire } from "../../../components";
 import { AdminNav } from "../admin-nav";
 
 /** F-50, ticket #6 : fiche de chaque modèle (textes en deux langues, cas d'usage, recommandations) et faits techniques. */
@@ -26,6 +26,7 @@ export default async function AdminCataloguePage(props: PageProps<"/gestion/cata
       <AdminNav />
       <h1>{t("titre")}</h1>
       <p className="text-sm text-neutral-600">{t("introduction")}</p>
+      {models.length > 0 && <ExplicationObligatoires />}
       <Notice searchParams={searchParams} />
       {models.map((m) => (
         <section key={m.modelName} className="mt-6 border-t pt-4">
@@ -60,6 +61,7 @@ export default async function AdminCataloguePage(props: PageProps<"/gestion/cata
                   return (
                     <label key={nom}>
                       {t(`${libelle}${langue}`)}
+                      {requis && <Obligatoire />}
                       {lignes === 0 ? (
                         <input name={nom} required={requis} defaultValue={valeur} />
                       ) : (

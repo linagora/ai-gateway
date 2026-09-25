@@ -7,7 +7,7 @@ import { renewalDraft } from "@/lib/services/keys";
 import { listMyTeams } from "@/lib/services/requests";
 import { getDeps, requireUser } from "@/lib/session";
 import { createKeyRequestAction } from "../../../actions";
-import { Notice } from "../../../components";
+import { ExplicationObligatoires, Notice, Obligatoire } from "../../../components";
 
 /**
  * F-20 / F-21 : demande de clé (ou complément d'une demande renvoyée : ?completer=<id>).
@@ -46,8 +46,10 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
         <form action={createKeyRequestAction}>
           {completing && <input type="hidden" name="requestId" value={completing} />}
           {renouvellement && <input type="hidden" name="renewsRequestId" value={String(searchParams.renouvelle)} />}
+          <ExplicationObligatoires />
           <label>
             {t("equipe")}
+            <Obligatoire />
             <select name="teamId" required defaultValue={renouvellement?.teamId}>
               {teams.map((team) => (
                 <option key={team.teamId} value={team.teamId}>
@@ -60,7 +62,10 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
             {t("equipeAbsente")} <Link href="/demandes/adhesion">{t("rejoindre")}</Link>
           </p>
           <fieldset>
-            <legend className="font-medium">{t("niveau")}</legend>
+            <legend className="font-medium">
+              {t("niveau")}
+              <Obligatoire />
+            </legend>
             {DATA_LEVELS.map((l) => (
               <label key={l} className="font-normal">
                 <input type="radio" name="dataLevel" value={l} required defaultChecked={l === niveau} /> {domaine(`niveaux.${l}`)} —{" "}
@@ -69,7 +74,10 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
             ))}
           </fieldset>
           <fieldset>
-            <legend className="font-medium">{t("modeles")}</legend>
+            <legend className="font-medium">
+              {t("modeles")}
+              <Obligatoire />
+            </legend>
             {catalog.map((m) => (
               <label key={m.modelName} className="font-normal">
                 <input type="checkbox" name="models" value={m.modelName} defaultChecked={preselected.includes(m.modelName)} /> {m.displayName} (
@@ -79,6 +87,7 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
           </fieldset>
           <label>
             {t("motif")}
+            <Obligatoire />
             <textarea name="justification" required rows={3} />
           </label>
           <label>
@@ -102,6 +111,7 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
           </label>
           <label className="font-normal">
             <input type="checkbox" name="commitment" required /> {t("engagement")}
+            <Obligatoire />
           </label>
           <button type="submit">{completing ? t("resoumettre") : t("envoyer")}</button>
         </form>

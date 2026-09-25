@@ -390,7 +390,7 @@
       "approuver": "Approuver",
       "approuverAdhesion": "Approuver : ajouter {uid} à l'équipe choisie",
       "refuserOuCompleter": "Refuser ou demander un complément",
-      "motifRefus": "Motif du refus (obligatoire)",
+      "motifRefus": "Motif du refus",
       "refuser": "Refuser",
       "complement": "Complément demandé",
       "demanderComplement": "Demander un complément",
@@ -441,6 +441,9 @@
     "titre": "Une erreur est survenue",
     "message": "La page n'a pas pu s'afficher. Réessayez ; si le problème persiste, contactez un administrateur du portail.",
     "reessayer": "Réessayer"
+  },
+  "formulaire": {
+    "obligatoires": "Les champs suivis d'une étoile (<etoile>*</etoile>) sont obligatoires."
   },
   "cles": {
     "titre": "Mes clés",

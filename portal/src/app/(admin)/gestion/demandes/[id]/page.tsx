@@ -12,7 +12,7 @@ import {
   refuseRequestAction,
   requestCompletionAction,
 } from "../../../../actions";
-import { Notice, formats } from "../../../../components";
+import { ExplicationObligatoires, Notice, Obligatoire, formats } from "../../../../components";
 import { AdminNav } from "../../admin-nav";
 
 /** F-31 / F-32 : fiche d'une demande, contrôles de politique ✔/✘ et décisions. */
@@ -116,6 +116,8 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
         </>
       )}
 
+      {pending && <ExplicationObligatoires />}
+
       {pending && review.kind === "CLE" && (
         <>
           <h2>{t("approuverCle")}</h2>
@@ -124,7 +126,10 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
             {choixEquipe(t("equipeCle"))}
             <p className="text-sm text-neutral-600">{t("aideEquipe")}</p>
             <fieldset>
-              <legend className="font-medium">{t("modelesAccordes")}</legend>
+              <legend className="font-medium">
+                {t("modelesAccordes")}
+                <Obligatoire />
+              </legend>
               {catalog.map((m) => (
                 <label key={m.modelName} className="font-normal">
                   <input type="checkbox" name="models" value={m.modelName} defaultChecked={review.models.includes(m.modelName)} /> {m.displayName}{" "}
@@ -172,6 +177,7 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
             <input type="hidden" name="id" value={review.id} />
             <label>
               {t("motifRefus")}
+              <Obligatoire />
               <textarea name="comment" required rows={2} />
             </label>
             <button type="submit">{t("refuser")}</button>
