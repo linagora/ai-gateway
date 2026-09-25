@@ -2,13 +2,13 @@ import { getTranslations } from "next-intl/server";
 import { listAllKeys } from "@/lib/services/keys";
 import { getDeps, requireAdminPage } from "@/lib/session";
 import { bloquerCleAction, debloquerCleAction, revoquerCleAdminAction } from "../../../actions";
-import { formats, Notice } from "../../../components";
+import { DepenseSurBudget, formats, Notice } from "../../../components";
 import { AdminNav } from "../admin-nav";
 
 /** F-43, ticket #19 : toutes les clés émises, avec la révocation par un admin. */
 export default async function GestionClesPage(props: PageProps<"/gestion/cles">) {
   const admin = await requireAdminPage();
-  const [{ date, euros }, t, cles, domaine, searchParams] = await Promise.all([
+  const [{ date }, t, cles, domaine, searchParams] = await Promise.all([
     formats(),
     getTranslations("gestion.cles"),
     getTranslations("cles"),
@@ -52,12 +52,7 @@ export default async function GestionClesPage(props: PageProps<"/gestion/cles">)
                 <td>{k.teamAlias}</td>
                 <td>{domaine(`niveaux.${k.dataLevel}`)}</td>
                 <td>
-                  {k.gatewayState
-                    ? cles("depenseSur", {
-                        depense: k.gatewayState.spend > 0 && k.gatewayState.spend < 0.01 ? cles("moinsDunCentime") : euros(k.gatewayState.spend),
-                        budget: euros(k.gatewayState.maxBudget),
-                      })
-                    : "—"}
+                  {k.gatewayState ? <DepenseSurBudget spend={k.gatewayState.spend} maxBudget={k.gatewayState.maxBudget} /> : "—"}
                 </td>
                 <td>{k.expiresAt ? date(k.expiresAt) : "—"}</td>
                 <td>

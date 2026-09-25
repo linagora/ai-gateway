@@ -4,14 +4,14 @@ import { listMyKeys } from "@/lib/services/keys";
 import { getDeps, requireUser } from "@/lib/session";
 import { BoutonCopier } from "../../bouton-copier";
 import { remplacerCleAction, retirerCleAction, revoquerCleAction } from "../../actions";
-import { formats, Notice } from "../../components";
+import { DepenseSurBudget, formats, Notice } from "../../components";
 import { exemplesAppel, LANGAGES } from "../../exemples-appel";
 import { GenerationCle } from "./generation-cle";
 
 /** Tickets #15 et suivants : les demandes approuvées à retirer, puis les clés émises du titulaire. */
 export default async function MesClesPage(props: PageProps<"/cles">) {
   const user = await requireUser();
-  const [{ date, euros }, t, domaine, detail, searchParams] = await Promise.all([
+  const [{ date }, t, domaine, detail, searchParams] = await Promise.all([
     formats(),
     getTranslations("cles"),
     getTranslations("domaine"),
@@ -84,10 +84,7 @@ export default async function MesClesPage(props: PageProps<"/cles">) {
                               className="mr-2 align-middle"
                             />
                           )}
-                          {t("depenseSur", {
-                            depense: k.gatewayState.spend > 0 && k.gatewayState.spend < 0.01 ? t("moinsDunCentime") : euros(k.gatewayState.spend),
-                            budget: euros(k.gatewayState.maxBudget),
-                          })}
+                          <DepenseSurBudget spend={k.gatewayState.spend} maxBudget={k.gatewayState.maxBudget} />
                         </dd>
                         {k.gatewayState.budgetResetAt && (
                           <>

@@ -89,6 +89,12 @@ function parametresErreur(lire: (nom: string) => string | null, t: Awaited<Retur
   return { objet: "", cas: "", modele: "", equipe: "", ...details, champs, controles };
 }
 
+/** Dépense d'une clé sur son budget ; une dépense non nulle de moins d'un centime s'affiche comme telle. */
+export async function DepenseSurBudget({ spend, maxBudget }: { spend: number; maxBudget: number | null }) {
+  const [{ euros }, t] = await Promise.all([formats(), getTranslations("cles")]);
+  return <>{t("depenseSur", { depense: spend > 0 && spend < 0.01 ? t("moinsDunCentime") : euros(spend), budget: euros(maxBudget) })}</>;
+}
+
 /** Montants, nombres et dates au format de la langue de la requête (1 234,56 € en français, €1,234.56 en anglais). */
 export async function formats() {
   const format = await getFormatter();
