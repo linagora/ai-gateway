@@ -29,13 +29,19 @@ export async function signOutAction(): Promise<void> {
   await signOut({ redirectTo: "/" });
 }
 
-/** F-01 : connexion par le SSO, puis retour à l'adresse demandée (Auth.js n'accepte que l'origine du portail). */
+/**
+ * F-01 : connexion par le SSO, puis retour à l'adresse demandée (Auth.js n'accepte que l'origine du portail).
+ * Action publique par nature : elle ne fait que lancer l'authentification.
+ */
 export async function connexionAction(formData: FormData): Promise<void> {
   const retour = formData.get("callbackUrl");
   await signIn("lemonldap", { redirectTo: typeof retour === "string" && retour ? retour : "/" });
 }
 
-/** Sélecteur FR | EN : mémorise la langue choisie ; Next.js réaffiche alors la page courante. */
+/**
+ * Sélecteur FR | EN : mémorise la langue choisie ; Next.js réaffiche alors la page courante.
+ * Action publique (la page de connexion propose aussi le sélecteur) : elle ne touche qu'à un cookie de préférence.
+ */
 export async function changerLangueAction(formData: FormData): Promise<void> {
   const langue = formData.get("langue");
   if (!(LANGUES as readonly unknown[]).includes(langue)) return;
