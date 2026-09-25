@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { ADMIN, ajouterAEquipe, connecter, enrichirModele } from "./outils";
 
-/* À la validation, l'admin peut changer l'équipe d'une demande d'adhésion ou d'une demande de clé (décision du 2026-09-25). */
+/* À la validation, l'admin peut changer l'équipe d'une demande d'accès à une équipe ou d'une demande de clé (décision du 2026-09-25). */
 const suffixe = Date.now().toString(36);
 const personne = (n: string) => ({ uid: `validation-${n}-${suffixe}`, email: `validation-${n}-${suffixe}@example.org`, name: `Personne ${n} ${suffixe}` });
 
@@ -18,17 +18,17 @@ test("l'admin affecte à une autre équipe le salarié qui demandait à rejoindr
   await page.getByLabel("Équipe").selectOption({ label: "R&D" });
   await page.getByLabel("Motif").fill("Rejoindre mon équipe");
   await page.getByRole("button", { name: "Envoyer la demande" }).click();
-  await expect(page.getByRole("status")).toHaveText("Demande d'adhésion envoyée.");
+  await expect(page.getByRole("status")).toHaveText("Demande d'accès envoyée.");
 
   const admin = await (await connecter(browser, ADMIN)).newPage();
   await admin.goto("/gestion/demandes");
-  await admin.getByRole("row", { name: new RegExp(`${salarie.uid}.*Adhésion`) }).getByRole("link", { name: "Examiner" }).click();
+  await admin.getByRole("row", { name: new RegExp(`${salarie.uid}.*Accès à une équipe`) }).getByRole("link", { name: "Examiner" }).click();
   await admin.getByLabel("Équipe d'affectation").selectOption({ label: "LPS Paris" });
   await admin.getByRole("button", { name: /Approuver : ajouter/ }).click();
-  await expect(admin.getByRole("status")).toHaveText("Adhésion approuvée : le demandeur a été ajouté à l'équipe.");
+  await expect(admin.getByRole("status")).toHaveText("Demande d'accès approuvée : le demandeur a été ajouté à l'équipe.");
 
   await page.goto("/demandes");
-  await expect(page.getByRole("row", { name: /Adhésion à une équipe.*LPS Paris.*Approuvée/ })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Accès à une équipe.*LPS Paris.*Approuvée/ })).toBeVisible();
   await page.goto("/demandes/nouvelle");
   await expect(page.getByLabel("Équipe").locator("option")).toHaveText(["LPS Paris"]);
 });

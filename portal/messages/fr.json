@@ -59,7 +59,7 @@
     },
     "typesDemande": {
       "CLE": "Clé d'API",
-      "ADHESION_EQUIPE": "Adhésion à une équipe"
+      "ADHESION_EQUIPE": "Accès à une équipe"
     },
     "typesCle": {
       "PERSONNELLE": "Personnelle",
@@ -70,11 +70,11 @@
     "succes": {
       "demandeEnvoyee": "Demande envoyée aux administrateurs.",
       "demandeResoumise": "Demande complétée et resoumise.",
-      "adhesionEnvoyee": "Demande d'adhésion envoyée.",
+      "adhesionEnvoyee": "Demande d'accès envoyée.",
       "demandeAnnulee": "Demande annulée.",
       "catalogueMisAJour": "Catalogue mis à jour.",
       "demandeApprouvee": "Demande approuvée.",
-      "adhesionApprouvee": "Adhésion approuvée : le demandeur a été ajouté à l'équipe.",
+      "adhesionApprouvee": "Demande d'accès approuvée : le demandeur a été ajouté à l'équipe.",
       "demandeRefusee": "Demande refusée.",
       "complementDemande": "Demande renvoyée au demandeur pour complément.",
       "parametresEnregistres": "Paramètres enregistrés.",
@@ -87,7 +87,7 @@
       "deja_membre": "Vous êtes déjà membre de l'équipe {equipe}.",
       "engagement_requis": "Engagez-vous à ne pas soumettre de données d'un niveau supérieur à celui déclaré.",
       "interdit": "Action réservée aux administrateurs.",
-      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'adhésion introuvable.} demande_cle {Demande de clé introuvable.} other {Demande introuvable.}}",
+      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} other {Demande introuvable.}}",
       "motif_obligatoire": "Un motif est obligatoire.",
       "parametre_manquant": "Budget, période du budget et durée de validité sont obligatoires : saisissez-les ou configurez des valeurs par défaut.",
       "recommandation_hors_cas_usage": "Une recommandation ne peut porter que sur un cas d'usage coché.",
@@ -501,7 +501,7 @@
       "corps": "{uid} a demandé une clé d'API pour l'équipe {equipe} ({niveau})."
     },
     "nouvelleDemandeAdhesion": {
-      "sujet": "Nouvelle demande d'adhésion",
+      "sujet": "Nouvelle demande d'accès à une équipe",
       "corps": "{uid} demande à rejoindre l'équipe {equipe}."
     },
     "demandeApprouvee": {
@@ -518,7 +518,7 @@
       "corps": "Un administrateur demande un complément sur votre demande pour l'équipe {equipe}.\nCommentaire : {commentaire}"
     },
     "adhesionAcceptee": {
-      "sujet": "Votre adhésion est acceptée",
+      "sujet": "Votre demande d'accès est acceptée",
       "corps": "Vous êtes désormais membre de l'équipe {equipe}. Vous pouvez y demander une clé d'API."
     },
     "rappelRetrait": {
