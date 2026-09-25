@@ -426,25 +426,8 @@ describe("tâche quotidienne : échéances et rappels (ticket #25)", () => {
     maintenant = new Date("2026-10-12T05:00:00Z"); // 12 octobre, 7 h à Paris : J-3
     expect(await tache()).toMatchObject({ rappelsRetrait: 1 });
     await tache();
-    expect(sujets()).toEqual([["mmaudet@linagora.com", "Rappel : votre clé est à retirer / Reminder: your key is waiting to be picked up"]]);
+    expect(sujets()).toEqual([["mmaudet@linagora.com", "[AI GATEWAY] Rappel : votre clé est à retirer / Reminder: your key is waiting to be picked up"]]);
     expect(mailer.outbox[0].text).toContain("Retirez-la avant le 15 octobre 2026 dans « Mes clés »");
-  });
-
-  test("le rappel d'expiration part le matin du septième jour avant l'expiration de la clé, une seule fois", async () => {
-    const id = await demandeApprouvee();
-    // Retrait le 1er octobre à 14 h (heure de Paris), pour 60 jours : expiration le 30 novembre à 13 h (heure d'hiver).
-    maintenant = new Date("2026-10-01T12:00:00Z");
-    await pickUpKey(deps, titulaire, id);
-    maintenant = new Date("2026-11-22T06:00:00Z"); // 22 novembre, 7 h à Paris : J-8
-    await tache();
-    expect(mailer.outbox).toEqual([]);
-    maintenant = new Date("2026-11-23T06:00:00Z"); // 23 novembre, 7 h à Paris : J-7
-    expect(await tache()).toMatchObject({ rappelsExpiration: 1 });
-    await tache();
-    expect(sujets()).toEqual([
-      ["mmaudet@linagora.com", `Rappel : votre clé mmaudet-r-d-compte-rendu-hebdo-${id.slice(-4)} expire bientôt / Reminder: your key mmaudet-r-d-compte-rendu-hebdo-${id.slice(-4)} expires soon`],
-    ]);
-    expect(mailer.outbox[0].text).toContain("https://portail.test/cles");
   });
 
   test("une demande non retirée dans le délai expire, à la lecture (salarié comme admin) comme par la tâche, et ne se retire plus", async () => {
@@ -486,9 +469,9 @@ describe("courriels des actions d'un admin sur une clé (ticket #26)", () => {
     await unblockKey(avecCourriel(), admin, bloquee);
     await revokeKey(avecCourriel(), admin, revoquee);
     expect(mailer.outbox.map((c) => [c.to, c.subject])).toEqual([
-      [["mmaudet@linagora.com"], `Votre clé ${alias(bloquee)} est bloquée / Your key ${alias(bloquee)} is blocked`],
-      [["mmaudet@linagora.com"], `Votre clé ${alias(bloquee)} est débloquée / Your key ${alias(bloquee)} is unblocked`],
-      [["mmaudet@linagora.com"], `Votre clé ${alias(revoquee)} a été révoquée / Your key ${alias(revoquee)} has been revoked`],
+      [["mmaudet@linagora.com"], `[AI GATEWAY] Votre clé ${alias(bloquee)} est bloquée / Your key ${alias(bloquee)} is blocked`],
+      [["mmaudet@linagora.com"], `[AI GATEWAY] Votre clé ${alias(bloquee)} est débloquée / Your key ${alias(bloquee)} is unblocked`],
+      [["mmaudet@linagora.com"], `[AI GATEWAY] Votre clé ${alias(revoquee)} a été révoquée / Your key ${alias(revoquee)} has been revoked`],
     ]);
     expect(mailer.outbox[2].text).toContain("Un administrateur a révoqué votre clé d'API");
     expect(mailer.outbox[2].text).toContain("https://portail.test/cles");
@@ -568,5 +551,83 @@ describe("clé sans expiration (décision du 2026-09-25)", () => {
       await runDailyTask({ ...deps, mailer });
     }
     expect(mailer.outbox).toEqual([]);
+  });
+});
+
+describe("rappels d'expiration un mois, sept jours et la veille, selon la durée de la clé (ticket #27)", () => {
+  let mailer: FakeMailer;
+  const tache = () => runDailyTask({ ...deps, mailer, portalUrl: "https://portail.test" });
+  /** Délai annoncé par chaque rappel envoyé, dans l'ordre (« dans un mois », « dans 7 jours », « demain »…). */
+  const delais = () => mailer.outbox.map((c) => /expire (aujourd'hui|demain|dans un mois|dans \d+ jours)/.exec(c.text)?.[1]);
+
+  /** Clé d'une durée de `jours` jours, retirée le 1er octobre 2026 à 14 h (heure de Paris). */
+  async function cleDe(jours: number): Promise<string> {
+    const { id } = await createKeyRequest(deps, titulaire, { ...demande, requestedDays: jours });
+    await approveKeyRequest(deps, admin, id, { models: ["mistral-small"], budget: 15, budgetDuration: "30d", days: jours, rpmLimit: null, tpmLimit: null });
+    maintenant = new Date("2026-10-01T12:00:00Z");
+    await pickUpKey(deps, titulaire, id);
+    return id;
+  }
+
+  /** La tâche passe chaque jour du `debut` au `fin` (inclus), à 5 h et 6 h UTC comme le cron du serveur. */
+  async function chaqueMatin(debut: string, fin: string): Promise<void> {
+    for (let jour = Date.parse(debut); jour <= Date.parse(fin); jour += JOUR) {
+      for (const heure of [5, 6]) {
+        maintenant = new Date(jour + heure * 3_600_000);
+        await tache();
+      }
+    }
+  }
+
+  beforeEach(() => {
+    mailer = new FakeMailer();
+  });
+
+  test.each([
+    [1, []],
+    [7, ["demain"]],
+    [30, ["dans 7 jours", "demain"]],
+    [90, ["dans un mois", "dans 7 jours", "demain"]],
+  ])("une clé de %i jour(s) reçoit les rappels %j, chacun une seule fois", async (jours, attendus) => {
+    await cleDe(jours);
+    await chaqueMatin("2026-10-02", "2027-01-05");
+    expect(delais()).toEqual(attendus);
+  });
+
+  test("chaque rappel part le matin du jour annoncé, avec la date d'expiration et le lien vers « Mes clés »", async () => {
+    const id = await cleDe(90);
+    // Expiration le 30 décembre à 13 h (heure de Paris) : rappels les 30 novembre, 23 et 29 décembre, à 7 h.
+    await chaqueMatin("2026-10-02", "2026-11-29");
+    expect(mailer.outbox).toEqual([]);
+    await chaqueMatin("2026-11-30", "2026-11-30");
+    expect(delais()).toEqual(["dans un mois"]);
+    expect(mailer.outbox[0].subject).toBe(`[AI GATEWAY] Rappel : votre clé mmaudet-r-d-compte-rendu-hebdo-${id.slice(-4)} expire bientôt / Reminder: your key mmaudet-r-d-compte-rendu-hebdo-${id.slice(-4)} expires soon`);
+    expect(mailer.outbox[0].text).toContain("expire dans un mois, le 30 décembre 2026");
+    expect(mailer.outbox[0].text).toContain("expires in a month, on December 30, 2026");
+    expect(mailer.outbox[0].text).toContain(`Bonjour Michel-Marie Maudet,\n\nVotre clé d'API mmaudet-r-d-compte-rendu-hebdo-${id.slice(-4)} expire dans un mois`);
+    expect(mailer.outbox[0].text).toContain("- Équipe : R&D\n- Niveau de confidentialité : N2 — Interne\n- Modèles : mistral-small");
+    expect(mailer.outbox[0].text).toContain("https://portail.test/cles");
+    await chaqueMatin("2026-12-01", "2026-12-22");
+    expect(delais()).toEqual(["dans un mois"]);
+    await chaqueMatin("2026-12-23", "2026-12-23");
+    expect(delais()).toEqual(["dans un mois", "dans 7 jours"]);
+  });
+
+  test("après plusieurs jours sans tâche, seul le rappel le plus proche de l'échéance part", async () => {
+    await cleDe(90);
+    // Première tâche le 25 décembre, cinq jours avant l'expiration : les rappels à un mois et à sept jours sont passés.
+    await chaqueMatin("2026-12-25", "2027-01-05");
+    expect(delais()).toEqual(["dans 5 jours", "demain"]);
+  });
+
+  test("une clé remplacée garde ses rappels ; une clé révoquée n'en reçoit plus", async () => {
+    const remplacee = await cleDe(90);
+    await chaqueMatin("2026-10-02", "2026-11-30");
+    await replaceKey(deps, titulaire, remplacee);
+    await chaqueMatin("2026-12-01", "2026-12-23");
+    expect(delais()).toEqual(["dans un mois", "dans 7 jours"]);
+    await revokeKey(deps, titulaire, remplacee);
+    await chaqueMatin("2026-12-24", "2027-01-05");
+    expect(delais()).toEqual(["dans un mois", "dans 7 jours"]);
   });
 });

@@ -194,7 +194,7 @@ ssh ia-host 'cd /opt/linagora-ia && docker compose --profile portal build portal
 - Prise en compte : `docker compose --profile portal up -d portal` (recrée le conteneur avec les nouvelles variables).
 - **Contrôle** : `docker compose exec -T portal env | ./scripts/verifier-smtp.py` (connexion et authentification avec la configuration reçue par le portail, sans envoi ni affichage de secret) ; puis déposer une demande de test : les admins reçoivent « Nouvelle demande de clé d'API / New API key request ». Sinon : `docker compose logs portal | grep "Courriel non envoyé"`.
 
-**Tâche quotidienne** (rappels J-3 et J-7, expirations) : route interne `POST /api/taches/quotidienne` du portail, protégée par `PORTAL_TASK_TOKEN` et bloquée par Caddy depuis Internet ; le cron du serveur l'appelle chaque jour à 7 h, heure de Paris.
+**Tâche quotidienne** (rappels de retrait à J-3 ; rappels d'expiration un mois, sept jours et la veille, selon la durée de la clé ; expirations) : route interne `POST /api/taches/quotidienne` du portail, protégée par `PORTAL_TASK_TOKEN` et bloquée par Caddy depuis Internet ; le cron du serveur l'appelle chaque jour à 7 h, heure de Paris.
 ```bash
 rsync -av --exclude '.env' infra/ ia-host:/opt/linagora-ia/
 ssh ia-host 'sudo /opt/linagora-ia/scripts/installer-tache-quotidienne.sh && \

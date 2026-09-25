@@ -8,9 +8,12 @@ export const JOUR = 86_400_000;
 /** Auteur des expirations au journal d'audit : ni le titulaire ni un admin. */
 export const SYSTEME = "systeme";
 
-/** Rappels, en jours calendaires à Paris : trois jours avant l'échéance de retrait, sept jours avant l'expiration d'une clé. */
+/**
+ * Rappels, en jours calendaires à Paris : trois jours avant l'échéance de retrait ; un mois, sept jours et la veille
+ * de l'expiration d'une clé (ticket #27), pour les seuls délais plus courts que la durée de validité de la clé.
+ */
 const RAPPEL_RETRAIT = 3;
-const RAPPEL_EXPIRATION = 7;
+const RAPPELS_EXPIRATION = [30, 7, 1];
 
 /** Délai de retrait configuré, en jours ; null si aucun n'est configuré (les demandes approuvées n'expirent pas). */
 export async function readPickupDays(db: Db): Promise<number | null> {
@@ -76,8 +79,9 @@ export interface DailyTaskReport {
 
 /**
  * F-45 : tâche quotidienne, lancée chaque matin à 7 h (heure de Paris). Elle fait expirer ce qui est échu, puis
- * envoie une seule fois chacun les rappels, comptés en jours calendaires : le rappel part le matin du troisième
- * jour avant l'échéance de retrait, et du septième jour avant l'expiration d'une clé.
+ * envoie une seule fois chacun les rappels, comptés en jours calendaires : le matin du troisième jour avant
+ * l'échéance de retrait ; un mois, sept jours et un jour avant l'expiration d'une clé, selon sa durée. Après des
+ * jours sans tâche, seul le rappel d'expiration le plus proche de l'échéance part.
  */
 export async function runDailyTask(deps: DailyTaskDeps): Promise<DailyTaskReport> {
   const maintenant = deps.now?.() ?? new Date();
@@ -97,18 +101,27 @@ export async function runDailyTask(deps: DailyTaskDeps): Promise<DailyTaskReport
       const { count } = await deps.db.accessRequest.updateMany({ where: { id: r.id, pickupReminderSentAt: null }, data: { pickupReminderSentAt: maintenant } });
       if (count === 0) continue;
       rappelsRetrait++;
-      await notifyPickupReminder(deps, { to: r.requesterEmail, equipe: r.teamAlias, echeance });
+      await notifyPickupReminder(deps, r, echeance);
     }
   }
   const aExpirer = await deps.db.accessRequest.findMany({
-    where: { kind: "CLE", status: "CLE_EMISE", expiryReminderSentAt: null, keyExpiresAt: { gt: maintenant, lte: horizon(RAPPEL_EXPIRATION) } },
+    where: { kind: "CLE", status: "CLE_EMISE", keyExpiresAt: { gt: maintenant, lte: horizon(Math.max(...RAPPELS_EXPIRATION)) } },
   });
   for (const r of aExpirer) {
-    if (!r.keyExpiresAt || !r.keyAlias || calendarDaysUntil(maintenant, r.keyExpiresAt) > RAPPEL_EXPIRATION) continue;
-    const { count } = await deps.db.accessRequest.updateMany({ where: { id: r.id, expiryReminderSentAt: null }, data: { expiryReminderSentAt: maintenant } });
+    if (!r.keyExpiresAt || !r.keyAlias) continue;
+    const jours = calendarDaysUntil(maintenant, r.keyExpiresAt);
+    // Rappels dus : délai atteint, plus court que la durée de la clé, et plus proche de l'échéance que le dernier envoyé.
+    const dus = RAPPELS_EXPIRATION.filter(
+      (delai) => jours <= delai && delai < (r.approvedDays ?? Infinity) && (r.expiryReminderLead === null || delai < r.expiryReminderLead),
+    );
+    if (dus.length === 0) continue;
+    const { count } = await deps.db.accessRequest.updateMany({
+      where: { id: r.id, expiryReminderLead: r.expiryReminderLead },
+      data: { expiryReminderLead: Math.min(...dus), expiryReminderSentAt: maintenant },
+    });
     if (count === 0) continue;
     rappelsExpiration++;
-    await notifyExpiryReminder(deps, { to: r.requesterEmail, alias: r.keyAlias, echeance: r.keyExpiresAt });
+    await notifyExpiryReminder(deps, { ...r, keyAlias: r.keyAlias, keyExpiresAt: r.keyExpiresAt }, jours);
   }
   return { rappelsRetrait, rappelsExpiration, ...expirations };
 }

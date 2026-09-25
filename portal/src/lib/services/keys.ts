@@ -252,7 +252,7 @@ export async function revokeKey(deps: KeyDeps, user: SessionUser, requestId: str
   await recordAudit(deps.db, { actorUid: user.uid, action: "KEY_REVOKED", targetId: request.id, details: { alias: request.keyAlias } });
   // Le titulaire est prévenu d'une révocation qu'il n'a pas faite lui-même.
   if (user.uid !== request.requesterUid && request.keyAlias) {
-    await notifyAdminKeyAction(deps, { to: request.requesterEmail, alias: request.keyAlias, action: "revocation" });
+    await notifyAdminKeyAction(deps, { ...request, keyAlias: request.keyAlias }, "revocation");
   }
 }
 
@@ -330,7 +330,7 @@ async function changeBlocking(deps: KeyDeps, actor: SessionUser, requestId: stri
     throw new PortalError("passerelle_indisponible", sens.echec);
   }
   await recordAudit(deps.db, { actorUid: actor.uid, action: sens.audit, targetId: request.id, details: { alias: request.keyAlias } });
-  if (request.keyAlias) await notifyAdminKeyAction(deps, { to: request.requesterEmail, alias: request.keyAlias, action: sens.courriel });
+  if (request.keyAlias) await notifyAdminKeyAction(deps, { ...request, keyAlias: request.keyAlias }, sens.courriel);
 }
 
 /**

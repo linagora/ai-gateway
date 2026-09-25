@@ -76,6 +76,8 @@ model AccessRequest {
   kind            RequestKind
   requesterUid    String
   requesterEmail  String
+  /// nom du demandeur au dépôt de la demande (SSO) ; absent des demandes plus anciennes
+  requesterName   String?
   /// team_id LiteLLM
   teamId          String
   teamAlias       String
@@ -110,9 +112,11 @@ model AccessRequest {
   keyReplacements Int           @default(0)
   /// demande dont cette demande renouvelle la clé
   renewsRequestId String?
-  /// rappels envoyés par la tâche quotidienne (une seule fois chacun)
+  /// rappel de retrait envoyé par la tâche quotidienne (une seule fois)
   pickupReminderSentAt DateTime?
+  /// dernier rappel d'expiration envoyé : date d'envoi et délai annoncé, en jours (30, 7 ou 1)
   expiryReminderSentAt DateTime?
+  expiryReminderLead   Int?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 

@@ -153,13 +153,17 @@ export interface LevelModels {
   models: LevelModel[];
 }
 
+/** Longueur minimale d'une recherche : en deçà, la recherche ne filtre pas (retours de recette du 2026-09-25). */
+export const RECHERCHE_MINIMUM = 3;
+
 /** Modèles d'un niveau : ceux qui acceptent des données de ce niveau, selon la règle de la politique d'accès. */
 export async function levelModels(
   deps: CatalogDeps,
   { level, language, criteria = {} }: { level: DataLevel; language: Langue; criteria?: LevelCriteria },
 ): Promise<LevelModels> {
   const models: LevelModel[] = modelsOfLevel(await visibleModels(deps), level, language);
-  const { search = "", useCase, capabilities = [], euOnly = false, sort = "recommended" } = criteria;
+  const { search: saisie = "", useCase, capabilities = [], euOnly = false, sort = "recommended" } = criteria;
+  const search = saisie.trim().length >= RECHERCHE_MINIMUM ? saisie.trim() : "";
   const blended = (m: LevelModel) => blendedPricePerMillion(m.inputPricePerMillion, m.outputPricePerMillion);
   const byName = (a: LevelModel, b: LevelModel) => a.displayName.localeCompare(b.displayName, language);
   const comparators: Record<LevelSort, (a: LevelModel, b: LevelModel) => number> = {

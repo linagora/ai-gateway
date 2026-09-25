@@ -21,12 +21,12 @@ const rgb = (hex: string) => `rgb(${[1, 3, 5].map((i) => parseInt(hex.slice(i, i
 
 test("le logo et la couleur principale de Linagora figurent dans l'en-tête et sur les boutons principaux, en français et en anglais", async ({ browser }) => {
   for (const [langue, bouton] of [
-    ["fr-FR", "Filtrer"],
-    ["en-US", "Filter"],
+    ["fr-FR", "Envoyer la demande"],
+    ["en-US", "Send request"],
   ]) {
     const context = await connecter(browser, personne, langue);
     const page = await context.newPage();
-    await page.goto("/catalogue/n1");
+    await page.goto("/demandes/adhesion");
     await expect(page.getByRole("banner").getByRole("img", { name: "Linagora" })).toBeVisible();
     await expect(page.getByRole("banner")).toHaveCSS("border-top-color", ROUGE_LINAGORA);
     await expect(page.getByRole("button", { name: bouton })).toHaveCSS("background-color", ROUGE_LINAGORA);

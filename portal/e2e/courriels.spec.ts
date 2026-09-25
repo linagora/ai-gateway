@@ -27,10 +27,11 @@ test("une nouvelle demande de clé est notifiée aux admins par un courriel bili
   await expect.poll(async () => (await courriels(salarie.uid)).length, { timeout: 15_000 }).toBe(1);
   const [courriel] = await courriels(salarie.uid);
   expect(courriel.to).toEqual(["admins-e2e@example.org"]);
-  expect(courriel.subject).toBe("Nouvelle demande de clé d'API / New API key request");
-  expect(courriel.text).toContain(`${salarie.uid} a demandé une clé d'API pour l'équipe R&D (N1 — Public).`);
-  expect(courriel.text).toContain(`${salarie.uid} requested an API key for the R&D team (N1 — Public).`);
-  expect(courriel.text).toMatch(/Lien : http:\/\/localhost:3100\/gestion\/demandes\/\w+/);
+  expect(courriel.subject).toBe(`[AI GATEWAY] Nouvelle demande de clé d'API de ${salarie.name} / New API key request from ${salarie.name}`);
+  const texte = courriel.text.replaceAll("\r\n", "\n");
+  expect(texte).toContain(`${salarie.name} (${salarie.email}) a déposé une demande de clé d'API :\n- Équipe : R&D\n- Niveau de confidentialité : N1 — Public\n- Modèles : dev-public`);
+  expect(texte).toContain(`${salarie.name} (${salarie.email}) submitted an API key request:\n- Team: R&D\n- Confidentiality level: N1 — Public`);
+  expect(texte).toMatch(/Lien : http:\/\/localhost:3100\/gestion\/demandes\/\w+/);
 });
 
 test("le demandeur reçoit l'approbation de sa demande, avec l'échéance de retrait et un lien vers « Mes clés » (ticket #24)", async ({ browser }) => {
@@ -40,9 +41,12 @@ test("le demandeur reçoit l'approbation de sa demande, avec l'échéance de ret
 
   await expect.poll(async () => (await courriels(`to:${salarie.email}`)).length, { timeout: 15_000 }).toBe(1);
   const [courriel] = await courriels(`to:${salarie.email}`);
-  expect(courriel.subject).toBe("Votre demande de clé est approuvée / Your key request is approved");
-  expect(courriel.text).toMatch(/Votre demande de clé d'API pour l'équipe R&D est approuvée\. Retirez votre clé avant le \d{1,2} \S+ \d{4} dans « Mes clés »\./);
-  expect(courriel.text).toContain("Lien : http://localhost:3100/cles");
+  expect(courriel.subject).toBe("[AI GATEWAY] Votre demande de clé est approuvée / Your key request is approved");
+  const texte = courriel.text.replaceAll("\r\n", "\n");
+  expect(texte).toContain(`Bonjour ${salarie.name},`);
+  expect(texte).toContain("Votre demande de clé d'API pour l'équipe R&D est approuvée. Paramètres de votre clé :\n- Équipe : R&D\n- Niveau de confidentialité : N1 — Public\n- Modèles accordés : dev-public");
+  expect(texte).toMatch(/Retirez votre clé avant le \d{1,2} \S+ \d{4} dans « Mes clés » : elle ne s'affichera qu'une seule fois\./);
+  expect(texte).toContain("Lien : http://localhost:3100/cles");
   expect(courriel.text).not.toMatch(/sk-/);
 });
 
@@ -73,7 +77,7 @@ test("la tâche quotidienne rappelle au titulaire le retrait de sa clé avant l'
 
     await expect.poll(async () => (await courriels(`to:${salarie.email} subject:Rappel`)).length, { timeout: 15_000 }).toBe(1);
     const [rappel] = await courriels(`to:${salarie.email} subject:Rappel`);
-    expect(rappel.subject).toBe("Rappel : votre clé est à retirer / Reminder: your key is waiting to be picked up");
+    expect(rappel.subject).toBe("[AI GATEWAY] Rappel : votre clé est à retirer / Reminder: your key is waiting to be picked up");
     expect(rappel.text).toContain("Lien : http://localhost:3100/cles");
   } finally {
     await delaiDeRetrait(admin, "14");
