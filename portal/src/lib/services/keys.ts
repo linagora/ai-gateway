@@ -246,11 +246,7 @@ export async function listAllKeys(deps: KeyDeps, actor: SessionUser): Promise<Ad
  * « Révoquée » (statut final). Le journal d'audit nomme l'auteur.
  */
 export async function revokeKey(deps: KeyDeps, user: SessionUser, requestId: string): Promise<void> {
-  const request = await deps.db.accessRequest.findUnique({ where: { id: requestId } });
-  if (!request || request.kind !== "CLE" || (request.requesterUid !== user.uid && !user.isAdmin) || !request.keyTokenId) {
-    throw new PortalError("introuvable", "Clé introuvable.", { objet: "demande_cle" });
-  }
-  if (request.status !== "CLE_EMISE") throw new PortalError("transition_interdite", "Cette clé n'est plus active.", { cas: "traitee" });
+  const request = await activeKeyRequest(deps.db, requestId, (r) => r.requesterUid === user.uid || user.isAdmin);
   await deleteFromGateway(deps.litellm, request.keyTokenId);
   await transitionRequest(deps.db, request, "REVOQUEE");
   await recordAudit(deps.db, { actorUid: user.uid, action: "KEY_REVOKED", targetId: request.id, details: { alias: request.keyAlias } });
@@ -267,11 +263,7 @@ export async function revokeKey(deps: KeyDeps, user: SessionUser, requestId: str
  * à côté de sa remplaçante.
  */
 export async function replaceKey(deps: KeyDeps, user: SessionUser, requestId: string): Promise<{ key: string; alias: string }> {
-  const request = await deps.db.accessRequest.findUnique({ where: { id: requestId } });
-  if (!request || request.kind !== "CLE" || request.requesterUid !== user.uid || !request.keyTokenId || !request.dataLevel) {
-    throw new PortalError("introuvable", "Clé introuvable.", { objet: "demande_cle" });
-  }
-  if (request.status !== "CLE_EMISE") throw new PortalError("transition_interdite", "Cette clé n'est plus active.", { cas: "traitee" });
+  const request = await activeKeyRequest(deps.db, requestId, (r) => r.requesterUid === user.uid);
   const maintenant = deps.now?.() ?? new Date();
   if (!request.keyExpiresAt || request.keyExpiresAt <= maintenant) {
     throw new PortalError("transition_interdite", "Cette clé a expiré : demandez son renouvellement.", { cas: "expiree" });
@@ -331,9 +323,7 @@ export async function unblockKey(deps: KeyDeps, actor: SessionUser, requestId: s
 
 async function changeBlocking(deps: KeyDeps, actor: SessionUser, requestId: string, sens: (typeof BLOCAGE)[keyof typeof BLOCAGE]): Promise<void> {
   requireAdmin(actor);
-  const request = await deps.db.accessRequest.findUnique({ where: { id: requestId } });
-  if (!request || request.kind !== "CLE" || !request.keyTokenId) throw new PortalError("introuvable", "Clé introuvable.", { objet: "demande_cle" });
-  if (request.status !== "CLE_EMISE") throw new PortalError("transition_interdite", "Cette clé n'est plus active.", { cas: "traitee" });
+  const request = await activeKeyRequest(deps.db, requestId, () => true);
   try {
     await sens.appel(deps.litellm, request.keyTokenId);
   } catch {
@@ -341,6 +331,19 @@ async function changeBlocking(deps: KeyDeps, actor: SessionUser, requestId: stri
   }
   await recordAudit(deps.db, { actorUid: actor.uid, action: sens.audit, targetId: request.id, details: { alias: request.keyAlias } });
   if (request.keyAlias) await notifyAdminKeyAction(deps, { to: request.requesterEmail, alias: request.keyAlias, action: sens.courriel });
+}
+
+/**
+ * Demande de clé dont la clé est émise et que l'utilisateur peut gérer. Une clé qu'il ne peut pas gérer est
+ * « introuvable » (on ne révèle pas son existence) ; une clé révoquée ou expirée n'est plus active.
+ */
+async function activeKeyRequest(db: Db, requestId: string, peutGerer: (r: AccessRequest) => boolean): Promise<AccessRequest & { keyTokenId: string }> {
+  const request = await db.accessRequest.findUnique({ where: { id: requestId } });
+  if (!request || request.kind !== "CLE" || !request.keyTokenId || !request.dataLevel || !peutGerer(request)) {
+    throw new PortalError("introuvable", "Clé introuvable.", { objet: "demande_cle" });
+  }
+  if (request.status !== "CLE_EMISE") throw new PortalError("transition_interdite", "Cette clé n'est plus active.", { cas: "traitee" });
+  return { ...request, keyTokenId: request.keyTokenId };
 }
 
 /** Supprime une clé de la passerelle ; une clé qu'elle ne connaît déjà plus (supprimée depuis la console) est acquise. */
