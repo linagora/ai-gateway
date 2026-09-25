@@ -38,6 +38,7 @@
       "CODING": "Coding",
       "DOCUMENT_ANALYSIS": "Long-document analysis",
       "TRANSLATION": "Translation",
+      "TRANSCRIPTION": "Transcription",
       "EXTRACTION": "Extraction & classification",
       "REASONING": "Reasoning & analysis",
       "STRUCTURED_DECISIONS": "Structured decisions"

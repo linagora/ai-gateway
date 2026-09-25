@@ -281,6 +281,14 @@ test.describe("filtres appliqués sans bouton (retours de recette du 2026-09-25)
     await context.close();
   });
 
+  test("le filtre des cas d'usage propose « Transcription »", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    await page.goto("/catalogue/n1");
+    await expect(page.getByRole("combobox", { name: "Cas d'usage" }).locator("option", { hasText: /^Transcription$/ })).toHaveCount(1);
+    await context.close();
+  });
+
   test("les capacités se choisissent dans une colonne", async ({ browser }) => {
     const context = await connecter(browser, salarie);
     const page = await context.newPage();
