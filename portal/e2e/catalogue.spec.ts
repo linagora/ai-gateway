@@ -326,7 +326,8 @@ test.describe("sélection de modèles et demande préremplie (ticket #10)", () =
     await page.getByLabel(/Je m'engage/).check();
     await page.getByRole("button", { name: "Envoyer la demande" }).click();
     await expect(page.getByRole("status")).toHaveText("Demande envoyée aux administrateurs.");
-    await expect(page.getByRole("row", { name: /Clé d'API.*R&D.*N2 — Interne.*dev-interne, dev-confidentiel.*Soumise/ })).toBeVisible();
+    // Modèles dans l'ordre du formulaire, par nom affiché.
+    await expect(page.getByRole("row", { name: /Clé d'API.*R&D.*N2 — Interne.*dev-confidentiel, dev-interne.*Soumise/ })).toBeVisible();
     await context.close();
   });
 

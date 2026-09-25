@@ -55,7 +55,10 @@ interface CatalogDeps {
   litellm: LiteLLMClient;
 }
 
-/** F-10 : modèles de LiteLLM enrichis et rendus visibles par un admin, dans la langue demandée (repli sur le français). */
+/**
+ * F-10 : modèles de LiteLLM enrichis et rendus visibles par un admin, dans la langue demandée (repli sur le
+ * français), par ordre de nom affiché.
+ */
 export async function listCatalog(deps: CatalogDeps, language: Langue = "fr"): Promise<CatalogItem[]> {
   const text = inLanguage(language);
   return (await visibleModels(deps)).map(({ entry, model, inputPricePerMillion, outputPricePerMillion }) => ({
@@ -69,7 +72,7 @@ export async function listCatalog(deps: CatalogDeps, language: Langue = "fr"): P
     inputPricePerMillion,
     outputPricePerMillion,
     maxInputTokens: model.maxInputTokens,
-  }));
+  })).sort((a, b) => a.displayName.localeCompare(b.displayName, language));
 }
 
 /** Fiche visible et modèle LiteLLM correspondant, avec ses prix en euros par million de jetons. */

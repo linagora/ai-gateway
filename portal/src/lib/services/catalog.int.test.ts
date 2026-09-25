@@ -369,6 +369,15 @@ describe("catalogue des utilisateurs (F-10)", () => {
     expect((await noms())["qwen3.8"]).toEqual(["Qwen 3.8 27B", "Modèle généraliste hébergé par OVHcloud"]);
   });
 
+  test("le catalogue des utilisateurs est trié par nom affiché, dans la langue demandée", async () => {
+    const litellm = new FakeLiteLLM().withModel({ modelName: "b" }).withModel({ modelName: "a" }).withModel({ modelName: "c" });
+    await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName: "b", displayNameFr: "Zeta", displayNameEn: "Alpha" });
+    await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName: "a", displayNameFr: "Mistral" });
+    await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName: "c", displayNameFr: "Éclair" });
+    expect((await listCatalog({ db: testDb, litellm }, "fr")).map((m) => m.displayName)).toEqual(["Éclair", "Mistral", "Zeta"]);
+    expect((await listCatalog({ db: testDb, litellm }, "en")).map((m) => m.displayName)).toEqual(["Alpha", "Éclair", "Mistral"]);
+  });
+
   test("un modèle enrichi mais masqué n'apparaît pas", async () => {
     const litellm = new FakeLiteLLM().withModel({ modelName: "qwen3.8" });
     await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, visible: false });
