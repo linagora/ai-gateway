@@ -1,4 +1,4 @@
-"""Déclare dans LiteLLM les équipes initiales du groupe Linagora, que les salariés peuvent demander à
+"""Déclare dans LiteLLM les équipes du groupe Linagora, que les salariés peuvent demander à
 rejoindre depuis le portail. Idempotent : une équipe existante (même alias) est laissée telle quelle.
 
   cd /opt/linagora-ia && docker compose exec -T litellm python3 - < scripts/declare-equipes.py
@@ -21,6 +21,9 @@ EQUIPES = [
     "LPS GSO",
     "LINAGORA Tunisia",
     "LINAGORA Vietnam",
+    "Direction Générale",
+    "Equipe Commerciale",
+    "Equipes Administrative/Marketing/Support",
 ]
 
 
