@@ -158,6 +158,8 @@ test.describe("page d'un niveau (ticket #7)", () => {
     await page.goto("/catalogue/n3");
     // Modèle confidentiel de démonstration : 0,40 € en entrée, 2,70 € en sortie, soit un prix mixte de 0,975 € (€€).
     const carte = modele(page, "Modèle confidentiel");
+    // La description courte tient en deux lignes au plus (spécification, récit 20).
+    await expect(carte.getByText("Modèle de démonstration N3", { exact: true })).toHaveCSS("-webkit-line-clamp", "2");
     await expect(carte).toContainText("Images");
     await expect(carte).toContainText("Raisonnement");
     await expect(carte).toContainText(/€€\s*·\s*0,40\s€ en entrée, 2,70\s€ en sortie/);

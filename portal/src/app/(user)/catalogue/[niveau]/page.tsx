@@ -126,7 +126,9 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
                 {m.acceptsUpTo && (
                   <p className={`self-start rounded border-2 px-2 text-sm ${COULEURS_NIVEAUX[m.acceptsUpTo]}`}>{t("accepteJusqua", { niveau: m.acceptsUpTo })}</p>
                 )}
-                <p>{m.shortDescription}</p>
+                <p className="line-clamp-2" title={m.shortDescription}>
+                  {m.shortDescription}
+                </p>
                 {m.capabilities.length > 0 && (
                   <ul aria-label={t("capacites")} className="flex flex-wrap gap-x-3 text-sm">
                     {m.capabilities.map((c) => (
