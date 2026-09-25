@@ -103,6 +103,21 @@ test.describe("vue d'ensemble des niveaux (ticket #5)", () => {
     await anglais.close();
   });
 
+  test("les quatre cartes tiennent à l'écran sans défilement, sur une même rangée (écran de 1440 × 900), en français et en anglais", async ({ browser }) => {
+    for (const langue of ["fr-FR", "en-US"]) {
+      const context = await connecter(browser, salarie, langue);
+      const page = await context.newPage();
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.goto("/catalogue");
+      const cartes = page.getByRole("main").getByRole("region");
+      await expect(cartes).toHaveCount(4);
+      const boites = await cartes.evaluateAll((sections) => sections.map((s) => s.getBoundingClientRect()).map((r) => ({ haut: Math.round(r.top), bas: Math.round(r.bottom) })));
+      expect(new Set(boites.map((b) => b.haut)).size).toBe(1);
+      expect(Math.max(...boites.map((b) => b.bas))).toBeLessThanOrEqual(900);
+      await context.close();
+    }
+  });
+
   test("chaque carte donne le nombre de modèles du niveau et son prix de départ", async ({ browser }) => {
     const context = await connecter(browser, salarie);
     const page = await context.newPage();
