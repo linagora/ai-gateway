@@ -3,6 +3,7 @@ import type { Db } from "@/lib/db";
 import { PortalError } from "@/lib/errors";
 import type { ApiKind, KeyInfo, LiteLLMClient } from "@/lib/litellm/client";
 import type { DataLevel, RequestStatus } from "@/lib/policy";
+import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
 import { transitionRequest } from "./requests";
 import { readSettings } from "./settings";
@@ -149,10 +150,45 @@ export async function pickUpKey(deps: KeyDeps, user: SessionUser, requestId: str
   return { key: generee.key, alias: generee.alias };
 }
 
-/** F-43 : révocation d'une clé par son titulaire : suppression dans LiteLLM, demande « Révoquée » (statut final). */
+/** Clé émise vue par les admins (« Gestion — Clés ») : avec son titulaire. */
+export interface AdminKey extends Omit<IssuedKey, "example"> {
+  holderUid: string;
+  holderEmail: string;
+}
+
+/** F-43 : toutes les clés émises, les actives d'abord puis les plus récentes, avec leur dépense lue en direct. */
+export async function listAllKeys(deps: KeyDeps, actor: SessionUser): Promise<AdminKey[]> {
+  requireAdmin(actor);
+  const rows = await deps.db.accessRequest.findMany({
+    where: { kind: "CLE", keyAlias: { not: null }, keyIssuedAt: { not: null } },
+    orderBy: { keyIssuedAt: "desc" },
+  });
+  const usages = await Promise.all(rows.map((r) => (r.status === "CLE_EMISE" && r.keyTokenId ? keyUsage(deps.litellm, r.keyTokenId) : null)));
+  return rows
+    .map((r, i) => ({
+      requestId: r.id,
+      holderUid: r.requesterUid,
+      holderEmail: r.requesterEmail,
+      alias: r.keyAlias as string,
+      teamAlias: r.teamAlias,
+      dataLevel: r.dataLevel as DataLevel,
+      models: r.approvedModels,
+      project: r.project,
+      issuedAt: r.keyIssuedAt as Date,
+      expiresAt: r.keyExpiresAt,
+      status: r.status,
+      usage: usages[i],
+    }))
+    .sort((a, b) => Number(b.status === "CLE_EMISE") - Number(a.status === "CLE_EMISE"));
+}
+
+/**
+ * F-43 : révocation d'une clé, par son titulaire ou par un admin : suppression dans LiteLLM, demande
+ * « Révoquée » (statut final). Le journal d'audit nomme l'auteur.
+ */
 export async function revokeKey(deps: KeyDeps, user: SessionUser, requestId: string): Promise<void> {
   const request = await deps.db.accessRequest.findUnique({ where: { id: requestId } });
-  if (!request || request.kind !== "CLE" || request.requesterUid !== user.uid || !request.keyTokenId) {
+  if (!request || request.kind !== "CLE" || (request.requesterUid !== user.uid && !user.isAdmin) || !request.keyTokenId) {
     throw new PortalError("introuvable", "Clé introuvable.", { objet: "demande_cle" });
   }
   if (request.status !== "CLE_EMISE") throw new PortalError("transition_interdite", "Cette clé n'est plus active.", { cas: "traitee" });

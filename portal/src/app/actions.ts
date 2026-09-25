@@ -169,6 +169,12 @@ export async function revoquerCleAction(formData: FormData): Promise<void> {
   await run("/cles", () => revokeKey(getDeps(), user, text(formData, "id")), { path: "/cles", message: "cleRevoquee" });
 }
 
+/** F-43 : révocation d'une clé par un admin, depuis « Gestion — Clés ». */
+export async function revoquerCleAdminAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  await run("/gestion/cles", () => revokeKey(getDeps(), user, text(formData, "id")), { path: "/gestion/cles", message: "cleRevoquee" });
+}
+
 /** Résultat du retrait d'une clé : la clé n'y figure qu'une fois, et nulle part ailleurs. */
 export type ResultatRetrait = { ok: true; cle: string; alias: string } | { ok: false; erreur: string; details: Record<string, string> };
 

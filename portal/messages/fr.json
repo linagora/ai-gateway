@@ -345,7 +345,8 @@
       "libelle": "Administration",
       "demandes": "Demandes",
       "catalogue": "Catalogue",
-      "parametres": "Valeurs par défaut"
+      "parametres": "Valeurs par défaut",
+      "cles": "Clés"
     },
     "file": {
       "titre": "Demandes en attente de validation",
@@ -405,6 +406,22 @@
         "pickup_days": "Délai de retrait d'une clé approuvée (jours)"
       },
       "enregistrer": "Enregistrer"
+    },
+    "cles": {
+      "titre": "Clés émises",
+      "aucune": "Aucune clé n'a encore été retirée.",
+      "colonnes": {
+        "titulaire": "Titulaire",
+        "alias": "Alias",
+        "equipe": "Équipe",
+        "niveau": "Niveau",
+        "depense": "Dépense",
+        "expiration": "Expire le",
+        "statut": "Statut"
+      },
+      "revoquer": "Révoquer",
+      "revocationAvertissement": "La passerelle refusera la clé dans les secondes qui suivent. La révocation est définitive.",
+      "confirmerRevocation": "Confirmer la révocation"
     }
   },
   "introuvable": {

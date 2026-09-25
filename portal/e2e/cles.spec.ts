@@ -111,6 +111,27 @@ test("le titulaire remplace une clé perdue : même expiration, nouvel alias, l'
   await expect.poll(() => appel(request, ancienne), { timeout: 15_000, intervals: [1_000] }).toBe(401);
 });
 
+test("un admin voit toutes les clés émises et révoque celle d'un salarié (ticket #19)", async ({ browser, request }) => {
+  const salarie = personne("gestion");
+  const page = await (await connecter(browser, salarie)).newPage();
+  await demandeApprouvee(browser, page, salarie, "Essai gestion");
+  const cle = await retirerCle(page);
+
+  const admin = await (await connecter(browser, ADMIN)).newPage();
+  await admin.goto("/gestion/demandes");
+  await admin.getByRole("navigation", { name: "Administration" }).getByRole("link", { name: "Clés", exact: true }).click();
+  await expect(admin.getByRole("heading", { level: 1 })).toHaveText("Clés émises");
+  const ligne = admin.getByRole("row", { name: new RegExp(`${salarie.uid}.*${salarie.uid}-r-d-essai-gestion-.*R&D.*N1 — Public.*sur 5,00 €.*Clé émise`) });
+  await ligne.getByText("Révoquer").click();
+  await ligne.getByRole("button", { name: "Confirmer la révocation" }).click();
+  await expect(admin.getByRole("status")).toHaveText("Clé révoquée.");
+  await expect(admin.getByRole("row", { name: new RegExp(`${salarie.uid}-r-d-essai-gestion-.*Révoquée`) })).toBeVisible();
+  await expect.poll(() => appel(request, cle), { timeout: 15_000, intervals: [1_000] }).toBe(401);
+
+  await page.goto("/cles");
+  await expect(page.getByRole("article")).toContainText("Révoquée");
+});
+
 test("« Mes clés » s'affiche en anglais", async ({ browser }) => {
   const page = await (await connecter(browser, personne("anglais"), "en-US")).newPage();
   await page.goto("/cles");

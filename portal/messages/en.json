@@ -345,7 +345,8 @@
       "libelle": "Administration",
       "demandes": "Requests",
       "catalogue": "Catalog",
-      "parametres": "Default values"
+      "parametres": "Default values",
+      "cles": "Keys"
     },
     "file": {
       "titre": "Requests awaiting validation",
@@ -405,6 +406,22 @@
         "pickup_days": "Pickup delay for an approved key (days)"
       },
       "enregistrer": "Save"
+    },
+    "cles": {
+      "titre": "Issued keys",
+      "aucune": "No key has been picked up yet.",
+      "colonnes": {
+        "titulaire": "Holder",
+        "alias": "Alias",
+        "equipe": "Team",
+        "niveau": "Level",
+        "depense": "Spend",
+        "expiration": "Expires on",
+        "statut": "Status"
+      },
+      "revoquer": "Revoke",
+      "revocationAvertissement": "The gateway will refuse the key within seconds. Revocation cannot be undone.",
+      "confirmerRevocation": "Confirm revocation"
     }
   },
   "introuvable": {

@@ -4,7 +4,7 @@ import { FakeLiteLLM } from "@/test/fake-litellm";
 import { approveKeyRequest } from "./admin-requests";
 import { listAudit } from "./audit";
 import { saveCatalogEntry } from "./catalog";
-import { listMyKeys, pickUpKey, replaceKey, revokeKey } from "./keys";
+import { listAllKeys, listMyKeys, pickUpKey, replaceKey, revokeKey } from "./keys";
 import { createKeyRequest, type KeyRequestInput } from "./requests";
 import { saveSettings } from "./settings";
 
@@ -245,5 +245,43 @@ describe("remplacement d'une clé perdue (ticket #18)", () => {
     const journal = await listAudit(testDb);
     expect(journal.map((e) => [e.actorUid, e.action, e.targetId])).toContainEqual(["mmaudet", "KEY_REPLACED", id]);
     expect(JSON.stringify(journal)).not.toContain(key);
+  });
+});
+
+describe("« Gestion — Clés » et révocation par un admin (ticket #19)", () => {
+  test("la liste des admins donne toutes les clés émises, avec titulaire, équipe, niveau, alias, dépense sur budget et expiration", async () => {
+    const id = await demandeApprouvee();
+    const { key } = await pickUpKey(deps, titulaire, id);
+    [...litellm.keys.values()].find((k) => k.key === key)!.spend = 1.25;
+    const { id: idCollegue } = await createKeyRequest(deps, collegue, demande);
+    await approveKeyRequest(deps, admin, idCollegue, { models: ["mistral-small"], budget: 10, budgetDuration: "30d", days: 30, rpmLimit: null, tpmLimit: null });
+    await pickUpKey(deps, collegue, idCollegue);
+
+    const cles = await listAllKeys(deps, admin);
+    expect(cles).toHaveLength(2);
+    expect(cles.find((k) => k.requestId === id)).toMatchObject({
+      holderUid: "mmaudet",
+      holderEmail: "mmaudet@linagora.com",
+      teamAlias: "R&D",
+      dataLevel: "N2",
+      alias: `mmaudet-r-d-compte-rendu-hebdo-${id.slice(-4)}`,
+      status: "CLE_EMISE",
+      expiresAt: new Date(maintenant.getTime() + 60 * JOUR),
+      usage: { spend: 1.25, maxBudget: 15, blocked: false },
+    });
+    expect(cles.find((k) => k.requestId === idCollegue)).toMatchObject({ holderUid: "pmartin", usage: { spend: 0, maxBudget: 10 } });
+  });
+
+  test("un salarié n'accède pas à la liste des clés", async () => {
+    await expect(listAllKeys(deps, titulaire)).rejects.toMatchObject({ code: "interdit" });
+  });
+
+  test("un admin révoque la clé d'un salarié, avec le même effet ; le journal d'audit le nomme comme auteur", async () => {
+    const id = await demandeApprouvee();
+    const { key } = await pickUpKey(deps, titulaire, id);
+    await revokeKey(deps, admin, id);
+    expect([...litellm.keys.values()].some((k) => k.key === key)).toBe(false);
+    expect((await listAllKeys(deps, admin))[0]).toMatchObject({ requestId: id, status: "REVOQUEE" });
+    expect((await listAudit(testDb)).map((e) => [e.actorUid, e.action, e.targetId])).toContainEqual(["jdupont", "KEY_REVOKED", id]);
   });
 });
