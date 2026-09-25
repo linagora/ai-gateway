@@ -93,7 +93,7 @@ Vérifier dans les logs LiteLLM l'absence du message « Cannot apply server_root
 **Premiers modèles** :
 - le modèle N3 **Qwen3.8 sur l'endpoint OVHcloud** (`openai/<modèle>` + `api_base` = `OVH_QWEN_API_BASE`), après un test direct de l'endpoint (`curl <api_base>/models`), par l'API ou l'UI admin (`https://ai-gateway.linagora.com/admin/ui`, connexion locale `UI_USERNAME`/`UI_PASSWORD`) ;
 - les modèles **OpenRouter**, uniquement par la liste blanche (ci-dessous), jamais à la main ni par l'UI ;
-- **JEV** (Typesafe, niveau Expérimental) : `docker compose exec -T litellm python3 - < scripts/declare-jev.py`.
+- **Qwen3.8** (OVHcloud, N3) et **JEV** (Typesafe, niveau Expérimental), joints sans OpenRouter : `docker compose exec -T litellm python3 - < scripts/declare-modeles-directs.py` (déclare le modèle s'il manque, sinon réécrit ses informations : fournisseur, éditeur, capacités, hébergeurs, zone).
 
 **Liste blanche OpenRouter** (`litellm/liste-blanche-openrouter.yaml`, versionnée) : seuls ses modèles sont déclarés ; aucun joker (`openrouter/*`). Chaque modèle a une **zone d'exécution** : `UE` (points d'accès `mistral/eu`, `google-vertex/eu`, Inceptron, NextBit) ou `monde` (fournisseurs au siège américain, sans conservation des données). Le routage d'OpenRouter est limité à ces points d'accès, sans repli (`provider.only`, `allow_fallbacks: false`). Prix déclarés en € = prix OpenRouter le plus élevé de la zone × 1,055 (frais d'achat de crédits) × taux BCE ; plafond facultatif `prix_max_usd` transmis à OpenRouter.
 ```bash

@@ -24,6 +24,9 @@ LISTE = "/app/passerelle/liste-blanche-openrouter.yaml"
 PROXY = "http://localhost:4000/admin"
 OPENROUTER = "https://openrouter.ai/api/v1"
 SOURCE = "liste-blanche-openrouter"  # model_info.source des modèles gérés par ce script
+# Éditeur d'un modèle, d'après l'auteur de son identifiant OpenRouter (à défaut, l'auteur tel quel).
+EDITEURS = {"mistralai": "Mistral AI", "google": "Google", "z-ai": "Z.ai (Zhipu)", "deepseek": "DeepSeek",
+            "moonshotai": "Moonshot AI", "qwen": "Alibaba (Qwen)"}
 
 appliquer = "--appliquer" in sys.argv
 supprimer = "--supprimer-hors-liste" in sys.argv
@@ -52,7 +55,8 @@ def arrondi(x):
 
 def declaration(entree, cfg):
     zone = cfg["zones"][entree["zone"]]
-    tous = http("GET", f"{OPENROUTER}/models/{entree['openrouter']}/endpoints", auth=False)["data"]["endpoints"]
+    donnees = http("GET", f"{OPENROUTER}/models/{entree['openrouter']}/endpoints", auth=False)["data"]
+    tous = donnees["endpoints"]
     plafond = entree.get("prix_max_usd")
     retenus = [e for e in tous if dans_zone(e["tag"], zone) and (
         plafond is None or (float(e["pricing"]["prompt"]) * 1e6 <= plafond[0] and float(e["pricing"]["completion"]) * 1e6 <= plafond[1]))]
@@ -67,6 +71,12 @@ def declaration(entree, cfg):
         provider["data_collection"] = "deny"
     if plafond is not None:
         provider["max_price"] = {"prompt": plafond[0], "completion": plafond[1]}
+    # Capacités affichées au catalogue ; les outils et les sorties JSON, communs à tous les modèles, n'en sont pas.
+    entrees = set((donnees.get("architecture") or {}).get("input_modalities") or [])
+    raisonne = any({"reasoning", "include_reasoning"} & set(e.get("supported_parameters") or []) for e in retenus)
+    capacites = [c for c, oui in [("images", "image" in entrees), ("audio_video", bool(entrees & {"audio", "video"})),
+                                  ("raisonnement", raisonne)] if oui]
+    auteur = entree["openrouter"].split("/")[0]
     return {
         "model_name": entree["nom"],
         "litellm_params": {
@@ -80,6 +90,9 @@ def declaration(entree, cfg):
         "model_info": {
             "source": SOURCE,
             "fournisseur": "OpenRouter",
+            "editeur": EDITEURS.get(auteur, auteur),
+            "capacites": capacites,
+            "hebergeurs": sorted({e["provider_name"] for e in retenus}),
             "openrouter_model": entree["openrouter"],
             "data_level": entree.get("niveau", "N1"),
             "hosting": "UE" if entree["zone"] == "UE" else "HORS_UE",

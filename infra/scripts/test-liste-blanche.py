@@ -66,6 +66,15 @@ for nom, m in sorted(openrouter.items()):
     zone = cfg["zones"].get((liste.get(nom) or {}).get("zone"), [])
     controle(f"{nom} : servi uniquement dans sa zone, sans repli", bool(p.get("only")) and set(p["only"]) <= set(zone) and p.get("allow_fallbacks") is False, json.dumps(p))
 
+# 1 bis. Faits techniques déclarés pour le catalogue du portail : éditeur, capacités, hébergeurs, zone
+CAPACITES = {"images", "audio_video", "raisonnement"}
+for nom in sorted(set(openrouter) | {"qwen3.8", JEV}):
+    mi = next((m.get("model_info") or {} for m in modeles if m["model_name"] == nom), {})
+    faits = {k: mi.get(k) for k in ("fournisseur", "editeur", "capacites", "hebergeurs", "zone")}
+    controle(f"{nom} : fournisseur, éditeur, capacités, hébergeurs et zone déclarés",
+             bool(mi.get("fournisseur")) and bool(mi.get("editeur")) and isinstance(mi.get("capacites"), list)
+             and set(mi["capacites"]) <= CAPACITES and bool(mi.get("hebergeurs")) and mi.get("zone") in ("UE", "monde"), json.dumps(faits, ensure_ascii=False))
+
 # 2. Équipe et clés de test : sans restriction de modèle, N1 limitée au modèle testé, Expérimental limitée à JEV
 _, equipe = http("POST", "/team/new", {"team_alias": "recette-liste-blanche"})
 cles = []
