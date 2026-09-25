@@ -23,6 +23,8 @@ export const keyRequestInputSchema = z.object({
   requestedDays: z.number().int().positive().nullable(),
   keyType: z.enum(["PERSONNELLE", "SERVICE"]),
   commitment: z.boolean(),
+  /** Renouvellement : la demande dont la clé est renouvelée (clé du demandeur, émise, expirée ou révoquée). */
+  renewsRequestId: z.string().min(1).nullish(),
 });
 
 export type KeyRequestInput = z.infer<typeof keyRequestInputSchema>;
@@ -42,11 +44,26 @@ export interface RequestSummary {
 /** F-20 : enregistre une demande de clé au statut SOUMISE. */
 export async function createKeyRequest(deps: RequestDeps, user: SessionUser, input: KeyRequestInput): Promise<{ id: string }> {
   const fields = await validateKeyRequest(deps, user, input);
+  const origine = input.renewsRequestId ? await ownKeyToRenew(deps, user, input.renewsRequestId) : null;
   const created = await deps.db.accessRequest.create({
-    data: { kind: "CLE", requesterUid: user.uid, requesterEmail: user.email, ...fields },
+    data: { kind: "CLE", requesterUid: user.uid, requesterEmail: user.email, ...fields, renewsRequestId: origine?.id ?? null },
   });
-  await recordAudit(deps.db, { actorUid: user.uid, action: "REQUEST_CREATED", targetId: created.id, details: { kind: "CLE", teamAlias: created.teamAlias } });
+  await recordAudit(deps.db, {
+    actorUid: user.uid,
+    action: origine ? "RENEWAL_REQUESTED" : "REQUEST_CREATED",
+    targetId: created.id,
+    details: origine ? { kind: "CLE", teamAlias: created.teamAlias, origine: origine.id } : { kind: "CLE", teamAlias: created.teamAlias },
+  });
   return { id: created.id };
+}
+
+/** Clé que le demandeur peut renouveler : la sienne, retirée un jour (émise, expirée ou révoquée). */
+export async function ownKeyToRenew(deps: { db: Db }, user: SessionUser, requestId: string) {
+  const origine = await deps.db.accessRequest.findUnique({ where: { id: requestId } });
+  if (!origine || origine.kind !== "CLE" || origine.requesterUid !== user.uid || !origine.keyIssuedAt || !origine.dataLevel) {
+    throw new PortalError("introuvable", "Clé introuvable.", { objet: "demande_cle" });
+  }
+  return origine;
 }
 
 /** F-24 : le demandeur complète une demande renvoyée par l'admin ; elle repasse en SOUMISE. */

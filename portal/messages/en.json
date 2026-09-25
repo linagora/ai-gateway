@@ -322,7 +322,8 @@
     "typeCle": "Key type",
     "engagement": "I commit to not submitting data above the declared level (Experimental level: public data only).",
     "envoyer": "Send request",
-    "resoumettre": "Resubmit"
+    "resoumettre": "Resubmit",
+    "titreRenouvellement": "Renew the key {alias}"
   },
   "adhesion": {
     "titre": "Ask to join a team",
@@ -394,7 +395,9 @@
       "demanderComplement": "Ask for more information",
       "equipeCle": "Key team",
       "equipeAffectation": "Assigned team",
-      "aideEquipe": "If the requester is not a member of the chosen team, approval adds them to it."
+      "aideEquipe": "If the requester is not a member of the chosen team, approval adds them to it.",
+      "renouvellement": "Renewal of the key {alias}.",
+      "depenseOrigine": "Spend of this key: {depense}."
     },
     "parametres": {
       "titre": "Default key values",
@@ -483,6 +486,7 @@
     "confirmerRevocation": "Confirm revocation",
     "remplacer": "Replace my key (lost key)",
     "remplacementExplication": "A new key replaces this one, with the same parameters and the same expiry date. The old key stops working at once.",
-    "confirmerRemplacement": "Generate the replacement key"
+    "confirmerRemplacement": "Generate the replacement key",
+    "renouveler": "Renew"
   }
 }

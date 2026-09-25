@@ -59,6 +59,8 @@ export interface RequestReview extends PendingRequest {
   /** Paramètres figés à l'approbation (F-40), null tant que la demande n'est pas approuvée. */
   approved: ApprovalInput | null;
   checks: PolicyCheck[];
+  /** Renouvellement : alias de la clé d'origine et sa dépense (null si elle n'est plus active ou illisible). */
+  renewal: { alias: string; spend: number | null } | null;
 }
 
 export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: string): Promise<RequestReview> {
@@ -98,7 +100,16 @@ export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: 
         }
       : null,
     checks,
+    renewal: r.renewsRequestId ? await renewalOrigin(deps, r.renewsRequestId) : null,
   };
+}
+
+async function renewalOrigin(deps: AdminDeps, requestId: string): Promise<RequestReview["renewal"]> {
+  const origine = await deps.db.accessRequest.findUnique({ where: { id: requestId } });
+  if (!origine?.keyAlias) return null;
+  const info =
+    origine.status === "CLE_EMISE" && origine.keyTokenId ? await deps.litellm.getKeyInfo(origine.keyTokenId).catch(() => null) : null;
+  return { alias: origine.keyAlias, spend: info?.spend ?? null };
 }
 
 /** Paramètres de la clé fixés par l'admin (F-31). Durées au format LiteLLM : 30d, 12h… */

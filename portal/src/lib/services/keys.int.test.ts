@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
-import { approveKeyRequest } from "./admin-requests";
+import { approveKeyRequest, getRequestReview, refuseRequest } from "./admin-requests";
 import { listAudit } from "./audit";
 import { saveCatalogEntry } from "./catalog";
-import { blockKey, listAllKeys, listMyKeys, pickUpKey, replaceKey, revokeKey, unblockKey } from "./keys";
+import { blockKey, listAllKeys, listMyKeys, pickUpKey, renewalDraft, replaceKey, revokeKey, unblockKey } from "./keys";
 import { createKeyRequest, type KeyRequestInput } from "./requests";
 import { saveSettings } from "./settings";
 
@@ -316,5 +316,69 @@ describe("blocage et déblocage d'une clé (ticket #20)", () => {
     await blockKey(deps, admin, id);
     await expect(replaceKey(deps, titulaire, id)).rejects.toMatchObject({ code: "transition_interdite", params: { cas: "bloquee" } });
     expect(litellm.keys.size).toBe(1);
+  });
+});
+
+describe("renouvellement d'une clé (ticket #21)", () => {
+  /** Clé émise, puis demande de renouvellement déposée avec le brouillon prérempli. */
+  async function renouvellement(): Promise<{ origine: string; renouvelee: string; ancienne: string }> {
+    const origine = await demandeApprouvee();
+    const { key: ancienne } = await pickUpKey(deps, titulaire, origine);
+    const brouillon = await renewalDraft(deps, titulaire, origine);
+    const { id: renouvelee } = await createKeyRequest(deps, titulaire, { ...demande, ...brouillon, justification: "Renouvellement", commitment: true, renewsRequestId: origine });
+    return { origine, renouvelee, ancienne };
+  }
+
+  test("« Renouveler » propose une demande préremplie avec les paramètres de la clé d'origine, à laquelle elle est reliée", async () => {
+    const origine = await demandeApprouvee();
+    await pickUpKey(deps, titulaire, origine);
+    expect(await renewalDraft(deps, titulaire, origine)).toEqual({
+      teamId: "equipe-rd",
+      dataLevel: "N2",
+      models: ["mistral-small"],
+      project: "Compte-rendu hebdo",
+      requestedBudget: 15,
+      requestedDays: 60,
+      keyType: "PERSONNELLE",
+      alias: `mmaudet-r-d-compte-rendu-hebdo-${origine.slice(-4)}`,
+    });
+    const { renouvelee } = await renouvellement();
+    expect((await listAudit(testDb)).map((e) => [e.action, e.targetId, e.details])).toContainEqual(["RENEWAL_REQUESTED", renouvelee, expect.objectContaining({ origine: expect.any(String) })]);
+  });
+
+  test("on ne renouvelle que ses propres clés : pas celle d'un autre, ni une demande sans clé", async () => {
+    const origine = await demandeApprouvee();
+    await expect(renewalDraft(deps, titulaire, origine)).rejects.toMatchObject({ code: "introuvable" });
+    await pickUpKey(deps, titulaire, origine);
+    await expect(renewalDraft(deps, collegue, origine)).rejects.toMatchObject({ code: "introuvable" });
+    await expect(createKeyRequest(deps, collegue, { ...demande, renewsRequestId: origine })).rejects.toMatchObject({ code: "introuvable" });
+  });
+
+  test("la fiche de validation signale le renouvellement, avec l'alias et la dépense de la clé d'origine", async () => {
+    const { origine, renouvelee, ancienne } = await renouvellement();
+    [...litellm.keys.values()].find((k) => k.key === ancienne)!.spend = 3;
+    expect((await getRequestReview(deps, admin, renouvelee)).renewal).toEqual({ alias: `mmaudet-r-d-compte-rendu-hebdo-${origine.slice(-4)}`, spend: 3 });
+  });
+
+  test("au retrait de la nouvelle clé, la clé d'origine encore émise est révoquée", async () => {
+    const { origine, renouvelee, ancienne } = await renouvellement();
+    await approveKeyRequest(deps, admin, renouvelee, { models: ["mistral-small"], budget: 15, budgetDuration: "30d", days: 60, rpmLimit: null, tpmLimit: null });
+    const { key } = await pickUpKey(deps, titulaire, renouvelee);
+    expect([...litellm.keys.values()].map((k) => k.key)).toEqual([key]);
+    expect(Object.fromEntries((await listMyKeys(deps, titulaire)).keys.map((k) => [k.requestId, k.status]))).toEqual({ [origine]: "REVOQUEE", [renouvelee]: "CLE_EMISE" });
+    expect(ancienne).not.toBe(key);
+    expect((await listAudit(testDb)).map((e) => [e.action, e.targetId, e.details.raison])).toContainEqual(["KEY_REVOKED", origine, "renouvellement"]);
+  });
+
+  test("une clé d'origine déjà révoquée reste en l'état ; un renouvellement refusé laisse la clé d'origine intacte", async () => {
+    const premier = await renouvellement();
+    await revokeKey(deps, titulaire, premier.origine);
+    await approveKeyRequest(deps, admin, premier.renouvelee, { models: ["mistral-small"], budget: 15, budgetDuration: "30d", days: 60, rpmLimit: null, tpmLimit: null });
+    await pickUpKey(deps, titulaire, premier.renouvelee);
+
+    const second = await renouvellement();
+    await refuseRequest(deps, admin, second.renouvelee, "Budget à revoir");
+    expect([...litellm.keys.values()].some((k) => k.key === second.ancienne)).toBe(true);
+    expect((await listMyKeys(deps, titulaire)).keys.find((k) => k.requestId === second.origine)?.status).toBe("CLE_EMISE");
   });
 });

@@ -4,6 +4,7 @@ import type { Db } from "@/lib/db";
 /** Actions inscrites au journal d'audit (F-52) : décisions sur les demandes, actions sur les clés. */
 export type AuditAction =
   | "REQUEST_CREATED"
+  | "RENEWAL_REQUESTED"
   | "REQUEST_APPROVED"
   | "REQUEST_REFUSED"
   | "COMPLETION_REQUESTED"

@@ -155,6 +155,37 @@ test("un admin bloque une clé, que la passerelle refuse et que le titulaire ne 
   await expect.poll(() => appel(request, cle), { timeout: 15_000, intervals: [1_000] }).toBe(200);
 });
 
+test("le titulaire renouvelle sa clé : demande préremplie, validée, et l'ancienne clé est révoquée au retrait de la nouvelle (ticket #21)", async ({ browser, request }) => {
+  const salarie = personne("renouvellement");
+  const page = await (await connecter(browser, salarie)).newPage();
+  await demandeApprouvee(browser, page, salarie, "Essai renouvellement");
+  const ancienne = await retirerCle(page);
+  const origine = page.getByRole("article", { name: new RegExp(`^${salarie.uid}-r-d-essai-renouvellement-`) });
+  const alias = ((await origine.locator("h3").textContent()) ?? "").trim();
+
+  await origine.getByRole("link", { name: "Renouveler" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(`Renouveler la clé ${alias}`);
+  await expect(page.getByRole("radio", { name: /^N1 — Public/ })).toBeChecked();
+  await expect(page.getByLabel(/Modèle public/)).toBeChecked();
+  await expect(page.getByLabel("Projet ou affaire")).toHaveValue("Essai renouvellement");
+  await page.getByLabel("Motif").fill("Renouvellement");
+  await page.getByLabel(/Je m'engage/).check();
+  await page.getByRole("button", { name: "Envoyer la demande" }).click();
+  await expect(page.getByRole("status")).toHaveText("Demande envoyée aux administrateurs.");
+
+  const admin = await (await connecter(browser, ADMIN)).newPage();
+  await admin.goto("/gestion/demandes");
+  await admin.getByRole("row", { name: new RegExp(`${salarie.uid}.*Clé d'API`) }).getByRole("link", { name: "Examiner" }).click();
+  await expect(admin.getByRole("main")).toContainText(`Renouvellement de la clé ${alias}.`);
+  await admin.getByRole("button", { name: "Approuver", exact: true }).click();
+  await expect(admin.getByRole("status")).toHaveText("Demande approuvée.");
+
+  const nouvelle = await retirerCle(page);
+  expect(await appel(request, nouvelle)).toBe(200);
+  await expect(page.getByRole("article", { name: alias })).toContainText("Révoquée");
+  await expect.poll(() => appel(request, ancienne), { timeout: 15_000, intervals: [1_000] }).toBe(401);
+});
+
 test("« Mes clés » s'affiche en anglais", async ({ browser }) => {
   const page = await (await connecter(browser, personne("anglais"), "en-US")).newPage();
   await page.goto("/cles");

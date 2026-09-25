@@ -5,7 +5,7 @@ import type { ApiKind, KeyInfo, LiteLLMClient } from "@/lib/litellm/client";
 import type { DataLevel, RequestStatus } from "@/lib/policy";
 import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
-import { transitionRequest } from "./requests";
+import { ownKeyToRenew, transitionRequest } from "./requests";
 import { readSettings } from "./settings";
 
 /** Dépendances du service des clés ; la date du jour est injectée pour rendre les échéances testables. */
@@ -143,11 +143,46 @@ export async function pickUpKey(deps: KeyDeps, user: SessionUser, requestId: str
     // Le détail de l'erreur ne quitte pas le serveur : il pourrait décrire la requête envoyée.
     throw new PortalError("passerelle_indisponible", "La génération de la clé a échoué.");
   }
+  // Renouvellement : la clé d'origine encore émise est supprimée ; sinon, la nouvelle est retirée et rien ne change.
+  const origine = request.renewsRequestId ? await deps.db.accessRequest.findUnique({ where: { id: request.renewsRequestId } }) : null;
+  const origineActive = origine?.status === "CLE_EMISE" && origine.keyTokenId ? origine : null;
+  if (origineActive?.keyTokenId) {
+    try {
+      await deleteFromGateway(deps.litellm, origineActive.keyTokenId);
+    } catch (e) {
+      await deps.litellm.deleteKey(generee.tokenId).catch(() => undefined);
+      throw e;
+    }
+  }
   await transitionRequest(deps.db, request, "CLE_EMISE", {
     data: { keyAlias: generee.alias, keyTokenId: generee.tokenId, keyIssuedAt: maintenant, keyExpiresAt: generee.expiresAt },
   });
   await recordAudit(deps.db, { actorUid: user.uid, action: "KEY_GENERATED", targetId: request.id, details: { alias: generee.alias } });
+  if (origineActive) {
+    await transitionRequest(deps.db, origineActive, "REVOQUEE");
+    await recordAudit(deps.db, {
+      actorUid: user.uid,
+      action: "KEY_REVOKED",
+      targetId: origineActive.id,
+      details: { alias: origineActive.keyAlias, raison: "renouvellement" },
+    });
+  }
   return { key: generee.key, alias: generee.alias };
+}
+
+/** F-44 : brouillon de la demande de renouvellement d'une clé, prérempli avec ses paramètres. */
+export async function renewalDraft(deps: KeyDeps, user: SessionUser, requestId: string) {
+  const origine = await ownKeyToRenew(deps, user, requestId);
+  return {
+    teamId: origine.teamId,
+    dataLevel: origine.dataLevel as DataLevel,
+    models: origine.approvedModels,
+    project: origine.project,
+    requestedBudget: origine.approvedBudget?.toNumber() ?? null,
+    requestedDays: origine.approvedDays,
+    keyType: origine.keyType ?? "PERSONNELLE",
+    alias: origine.keyAlias as string,
+  };
 }
 
 /** Clé émise vue par les admins (« Gestion — Clés ») : avec son titulaire. */

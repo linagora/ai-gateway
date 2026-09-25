@@ -59,6 +59,12 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
         {domaine(`typesDemande.${review.kind}`)} — {review.requesterUid}
       </h1>
       <Notice searchParams={searchParams} />
+      {review.renewal && (
+        <p className="mb-4 rounded border border-neutral-300 bg-neutral-50 p-3">
+          {t("renouvellement", { alias: review.renewal.alias })}
+          {review.renewal.spend !== null && ` ${t("depenseOrigine", { depense: euros(review.renewal.spend) })}`}
+        </p>
+      )}
       <dl className="grid grid-cols-[12rem_1fr] gap-x-4 gap-y-1">
         <dt>{t("statut")}</dt>
         <dd>{domaine(`statuts.${review.status}`)}</dd>

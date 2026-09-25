@@ -94,6 +94,11 @@ export default async function MesClesPage(props: PageProps<"/cles">) {
                     )}
                   </dl>
                   {!k.usage && k.status === "CLE_EMISE" && <p className="mt-2 text-sm italic">{t("infoIndisponible")}</p>}
+                  {(k.status === "CLE_EMISE" || k.status === "EXPIREE" || k.status === "REVOQUEE") && (
+                    <p className="mt-2">
+                      <Link href={`/demandes/nouvelle?renouvelle=${k.requestId}`}>{t("renouveler")}</Link>
+                    </p>
+                  )}
                   {k.status === "CLE_EMISE" && !k.usage?.blocked && (
                     <details className="mt-3">
                       <summary className="cursor-pointer font-medium">{t("remplacer")}</summary>

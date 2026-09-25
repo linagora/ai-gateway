@@ -3,6 +3,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import type { Langue } from "@/lib/langue";
 import { DATA_LEVELS } from "@/lib/policy";
 import { listCatalog } from "@/lib/services/catalog";
+import { renewalDraft } from "@/lib/services/keys";
 import { listMyTeams } from "@/lib/services/requests";
 import { getDeps, requireUser } from "@/lib/session";
 import { createKeyRequestAction } from "../../../actions";
@@ -25,14 +26,17 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
   const completing = typeof searchParams.completer === "string" ? searchParams.completer : "";
   // Préremplissage depuis le catalogue : niveau de la page et modèles sélectionnés. Ce ne sont que des
   // valeurs proposées : les contrôles de la demande restent ceux du serveur.
-  const niveau = DATA_LEVELS.find((l) => l === searchParams.niveau) ?? null;
-  const preselected = [searchParams.modeles].flat().filter((m): m is string => typeof m === "string");
   const deps = getDeps();
+  // Renouvellement (?renouvelle=<demande>) : la demande reprend les paramètres de la clé d'origine.
+  const renouvellement =
+    typeof searchParams.renouvelle === "string" ? await renewalDraft(deps, user, searchParams.renouvelle).catch(() => null) : null;
+  const niveau = renouvellement?.dataLevel ?? DATA_LEVELS.find((l) => l === searchParams.niveau) ?? null;
+  const preselected = renouvellement?.models ?? [searchParams.modeles].flat().filter((m): m is string => typeof m === "string");
   const [teams, catalog] = await Promise.all([listMyTeams(deps, user), listCatalog(deps, language)]);
 
   return (
     <>
-      <h1>{completing ? t("titreCompleter") : t("titre")}</h1>
+      <h1>{completing ? t("titreCompleter") : renouvellement ? t("titreRenouvellement", { alias: renouvellement.alias }) : t("titre")}</h1>
       <Notice searchParams={searchParams} />
       {teams.length === 0 ? (
         <p>
@@ -41,9 +45,10 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
       ) : (
         <form action={createKeyRequestAction}>
           {completing && <input type="hidden" name="requestId" value={completing} />}
+          {renouvellement && <input type="hidden" name="renewsRequestId" value={String(searchParams.renouvelle)} />}
           <label>
             {t("equipe")}
-            <select name="teamId" required>
+            <select name="teamId" required defaultValue={renouvellement?.teamId}>
               {teams.map((team) => (
                 <option key={team.teamId} value={team.teamId}>
                   {team.teamAlias}
@@ -78,19 +83,19 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
           </label>
           <label>
             {t("projet")}
-            <input name="project" />
+            <input name="project" defaultValue={renouvellement?.project ?? ""} />
           </label>
           <label>
             {t("budget")}
-            <input name="requestedBudget" type="number" min="1" step="1" />
+            <input name="requestedBudget" type="number" min="1" step="1" defaultValue={renouvellement?.requestedBudget ?? ""} />
           </label>
           <label>
             {t("duree")}
-            <input name="requestedDays" type="number" min="1" step="1" />
+            <input name="requestedDays" type="number" min="1" step="1" defaultValue={renouvellement?.requestedDays ?? ""} />
           </label>
           <label>
             {t("typeCle")}
-            <select name="keyType">
+            <select name="keyType" defaultValue={renouvellement?.keyType}>
               <option value="PERSONNELLE">{domaine("typesCle.PERSONNELLE")}</option>
               <option value="SERVICE">{domaine("typesCle.SERVICE")}</option>
             </select>

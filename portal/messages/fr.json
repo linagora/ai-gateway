@@ -322,7 +322,8 @@
     "typeCle": "Type de clé",
     "engagement": "Je m'engage à ne pas soumettre de données d'un niveau supérieur à celui déclaré (niveau Expérimental : données publiques uniquement).",
     "envoyer": "Envoyer la demande",
-    "resoumettre": "Resoumettre"
+    "resoumettre": "Resoumettre",
+    "titreRenouvellement": "Renouveler la clé {alias}"
   },
   "adhesion": {
     "titre": "Demander à rejoindre une équipe",
@@ -394,7 +395,9 @@
       "demanderComplement": "Demander un complément",
       "equipeCle": "Équipe de la clé",
       "equipeAffectation": "Équipe d'affectation",
-      "aideEquipe": "Si le demandeur n'est pas membre de l'équipe choisie, l'approbation l'y ajoute."
+      "aideEquipe": "Si le demandeur n'est pas membre de l'équipe choisie, l'approbation l'y ajoute.",
+      "renouvellement": "Renouvellement de la clé {alias}.",
+      "depenseOrigine": "Dépense de cette clé : {depense}."
     },
     "parametres": {
       "titre": "Valeurs par défaut des clés",
@@ -483,6 +486,7 @@
     "confirmerRevocation": "Confirmer la révocation",
     "remplacer": "Remplacer ma clé (clé perdue)",
     "remplacementExplication": "Une nouvelle clé remplace celle-ci, avec les mêmes paramètres et la même date d'expiration. L'ancienne cesse aussitôt de fonctionner.",
-    "confirmerRemplacement": "Générer la clé de remplacement"
+    "confirmerRemplacement": "Générer la clé de remplacement",
+    "renouveler": "Renouveler"
   }
 }
