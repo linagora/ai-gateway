@@ -36,3 +36,21 @@ export function levelCriteria(searchParams: Record<string, string | string[] | u
     sort: LEVEL_SORTS.find((s) => TRIS[s] === premiere("tri")) ?? "recommended",
   };
 }
+
+/** Paramètres d'adresse qui ne décrivent pas l'état de la page (avis d'une action précédente). */
+const PARAMETRES_TRANSITOIRES = ["ok", "erreur", "details", "controles"];
+
+/**
+ * Adresse de la page d'un niveau dans son état courant (critères, sélection), avec ou sans le détail
+ * d'un modèle ouvert : ouvrir puis fermer le détail rend la page telle qu'on l'avait laissée.
+ */
+export function levelPageHref(level: DataLevel, searchParams: Record<string, string | string[] | undefined>, modele: string | null): string {
+  const params = new URLSearchParams();
+  for (const [nom, valeur] of Object.entries(searchParams)) {
+    if (nom === "modele" || PARAMETRES_TRANSITOIRES.includes(nom)) continue;
+    for (const v of [valeur].flat()) if (typeof v === "string") params.append(nom, v);
+  }
+  if (modele) params.set("modele", modele);
+  const requete = params.toString();
+  return `/catalogue/${levelSegment(level)}${requete ? `?${requete}` : ""}`;
+}

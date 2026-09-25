@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
-import type { Capability, ExecutionRegion, LiteLLMClient, LiteLLMModel } from "@/lib/litellm/client";
+import type { ApiKind, Capability, ExecutionRegion, LiteLLMClient, LiteLLMModel } from "@/lib/litellm/client";
 import { PortalError } from "@/lib/errors";
 import type { Langue } from "@/lib/langue";
 import { DATA_LEVELS, type DataLevel, modelAcceptsLevel } from "@/lib/policy";
@@ -151,25 +151,7 @@ export async function levelModels(
   deps: CatalogDeps,
   { level, language, criteria = {} }: { level: DataLevel; language: Langue; criteria?: LevelCriteria },
 ): Promise<LevelModels> {
-  // Un texte que l'admin n'a pas traduit s'affiche en français.
-  const text = (fr: string, en: string | null) => (language === "en" && en) || fr;
-  const models = (await visibleModels(deps))
-    .filter(({ entry }) => modelAcceptsLevel(entry.dataLevel, level))
-    .map(({ entry, model, inputPricePerMillion, outputPricePerMillion }) => ({
-      modelName: entry.modelName,
-      displayName: text(entry.displayNameFr, entry.displayNameEn),
-      shortDescription: text(entry.shortDescriptionFr, entry.shortDescriptionEn),
-      publisher: model.publisher,
-      executionRegion: model.executionRegion,
-      capabilities: model.capabilities,
-      inputPricePerMillion,
-      outputPricePerMillion,
-      useCases: entry.useCases,
-      acceptsUpTo: entry.dataLevel === level ? null : entry.dataLevel,
-      recommendedFor: entry.dataLevel === level ? entry.recommendedFor : [],
-      priceTier: priceTier(blendedPricePerMillion(inputPricePerMillion, outputPricePerMillion)),
-      context: context(model.maxInputTokens),
-    }));
+  const models: LevelModel[] = await modelsOfLevel(deps, level, language);
   const { search = "", useCase, capabilities = [], euOnly = false, sort = "recommended" } = criteria;
   const blended = (m: LevelModel) => blendedPricePerMillion(m.inputPricePerMillion, m.outputPricePerMillion);
   const byName = (a: LevelModel, b: LevelModel) => a.displayName.localeCompare(b.displayName, language);
@@ -191,6 +173,48 @@ export async function levelModels(
       )
       .sort(comparators[sort]),
   };
+}
+
+/** Détail d'un modèle (ticket #9) : sa carte, complétée de ce que présente le panneau. */
+export interface ModelDetail extends LevelModel {
+  longDescription: string;
+  limitations: string | null;
+  hosts: string[];
+  apiKind: ApiKind;
+}
+
+/** Détail d'un modèle de la page d'un niveau ; null si le modèle n'est pas parmi les modèles de ce niveau. */
+export async function modelDetail(
+  deps: CatalogDeps,
+  { level, modelName, language }: { level: DataLevel; modelName: string; language: Langue },
+): Promise<ModelDetail | null> {
+  return (await modelsOfLevel(deps, level, language)).find((m) => m.modelName === modelName) ?? null;
+}
+
+/** Modèles d'un niveau, dans la langue du salarié. Un texte que l'admin n'a pas traduit s'affiche en français. */
+async function modelsOfLevel(deps: CatalogDeps, level: DataLevel, language: Langue): Promise<ModelDetail[]> {
+  const text = <T extends string | null>(fr: T, en: string | null): T | string => (language === "en" && en) || fr;
+  return (await visibleModels(deps))
+    .filter(({ entry }) => modelAcceptsLevel(entry.dataLevel, level))
+    .map(({ entry, model, inputPricePerMillion, outputPricePerMillion }) => ({
+      modelName: entry.modelName,
+      displayName: text(entry.displayNameFr, entry.displayNameEn),
+      shortDescription: text(entry.shortDescriptionFr, entry.shortDescriptionEn),
+      publisher: model.publisher,
+      executionRegion: model.executionRegion,
+      capabilities: model.capabilities,
+      inputPricePerMillion,
+      outputPricePerMillion,
+      useCases: entry.useCases,
+      acceptsUpTo: entry.dataLevel === level ? null : entry.dataLevel,
+      recommendedFor: entry.dataLevel === level ? entry.recommendedFor : [],
+      priceTier: priceTier(blendedPricePerMillion(inputPricePerMillion, outputPricePerMillion)),
+      context: context(model.maxInputTokens),
+      longDescription: text(entry.longDescriptionFr, entry.longDescriptionEn),
+      limitations: text(entry.limitationsFr, entry.limitationsEn),
+      hosts: model.hosts,
+      apiKind: model.apiKind,
+    }));
 }
 
 /** Texte comparable : en minuscules et sans accents. */

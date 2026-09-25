@@ -207,5 +207,24 @@
     "reinitialiser": "Reset filters",
     "aucunResultat": "No model matches these criteria. Broaden your search or remove some filters.",
     "notreChoix": "Our pick for: {cas}"
+  },
+  "detail": {
+    "fermer": "Close",
+    "description": "Description",
+    "hebergeurs": "Hosts",
+    "limites": "Known limitations",
+    "aucuneLimite": "No limitation has been reported for this model.",
+    "apiDecision": {
+      "titre": "A decision API, not a chat model",
+      "explication": "This model is a decision API (“System One”): it does not chat. The last message holds a JSON request: “state” describes the situation, “questions” lists the expected decisions, each with its type and instructions. The response is an “answers” JSON object, with one answer per question."
+    },
+    "exempleAppel": "Example call",
+    "exemple": {
+      "message": "Hello! Summarize the benefits of free software in three points.",
+      "etat": "My transfers have been failing for three days and payroll is blocked.",
+      "question": "Does the message express urgency?"
+    },
+    "copier": "Copy the example",
+    "copie": "Example copied"
   }
 }

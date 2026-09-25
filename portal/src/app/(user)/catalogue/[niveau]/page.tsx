@@ -3,35 +3,42 @@ import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { CAPABILITIES, type Capability } from "@/lib/litellm/client";
 import type { Langue } from "@/lib/langue";
-import { levelCriteria, levelFromSegment, levelSegment, sortParam } from "@/lib/level-routes";
-import { LEVEL_SORTS, levelModels, type PriceTier } from "@/lib/services/catalog";
+import { levelCriteria, levelFromSegment, levelPageHref, levelSegment, sortParam } from "@/lib/level-routes";
+import { LEVEL_SORTS, levelModels, modelDetail, type PriceTier } from "@/lib/services/catalog";
 import { getDeps, requireUser } from "@/lib/session";
 import { USE_CASES } from "@/lib/use-cases";
 import { formats, Notice } from "../../../components";
 import { COULEURS_NIVEAUX } from "../couleurs";
+import { BoutonCopier } from "./bouton-copier";
+import { exempleAppel } from "./exemple-appel";
 
 /** Icônes des capacités, toujours accompagnées de leur libellé. */
 const ICONES: Record<Capability, string> = { images: "🖼️", audio_video: "🎧", raisonnement: "🧠" };
 const REPERES: Record<PriceTier, "bas" | "moyen" | "eleve"> = { "€": "bas", "€€": "moyen", "€€€": "eleve" };
 
 /**
- * Tickets #7 et #8 : les modèles d'un niveau, en cartes (lecture cumulative, niveau Expérimental à part),
- * avec recherche, filtres et tri portés par l'adresse.
+ * Tickets #7 à #9 : les modèles d'un niveau, en cartes (lecture cumulative, niveau Expérimental à part),
+ * avec recherche, filtres et tri portés par l'adresse, et le détail d'un modèle dans un panneau (?modele=).
  */
 export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">) {
   await requireUser();
   const level = levelFromSegment((await props.params).niveau);
   if (!level) notFound();
-  const [{ euros, nombre }, t, catalogue, domaine, language, searchParams] = await Promise.all([
+  const [{ euros, nombre }, t, catalogue, domaine, detailT, language, searchParams] = await Promise.all([
     formats(),
     getTranslations("niveau"),
     getTranslations("catalogue"),
     getTranslations("domaine"),
+    getTranslations("detail"),
     getLocale() as Promise<Langue>,
     props.searchParams,
   ]);
   const criteria = levelCriteria(searchParams);
-  const { modelCount, models } = await levelModels(getDeps(), { level, language, criteria });
+  const modeleOuvert = typeof searchParams.modele === "string" ? searchParams.modele : null;
+  const [{ modelCount, models }, detail] = await Promise.all([
+    levelModels(getDeps(), { level, language, criteria }),
+    modeleOuvert ? modelDetail(getDeps(), { level, modelName: modeleOuvert, language }) : null,
+  ]);
   const pageSansCritere = `/catalogue/${levelSegment(level)}`;
 
   return (
@@ -95,7 +102,9 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
           {models.map((m, index) => (
             <article key={m.modelName} aria-labelledby={`modele-${index}`} className="flex flex-col gap-2 rounded border border-neutral-300 p-4">
               <h2 id={`modele-${index}`} className="my-0">
-                {m.displayName}
+                <Link href={levelPageHref(level, searchParams, m.modelName)} scroll={false}>
+                  {m.displayName}
+                </Link>
               </h2>
               <p className="text-sm">
                 {m.publisher ?? "—"} · {m.executionRegion ? domaine(`zones.${m.executionRegion}`) : "—"}
@@ -152,6 +161,60 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
             </article>
           ))}
         </div>
+      )}
+      {detail && (
+        <aside
+          role="dialog"
+          aria-labelledby="detail-titre"
+          className="fixed inset-y-0 right-0 z-10 flex w-full max-w-lg flex-col gap-2 overflow-y-auto border-l border-neutral-300 bg-white p-6 shadow-xl"
+        >
+          <p className="text-right">
+            <Link href={levelPageHref(level, searchParams, null)} scroll={false}>
+              <span aria-hidden="true">✕ </span>
+              {detailT("fermer")}
+            </Link>
+          </p>
+          <h2 id="detail-titre" className="my-0">
+            {detail.displayName}
+          </h2>
+          <p className="text-sm">
+            {detail.publisher ?? "—"} · {detail.executionRegion ? domaine(`zones.${detail.executionRegion}`) : "—"}
+          </p>
+          <code className="text-xs break-all text-neutral-600">{detail.modelName}</code>
+          {detail.acceptsUpTo && (
+            <p className="self-start rounded border border-neutral-400 px-2 text-sm">{t("accepteJusqua", { niveau: detail.acceptsUpTo })}</p>
+          )}
+          <h3 className="mt-3 font-medium">{detailT("description")}</h3>
+          <p className="whitespace-pre-line">{detail.longDescription}</p>
+          <h3 className="mt-3 font-medium">{detailT("hebergeurs")}</h3>
+          <p>{detail.hosts.join(", ") || "—"}</p>
+          <h3 className="mt-3 font-medium">{detailT("limites")}</h3>
+          <p className="whitespace-pre-line">{detail.limitations ?? detailT("aucuneLimite")}</p>
+          {detail.apiKind === "decision" && (
+            <>
+              <h3 className="mt-3 font-medium">{detailT("apiDecision.titre")}</h3>
+              <p>{detailT("apiDecision.explication")}</p>
+            </>
+          )}
+          <h3 className="mt-3 font-medium">{detailT("exempleAppel")}</h3>
+          {(() => {
+            const exemple = exempleAppel(detail.modelName, detail.apiKind, {
+              message: detailT("exemple.message"),
+              etat: detailT("exemple.etat"),
+              question: detailT("exemple.question"),
+            });
+            return (
+              <>
+                <pre className="overflow-x-auto rounded bg-neutral-900 p-3 text-xs text-neutral-100">
+                  <code>{exemple}</code>
+                </pre>
+                <div>
+                  <BoutonCopier texte={exemple} />
+                </div>
+              </>
+            );
+          })()}
+        </aside>
       )}
     </>
   );

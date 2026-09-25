@@ -236,3 +236,48 @@ test.describe("filtres, tri et recommandations (ticket #8)", () => {
     await context.close();
   });
 });
+
+test.describe("détail d'un modèle (ticket #9)", () => {
+  const panneau = (page: Page) => page.getByRole("dialog");
+
+  test("un clic sur un modèle ouvre son détail ; le fermer rend la page avec ses filtres et son tri", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    await page.goto("/catalogue/n1?ue=1&tri=nom");
+    await page.getByRole("article", { name: "Modèle confidentiel" }).getByRole("link", { name: "Modèle confidentiel" }).click();
+    await expect(page).toHaveURL(/\/catalogue\/n1\?ue=1&tri=nom&modele=dev-confidentiel$/);
+    await expect(panneau(page)).toContainText("Modèle de démonstration N3, à réponses simulées.");
+    await expect(panneau(page).getByRole("heading", { name: "Hébergeurs" })).toBeVisible();
+    await expect(panneau(page)).toContainText("OVHcloud");
+    await expect(panneau(page).getByRole("heading", { name: "Limites connues" })).toBeVisible();
+    await expect(panneau(page).locator("pre")).toContainText("http://127.0.0.1:54400/admin/v1/chat/completions");
+    await expect(panneau(page).locator("pre")).toContainText('"model": "dev-confidentiel"');
+    await panneau(page).getByRole("link", { name: "Fermer" }).click();
+    await expect(panneau(page)).toHaveCount(0);
+    await expect(page).toHaveURL(/\/catalogue\/n1\?ue=1&tri=nom$/);
+    await expect(page.getByRole("checkbox", { name: "UE uniquement" })).toBeChecked();
+    await expect(page.getByRole("combobox", { name: "Trier par" })).toHaveValue("nom");
+    await context.close();
+  });
+
+  test("un lien partagé ouvre la page du niveau avec le détail de JEV, présenté comme une API de décision", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    await page.goto("/catalogue/experimental?modele=dev-experimental");
+    await expect(panneau(page).getByRole("heading", { level: 2 })).toHaveText("Modèle expérimental");
+    await expect(panneau(page)).toContainText("API de décision");
+    await expect(panneau(page).locator("pre")).toContainText('"model": "dev-experimental"');
+    await expect(panneau(page).locator("pre")).toContainText('\\"questions\\"');
+    await context.close();
+  });
+
+  test("le détail est traduit, avec repli sur les textes français", async ({ browser }) => {
+    const context = await connecter(browser, salarie, "en-US");
+    const page = await context.newPage();
+    await page.goto("/catalogue/n2?modele=dev-interne");
+    await expect(panneau(page).getByRole("heading", { name: "Known limitations" })).toBeVisible();
+    await expect(panneau(page)).toContainText("Modèle de démonstration N2, à réponses simulées.");
+    await expect(panneau(page).getByRole("link", { name: "Close" })).toBeVisible();
+    await context.close();
+  });
+});

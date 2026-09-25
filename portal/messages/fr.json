@@ -207,5 +207,24 @@
     "reinitialiser": "Réinitialiser les filtres",
     "aucunResultat": "Aucun modèle ne correspond à ces critères. Élargissez la recherche ou retirez des filtres.",
     "notreChoix": "Notre choix pour : {cas}"
+  },
+  "detail": {
+    "fermer": "Fermer",
+    "description": "Description",
+    "hebergeurs": "Hébergeurs",
+    "limites": "Limites connues",
+    "aucuneLimite": "Aucune limite n'est signalée pour ce modèle.",
+    "apiDecision": {
+      "titre": "Une API de décision, pas un modèle de conversation",
+      "explication": "Ce modèle est une API de décision (« System One ») : il ne converse pas. Le dernier message contient une requête JSON : « state » décrit la situation, « questions » liste les décisions attendues, chacune avec son type et ses instructions. La réponse est un JSON « answers », avec une réponse par question."
+    },
+    "exempleAppel": "Exemple d'appel",
+    "exemple": {
+      "message": "Bonjour ! Résume en trois points les avantages du logiciel libre.",
+      "etat": "Mes virements échouent depuis trois jours et cela bloque la paie.",
+      "question": "Le message exprime-t-il une urgence ?"
+    },
+    "copier": "Copier l'exemple",
+    "copie": "Exemple copié"
   }
 }

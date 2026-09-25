@@ -4,7 +4,7 @@ import { DATA_LEVELS, type DataLevel } from "@/lib/policy";
 import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
 import type { UseCase } from "@/lib/use-cases";
-import { type CatalogEntryInput, type LevelCriteria, type LevelSort, levelModels, levelOverview, listCatalog, listCatalogForAdmin, saveCatalogEntry } from "./catalog";
+import { type CatalogEntryInput, type LevelCriteria, type LevelSort, levelModels, levelOverview, modelDetail, listCatalog, listCatalogForAdmin, saveCatalogEntry } from "./catalog";
 
 beforeEach(resetDb);
 
@@ -224,6 +224,51 @@ describe("filtres, tri et recommandations (ticket #8)", () => {
     expect(await ordre("price")).toEqual(["Ministral 8B", "Mistral Medium 3.5", "Kimi K3"]);
     expect(await ordre("context")).toEqual(["Kimi K3", "Mistral Medium 3.5", "Ministral 8B"]);
     expect(await ordre("name")).toEqual(["Kimi K3", "Ministral 8B", "Mistral Medium 3.5"]);
+  });
+});
+
+describe("détail d'un modèle (ticket #9)", () => {
+  test("le détail d'un modèle donne sa description longue, ses hébergeurs, ses limites connues et son type d'API", async () => {
+    const litellm = new FakeLiteLLM().withModel({ modelName: "qwen3.8", publisher: "Alibaba (Qwen)", hosts: ["OVHcloud"] });
+    await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, limitationsFr: "Connaissances arrêtées à fin 2025." });
+    expect(await modelDetail({ db: testDb, litellm }, { level: "N3", modelName: "qwen3.8", language: "fr" })).toMatchObject({
+      modelName: "qwen3.8",
+      displayName: "Qwen 3.8 27B",
+      publisher: "Alibaba (Qwen)",
+      longDescription: "Modèle ouvert généraliste, hébergé en France par OVHcloud, pour les données confidentielles.",
+      hosts: ["OVHcloud"],
+      limitations: "Connaissances arrêtées à fin 2025.",
+      apiKind: "conversation",
+    });
+  });
+
+  test("le détail suit la langue du salarié, avec repli sur le français", async () => {
+    const litellm = new FakeLiteLLM().withModel({ modelName: "qwen3.8" });
+    await saveCatalogEntry({ db: testDb, litellm }, admin, {
+      ...qwen,
+      longDescriptionEn: "Open general-purpose model, hosted in France by OVHcloud.",
+      limitationsFr: "Connaissances arrêtées à fin 2025.",
+    });
+    expect(await modelDetail({ db: testDb, litellm }, { level: "N3", modelName: "qwen3.8", language: "en" })).toMatchObject({
+      longDescription: "Open general-purpose model, hosted in France by OVHcloud.",
+      limitations: "Connaissances arrêtées à fin 2025.",
+    });
+  });
+
+  test("un modèle qui n'est pas parmi les modèles du niveau n'a pas de détail", async () => {
+    const litellm = await catalogueDeDemonstration(["public", "interne", "confidentiel"]);
+    const detail = (level: DataLevel, modelName: string) => modelDetail({ db: testDb, litellm }, { level, modelName, language: "fr" });
+    expect(await detail("N3", "public")).toBeNull();
+    expect(await detail("EXP", "confidentiel")).toBeNull();
+    expect(await detail("EXP", "beta")).toBeNull(); // masqué
+    expect(await detail("N1", "inconnu")).toBeNull();
+    expect(await detail("N1", "confidentiel")).toMatchObject({ modelName: "confidentiel", acceptsUpTo: "N3" });
+  });
+
+  test("JEV est présenté comme une API de décision", async () => {
+    const litellm = new FakeLiteLLM().withModel({ modelName: "jev-latest", apiKind: "decision" });
+    await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName: "jev-latest", displayNameFr: "JEV", dataLevel: "EXP" });
+    expect(await modelDetail({ db: testDb, litellm }, { level: "EXP", modelName: "jev-latest", language: "fr" })).toMatchObject({ apiKind: "decision" });
   });
 });
 
