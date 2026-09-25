@@ -196,7 +196,7 @@ describe("filtres, tri et recommandations (ticket #8)", () => {
 
   test("le cas d'usage « Création d'images » trouve les modèles qui génèrent des images, avec sa recommandation", async () => {
     const litellm = await catalogueFiltrable();
-    litellm.withModel({ modelName: "flux.2-pro", publisher: "Black Forest Labs", executionRegion: "HORS_UE", inputCostPerToken: 0, outputCostPerToken: 0.000009 });
+    litellm.withModel({ modelName: "flux.2-pro", publisher: "Black Forest Labs", executionRegion: "HORS_UE", capabilities: ["images", "generation_images"], inputCostPerToken: 0, outputCostPerToken: 0.000009 });
     await saveCatalogEntry({ db: testDb, litellm }, admin, {
       ...qwen,
       modelName: "flux.2-pro",
@@ -207,6 +207,9 @@ describe("filtres, tri et recommandations (ticket #8)", () => {
     });
     const { models } = await levelModels({ db: testDb, litellm }, { level: "N1", language: "fr", criteria: { useCase: "IMAGE_CREATION" } });
     expect(models.map((m) => [m.displayName, m.recommendedFor])).toEqual([["FLUX.2 [pro]", ["IMAGE_CREATION"]]]);
+    // La capacité « génération d'images » les distingue des modèles qui lisent seulement les images.
+    expect(await noms(litellm, { capabilities: ["generation_images"] })).toEqual(["FLUX.2 [pro]"]);
+    expect(await noms(litellm, { capabilities: ["images"] })).toEqual(["FLUX.2 [pro]", "Kimi K3", "Mistral Medium 3.5"]);
   });
 
   test("une recherche de moins de trois caractères ne filtre pas", async () => {

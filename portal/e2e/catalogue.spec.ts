@@ -194,7 +194,7 @@ test.describe("page d'un niveau (ticket #7)", () => {
     const carte = modele(page, "Modèle confidentiel");
     // La description courte tient en deux lignes au plus (spécification, récit 20).
     await expect(carte.getByText("Modèle de démonstration N3", { exact: true })).toHaveCSS("-webkit-line-clamp", "2");
-    await expect(carte).toContainText("Images");
+    await expect(carte).toContainText("Lecture d'images");
     await expect(carte).toContainText("Raisonnement");
     await expect(carte).toContainText(/€€\s*·\s*0,40\s€ en entrée, 2,70\s€ en sortie/);
     await expect(carte).toContainText(/262\s000 jetons, soit environ 350 pages/);
@@ -310,16 +310,21 @@ test.describe("filtres appliqués sans bouton (retours de recette du 2026-09-25)
     await context.close();
   });
 
-  test("les capacités se choisissent dans une colonne", async ({ browser }) => {
+  test("les capacités, dont la lecture et la génération d'images, se choisissent dans une colonne", async ({ browser }) => {
     const context = await connecter(browser, salarie);
     const page = await context.newPage();
     await page.goto("/catalogue/n1");
     const capacites = page.getByRole("group", { name: "Capacités" }).getByRole("checkbox");
-    await expect(capacites).toHaveCount(3);
+    await expect(page.getByRole("group", { name: "Capacités" }).locator("label")).toHaveText([
+      /Lecture d'images$/,
+      /Génération d'images$/,
+      /Audio et vidéo$/,
+      /Raisonnement$/,
+    ]);
     const positions = await capacites.evaluateAll((cases) => cases.map((c) => c.getBoundingClientRect()).map((r) => ({ x: Math.round(r.left), y: Math.round(r.top) })));
     expect(new Set(positions.map((p) => p.x)).size).toBe(1);
     expect(positions.map((p) => p.y)).toEqual([...positions.map((p) => p.y)].sort((a, b) => a - b));
-    expect(new Set(positions.map((p) => p.y)).size).toBe(3);
+    expect(new Set(positions.map((p) => p.y)).size).toBe(4);
     await context.close();
   });
 });

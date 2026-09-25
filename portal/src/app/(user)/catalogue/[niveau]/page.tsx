@@ -15,7 +15,7 @@ import { BoutonSelection } from "./bouton-selection";
 import { FiltrageAutomatique } from "./filtrage-automatique";
 
 /** Icônes des capacités, toujours accompagnées de leur libellé. */
-const ICONES: Record<Capability, string> = { images: "🖼️", audio_video: "🎧", raisonnement: "🧠" };
+const ICONES: Record<Capability, string> = { images: "🖼️", generation_images: "🎨", audio_video: "🎧", raisonnement: "🧠" };
 const REPERES: Record<PriceTier, "bas" | "moyen" | "eleve"> = { "€": "bas", "€€": "moyen", "€€€": "eleve" };
 
 /**

@@ -43,7 +43,8 @@
       "IMAGE_CREATION": "Création d'images"
     },
     "capacites": {
-      "images": "Images",
+      "images": "Lecture d'images",
+      "generation_images": "Génération d'images",
       "audio_video": "Audio et vidéo",
       "raisonnement": "Raisonnement"
     },
