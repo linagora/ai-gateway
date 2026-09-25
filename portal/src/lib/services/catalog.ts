@@ -72,6 +72,9 @@ export async function listCatalog(deps: CatalogDeps, language: Langue = "fr"): P
   }));
 }
 
+/** Fiche visible et modèle LiteLLM correspondant, avec ses prix en euros par million de jetons. */
+type VisibleModel = Awaited<ReturnType<typeof visibleModels>>[number];
+
 /** Fiches visibles dont le modèle est déclaré dans LiteLLM avec ses prix, en euros par million de jetons. */
 async function visibleModels(deps: CatalogDeps) {
   const [models, entries] = await Promise.all([deps.litellm.listModels(), deps.db.catalogEntry.findMany({ where: { visible: true } })]);
@@ -152,7 +155,7 @@ export async function levelModels(
   deps: CatalogDeps,
   { level, language, criteria = {} }: { level: DataLevel; language: Langue; criteria?: LevelCriteria },
 ): Promise<LevelModels> {
-  const models: LevelModel[] = await modelsOfLevel(deps, level, language);
+  const models: LevelModel[] = modelsOfLevel(await visibleModels(deps), level, language);
   const { search = "", useCase, capabilities = [], euOnly = false, sort = "recommended" } = criteria;
   const blended = (m: LevelModel) => blendedPricePerMillion(m.inputPricePerMillion, m.outputPricePerMillion);
   const byName = (a: LevelModel, b: LevelModel) => a.displayName.localeCompare(b.displayName, language);
@@ -189,7 +192,7 @@ export async function modelDetail(
   deps: CatalogDeps,
   { level, modelName, language }: { level: DataLevel; modelName: string; language: Langue },
 ): Promise<ModelDetail | null> {
-  return (await modelsOfLevel(deps, level, language)).find((m) => m.modelName === modelName) ?? null;
+  return modelsOfLevel(await visibleModels(deps), level, language).find((m) => m.modelName === modelName) ?? null;
 }
 
 /** Texte d'une fiche dans la langue du salarié : un texte que l'admin n'a pas traduit s'affiche en français. */
@@ -197,10 +200,13 @@ function inLanguage(language: Langue) {
   return <T extends string | null>(fr: T, en: string | null): T | string => (language === "en" && en) || fr;
 }
 
-/** Modèles d'un niveau, dans la langue du salarié. */
-async function modelsOfLevel(deps: CatalogDeps, level: DataLevel, language: Langue): Promise<ModelDetail[]> {
+/**
+ * Modèles d'un niveau parmi les modèles visibles, dans la langue du salarié : le seul calcul des modèles
+ * d'un niveau, commun à la vue d'ensemble, à la page d'un niveau et au détail d'un modèle.
+ */
+function modelsOfLevel(visible: VisibleModel[], level: DataLevel, language: Langue): ModelDetail[] {
   const text = inLanguage(language);
-  return (await visibleModels(deps))
+  return visible
     .filter(({ entry }) => modelAcceptsLevel(entry.dataLevel, level))
     .map(({ entry, model, inputPricePerMillion, outputPricePerMillion }) => ({
       modelName: entry.modelName,
@@ -245,11 +251,10 @@ export interface LevelOverview {
  * niveau suivent la règle de la politique d'accès : lecture cumulative, niveau Expérimental à part.
  */
 export async function levelOverview(deps: CatalogDeps): Promise<LevelOverview[]> {
-  const catalogue = await listCatalog(deps);
+  const visible = await visibleModels(deps);
   return DATA_LEVELS.map((level) => {
-    const prix = catalogue
-      .filter((m) => modelAcceptsLevel(m.dataLevel, level))
-      .map((m) => blendedPricePerMillion(m.inputPricePerMillion, m.outputPricePerMillion));
+    // La langue est sans effet sur le nombre de modèles et les prix.
+    const prix = modelsOfLevel(visible, level, "fr").map((m) => blendedPricePerMillion(m.inputPricePerMillion, m.outputPricePerMillion));
     return { level, modelCount: prix.length, startingPricePerMillion: prix.length > 0 ? Math.min(...prix) : null };
   });
 }
