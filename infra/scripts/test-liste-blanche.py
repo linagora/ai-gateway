@@ -113,6 +113,11 @@ try:
         s, rep = conversation(cle["key"], **{param: valeur})
         controle(f"paramètre « {param} » refusé", s == 400 and "Paramètre refusé" in json.dumps(rep, ensure_ascii=False), f"HTTP {s} {json.dumps(rep, ensure_ascii=False)[:200]}")
 
+    # 5 bis. API d'images et de vidéos de LiteLLM, qui n'y compte pas le coût de nos modèles : refusées par la garde
+    for chemin, corps in [("/v1/images/generations", {"model": MODELE, "prompt": "essai"}), ("/v1/videos", {"model": MODELE, "prompt": "essai"})]:
+        s, rep = http("POST", chemin, corps, cle["key"])
+        controle(f"API refusée : {chemin}", s == 400 and "API refusée" in json.dumps(rep, ensure_ascii=False), f"HTTP {s} {json.dumps(rep, ensure_ascii=False)[:200]}")
+
     # 6. JEV : modèle de la passerelle, réservé aux clés qui le portent
     question = json.dumps({"state": "Mes virements échouent depuis trois jours, c'est bloquant.",
                            "questions": {"urgent": {"type": "noul", "instructions": "Le message exprime-t-il une urgence ?"}}}, ensure_ascii=False)
