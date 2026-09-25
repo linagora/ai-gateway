@@ -290,6 +290,12 @@
     "motif": "Reason",
     "envoyer": "Send request"
   },
+  "connexion": {
+    "titre": "Sign in to the AI Portal",
+    "explication": "The portal uses your Linagora account: sign in with the company SSO.",
+    "bouton": "Sign in with LemonLDAP::NG",
+    "echec": "Sign-in failed. Try again; if the problem persists, contact a portal administrator."
+  },
   "gestion": {
     "nav": {
       "libelle": "Administration",

@@ -290,6 +290,12 @@
     "motif": "Motif",
     "envoyer": "Envoyer la demande"
   },
+  "connexion": {
+    "titre": "Connexion au Portail IA",
+    "explication": "Le portail utilise votre compte Linagora : connectez-vous avec le SSO de l'entreprise.",
+    "bouton": "Se connecter avec LemonLDAP::NG",
+    "echec": "La connexion a échoué. Réessayez ; si le problème persiste, contactez un administrateur du portail."
+  },
   "gestion": {
     "nav": {
       "libelle": "Administration",

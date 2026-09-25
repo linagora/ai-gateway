@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { signOut } from "@/auth";
+import { signIn, signOut } from "@/auth";
 import { PolicyViolationError, PortalError } from "@/lib/errors";
 import { COOKIE_LANGUE, LANGUES, type Langue } from "@/lib/langue";
 import type { DataLevel } from "@/lib/policy";
@@ -27,6 +27,12 @@ import { getDeps, requireUser } from "@/lib/session";
 
 export async function signOutAction(): Promise<void> {
   await signOut({ redirectTo: "/" });
+}
+
+/** F-01 : connexion par le SSO, puis retour à l'adresse demandée (Auth.js n'accepte que l'origine du portail). */
+export async function connexionAction(formData: FormData): Promise<void> {
+  const retour = formData.get("callbackUrl");
+  await signIn("lemonldap", { redirectTo: typeof retour === "string" && retour ? retour : "/" });
 }
 
 /** Sélecteur FR | EN : mémorise la langue choisie ; Next.js réaffiche alors la page courante. */

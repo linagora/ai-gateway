@@ -4,6 +4,7 @@ import Link from "next/link";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
+import { getCurrentUser } from "@/lib/session";
 import { SelecteurLangue, UserMenu } from "./components";
 import "./globals.css";
 
@@ -14,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 // Interface minimale (V1) : l'ergonomie et le graphisme seront repris dans un second temps.
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const [locale, t] = await Promise.all([getLocale(), getTranslations("entete")]);
+  const [locale, t, user] = await Promise.all([getLocale(), getTranslations("entete"), getCurrentUser()]);
   return (
     <html lang={locale}>
       <body>
@@ -24,11 +25,13 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               <Image src="/linagora-logo.svg" alt="Linagora" width={116} height={24} priority />
               {t("portail")}
             </Link>
-            <nav className="flex flex-wrap gap-x-4" aria-label={t("navigation")}>
-              <Link href="/catalogue">{t("catalogue")}</Link>
-              <Link href="/demandes">{t("mesDemandes")}</Link>
-              <Link href="/demandes/nouvelle">{t("nouvelleDemande")}</Link>
-            </nav>
+            {user && (
+              <nav className="flex flex-wrap gap-x-4" aria-label={t("navigation")}>
+                <Link href="/catalogue">{t("catalogue")}</Link>
+                <Link href="/demandes">{t("mesDemandes")}</Link>
+                <Link href="/demandes/nouvelle">{t("nouvelleDemande")}</Link>
+              </nav>
+            )}
             <Suspense fallback={null}>
               <UserMenu />
             </Suspense>

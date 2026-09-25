@@ -25,6 +25,8 @@ const cookiePrefix = secure ? "__Secure-" : "";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [lemonldap],
+  // Page de connexion du portail, traduite, au lieu de la page générique d'Auth.js (erreurs comprises).
+  pages: { signIn: "/connexion", error: "/connexion" },
   session: { strategy: "jwt", maxAge: SESSION_MAX_AGE_SECONDS },
   useSecureCookies: secure,
   cookies: {
