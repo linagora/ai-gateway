@@ -70,3 +70,30 @@ export async function ajouterAEquipe(uid: string, equipe: string): Promise<void>
   });
   if (!reponse.ok && !(await reponse.text()).includes("already")) throw new Error(`ajout à l'équipe ${equipe} : HTTP ${reponse.status}`);
 }
+
+/**
+ * Mise en place : le salarié, déjà connecté une fois (page ouverte), rejoint R&D et demande une clé N1 pour le
+ * modèle public ; un admin l'approuve avec un budget de 5 € par 30 jours, valable 30 jours.
+ */
+export async function demandeApprouvee(browser: Browser, page: Page, salarie: Personne, projet: string): Promise<void> {
+  await ajouterAEquipe(salarie.uid, "R&D");
+  await page.goto("/demandes/nouvelle");
+  await page.getByLabel("Équipe").selectOption({ label: "R&D" });
+  await page.getByRole("radio", { name: /^N1 — Public/ }).check();
+  await page.getByLabel(/Modèle public/).check();
+  await page.getByLabel("Motif").fill("Essai des clés");
+  await page.getByLabel("Projet ou affaire").fill(projet);
+  await page.getByLabel(/Je m'engage/).check();
+  await page.getByRole("button", { name: "Envoyer la demande" }).click();
+  await expect(page.getByRole("status")).toHaveText("Demande envoyée aux administrateurs.");
+
+  const admin = await (await connecter(browser, ADMIN)).newPage();
+  await admin.goto("/gestion/demandes");
+  await admin.getByRole("row", { name: new RegExp(`${salarie.uid}.*Clé d'API`) }).getByRole("link", { name: "Examiner" }).click();
+  await admin.getByLabel("Budget (€)").fill("5");
+  await admin.getByLabel("Période du budget (ex. 30d)").fill("30d");
+  await admin.getByLabel("Durée de validité (jours)").fill("30");
+  await admin.getByRole("button", { name: "Approuver", exact: true }).click();
+  await expect(admin.getByRole("status")).toHaveText("Demande approuvée.");
+  await admin.context().close();
+}

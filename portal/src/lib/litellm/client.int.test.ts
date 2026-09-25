@@ -154,3 +154,43 @@ describe("utilisateurs", () => {
     expect({ email: user?.email, keys: keys.keys.length }).toEqual({ email: `${userId}@example.org`, keys: 0 });
   });
 });
+
+describe("clés", () => {
+  const createdKeyAliases: string[] = [];
+  afterAll(async () => {
+    if (createdKeyAliases.length) await admin("POST", "/key/delete", { key_aliases: createdKeyAliases });
+  });
+
+  async function titulaire(): Promise<{ userId: string; teamId: string }> {
+    const userId = await newUser();
+    const { teamId } = await newTeam(["dev-public"]);
+    await client.addTeamMember(teamId, userId);
+    return { userId, teamId };
+  }
+
+  test("une clé générée porte la clé, son empreinte, son alias et sa date d'expiration ; un alias déjà pris est refusé", async () => {
+    const { userId, teamId } = await titulaire();
+    const alias = uniqueId("cle");
+    createdKeyAliases.push(alias);
+    const parametres = {
+      userId,
+      teamId,
+      models: ["dev-public"],
+      maxBudget: 5,
+      budgetDuration: "30d",
+      duration: "90d",
+      rpmLimit: null,
+      tpmLimit: null,
+      alias,
+      metadata: { request_id: "demande-de-test", data_level: "N1" },
+    };
+    const avant = Date.now();
+    const cle = await client.generateKey(parametres);
+    expect(cle.key).toMatch(/^sk-/);
+    expect(cle.tokenId).toMatch(/^[0-9a-f]{64}$/);
+    expect(cle.alias).toBe(alias);
+    expect(cle.expiresAt.getTime()).toBeGreaterThan(avant + 89 * 86_400_000);
+    expect(cle.expiresAt.getTime()).toBeLessThan(avant + 91 * 86_400_000);
+    await expect(client.generateKey(parametres)).rejects.toThrow(/alias/i);
+  });
+});

@@ -1,4 +1,19 @@
-import type { LiteLLMClient, LiteLLMModel, LiteLLMTeam, LiteLLMUser } from "@/lib/litellm/client";
+import { randomBytes } from "node:crypto";
+import type { GeneratedKey, KeyParams, LiteLLMClient, LiteLLMModel, LiteLLMTeam, LiteLLMUser } from "@/lib/litellm/client";
+
+/** Clé connue du LiteLLM simulé ; `key` n'y est gardée que pour les vérifications des tests. */
+export interface FakeKey extends KeyParams {
+  key: string;
+  tokenId: string;
+  expiresAt: Date;
+}
+
+/** Durée LiteLLM (30d, 12h, 90m, 3600s) en millisecondes. */
+function durationMs(duration: string): number {
+  const match = /^(\d+)([smhd])$/.exec(duration);
+  if (!match) throw new Error(`durée invalide : ${duration}`);
+  return Number(match[1]) * { s: 1_000, m: 60_000, h: 3_600_000, d: 86_400_000 }[match[2] as "s" | "m" | "h" | "d"];
+}
 
 /**
  * LiteLLM simulé en mémoire pour tester les cas d'usage (frontière avec un système externe).
@@ -8,6 +23,11 @@ export class FakeLiteLLM implements LiteLLMClient {
   readonly users = new Map<string, { email: string }>();
   readonly teams = new Map<string, LiteLLMTeam>();
   models: LiteLLMModel[] = [];
+  readonly keys = new Map<string, FakeKey>();
+  /** Horloge des expirations, alignée par les tests sur la date du jour qu'ils injectent. */
+  horloge: () => Date = () => new Date();
+  /** Simule une passerelle injoignable pour les opérations sur les clés. */
+  panne = false;
 
   async getUser(userId: string): Promise<LiteLLMUser | null> {
     const user = this.users.get(userId);
@@ -41,6 +61,17 @@ export class FakeLiteLLM implements LiteLLMClient {
 
   async listTeams() {
     return [...this.teams.values()].map(({ teamId, teamAlias, models }) => ({ teamId, teamAlias, models }));
+  }
+
+  async generateKey(params: KeyParams): Promise<GeneratedKey> {
+    if (this.panne) throw new Error("LiteLLM injoignable");
+    // Comme LiteLLM 1.102.1 : un alias déjà pris est refusé.
+    if ([...this.keys.values()].some((k) => k.alias === params.alias)) throw new Error(`Key with alias '${params.alias}' already exists.`);
+    const key = `sk-${randomBytes(12).toString("hex")}`;
+    const tokenId = randomBytes(32).toString("hex");
+    const expiresAt = new Date(this.horloge().getTime() + durationMs(params.duration));
+    this.keys.set(tokenId, { ...params, key, tokenId, expiresAt });
+    return { key, tokenId, alias: params.alias, expiresAt };
   }
 
   // --- préparation des scénarios ---

@@ -73,6 +73,28 @@ export interface LiteLLMModel {
   maxInputTokens: number | null;
 }
 
+/** Paramètres d'une clé à générer (F-40), figés à l'approbation de la demande. Durées au format LiteLLM : 30d, 3600s… */
+export interface KeyParams {
+  userId: string;
+  teamId: string;
+  models: string[];
+  maxBudget: number;
+  budgetDuration: string;
+  duration: string;
+  rpmLimit: number | null;
+  tpmLimit: number | null;
+  alias: string;
+  metadata: Record<string, string | null>;
+}
+
+/** Clé générée : `key` n'est rendue qu'une fois et ne doit jamais être conservée ; `tokenId` est son empreinte. */
+export interface GeneratedKey {
+  key: string;
+  tokenId: string;
+  alias: string;
+  expiresAt: Date;
+}
+
 export interface LiteLLMClient {
   getUser(userId: string): Promise<LiteLLMUser | null>;
   /** F-02 : crée l'utilisateur (rôle internal_user) SANS clé : aucune clé hors du circuit de validation. */
@@ -85,6 +107,8 @@ export interface LiteLLMClient {
   listModels(): Promise<LiteLLMModel[]>;
   /** F-22 : équipes existantes, pour les demandes d'adhésion. */
   listTeams(): Promise<LiteLLMTeamSummary[]>;
+  /** F-40 : génère une clé ; l'alias doit être unique dans LiteLLM. */
+  generateKey(params: KeyParams): Promise<GeneratedKey>;
 }
 
 const teamSummarySchema = z.object({
@@ -130,6 +154,14 @@ const modelInfoSchema = z.object({
       }),
     }),
   ),
+});
+
+const generatedKeySchema = z.object({
+  key: z.string(),
+  token_id: z.string().nullish(),
+  token: z.string().nullish(),
+  key_alias: z.string().nullish(),
+  expires: z.string().nullish(),
 });
 
 const errorSchema = z.object({ error: z.object({ message: z.string() }) });
@@ -221,6 +253,27 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
       const { status, data } = await call("GET", "/team/list");
       if (status !== 200) fail("GET", "/team/list", status, data);
       return z.array(teamSummarySchema).parse(data).map(toTeamSummary);
+    },
+
+    async generateKey(params) {
+      const body = {
+        user_id: params.userId,
+        team_id: params.teamId,
+        models: params.models,
+        max_budget: params.maxBudget,
+        budget_duration: params.budgetDuration,
+        duration: params.duration,
+        key_alias: params.alias,
+        metadata: params.metadata,
+        ...(params.rpmLimit === null ? {} : { rpm_limit: params.rpmLimit }),
+        ...(params.tpmLimit === null ? {} : { tpm_limit: params.tpmLimit }),
+      };
+      const { status, data } = await call("POST", "/key/generate", body);
+      if (status !== 200) fail("POST", "/key/generate", status, data);
+      const generated = generatedKeySchema.parse(data);
+      const tokenId = generated.token_id ?? generated.token;
+      if (!tokenId || !generated.expires) throw new LiteLLMError(status, "LiteLLM POST /key/generate : réponse incomplète");
+      return { key: generated.key, tokenId, alias: generated.key_alias ?? params.alias, expiresAt: new Date(generated.expires) };
     },
   };
 }

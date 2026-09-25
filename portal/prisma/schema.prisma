@@ -104,6 +104,8 @@ model AccessRequest {
   /// empreinte (token_id) — JAMAIS la clé
   keyTokenId      String?
   keyIssuedAt     DateTime?
+  /// date d'expiration de la clé émise (le remplacement la conserve)
+  keyExpiresAt    DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 

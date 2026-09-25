@@ -44,6 +44,7 @@ export default async function MyRequestsPage(props: PageProps<"/demandes">) {
               <td>{r.decisionComment ?? ""}</td>
               <td>
                 {r.status === "A_COMPLETER" && r.kind === "CLE" && <Link href={`/demandes/nouvelle?completer=${r.id}`}>{t("completer")}</Link>}
+                {r.status === "APPROUVEE" && r.kind === "CLE" && <Link href="/cles">{t("retirer")}</Link>}
                 {(r.status === "SOUMISE" || r.status === "A_COMPLETER") && (
                   <form action={cancelRequestAction}>
                     <input type="hidden" name="id" value={r.id} />

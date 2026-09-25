@@ -16,6 +16,7 @@ import {
   requestCompletion,
 } from "@/lib/services/admin-requests";
 import { saveCatalogEntry } from "@/lib/services/catalog";
+import { pickUpKey } from "@/lib/services/keys";
 import { cancelRequest, completeRequest, createKeyRequest, createTeamJoinRequest } from "@/lib/services/requests";
 import { saveSettings } from "@/lib/services/settings";
 import { getDeps, requireUser } from "@/lib/session";
@@ -161,6 +162,24 @@ export async function saveSettingsAction(formData: FormData): Promise<void> {
 }
 
 // --- outils ---
+
+/** Résultat du retrait d'une clé : la clé n'y figure qu'une fois, et nulle part ailleurs. */
+export type ResultatRetrait = { ok: true; cle: string; alias: string } | { ok: false; erreur: string; details: Record<string, string> };
+
+/**
+ * F-40 / F-41 : retrait d'une clé. La clé n'est ni journalisée ni conservée ; la page n'est pas
+ * rafraîchie ici, pour que le panneau d'affichage unique reste ouvert jusqu'à « J'ai copié ma clé ».
+ */
+export async function retirerCleAction(requestId: string): Promise<ResultatRetrait> {
+  const user = await requireUser();
+  try {
+    const { key, alias } = await pickUpKey(getDeps(), user, requestId);
+    return { ok: true, cle: key, alias };
+  } catch (e) {
+    if (e instanceof PortalError) return { ok: false, erreur: e.code, details: e.params };
+    throw e;
+  }
+}
 
 /** Clés des messages de succès, traduites par l'avis (dictionnaires, espace « avis.succes »). */
 type CleSucces =

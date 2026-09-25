@@ -11,7 +11,8 @@
     "mesDemandes": "Mes demandes",
     "nouvelleDemande": "Nouvelle demande",
     "gestion": "Gestion",
-    "deconnexion": "Se déconnecter"
+    "deconnexion": "Se déconnecter",
+    "mesCles": "Mes clés"
   },
   "accueil": {
     "bonjour": "Bonjour {nom}",
@@ -90,7 +91,8 @@
       "tarif_eur_manquant": "Le modèle {modele} n'a pas de tarif en euros : il ne peut pas être rendu visible.",
       "transition_interdite": "{cas, select, modifiee {La demande a été modifiée entre-temps ; rechargez la page.} traitee {Cette demande a déjà été traitée.} other {Cette action n'est pas possible au statut actuel de la demande.}}",
       "saisie_invalide": "Saisie invalide : vérifiez les champs {champs}.",
-      "inconnue": "Une erreur est survenue."
+      "inconnue": "Une erreur est survenue.",
+      "passerelle_indisponible": "La passerelle ne répond pas : réessayez dans quelques instants."
     },
     "controles": {
       "membre_equipe": "Le demandeur est membre de l'équipe",
@@ -297,7 +299,8 @@
     },
     "completer": "Compléter",
     "annuler": "Annuler",
-    "aucune": "Aucune demande pour l'instant."
+    "aucune": "Aucune demande pour l'instant.",
+    "retirer": "Retirer ma clé"
   },
   "nouvelleDemande": {
     "titre": "Demander une clé d'API",
@@ -412,5 +415,31 @@
     "titre": "Une erreur est survenue",
     "message": "La page n'a pas pu s'afficher. Réessayez ; si le problème persiste, contactez un administrateur du portail.",
     "reessayer": "Réessayer"
+  },
+  "cles": {
+    "titre": "Mes clés",
+    "aRetirer": "À retirer",
+    "aRetirerIntro": "Ces demandes sont approuvées : générez votre clé avant l'échéance.",
+    "echeance": "À retirer avant le {date}",
+    "sansEcheance": "Pas d'échéance de retrait",
+    "generer": "Générer ma clé",
+    "generation": "Génération…",
+    "nouvelleCle": "Votre nouvelle clé {alias}",
+    "avertissement": "Copiez-la maintenant et gardez-la en lieu sûr : elle ne sera plus jamais affichée.",
+    "copier": "Copier la clé",
+    "copiee": "Clé copiée",
+    "jaiCopie": "J'ai copié ma clé",
+    "emises": "Clés émises",
+    "colonnes": {
+      "alias": "Alias",
+      "equipe": "Équipe",
+      "niveau": "Niveau",
+      "modeles": "Modèles",
+      "emise": "Retirée le",
+      "expiration": "Expire le",
+      "statut": "Statut"
+    },
+    "aucune": "Vous n'avez encore aucune clé : choisissez des modèles, puis demandez une clé.",
+    "catalogue": "Voir le catalogue"
   }
 }

@@ -1,0 +1,55 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { useState, useTransition } from "react";
+import { retirerCleAction, type ResultatRetrait } from "../../actions";
+import { BoutonCopier } from "../../bouton-copier";
+
+/** « Générer ma clé », puis affichage unique de la clé jusqu'à « J'ai copié ma clé ». */
+export function RetraitCle({ requestId }: { requestId: string }) {
+  const t = useTranslations("cles");
+  const avis = useTranslations("avis");
+  const router = useRouter();
+  const [resultat, setResultat] = useState<ResultatRetrait | null>(null);
+  const [enCours, demarrer] = useTransition();
+
+  if (resultat?.ok) {
+    return (
+      <section aria-labelledby={`cle-${requestId}`} className="mt-2 rounded border-2 border-linagora p-4">
+        <h3 id={`cle-${requestId}`} className="font-medium">
+          {t("nouvelleCle", { alias: resultat.alias })}
+        </h3>
+        <p className="mt-1">{t("avertissement")}</p>
+        <code className="mt-2 block rounded bg-neutral-100 p-2 break-all">{resultat.cle}</code>
+        <div className="flex flex-wrap gap-3">
+          <BoutonCopier texte={resultat.cle} libelle={t("copier")} libelleCopie={t("copiee")} />
+          <button
+            type="button"
+            className="border-neutral-400 bg-white text-neutral-800 hover:bg-neutral-100"
+            onClick={() => {
+              setResultat(null);
+              router.refresh();
+            }}
+          >
+            {t("jaiCopie")}
+          </button>
+        </div>
+      </section>
+    );
+  }
+  return (
+    <div>
+      <button type="button" disabled={enCours} onClick={() => demarrer(async () => setResultat(await retirerCleAction(requestId)))}>
+        {enCours ? t("generation") : t("generer")}
+      </button>
+      {resultat && !resultat.ok && (
+        <p role="alert" className="mt-2 text-red-800">
+          {avis.has(`erreurs.${resultat.erreur}`)
+            ? avis(`erreurs.${resultat.erreur}`, { objet: "", cas: "", modele: "", equipe: "", champs: "", controles: "", ...resultat.details })
+            : avis("erreurs.inconnue")}
+        </p>
+      )}
+    </div>
+  );
+}

@@ -30,6 +30,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               <nav className="flex flex-wrap gap-x-4" aria-label={t("navigation")}>
                 <Link href="/catalogue">{t("catalogue")}</Link>
                 <Link href="/demandes">{t("mesDemandes")}</Link>
+                <Link href="/cles">{t("mesCles")}</Link>
                 <Link href="/demandes/nouvelle">{t("nouvelleDemande")}</Link>
               </nav>
             )}

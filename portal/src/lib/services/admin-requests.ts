@@ -11,6 +11,8 @@ import { readSettings, type SettingValues } from "./settings";
 interface AdminDeps {
   db: Db;
   litellm: LiteLLMClient;
+  /** Date du jour, injectée par les tests ; l'heure réelle sinon. */
+  now?: () => Date;
 }
 
 /** Ligne de la file de validation (F-30). */
@@ -146,7 +148,7 @@ export async function approveKeyRequest(deps: AdminDeps, actor: SessionUser, id:
       rpmLimit: params.rpmLimit,
       tpmLimit: params.tpmLimit,
       decidedBy: actor.uid,
-      decidedAt: new Date(),
+      decidedAt: deps.now?.() ?? new Date(),
     },
   });
 }

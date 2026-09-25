@@ -12,6 +12,7 @@ export type PortalErrorCode =
   | "introuvable"
   | "motif_obligatoire"
   | "parametre_manquant"
+  | "passerelle_indisponible"
   | "recommandation_hors_cas_usage"
   | "tarif_eur_manquant"
   | "transition_interdite";
