@@ -3,10 +3,13 @@
 # Cron (root) : 30 2 * * * /opt/linagora-ia/scripts/backup.sh >> /var/log/linagora-ia-backup.log 2>&1
 # Copie hors instance : à brancher sur OVH Object Storage (rclone ou s3cmd) — voir runbook, phase 7.
 set -euo pipefail
+# Les dumps contiennent clés hachées, e-mails et hachages de mots de passe : root uniquement
+umask 077
 cd /opt/linagora-ia
 DEST=/var/backups/linagora-ia
 STAMP="$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$DEST"
+chmod 700 "$DEST"
 
 for db in litellm portal superset; do
   docker compose exec -T postgres pg_dump -U postgres -Fc "$db" > "$DEST/${db}-${STAMP}.dump"

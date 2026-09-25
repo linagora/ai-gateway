@@ -50,9 +50,9 @@
 	}
 
 	# --- /stats : Superset (SUPERSET_APP_ROOT=/stats, préfixe conservé)
-	# /static/* : contournement du bug Superset (assets servis hors préfixe) — à retirer
-	# si la version déployée sert correctement /stats/static/*
-	@stats path /stats /stats/* /static/*
+	# Superset 6.1 sert toutes ses ressources sous /stats/static/ (vérifié le 2026-09-24) :
+	# le contournement /static/* n'est plus nécessaire.
+	@stats path /stats /stats/*
 	handle @stats {
 		reverse_proxy superset:8088
 	}

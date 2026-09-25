@@ -25,19 +25,19 @@ Légende : 🧑 = point d'arrêt, action ou information attendue de l'utilisateu
    - taux interne USD→EUR pour convertir les tarifs OpenRouter ;
    - paramètres SMTP.
 
-**Contrôle** : `ssh ia-host 'hostname; . /etc/os-release; echo $PRETTY_NAME; nproc; free -h; df -h /'` → 4 vCPU, ~15 Go RAM, ~100 Go disque, Ubuntu 24.04 ou Debian 12.
+**Contrôle** : `ssh ia-host 'hostname; . /etc/os-release; echo $PRETTY_NAME; nproc; free -h; df -h /'` → 4 vCPU, ~15 Go RAM, ~100 Go disque, Ubuntu 24.04, Debian 12 ou Debian 13.
 
 ## Phase 1 — Préparation du serveur
 
 ```bash
 scp infra/scripts/bootstrap-host.sh ia-host:/tmp/
-ssh ia-host 'sudo ADMIN_SSH_CIDR="<cidr ou vide>" bash /tmp/bootstrap-host.sh'
+ssh ia-host 'sudo ADMIN_SSH_CIDR="<CIDR séparés par des espaces, ou vide>" bash /tmp/bootstrap-host.sh'
 ```
 ⚠️ Le script autorise SSH **avant** d'activer ufw. Après exécution, **ouvrir une nouvelle connexion** (`ssh ia-host true`) avant de fermer quoi que ce soit.
 
 **Contrôles** :
 ```bash
-ssh ia-host 'docker version --format "{{.Server.Version}}" && docker compose version && sudo ufw status && swapon --show && systemctl is-active fail2ban'
+ssh ia-host 'docker version --format "{{.Server.Version}}" && docker compose version && sudo ufw status && sudo swapon --show && systemctl is-active fail2ban'
 ```
 
 ## Phase 2 — DNS (🧑)
@@ -52,15 +52,18 @@ L'utilisateur crée des enregistrements **A** (et AAAA si IPv6) vers l'IP de l'i
 rsync -av --exclude '.env' infra/ ia-host:/opt/linagora-ia/
 ssh ia-host 'chmod +x /opt/linagora-ia/scripts/*.sh /opt/linagora-ia/postgres/init/*.sh && /opt/linagora-ia/scripts/gen-secrets.sh'
 ```
-Le script liste les variables `__ASK__` restantes. L'agent renseigne celles qui ne sont pas secrètes (domaines, IP, uid, SMTP_HOST…) avec `sed -i` sur le serveur. Pour les **secrets fournis par l'utilisateur** (clé OpenRouter, `OVH_QWEN_API_BASE` / `OVH_QWEN_API_KEY`, secrets des clients OIDC, mot de passe SMTP) : 🧑 l'utilisateur les saisit lui-même :
+Le script liste les variables `__ASK__` restantes. L'agent renseigne celles qui ne sont pas secrètes (domaines, IP, uid, SMTP_HOST…) avec `sed -i` sur le serveur. Pour les **secrets fournis par l'utilisateur** (clé OpenRouter, `OVH_QWEN_API_BASE` / `OVH_QWEN_API_KEY`, secrets des clients OIDC, mot de passe SMTP) : 🧑 l'utilisateur les saisit lui-même, une variable à la fois, en saisie masquée (la valeur n'apparaît ni à l'écran, ni dans `ps`, ni dans l'historique) :
 ```bash
-ssh -t ia-host 'nano /opt/linagora-ia/.env'
+ssh -t ia-host '/opt/linagora-ia/scripts/set-env-var.sh OPENROUTER_API_KEY'
 ```
-**Contrôle** (sans afficher de valeur) : `ssh ia-host "grep -cE '__(ASK|GENERATE)' /opt/linagora-ia/.env"` → `0` avant la phase 5 (les secrets OIDC peuvent attendre les phases 6 et 7 ; les laisser à `__ASK__` jusque-là).
+Autre possibilité : `ssh -t ia-host 'nano /opt/linagora-ia/.env'`, à condition que l'agent ne modifie pas le fichier au même moment.
+
+⚠️ Les variables du `.env` sont figées à la création d'un conteneur : après toute modification, recréer les services concernés (`docker compose up -d litellm`, par exemple), sinon ils gardent l'ancienne valeur.
+**Contrôle** (sans afficher de valeur) : `ssh ia-host "grep -cE '^[A-Z0-9_]+=.*__(ASK|GENERATE)' /opt/linagora-ia/.env"` → `0` avant la phase 5 (les secrets OIDC peuvent attendre les phases 6 et 7 ; les laisser à `__ASK__` jusque-là).
 
 ## Phase 4 — Choix et vérification des versions
 
-1. LiteLLM : identifier le dernier tag **`vX.Y.Z-stable`** sur `ghcr.io/berriai/litellm` (page Releases GitHub de BerriAI/litellm). Installer cosign sur le serveur (binaire de release GitHub sigstore/cosign, vérifier la somme SHA256), puis :
+1. LiteLLM : identifier la dernière version stable **`vX.Y.Z`** sur `ghcr.io/berriai/litellm` (page Releases GitHub de BerriAI/litellm : release sans suffixe `-rc` / `-dev`, publiée depuis une branche `stable/X.Y.x` ; le suffixe `-stable` n'est plus utilisé depuis mai 2026). Installer cosign sur le serveur (binaire de release GitHub sigstore/cosign, vérifier la somme SHA256), puis :
    ```bash
    cosign verify \
      --key https://raw.githubusercontent.com/BerriAI/litellm/0112e53046018d726492c814b3644b7d376029d0/cosign.pub \
@@ -89,7 +92,11 @@ Vérifier dans les logs LiteLLM l'absence du message « Cannot apply server_root
 - un modèle OpenRouter N1 ou N2 ;
 - le modèle N3 **Qwen3.8 sur l'endpoint OVHcloud** (`openai/<modèle>` + `api_base` = `OVH_QWEN_API_BASE`), après un test direct de l'endpoint (`curl <api_base>/models`).
 
-Chaque modèle reçoit dans `model_info` : `input_cost_per_token` et `output_cost_per_token` **en EUR**, `pricing_currency: EUR` (et `fx_rate_usd_eur` pour les tarifs convertis), `data_level`, `hosting`.
+Chaque modèle reçoit :
+- dans **`litellm_params`** : `input_cost_per_token` et `output_cost_per_token` **en EUR**. Depuis LiteLLM 1.10x, les prix placés dans `model_info` sont considérés comme dérivés de la table de coûts publique et **supprimés à l'enregistrement** ; `/model/info` les recopie ensuite dans `model_info` pour l'affichage ;
+- dans **`model_info`** : `pricing_currency: EUR` (et `fx_rate_usd_eur` pour les tarifs convertis), `data_level`, `hosting`.
+
+Déclaration possible par l'API (exemple : `scripts/smoke-test.py` pour le test, `POST /model/new` pour la création). Test de bout en bout réutilisable : `docker compose exec -T litellm python3 - <model_name> < scripts/smoke-test.py` (équipe et clé de test, critère 1, complétion, dépense au tarif EUR, révocation → 401, nettoyage).
 
 **Test de bout en bout par l'API admin** (depuis le serveur, réseau interne, sans afficher la clé maître) :
 ```bash
@@ -117,7 +124,7 @@ ssh ia-host 'cd /opt/linagora-ia && docker compose up -d litellm'
    ```bash
    ssh ia-host 'cd /opt/linagora-ia && docker compose exec -T postgres psql -U litellm -d litellm -v ON_ERROR_STOP=1 -f - < postgres/reporting_views.sql'
    ```
-   Contrôle : `docker compose exec -T postgres psql -U reporting_ro -d litellm -c "select count(*) from v_requests"` fonctionne, et `select count(*) from \"LiteLLM_SpendLogs\"` est **refusé**.
+   Contrôle : `docker compose exec -T postgres psql -U reporting_ro -d litellm -c "select count(*) from v_requests"` fonctionne, et `select count(*) from public.\"LiteLLM_SpendLogs\"` est **refusé** (« permission denied » ; préciser le schéma `public`, sinon l'erreur est « does not exist » car le `search_path` de `reporting_ro` se limite à `reporting`).
 2. Superset :
    ```bash
    ssh ia-host 'cd /opt/linagora-ia && docker compose build superset && \
@@ -126,14 +133,14 @@ ssh ia-host 'cd /opt/linagora-ia && docker compose up -d litellm'
         --firstname Admin --lastname IA --email admin-ia@linagora.com --password "$(openssl rand -hex 16)" && \
      docker compose run --rm superset superset init && docker compose up -d redis superset'
    ```
-   Connexion OIDC sur `https://ai-gateway.linagora.com/stats/` avec l'uid admin. **Recette du sous-chemin** : pages, graphiques, exports CSV, liens de partage. Si les assets sont servis correctement sous `/stats/static/`, retirer `/static/*` du Caddyfile ; si le sous-chemin est trop instable dans la version retenue, 🧑 le signaler (repli possible : sous-domaine dédié). Ajouter la base « LiteLLM reporting » : `postgresql+psycopg2://reporting_ro:<REPORTING_RO_PASSWORD>@postgres:5432/litellm` (saisie par l'utilisateur dans l'UI, ou par l'agent via la CLI Superset sans afficher le mot de passe). Créer les datasets à partir des vues `reporting.*` (montants en €), le tableau de bord « Vue d'ensemble » (PRD §7.1) et un graphique de contrôle sur `v_check_pricing_eur` (doit rester vide).
+   Connexion OIDC sur `https://ai-gateway.linagora.com/stats/` avec l'uid admin. **Recette du sous-chemin** : pages, graphiques, exports CSV, liens de partage. Si les assets sont servis correctement sous `/stats/static/`, retirer `/static/*` du Caddyfile ; si le sous-chemin est trop instable dans la version retenue, 🧑 le signaler (repli possible : sous-domaine dédié). Ajouter la base « LiteLLM reporting » : `postgresql+psycopg2://reporting_ro:<REPORTING_RO_PASSWORD>@postgres:5432/litellm` (saisie par l'utilisateur dans l'UI, ou par l'agent via la CLI Superset sans afficher le mot de passe). Script prêt : `superset/init-reporting.py` (connexion + un jeu de données par vue, idempotent ; le mot de passe passe par l'entrée standard, voir l'en-tête du script). Créer les datasets à partir des vues `reporting.*` (montants en €), le tableau de bord « Vue d'ensemble » (PRD §7.1) et un graphique de contrôle sur `v_check_pricing_eur` (doit rester vide).
    Autres lecteurs : les créer dans Superset (Paramètres → Utilisateurs) avec `username = uid`, rôle `Gamma` + accès aux datasets.
 3. Sauvegardes :
    ```bash
    ssh ia-host '(sudo crontab -l 2>/dev/null; echo "30 2 * * * /opt/linagora-ia/scripts/backup.sh >> /var/log/linagora-ia-backup.log 2>&1") | sort -u | sudo crontab - && sudo /opt/linagora-ia/scripts/backup.sh'
    ```
    🧑 Copie hors instance : créer un conteneur OVH Object Storage + identifiants S3, configurer `rclone` et décommenter la ligne dans `backup.sh`.
-   **Contrôle** : restaurer `litellm-*.dump` dans une base temporaire (`createdb restore_test && pg_restore -d restore_test …`), compter les lignes de `LiteLLM_VerificationToken`, supprimer la base de test (confirmation demandée).
+   **Contrôle** : `ssh ia-host 'sudo /opt/linagora-ia/scripts/restore-test.sh'` — restaure la dernière sauvegarde (rôles + base `litellm`) dans un conteneur Postgres jetable et sans réseau, affiche les volumes à côté de ceux de la production, vérifie les vues de reporting avec `reporting_ro`, puis supprime le conteneur. Le Postgres de production n'est jamais touché (aucune base de test à supprimer). Note : les images cloud Debian 13 n'ont pas `cron` ; `bootstrap-host.sh` l'installe.
 
 ## Phase 8 — Recette socle
 Critères d'acceptation 1, 2, 3, 7, 9 du PRD §9. Mettre à jour `docs/INSTALL-LOG.md`.

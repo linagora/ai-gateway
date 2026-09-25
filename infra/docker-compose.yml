@@ -97,10 +97,12 @@ services:
     mem_limit: 3g
     logging: *default-logging
 
+  # Valkey (fork libre de Redis, licence BSD) : Redis ≥ 7.4 n'est plus sous licence libre.
+  # Le service garde le nom "redis" : c'est le nom d'hôte attendu par Superset (REDIS_HOST).
   redis:
     image: ${REDIS_IMAGE}
     restart: unless-stopped
-    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    command: ["valkey-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
     mem_limit: 384m
     logging: *default-logging
 

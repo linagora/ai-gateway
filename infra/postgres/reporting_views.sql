@@ -16,30 +16,45 @@ SELECT token AS key_hash, key_alias, user_id, team_id, models, max_budget, spend
        false AS deleted
 FROM "LiteLLM_VerificationToken"
 UNION ALL
-SELECT DISTINCT ON (token) token, key_alias, user_id, team_id, models, max_budget, spend,
-       expires, blocked, created_at,
-       metadata->>'data_level', metadata->>'project', metadata->>'request_id', metadata->>'key_type',
-       true
-FROM "LiteLLM_DeletedVerificationToken"
-WHERE token NOT IN (SELECT token FROM "LiteLLM_VerificationToken");
+(SELECT DISTINCT ON (token) token, key_alias, user_id, team_id, models, max_budget, spend,
+        expires, blocked, created_at,
+        metadata->>'data_level', metadata->>'project', metadata->>'request_id', metadata->>'key_type',
+        true
+ FROM "LiteLLM_DeletedVerificationToken"
+ WHERE token NOT IN (SELECT token FROM "LiteLLM_VerificationToken")
+ ORDER BY token, deleted_at DESC);
 
+-- Équipes actives + supprimées (même raison que v_keys)
 CREATE OR REPLACE VIEW reporting.v_teams AS
-SELECT team_id, team_alias, models, max_budget, spend, budget_duration, blocked, created_at
-FROM "LiteLLM_TeamTable";
+SELECT team_id, team_alias, models, max_budget, spend, budget_duration, blocked, created_at,
+       false AS deleted
+FROM "LiteLLM_TeamTable"
+UNION ALL
+(SELECT DISTINCT ON (team_id) team_id, team_alias, models, max_budget, spend, budget_duration, blocked, created_at,
+        true
+ FROM "LiteLLM_DeletedTeamTable"
+ WHERE team_id NOT IN (SELECT team_id FROM "LiteLLM_TeamTable")
+ ORDER BY team_id, deleted_at DESC);
 
 CREATE OR REPLACE VIEW reporting.v_users AS
 SELECT user_id, user_email, user_alias, user_role, teams, spend, created_at
 FROM "LiteLLM_UserTable";
 
+-- Prix : dans litellm_params (LiteLLM ≥ 1.10x supprime ceux placés dans model_info). Dans
+-- litellm_params, les nombres sont stockés en clair mais les chaînes (modèle fournisseur, URL,
+-- clé) sont chiffrées : le modèle fournisseur réel se lit dans v_requests (LiteLLM_SpendLogs).
+-- Conversion défensive : une valeur non numérique donne NULL au lieu de casser toutes les vues.
 CREATE OR REPLACE VIEW reporting.v_models AS
 SELECT model_id, model_name,
-       litellm_params->>'model'          AS provider_model,
        model_info->>'data_level'         AS data_level,
        model_info->>'hosting'            AS hosting,
-       (model_info->>'input_cost_per_token')::numeric  AS input_cost_per_token,
-       (model_info->>'output_cost_per_token')::numeric AS output_cost_per_token,
+       CASE WHEN litellm_params->>'input_cost_per_token' ~ '^[0-9.eE+-]+$'
+            THEN (litellm_params->>'input_cost_per_token')::numeric END  AS input_cost_per_token,
+       CASE WHEN litellm_params->>'output_cost_per_token' ~ '^[0-9.eE+-]+$'
+            THEN (litellm_params->>'output_cost_per_token')::numeric END AS output_cost_per_token,
        model_info->>'pricing_currency'   AS pricing_currency,
-       (model_info->>'fx_rate_usd_eur')::numeric AS fx_rate_usd_eur,
+       CASE WHEN model_info->>'fx_rate_usd_eur' ~ '^[0-9.eE+-]+$'
+            THEN (model_info->>'fx_rate_usd_eur')::numeric END AS fx_rate_usd_eur,
        blocked
 FROM "LiteLLM_ProxyModelTable";
 
@@ -58,7 +73,7 @@ SELECT s.request_id,
        k.key_type,
        k.project,
        k.data_level                          AS key_data_level,
-       s.model_group                         AS model_name,
+       NULLIF(s.model_group, '')             AS model_name,   -- '' pour les appels sans modèle
        s.model                               AS provider_model,
        s.custom_llm_provider                 AS provider,
        m.data_level                          AS model_data_level,
@@ -76,7 +91,7 @@ LEFT JOIN reporting.v_models m ON m.model_id = s.model_id;
 CREATE OR REPLACE VIEW reporting.v_daily_user AS
 SELECT d.date::date AS day, d.user_id, u.user_email, k.key_alias, k.team_id, t.team_alias,
        k.project, k.data_level AS key_data_level,
-       d.model_group AS model_name, d.custom_llm_provider AS provider,
+       NULLIF(d.model_group, '') AS model_name, d.custom_llm_provider AS provider,
        d.prompt_tokens, d.completion_tokens, d.spend,
        d.api_requests, d.successful_requests, d.failed_requests
 FROM "LiteLLM_DailyUserSpend" d
@@ -86,17 +101,18 @@ LEFT JOIN reporting.v_users u ON u.user_id  = d.user_id;
 
 CREATE OR REPLACE VIEW reporting.v_daily_team AS
 SELECT d.date::date AS day, d.team_id, t.team_alias,
-       d.model_group AS model_name, d.custom_llm_provider AS provider,
+       NULLIF(d.model_group, '') AS model_name, d.custom_llm_provider AS provider,
        d.prompt_tokens, d.completion_tokens, d.spend,
        d.api_requests, d.successful_requests, d.failed_requests
 FROM "LiteLLM_DailyTeamSpend" d
 LEFT JOIN reporting.v_teams t ON t.team_id = d.team_id;
 
--- Contrôle devise : requêtes sur des modèles sans tarif EUR explicite (doit rester vide)
+-- Contrôle devise : requêtes sur des modèles sans tarif EUR explicite (doit rester vide).
+-- Les requêtes sans modèle (ex. /v1/models refusé à une clé révoquée) ne sont pas concernées.
 CREATE OR REPLACE VIEW reporting.v_check_pricing_eur AS
 SELECT day, model_name, provider, count(*) AS requests, sum(spend) AS spend_unreliable
 FROM reporting.v_requests
-WHERE pricing_currency IS DISTINCT FROM 'EUR'
+WHERE pricing_currency IS DISTINCT FROM 'EUR' AND model_name IS NOT NULL
 GROUP BY day, model_name, provider;
 
 GRANT SELECT ON ALL TABLES IN SCHEMA reporting TO reporting_ro;

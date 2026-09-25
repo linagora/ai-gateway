@@ -24,4 +24,4 @@ cat "$tmp" > .env && rm -f "$tmp"
 chmod 600 .env
 
 echo "• Valeurs encore à fournir (__ASK__) :"
-grep -E '__ASK' .env | cut -d= -f1 | sed 's/^/    - /' || echo "    (aucune)"
+grep -E '^[A-Z0-9_]+=.*__ASK' .env | cut -d= -f1 | sed 's/^/    - /' || echo "    (aucune)"
