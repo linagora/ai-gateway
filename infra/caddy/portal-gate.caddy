@@ -1,0 +1,14 @@
+# Point de contrôle du portail pour /admin et /stats (forward_auth), à importer DANS un bloc route :
+#   import portal-gate.caddy <service : admin | stats> <adresse du portail, ex. portal:3000>
+# Le portail vérifie la session SSO et les listes d'uid (PORTAL_ADMIN_UIDS, PORTAL_REPORTING_UIDS),
+# puis transmet l'identité au service par les en-têtes X-Portal-*. Sans session : renvoi vers la
+# connexion ; uid non autorisé : 403.
+# Les en-têtes X-Portal-* envoyés par le client sont d'abord supprimés : seul le portail peut les poser.
+request_header -X-Portal-User
+request_header -X-Portal-Role
+request_header -X-Portal-Email
+request_header -X-Portal-Name
+forward_auth {args[1]} {
+	uri /api/acces/{args[0]}
+	copy_headers X-Portal-User X-Portal-Role X-Portal-Email X-Portal-Name
+}

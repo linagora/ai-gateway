@@ -39,22 +39,30 @@
 {$DOMAIN_PORTAL} {
 	import securite
 
-	# --- /admin : UI + API d'administration LiteLLM (IP filtrées + SSO admin)
+	# --- /admin : UI + API d'administration LiteLLM. IP filtrées, puis point de contrôle du portail
+	# (admins seulement), puis compte admin local de LiteLLM (pas de SSO LiteLLM : sa limite gratuite
+	# compte tous les utilisateurs inscrits). Le bloc route impose l'ordre écrit des directives.
 	@admin path /admin /admin/*
 	handle @admin {
-		@interdit not remote_ip {$ADMIN_ALLOWED_IPS}
-		respond @interdit "Forbidden" 403
-		@racine path /admin /admin/
-		redir @racine /admin/ui/ 302
-		reverse_proxy litellm:4000
+		route {
+			@interdit not remote_ip {$ADMIN_ALLOWED_IPS}
+			respond @interdit "Forbidden" 403
+			@racine path /admin /admin/
+			redir @racine /admin/ui/ 302
+			import portal-gate.caddy admin portal:3000
+			reverse_proxy litellm:4000
+		}
 	}
 
-	# --- /stats : Superset (SUPERSET_APP_ROOT=/stats, préfixe conservé)
-	# Superset 6.1 sert toutes ses ressources sous /stats/static/ (vérifié le 2026-09-24) :
-	# le contournement /static/* n'est plus nécessaire.
+	# --- /stats : Superset (SUPERSET_APP_ROOT=/stats, préfixe conservé), derrière le point de contrôle
+	# du portail (admins et lecteurs du reporting) ; Superset connecte l'utilisateur transmis.
+	# Superset 6.1 sert toutes ses ressources sous /stats/static/ (vérifié le 2026-09-24).
 	@stats path /stats /stats/*
 	handle @stats {
-		reverse_proxy superset:8088
+		route {
+			import portal-gate.caddy stats portal:3000
+			reverse_proxy superset:8088
+		}
 	}
 
 	# --- /traces : Langfuse (phase 2, seconde instance, image web construite avec

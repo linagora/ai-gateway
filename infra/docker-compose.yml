@@ -28,7 +28,8 @@ services:
       ADMIN_ALLOWED_IPS: ${ADMIN_ALLOWED_IPS}
       LANGFUSE_UPSTREAM: ${LANGFUSE_UPSTREAM:-}
     volumes:
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Dossier entier : le Caddyfile importe portal-gate.caddy (et un rsync remplace les fichiers).
+      - ./caddy:/etc/caddy:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
@@ -70,16 +71,11 @@ services:
       # Tout LiteLLM (UI + API) est servi sous /admin ; Caddy préfixe /admin pour ai-api.
       SERVER_ROOT_PATH: /admin
       PROXY_BASE_URL: https://${DOMAIN_PORTAL}
+      # Compte admin local de la console. Pas de SSO LiteLLM : sa limite gratuite (5 utilisateurs)
+      # compte tous les utilisateurs inscrits, et le portail inscrit chaque salarié. L'accès à /admin
+      # passe par le point de contrôle du portail (caddy/portal-gate.caddy).
       UI_USERNAME: ${UI_USERNAME}
       UI_PASSWORD: ${UI_PASSWORD}
-      GENERIC_CLIENT_ID: ${GENERIC_CLIENT_ID}
-      GENERIC_CLIENT_SECRET: ${GENERIC_CLIENT_SECRET}
-      GENERIC_AUTHORIZATION_ENDPOINT: ${GENERIC_AUTHORIZATION_ENDPOINT}
-      GENERIC_TOKEN_ENDPOINT: ${GENERIC_TOKEN_ENDPOINT}
-      GENERIC_USERINFO_ENDPOINT: ${GENERIC_USERINFO_ENDPOINT}
-      GENERIC_SCOPE: ${GENERIC_SCOPE}
-      GENERIC_USER_ID_ATTRIBUTE: ${GENERIC_USER_ID_ATTRIBUTE}
-      GENERIC_USER_EMAIL_ATTRIBUTE: ${GENERIC_USER_EMAIL_ATTRIBUTE}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
       OVH_QWEN_API_BASE: ${OVH_QWEN_API_BASE}
       OVH_QWEN_API_KEY: ${OVH_QWEN_API_KEY}
@@ -118,9 +114,6 @@ services:
       SUPERSET_APP_ROOT: /stats
       SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY}
       SUPERSET_DATABASE_URI: postgresql+psycopg2://superset:${SUPERSET_DB_PASSWORD}@postgres:5432/superset
-      SUPERSET_OIDC_CLIENT_ID: ${SUPERSET_OIDC_CLIENT_ID}
-      SUPERSET_OIDC_CLIENT_SECRET: ${SUPERSET_OIDC_CLIENT_SECRET}
-      OIDC_ISSUER: ${OIDC_ISSUER}
       REDIS_HOST: redis
     volumes:
       - ./superset/superset_config.py:/app/pythonpath/superset_config.py:ro
@@ -151,6 +144,7 @@ services:
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET}
       PORTAL_ADMIN_UIDS: ${PORTAL_ADMIN_UIDS}
+      PORTAL_REPORTING_UIDS: ${PORTAL_REPORTING_UIDS:-}
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}
       SMTP_USER: ${SMTP_USER}

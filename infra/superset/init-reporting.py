@@ -37,3 +37,14 @@ with app.app_context():
         ds.fetch_metadata()
         print(f"• jeu de données reporting.{view} : {'créé' if created else 'mis à jour'} ({len(ds.columns)} colonnes)")
     db.session.commit()
+
+    # Rôle des lecteurs du reporting (PORTAL_REPORTING_UIDS) : droits de lecture de Gamma + accès aux jeux de données.
+    from superset import security_manager as sm
+
+    reader = sm.find_role("Lecteur reporting") or sm.add_role("Lecteur reporting")
+    permissions = set(sm.find_role("Gamma").permissions)
+    for ds in db.session.query(SqlaTable).filter_by(schema="reporting", database_id=database.id):
+        permissions.add(sm.add_permission_view_menu("datasource_access", ds.get_perm()))
+    reader.permissions = list(permissions)
+    db.session.commit()
+    print(f"• rôle « Lecteur reporting » : {len(permissions)} permissions")
