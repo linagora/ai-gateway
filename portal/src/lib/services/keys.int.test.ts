@@ -404,22 +404,29 @@ describe("tâche quotidienne : échéances et rappels (ticket #25)", () => {
     mailer = new FakeMailer();
   });
 
-  test("le rappel de retrait part trois jours avant l'échéance, une seule fois", async () => {
+  test("le rappel de retrait part le matin du troisième jour avant l'échéance, une seule fois", async () => {
+    // Approbation le 1er octobre à 14 h (heure de Paris) : échéance de retrait le 15 octobre à 14 h.
+    maintenant = new Date("2026-10-01T12:00:00Z");
     await demandeApprouvee();
-    maintenant = new Date(approuveeLe.getTime() + 10 * JOUR);
+    maintenant = new Date("2026-10-11T05:00:00Z"); // 11 octobre, 7 h à Paris : J-4
     await tache();
     expect(mailer.outbox).toEqual([]);
-    maintenant = new Date(approuveeLe.getTime() + 11 * JOUR + 3_600_000);
+    maintenant = new Date("2026-10-12T05:00:00Z"); // 12 octobre, 7 h à Paris : J-3
     expect(await tache()).toMatchObject({ rappelsRetrait: 1 });
     await tache();
     expect(sujets()).toEqual([["mmaudet@linagora.com", "Rappel : votre clé est à retirer / Reminder: your key is waiting to be picked up"]]);
     expect(mailer.outbox[0].text).toContain("Retirez-la avant le 15 octobre 2026 dans « Mes clés »");
   });
 
-  test("le rappel d'expiration part sept jours avant l'expiration de la clé, une seule fois", async () => {
+  test("le rappel d'expiration part le matin du septième jour avant l'expiration de la clé, une seule fois", async () => {
     const id = await demandeApprouvee();
+    // Retrait le 1er octobre à 14 h (heure de Paris), pour 60 jours : expiration le 30 novembre à 13 h (heure d'hiver).
+    maintenant = new Date("2026-10-01T12:00:00Z");
     await pickUpKey(deps, titulaire, id);
-    maintenant = new Date(approuveeLe.getTime() + 53 * JOUR + 3_600_000);
+    maintenant = new Date("2026-11-22T06:00:00Z"); // 22 novembre, 7 h à Paris : J-8
+    await tache();
+    expect(mailer.outbox).toEqual([]);
+    maintenant = new Date("2026-11-23T06:00:00Z"); // 23 novembre, 7 h à Paris : J-7
     expect(await tache()).toMatchObject({ rappelsExpiration: 1 });
     await tache();
     expect(sujets()).toEqual([
