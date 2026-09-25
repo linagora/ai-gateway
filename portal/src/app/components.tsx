@@ -93,7 +93,7 @@ function parametresErreur(lire: (nom: string) => string | null, t: Awaited<Retur
 /** Explication des étoiles, en tête d'un formulaire qui a des champs obligatoires. */
 export async function ExplicationObligatoires() {
   const t = await getTranslations("formulaire");
-  return <p className="text-sm text-neutral-600">{t.rich("obligatoires", { etoile: (etoile) => <span className="obligatoire">{etoile}</span> })}</p>;
+  return <p className="mt-4 text-sm text-neutral-600">{t.rich("obligatoires", { etoile: (etoile) => <span className="obligatoire">{etoile}</span> })}</p>;
 }
 
 /** Nom d'une durée de validité : « 3 mois », « N'expire jamais », ou « 60 jours » pour une durée hors liste. */
