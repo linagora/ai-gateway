@@ -67,10 +67,9 @@ export async function listMyKeys(deps: KeyDeps, user: SessionUser): Promise<MyKe
     deps.db.accessRequest.findMany({ where: { requesterUid: user.uid, kind: "CLE" }, orderBy: { createdAt: "asc" } }),
     readPickupDays(deps.db),
   ]);
-  const emises = rows.filter((r) => r.keyAlias && r.keyIssuedAt && r.dataLevel);
   // Lectures en direct dans la passerelle : une passerelle injoignable n'empêche pas d'afficher les clés.
-  const [usages, typesApi] = await Promise.all([
-    Promise.all(emises.map((r) => (r.status === "CLE_EMISE" && r.keyTokenId ? keyUsage(deps.litellm, r.keyTokenId) : null))),
+  const [emises, typesApi] = await Promise.all([
+    Promise.all(rows.filter((r) => r.keyAlias && r.keyIssuedAt && r.dataLevel).map((r) => toIssuedKey(deps.litellm, r))),
     deps.litellm.listModels().then(
       (models) => new Map(models.map((m) => [m.modelName, m.apiKind])),
       () => new Map<string, ApiKind>(),
@@ -87,19 +86,23 @@ export async function listMyKeys(deps: KeyDeps, user: SessionUser): Promise<MyKe
         project: r.project,
         pickupDeadline: delai !== null && r.decidedAt ? pickupDeadline(r.decidedAt, delai) : null,
       })),
-    keys: emises.map((r, i) => ({
-      requestId: r.id,
-      alias: r.keyAlias as string,
-      teamAlias: r.teamAlias,
-      dataLevel: r.dataLevel as DataLevel,
-      models: r.approvedModels,
-      project: r.project,
-      issuedAt: r.keyIssuedAt as Date,
-      expiresAt: r.keyExpiresAt,
-      status: r.status,
-      usage: usages[i],
-      example: r.approvedModels[0] ? { model: r.approvedModels[0], apiKind: typesApi.get(r.approvedModels[0]) ?? "conversation" } : null,
-    })),
+    keys: emises.map((k) => ({ ...k, example: k.models[0] ? { model: k.models[0], apiKind: typesApi.get(k.models[0]) ?? "conversation" } : null })),
+  };
+}
+
+/** Clé émise telle que la présentent « Mes clés » et « Gestion — Clés », avec son état lu dans la passerelle. */
+async function toIssuedKey(litellm: LiteLLMClient, r: AccessRequest): Promise<Omit<IssuedKey, "example">> {
+  return {
+    requestId: r.id,
+    alias: r.keyAlias as string,
+    teamAlias: r.teamAlias,
+    dataLevel: r.dataLevel as DataLevel,
+    models: r.approvedModels,
+    project: r.project,
+    issuedAt: r.keyIssuedAt as Date,
+    expiresAt: r.keyExpiresAt,
+    status: r.status,
+    usage: r.status === "CLE_EMISE" && r.keyTokenId ? await keyUsage(litellm, r.keyTokenId) : null,
   };
 }
 
@@ -224,23 +227,8 @@ export async function listAllKeys(deps: KeyDeps, actor: SessionUser): Promise<Ad
     where: { kind: "CLE", keyAlias: { not: null }, keyIssuedAt: { not: null } },
     orderBy: { keyIssuedAt: "desc" },
   });
-  const usages = await Promise.all(rows.map((r) => (r.status === "CLE_EMISE" && r.keyTokenId ? keyUsage(deps.litellm, r.keyTokenId) : null)));
-  return rows
-    .map((r, i) => ({
-      requestId: r.id,
-      holderUid: r.requesterUid,
-      holderEmail: r.requesterEmail,
-      alias: r.keyAlias as string,
-      teamAlias: r.teamAlias,
-      dataLevel: r.dataLevel as DataLevel,
-      models: r.approvedModels,
-      project: r.project,
-      issuedAt: r.keyIssuedAt as Date,
-      expiresAt: r.keyExpiresAt,
-      status: r.status,
-      usage: usages[i],
-    }))
-    .sort((a, b) => Number(b.status === "CLE_EMISE") - Number(a.status === "CLE_EMISE"));
+  const cles = await Promise.all(rows.map(async (r) => ({ ...(await toIssuedKey(deps.litellm, r)), holderUid: r.requesterUid, holderEmail: r.requesterEmail })));
+  return cles.sort((a, b) => Number(b.status === "CLE_EMISE") - Number(a.status === "CLE_EMISE"));
 }
 
 /**
