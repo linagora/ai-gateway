@@ -1,9 +1,13 @@
 /** Règles métier du portail (brief §4). Fonctions pures, sans accès réseau ni base. */
 
-/** Niveau de sensibilité des données (PRD §5) : N1 public < N2 interne < N3 confidentiel. */
-export type DataLevel = "N1" | "N2" | "N3";
+/**
+ * Niveau de sensibilité des données (PRD §5) : N1 public < N2 interne < N3 confidentiel, plus
+ * EXP (expérimental) : modèles en bêta, données publiques uniquement, dans des clés dédiées.
+ */
+export const DATA_LEVELS = ["N1", "N2", "N3", "EXP"] as const;
+export type DataLevel = (typeof DATA_LEVELS)[number];
 
-const LEVEL_RANK: Record<DataLevel, number> = { N1: 1, N2: 2, N3: 3 };
+const LEVEL_RANK: Record<Exclude<DataLevel, "EXP">, number> = { N1: 1, N2: 2, N3: 3 };
 
 /** Règle 1 : un utilisateur est admin si son uid figure dans PORTAL_ADMIN_UIDS. */
 export function isAdmin(uid: string, adminUids: readonly string[]): boolean {
@@ -21,8 +25,12 @@ export function canAccessRequest(user: PortalUser, request: { requesterUid: stri
   return user.isAdmin || request.requesterUid === user.uid;
 }
 
-/** Un modèle peut traiter des données jusqu'à son propre niveau (PRD §5). */
+/**
+ * Un modèle peut traiter des données jusqu'à son propre niveau (PRD §5). Le niveau expérimental ne
+ * se mélange pas aux autres : ses modèles n'entrent que dans des clés Expérimental, et inversement.
+ */
 export function modelAcceptsLevel(modelLevel: DataLevel, requestedLevel: DataLevel): boolean {
+  if (modelLevel === "EXP" || requestedLevel === "EXP") return modelLevel === requestedLevel;
   return LEVEL_RANK[modelLevel] >= LEVEL_RANK[requestedLevel];
 }
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LEVEL_DESCRIPTIONS, LEVEL_LABELS } from "@/lib/labels";
+import { DATA_LEVELS } from "@/lib/policy";
 import { listCatalog } from "@/lib/services/catalog";
 import { listMyTeams } from "@/lib/services/requests";
 import { getDeps, requireUser } from "@/lib/session";
@@ -45,7 +46,7 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
           </p>
           <fieldset>
             <legend className="font-medium">Niveau de sensibilité des données que vous traiterez</legend>
-            {(["N1", "N2", "N3"] as const).map((l) => (
+            {DATA_LEVELS.map((l) => (
               <label key={l} className="font-normal">
                 <input type="radio" name="dataLevel" value={l} required /> {LEVEL_LABELS[l]} — {LEVEL_DESCRIPTIONS[l]}
               </label>
@@ -85,7 +86,7 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
           </label>
           <label className="font-normal">
             <input type="checkbox" name="commitment" required /> Je m&apos;engage à ne pas soumettre de données d&apos;un niveau supérieur à
-            celui déclaré.
+            celui déclaré (niveau Expérimental : données publiques uniquement).
           </label>
           <button type="submit">{completing ? "Resoumettre" : "Envoyer la demande"}</button>
         </form>

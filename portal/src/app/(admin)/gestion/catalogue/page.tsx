@@ -1,4 +1,5 @@
 import { HOSTING_LABELS, LEVEL_LABELS } from "@/lib/labels";
+import { DATA_LEVELS } from "@/lib/policy";
 import { listCatalogForAdmin } from "@/lib/services/catalog";
 import { getDeps, requireAdminPage } from "@/lib/session";
 import { saveCatalogEntryAction } from "../../../actions";
@@ -57,7 +58,7 @@ export default async function AdminCataloguePage(props: PageProps<"/gestion/cata
             <label>
               Niveau maximal de données
               <select name="dataLevel" defaultValue={m.entry?.dataLevel ?? "N1"}>
-                {(["N1", "N2", "N3"] as const).map((l) => (
+                {DATA_LEVELS.map((l) => (
                   <option key={l} value={l}>
                     {LEVEL_LABELS[l]}
                   </option>

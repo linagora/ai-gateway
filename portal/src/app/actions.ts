@@ -6,6 +6,7 @@ import { z } from "zod";
 import { signOut } from "@/auth";
 import { PolicyViolationError, PortalError } from "@/lib/errors";
 import { CHECK_LABELS } from "@/lib/labels";
+import type { DataLevel } from "@/lib/policy";
 import {
   approveKeyRequest,
   approveTeamJoinRequest,
@@ -66,7 +67,7 @@ export async function saveCatalogEntryAction(formData: FormData): Promise<void> 
         useCases: optionalText(formData, "useCases"),
         category: optionalText(formData, "category"),
         hosting: text(formData, "hosting") as "INTERNE" | "UE" | "HORS_UE",
-        dataLevel: text(formData, "dataLevel") as "N1" | "N2" | "N3",
+        dataLevel: text(formData, "dataLevel") as DataLevel,
         visible: formData.get("visible") === "on",
       }),
     { path: "/gestion/catalogue", message: "Catalogue mis à jour." },
@@ -153,7 +154,7 @@ function describeError(e: unknown): string {
 function keyRequestFromForm(formData: FormData) {
   return {
     teamId: text(formData, "teamId"),
-    dataLevel: text(formData, "dataLevel") as "N1" | "N2" | "N3",
+    dataLevel: text(formData, "dataLevel") as DataLevel,
     models: formData.getAll("models").map(String),
     justification: text(formData, "justification"),
     project: optionalText(formData, "project"),

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { HOSTING_LABELS, LEVEL_DESCRIPTIONS, LEVEL_LABELS } from "@/lib/labels";
+import { DATA_LEVELS } from "@/lib/policy";
 import { listCatalog } from "@/lib/services/catalog";
 import { getDeps, requireUser } from "@/lib/session";
 import { euros, Notice } from "../../components";
@@ -27,7 +28,7 @@ export default async function CataloguePage(props: PageProps<"/catalogue">) {
           Niveau de données
           <select name="niveau" defaultValue={level}>
             <option value="">Tous</option>
-            {(["N1", "N2", "N3"] as const).map((l) => (
+            {DATA_LEVELS.map((l) => (
               <option key={l} value={l}>
                 {LEVEL_LABELS[l]}
               </option>

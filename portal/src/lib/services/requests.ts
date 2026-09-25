@@ -4,7 +4,7 @@ import type { Db } from "@/lib/db";
 import type { LiteLLMClient, LiteLLMTeamSummary } from "@/lib/litellm/client";
 import { PolicyViolationError, PortalError } from "@/lib/errors";
 import type { Prisma } from "@/generated/prisma/client";
-import { type CatalogModel, checkKeyRequest, checkTransition, type DataLevel, type KeyRequestDraft, type PolicyVerdict, type RequestStatus } from "@/lib/policy";
+import { type CatalogModel, checkKeyRequest, checkTransition, DATA_LEVELS, type DataLevel, type KeyRequestDraft, type PolicyVerdict, type RequestStatus } from "@/lib/policy";
 
 interface RequestDeps {
   db: Db;
@@ -14,7 +14,7 @@ interface RequestDeps {
 /** F-20 / F-21 : formulaire de demande de clé. */
 export const keyRequestInputSchema = z.object({
   teamId: z.string().min(1),
-  dataLevel: z.enum(["N1", "N2", "N3"]),
+  dataLevel: z.enum(DATA_LEVELS),
   models: z.array(z.string().min(1)),
   justification: z.string().trim().min(1),
   project: z.string().trim().nullable(),

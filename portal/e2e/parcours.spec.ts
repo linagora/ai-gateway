@@ -39,6 +39,7 @@ test("un admin enrichit le catalogue et fixe les valeurs par défaut", async () 
     ["dev-public", "Modèle public", "N1"],
     ["dev-interne", "Modèle interne", "N2"],
     ["dev-confidentiel", "Modèle confidentiel", "N3"],
+    ["dev-experimental", "Modèle expérimental", "EXP"],
   ]) {
     await adminPage.goto("/gestion/catalogue");
     const section = modelSection(adminPage, modelName);
@@ -105,4 +106,20 @@ test("un admin approuve la demande N2 et le salarié la voit approuvée", async 
 
   await salariePage.goto("/demandes");
   await expect(salariePage.getByRole("row", { name: /Clé d'API.*R&D.*Approuvée/ })).toBeVisible();
+});
+
+test("un salarié demande une clé Expérimental pour essayer un modèle en bêta", async () => {
+  await salariePage.goto("/catalogue?niveau=EXP");
+  await expect(salariePage.getByRole("row", { name: /Modèle expérimental.*Expérimental \(bêta\)/ })).toBeVisible();
+  await expect(salariePage.getByRole("cell", { name: /Modèle interne/ })).toHaveCount(0);
+
+  await salariePage.goto("/demandes/nouvelle");
+  await salariePage.getByLabel("Équipe").selectOption({ label: "R&D" });
+  await salariePage.getByRole("radio", { name: /^Expérimental \(bêta\)/ }).check();
+  await salariePage.getByLabel(/Modèle expérimental/).check();
+  await salariePage.getByLabel("Motif").fill("Essai du nouveau modèle sur de la documentation publique");
+  await salariePage.getByLabel(/Je m'engage/).check();
+  await salariePage.getByRole("button", { name: "Envoyer la demande" }).click();
+  await expect(salariePage.getByRole("status")).toHaveText("Demande envoyée aux administrateurs.");
+  await expect(salariePage.getByRole("row", { name: /Clé d'API.*R&D.*Expérimental \(bêta\).*dev-experimental.*Soumise/ })).toBeVisible();
 });

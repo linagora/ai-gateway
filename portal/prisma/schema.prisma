@@ -9,10 +9,12 @@ datasource db {
   provider = "postgresql"
 }
 
+/// EXP : expérimental (modèles en bêta, données publiques uniquement, clés dédiées)
 enum DataLevel {
   N1
   N2
   N3
+  EXP
 }
 
 enum RequestStatus {

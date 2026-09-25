@@ -8,6 +8,8 @@ import { cancelRequest, createKeyRequest, createTeamJoinRequest, type KeyRequest
 const admin = { uid: "jdupont", email: "jdupont@linagora.com", name: "Jeanne Dupont", isAdmin: true };
 const demandeur = { uid: "mmaudet", email: "mmaudet@linagora.com", name: "Michel-Marie Maudet", isAdmin: false };
 
+const entry = { description: "…", useCases: null, category: "texte", hosting: "UE" as const, visible: true };
+
 let litellm: FakeLiteLLM;
 let deps: { db: typeof testDb; litellm: FakeLiteLLM };
 
@@ -18,7 +20,6 @@ beforeEach(async () => {
     .withModel({ modelName: "qwen3.8" })
     .withTeam({ teamId: "equipe-rd", teamAlias: "R&D", models: ["mistral-small", "qwen3.8"], memberUids: ["mmaudet"] });
   deps = { db: testDb, litellm };
-  const entry = { description: "…", useCases: null, category: "texte", hosting: "UE" as const, visible: true };
   await saveCatalogEntry(deps, admin, { ...entry, modelName: "mistral-small", displayName: "Mistral Small", dataLevel: "N2" });
   await saveCatalogEntry(deps, admin, { ...entry, modelName: "qwen3.8", displayName: "Qwen 3.8", dataLevel: "N3" });
 });
@@ -52,6 +53,13 @@ describe("demandes de clé (F-20 à F-24)", () => {
       code: "controles_en_echec",
       failedChecks: [{ id: "niveau_modeles", ok: false, offending: ["mistral-small"] }],
     });
+  });
+
+  test("un salarié demande une clé Expérimental pour tester un modèle en bêta", async () => {
+    litellm.withModel({ modelName: "modele-beta" }).withTeam({ teamId: "equipe-veille", teamAlias: "Veille", models: [], memberUids: ["mmaudet"] });
+    await saveCatalogEntry(deps, admin, { ...entry, modelName: "modele-beta", displayName: "Modèle bêta", hosting: "HORS_UE", dataLevel: "EXP" });
+    await createKeyRequest(deps, demandeur, { ...demande, teamId: "equipe-veille", dataLevel: "EXP", models: ["modele-beta"] });
+    expect(await listMyRequests(deps, demandeur)).toMatchObject([{ kind: "CLE", teamAlias: "Veille", dataLevel: "EXP", models: ["modele-beta"], status: "SOUMISE" }]);
   });
 
   test("une demande pour une équipe inconnue est refusée", async () => {

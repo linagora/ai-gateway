@@ -44,11 +44,12 @@ const catalog: CatalogModel[] = [
   { modelName: "mistral-small", dataLevel: "N2", visible: true },
   { modelName: "qwen3.8", dataLevel: "N3", visible: true },
   { modelName: "modele-en-test", dataLevel: "N3", visible: false },
+  { modelName: "modele-beta", dataLevel: "EXP", visible: true },
 ];
 
 const team: TeamForPolicy = {
   teamId: "equipe-rd",
-  models: ["gpt-oss-120b", "mistral-small", "qwen3.8", "modele-en-test"],
+  models: ["gpt-oss-120b", "mistral-small", "qwen3.8", "modele-en-test", "modele-beta"],
   memberUids: ["mmaudet", "jdupont"],
 };
 
@@ -75,6 +76,20 @@ describe("checkKeyRequest", () => {
   test("critère 5 : une demande N3 incluant des modèles N1 ou N2 est refusée", () => {
     const demandeN3 = { ...draft, dataLevel: "N3" as const, models: ["gpt-oss-120b", "mistral-small", "qwen3.8"] };
     expect(failedChecks(demandeN3)).toEqual([{ id: "niveau_modeles", offending: ["gpt-oss-120b", "mistral-small"] }]);
+  });
+
+  test("une demande Expérimental portant sur un modèle expérimental passe tous les contrôles", () => {
+    expect(checkKeyRequest({ ...draft, dataLevel: "EXP", models: ["modele-beta"] }, team, catalog).ok).toBe(true);
+  });
+
+  test("une clé Expérimental ne contient que des modèles expérimentaux", () => {
+    const demande = { ...draft, dataLevel: "EXP" as const, models: ["modele-beta", "gpt-oss-120b", "qwen3.8"] };
+    expect(failedChecks(demande)).toEqual([{ id: "niveau_modeles", offending: ["gpt-oss-120b", "qwen3.8"] }]);
+  });
+
+  test("un modèle expérimental n'entre pas dans une clé N1, même pour des données publiques", () => {
+    const demande = { ...draft, dataLevel: "N1" as const, models: ["gpt-oss-120b", "modele-beta"] };
+    expect(failedChecks(demande)).toEqual([{ id: "niveau_modeles", offending: ["modele-beta"] }]);
   });
 
   test("un modèle masqué ou absent du catalogue est refusé", () => {

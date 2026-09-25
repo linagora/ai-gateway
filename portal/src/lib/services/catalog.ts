@@ -3,7 +3,7 @@ import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
 import type { LiteLLMClient, LiteLLMModel } from "@/lib/litellm/client";
 import { PortalError } from "@/lib/errors";
-import type { DataLevel } from "@/lib/policy";
+import { DATA_LEVELS, type DataLevel } from "@/lib/policy";
 import { requireAdmin } from "@/lib/rbac";
 
 /** Enrichissement d'un modèle saisi par un admin (F-50). */
@@ -14,7 +14,7 @@ export const catalogEntryInputSchema = z.object({
   useCases: z.string().trim().nullable(),
   category: z.string().trim().nullable(),
   hosting: z.enum(["INTERNE", "UE", "HORS_UE"]),
-  dataLevel: z.enum(["N1", "N2", "N3"]),
+  dataLevel: z.enum(DATA_LEVELS),
   visible: z.boolean(),
 });
 

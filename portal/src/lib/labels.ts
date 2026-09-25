@@ -5,12 +5,14 @@ export const LEVEL_LABELS: Record<DataLevel, string> = {
   N1: "N1 — Public",
   N2: "N2 — Interne",
   N3: "N3 — Confidentiel",
+  EXP: "Expérimental (bêta)",
 };
 
 export const LEVEL_DESCRIPTIONS: Record<DataLevel, string> = {
   N1: "Informations publiques ou destinées à l'être : code open source, documentation publique, veille.",
   N2: "Informations internes non publiques, sans données personnelles sensibles.",
   N3: "Données clients, personnelles (RGPD), RH, finance, contrats, secrets, NDA, secteur public.",
+  EXP: "Modèles en bêta, à essayer avec des données publiques uniquement : sans garantie de service, ils peuvent changer ou être retirés sans préavis. Clé dédiée, limitée aux modèles expérimentaux.",
 };
 
 export const STATUS_LABELS: Record<RequestStatus, string> = {
