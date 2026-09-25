@@ -74,6 +74,8 @@ for nom in sorted(set(openrouter) | {"qwen3.8", JEV}):
     controle(f"{nom} : fournisseur, éditeur, capacités, hébergeurs et zone déclarés",
              bool(mi.get("fournisseur")) and bool(mi.get("editeur")) and isinstance(mi.get("capacites"), list)
              and set(mi["capacites"]) <= CAPACITES and bool(mi.get("hebergeurs")) and mi.get("zone") in ("UE", "monde"), json.dumps(faits, ensure_ascii=False))
+    # Type d'API : JEV est une API de décision (« System One ») ; sans déclaration, un modèle est de conversation.
+    controle(f"{nom} : type d'API déclaré", mi.get("type_api") == ("decision" if nom == JEV else None), f"type_api = {mi.get('type_api')!r}")
 
 # 2. Équipe et clés de test : sans restriction de modèle, N1 limitée au modèle testé, Expérimental limitée à JEV
 _, equipe = http("POST", "/team/new", {"team_alias": "recette-liste-blanche"})

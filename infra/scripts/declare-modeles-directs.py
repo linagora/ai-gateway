@@ -60,6 +60,7 @@ MODELES = [
             "hosting": "HORS_UE",
             "pricing_currency": "EUR",
             "fx_rate_usd_eur": TAUX_USD_EUR,
+            "type_api": "decision",  # lu par le portail : JEV n'est pas un modèle de conversation
             "usage": "API System One : requête JSON {state, questions} dans le dernier message (jev.py)",
         },
     },
