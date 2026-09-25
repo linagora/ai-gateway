@@ -46,10 +46,24 @@ export default async function MesClesPage(props: PageProps<"/cles">) {
       )}
       <section aria-labelledby="emises">
         <h2 id="emises">{t("emises")}</h2>
-        {keys.length === 0 ? (
-          <p>
-            {t("aucune")} <Link href="/catalogue">{t("catalogue")}</Link>
-          </p>
+        {keys.length === 0 && toPickUp.length > 0 ? (
+          <p>{t("aucuneEmise")}</p>
+        ) : keys.length === 0 ? (
+          <>
+            <p>{t("aucune")}</p>
+            <ol className="mt-2 list-decimal pl-6">
+              <li>
+                {t("etapes.equipe")} <Link href="/demandes/adhesion">{t("etapes.equipeLien")}</Link>
+              </li>
+              <li>
+                {t("etapes.demande")} <Link href="/catalogue">{t("catalogue")}</Link> · <Link href="/demandes/nouvelle">{t("etapes.demandeLien")}</Link>
+              </li>
+              <li>
+                {t("etapes.examen")} <Link href="/demandes">{t("etapes.examenLien")}</Link>
+              </li>
+              <li>{t("etapes.retrait")}</li>
+            </ol>
+          </>
         ) : (
           <div className="flex flex-col gap-4">
             {keys.map((k) => (

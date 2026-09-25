@@ -472,7 +472,7 @@
       "expiration": "Expire le",
       "statut": "Statut"
     },
-    "aucune": "Vous n'avez encore aucune clé : choisissez des modèles, puis demandez une clé.",
+    "aucune": "Vous n'avez encore aucune clé. Pour en obtenir une :",
     "catalogue": "Voir le catalogue",
     "depense": "Dépense",
     "depenseSur": "{depense} sur {budget}",
@@ -496,7 +496,17 @@
     "remplacer": "Remplacer ma clé (clé perdue)",
     "remplacementExplication": "Une nouvelle clé remplace celle-ci, avec les mêmes paramètres et la même date d'expiration. L'ancienne cesse aussitôt de fonctionner.",
     "confirmerRemplacement": "Générer la clé de remplacement",
-    "renouveler": "Renouveler"
+    "renouveler": "Renouveler",
+    "aucuneEmise": "Aucune clé émise pour l'instant : générez ci-dessus celle qui vous attend.",
+    "etapes": {
+      "equipe": "Rejoignez une équipe, si vous n'êtes membre d'aucune.",
+      "equipeLien": "Demander à rejoindre une équipe",
+      "demande": "Choisissez vos modèles dans le catalogue, puis demandez une clé : niveau de confidentialité, modèles et durée.",
+      "demandeLien": "Faire une demande de clé",
+      "examen": "Un administrateur examine votre demande ; un courriel vous prévient dès qu'elle est approuvée.",
+      "examenLien": "Suivre mes demandes",
+      "retrait": "Revenez ici pour générer votre clé : elle ne s'affiche qu'une seule fois, copiez-la aussitôt."
+    }
   },
   "courriels": {
     "lien": "Lien : {url}",

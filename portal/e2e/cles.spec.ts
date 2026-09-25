@@ -218,6 +218,17 @@ test("la durée se choisit dans une liste ; une clé qui n'expire jamais l'indiq
   expect(await appel(request, cle)).toBe(200);
 });
 
+test("« Mes clés » vide explique, étape par étape, comment obtenir une clé", async ({ browser }) => {
+  const page = await (await connecter(browser, personne("debutant"))).newPage();
+  await page.goto("/cles");
+  const etapes = page.getByRole("main").getByRole("listitem");
+  await expect(etapes).toHaveCount(4);
+  await expect(etapes.nth(0).getByRole("link", { name: "Demander à rejoindre une équipe" })).toHaveAttribute("href", "/demandes/adhesion");
+  await expect(etapes.nth(1).getByRole("link", { name: "Faire une demande de clé" })).toHaveAttribute("href", "/demandes/nouvelle");
+  await expect(etapes.nth(2).getByRole("link", { name: "Suivre mes demandes" })).toHaveAttribute("href", "/demandes");
+  await expect(etapes.nth(3)).toContainText("elle ne s'affiche qu'une seule fois");
+});
+
 test("« Mes clés » s'affiche en anglais", async ({ browser }) => {
   const page = await (await connecter(browser, personne("anglais"), "en-US")).newPage();
   await page.goto("/cles");

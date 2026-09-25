@@ -472,7 +472,7 @@
       "expiration": "Expires on",
       "statut": "Status"
     },
-    "aucune": "You have no key yet: choose models, then request a key.",
+    "aucune": "You have no key yet. To get one:",
     "catalogue": "See the catalog",
     "depense": "Spend",
     "depenseSur": "{depense} of {budget}",
@@ -496,7 +496,17 @@
     "remplacer": "Replace my key (lost key)",
     "remplacementExplication": "A new key replaces this one, with the same parameters and the same expiry date. The old key stops working at once.",
     "confirmerRemplacement": "Generate the replacement key",
-    "renouveler": "Renew"
+    "renouveler": "Renew",
+    "aucuneEmise": "No issued key yet: generate the one waiting for you above.",
+    "etapes": {
+      "equipe": "Join a team, if you are not a member of any.",
+      "equipeLien": "Ask to join a team",
+      "demande": "Choose your models in the catalog, then request a key: confidentiality level, models and duration.",
+      "demandeLien": "Request a key",
+      "examen": "An administrator reviews your request; an email tells you as soon as it is approved.",
+      "examenLien": "Track my requests",
+      "retrait": "Come back here to generate your key: it is shown only once, copy it right away."
+    }
   },
   "courriels": {
     "lien": "Link: {url}",
