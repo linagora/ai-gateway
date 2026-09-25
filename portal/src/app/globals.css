@@ -6,8 +6,8 @@
  * fond blanc (contraste d'au moins 4,5:1) et n'est jamais employée sans le nom du niveau.
  */
 :root {
-  --linagora: #c51843;
-  --linagora-fonce: #9e1336;
+  --linagora: #c51c42;
+  --linagora-fonce: #9e1635;
   --niveau-n1: #15803d;
   --niveau-n2: #b45309;
   --niveau-n3: #b91c1c;

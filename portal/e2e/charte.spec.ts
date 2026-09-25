@@ -5,8 +5,8 @@ import { connecter } from "./outils";
 const suffixe = Date.now().toString(36);
 const personne = { uid: `charte-${suffixe}`, email: `charte-${suffixe}@example.org`, name: `Personne ${suffixe}` };
 
-/** Rouge du logo Linagora. */
-const ROUGE_LINAGORA = "rgb(197, 24, 67)";
+/** Rouge du logo Linagora de référence (Wikimedia Commons) : #C51C42. */
+const ROUGE_LINAGORA = "rgb(197, 28, 66)";
 
 /** Rapport de contraste WCAG d'une couleur #rrggbb sur fond blanc. */
 function contrasteSurBlanc(hex: string): number {

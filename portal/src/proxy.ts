@@ -4,6 +4,6 @@
 export { auth as proxy } from "@/auth";
 
 export const config = {
-  // Fichiers publics (logo) servis sans session : la page de connexion les affiche.
-  matcher: ["/((?!api/auth|api/acces|_next/static|_next/image|favicon.ico|.*\\.svg$).*)"],
+  // Images publiques (logo) servies sans session : la page de connexion les affiche.
+  matcher: ["/((?!api/auth|api/acces|_next/static|_next/image|favicon.ico|.*\\.(?:png|svg)$).*)"],
 };
