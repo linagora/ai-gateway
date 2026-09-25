@@ -35,3 +35,18 @@ export async function enrichirModele(page: Page, modele: { nom: string; nomAffic
   await section.getByRole("button", { name: "Enregistrer" }).click();
   await expect(page.getByRole("status")).toHaveText("Catalogue mis à jour.");
 }
+
+/** Mise en place (LiteLLM de développement) : rend une personne, déjà connectée une fois, membre d'une équipe. */
+export async function ajouterAEquipe(uid: string, equipe: string): Promise<void> {
+  const base = "http://127.0.0.1:54400/admin";
+  const entetes = { Authorization: "Bearer sk-dev-master-key", "Content-Type": "application/json" };
+  const equipes = (await (await fetch(`${base}/team/list`, { headers: entetes })).json()) as { team_id: string; team_alias: string }[];
+  const cible = equipes.find((e) => e.team_alias === equipe);
+  if (!cible) throw new Error(`équipe ${equipe} absente du LiteLLM de développement`);
+  const reponse = await fetch(`${base}/team/member_add`, {
+    method: "POST",
+    headers: entetes,
+    body: JSON.stringify({ team_id: cible.team_id, member: { role: "user", user_id: uid } }),
+  });
+  if (!reponse.ok && !(await reponse.text()).includes("already")) throw new Error(`ajout à l'équipe ${equipe} : HTTP ${reponse.status}`);
+}

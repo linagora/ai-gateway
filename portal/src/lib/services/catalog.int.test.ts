@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
-import { type CatalogEntryInput, listCatalog, listCatalogForAdmin, saveCatalogEntry } from "./catalog";
+import { type CatalogEntryInput, levelOverview, listCatalog, listCatalogForAdmin, saveCatalogEntry } from "./catalog";
 
 beforeEach(resetDb);
 
@@ -41,6 +41,50 @@ describe("fiche de modèle bilingue (ticket #6)", () => {
       useCases: ["WRITING", "DOCUMENT_ANALYSIS"],
       recommendedFor: ["WRITING"],
     });
+  });
+});
+
+describe("vue d'ensemble des niveaux (ticket #5)", () => {
+  // Prix par jeton en euros : prix mixte = (3 × entrée + sortie) / 4, par million de jetons.
+  const modeles = [
+    { modelName: "public", dataLevel: "N1" as const, inputCostPerToken: 0.0000001, outputCostPerToken: 0.0000004 }, // mixte 0,175 €
+    { modelName: "interne", dataLevel: "N2" as const, inputCostPerToken: 0.0000002, outputCostPerToken: 0.0000006 }, // mixte 0,30 €
+    { modelName: "confidentiel", dataLevel: "N3" as const, inputCostPerToken: 0.0000004, outputCostPerToken: 0.0000027 }, // mixte 0,975 €
+    { modelName: "beta", dataLevel: "EXP" as const, inputCostPerToken: 0.0000002, outputCostPerToken: 0 }, // mixte 0,15 €
+  ];
+
+  async function catalogueDeDemonstration(visibles = modeles.map((m) => m.modelName)) {
+    const litellm = new FakeLiteLLM();
+    for (const m of modeles) litellm.withModel({ modelName: m.modelName, inputCostPerToken: m.inputCostPerToken, outputCostPerToken: m.outputCostPerToken });
+    for (const m of modeles) {
+      await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName: m.modelName, dataLevel: m.dataLevel, visible: visibles.includes(m.modelName) });
+    }
+    return litellm;
+  }
+
+  test("chaque niveau compte ses modèles en lecture cumulative, le niveau Expérimental à part", async () => {
+    const litellm = await catalogueDeDemonstration();
+    expect((await levelOverview({ db: testDb, litellm })).map((n) => [n.level, n.modelCount])).toEqual([
+      ["N1", 3],
+      ["N2", 2],
+      ["N3", 1],
+      ["EXP", 1],
+    ]);
+  });
+
+  test("le prix de départ d'un niveau est le plus petit prix mixte de ses modèles", async () => {
+    const litellm = await catalogueDeDemonstration();
+    expect((await levelOverview({ db: testDb, litellm })).map((n) => [n.level, n.startingPricePerMillion])).toEqual([
+      ["N1", 0.175],
+      ["N2", 0.3],
+      ["N3", 0.975],
+      ["EXP", 0.15],
+    ]);
+  });
+
+  test("un niveau sans modèle visible n'a ni modèle ni prix de départ", async () => {
+    const litellm = await catalogueDeDemonstration(["public", "interne", "confidentiel"]);
+    expect((await levelOverview({ db: testDb, litellm })).find((n) => n.level === "EXP")).toEqual({ level: "EXP", modelCount: 0, startingPricePerMillion: null });
   });
 });
 

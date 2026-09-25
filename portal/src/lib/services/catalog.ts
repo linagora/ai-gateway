@@ -3,7 +3,7 @@ import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
 import type { Capability, ExecutionRegion, LiteLLMClient, LiteLLMModel } from "@/lib/litellm/client";
 import { PortalError } from "@/lib/errors";
-import { DATA_LEVELS, type DataLevel } from "@/lib/policy";
+import { DATA_LEVELS, type DataLevel, modelAcceptsLevel } from "@/lib/policy";
 import { UseCase } from "@/lib/use-cases";
 import { requireAdmin } from "@/lib/rbac";
 
@@ -75,6 +75,33 @@ export async function listCatalog(deps: CatalogDeps): Promise<CatalogItem[]> {
       },
     ];
   });
+}
+
+/** Vue d'ensemble d'un niveau de confidentialité (ticket #5). */
+export interface LevelOverview {
+  level: DataLevel;
+  modelCount: number;
+  /** Plus petit prix mixte des modèles du niveau, en euros par million de jetons ; null sans modèle. */
+  startingPricePerMillion: number | null;
+}
+
+/**
+ * Les quatre niveaux, avec le nombre de modèles et le prix de départ de chacun. Les modèles d'un
+ * niveau suivent la règle de la politique d'accès : lecture cumulative, niveau Expérimental à part.
+ */
+export async function levelOverview(deps: CatalogDeps): Promise<LevelOverview[]> {
+  const catalogue = await listCatalog(deps);
+  return DATA_LEVELS.map((level) => {
+    const prix = catalogue
+      .filter((m) => modelAcceptsLevel(m.dataLevel, level))
+      .map((m) => blendedPricePerMillion(m.inputPricePerMillion, m.outputPricePerMillion));
+    return { level, modelCount: prix.length, startingPricePerMillion: prix.length > 0 ? Math.min(...prix) : null };
+  });
+}
+
+/** Prix mixte : 3 jetons d'entrée pour 1 jeton de sortie, convention courante des comparatifs de prix. */
+export function blendedPricePerMillion(entree: number, sortie: number): number {
+  return Number(((3 * entree + sortie) / 4).toFixed(6));
 }
 
 /**

@@ -110,5 +110,71 @@
     "visible": "Visible to employees",
     "enregistrer": "Save",
     "aucunModele": "No model is declared in the gateway."
+  },
+  "catalogue": {
+    "titre": "Model catalog",
+    "introduction": "First choose the confidentiality level of the data you will entrust to a model: each level opens its own models.",
+    "confier": "You may entrust",
+    "jamais": "Never",
+    "garanties": "Guarantees",
+    "modeles": "{nombre, plural, =0 {No model} one {# model} other {# models}}",
+    "prixDepart": "from {prix} per million tokens",
+    "voirModeles": "See the models",
+    "demanderCle": "Request a key for this level",
+    "aucunModele": "No model is open at this level yet. To request one, write to the portal administrators.",
+    "niveaux": {
+      "N1": {
+        "definition": "Information that is public or intended to be.",
+        "confier": [
+          "Open source code and public documentation",
+          "Content already published: website, articles, press releases",
+          "Monitoring and research on public sources"
+        ],
+        "jamais": [
+          "Unpublished internal documents (level N2)",
+          "Customer or personal data (level N3)"
+        ],
+        "garanties": "Executed in the European Union or outside the EU depending on the model: each model shows its execution region."
+      },
+      "N2": {
+        "definition": "Non-public internal information, without sensitive personal data.",
+        "confier": [
+          "Internal code and documents",
+          "Specifications and meeting minutes",
+          "Non-nominative commercial proposals"
+        ],
+        "jamais": [
+          "Customer or personal data (level N3)",
+          "Contracts, secrets and data under NDA (level N3)"
+        ],
+        "garanties": "Suppliers committed to neither retaining the data nor training their models on it, preferably in the European Union."
+      },
+      "N3": {
+        "definition": "Customer, personal, HR, financial and contractual data, secrets, data under NDA or from the public sector.",
+        "confier": [
+          "Customer data and personal data (GDPR)",
+          "HR and financial documents, contracts",
+          "Data under NDA or from the public sector"
+        ],
+        "jamais": [
+          "Classified information (Restricted and above)",
+          "Data that a contract forbids entrusting to a third party"
+        ],
+        "garanties": "Models hosted in France by OVHcloud, under a data processing agreement; eventually by Linagora or a sovereign host."
+      },
+      "EXP": {
+        "definition": "Recent models in beta, to try with public data only.",
+        "confier": [
+          "Tests and prototypes on public data",
+          "Already published or fictional content",
+          "Discovering new capabilities"
+        ],
+        "jamais": [
+          "Any internal data, even non-sensitive",
+          "Any customer or personal data"
+        ],
+        "garanties": "Beta service without guarantee: a model may change or be withdrawn without notice. Dedicated key, limited to experimental models."
+      }
+    }
   }
 }

@@ -1,91 +1,65 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { LEVEL_DESCRIPTIONS, LEVEL_LABELS } from "@/lib/labels";
-import { DATA_LEVELS } from "@/lib/policy";
-import { listCatalog } from "@/lib/services/catalog";
+import { levelSegment } from "@/lib/level-routes";
+import { levelOverview } from "@/lib/services/catalog";
 import { getDeps, requireUser } from "@/lib/session";
-import { Notice, formats } from "../../components";
+import { formats, Notice } from "../../components";
 
-/** F-10 à F-12 : catalogue des modèles visibles, filtrable par niveau et éditeur (remplacé par les tickets #5 et #7). */
+/** Couleur d'un niveau, toujours accompagnée de son nom (jamais la couleur seule). */
+const COULEURS = { N1: "border-green-700", N2: "border-amber-700", N3: "border-red-700", EXP: "border-violet-700" } as const;
+
+/** Ticket #5 : vue d'ensemble des niveaux de confidentialité, point d'entrée du catalogue. */
 export default async function CataloguePage(props: PageProps<"/catalogue">) {
   await requireUser();
-  const [{ euros, nombre }, t] = await Promise.all([formats(), getTranslations("domaine")]);
-  const searchParams = await props.searchParams;
-  const pick = (name: string) => (typeof searchParams[name] === "string" ? (searchParams[name] as string) : "");
-  const [level, publisher] = [pick("niveau"), pick("editeur")];
-
-  const catalog = await listCatalog(getDeps());
-  const items = catalog.filter(
-    (m) => (!level || m.dataLevel === level) && (!publisher || m.publisher === publisher),
-  );
-  const publishers = [...new Set(catalog.map((m) => m.publisher).filter(Boolean))] as string[];
+  const [{ euros }, t, domaine, niveaux, searchParams] = await Promise.all([
+    formats(),
+    getTranslations("catalogue"),
+    getTranslations("domaine"),
+    levelOverview(getDeps()),
+    props.searchParams,
+  ]);
 
   return (
     <>
-      <h1>Catalogue des modèles</h1>
+      <h1>{t("titre")}</h1>
+      <p>{t("introduction")}</p>
       <Notice searchParams={searchParams} />
-      <form className="flex flex-wrap items-end gap-4" method="get">
-        <label>
-          Niveau de données
-          <select name="niveau" defaultValue={level}>
-            <option value="">Tous</option>
-            {DATA_LEVELS.map((l) => (
-              <option key={l} value={l}>
-                {LEVEL_LABELS[l]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Éditeur
-          <select name="editeur" defaultValue={publisher}>
-            <option value="">Tous</option>
-            {publishers.map((p) => (
-              <option key={p}>{p}</option>
-            ))}
-          </select>
-        </label>
-        <button type="submit">Filtrer</button>
-      </form>
-
-      <table className="mt-6">
-        <thead>
-          <tr>
-            <th>Modèle</th>
-            <th>Niveau max.</th>
-            <th>Prix entrée / sortie (par million de jetons)</th>
-            <th>Contexte max.</th>
-            <th>Description</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((m) => (
-            <tr key={m.modelName}>
-              <td>
-                <strong>{m.displayName}</strong>
-                <br />
-                {m.publisher ?? "—"} · {m.executionRegion ? t(`zones.${m.executionRegion}`) : "—"}
-                <br />
-                <code>{m.modelName}</code>
-              </td>
-              <td title={LEVEL_DESCRIPTIONS[m.dataLevel]}>{LEVEL_LABELS[m.dataLevel]}</td>
-              <td>
-                {euros(m.inputPricePerMillion)} / {euros(m.outputPricePerMillion)}
-              </td>
-              <td>{nombre(m.maxInputTokens)}</td>
-              <td>
-                {m.description}
-                {m.useCases.length > 0 && <p className="text-sm text-neutral-600">{m.useCases.map((u) => t(`casUsage.${u}`)).join(" · ")}</p>}
-              </td>
-              <td>
-                <Link href={`/demandes/nouvelle?modele=${encodeURIComponent(m.modelName)}`}>Demander l&apos;accès</Link>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {items.length === 0 && <p className="mt-4">Aucun modèle ne correspond à ces critères.</p>}
+      <div className="mt-6 grid gap-6 md:grid-cols-2">
+        {niveaux.map(({ level, modelCount, startingPricePerMillion }) => (
+          <section key={level} aria-labelledby={`niveau-${level}`} className={`rounded border-l-8 border border-neutral-200 p-4 ${COULEURS[level]}`}>
+            <h2 id={`niveau-${level}`} className="mt-0">
+              {domaine(`niveaux.${level}`)}
+            </h2>
+            <p>{t(`niveaux.${level}.definition`)}</p>
+            <h3 className="mt-3 font-medium">{t("confier")}</h3>
+            <ul className="list-disc pl-6">
+              {(t.raw(`niveaux.${level}.confier`) as string[]).map((exemple) => (
+                <li key={exemple}>{exemple}</li>
+              ))}
+            </ul>
+            <h3 className="mt-3 font-medium">{t("jamais")}</h3>
+            <ul className="list-disc pl-6">
+              {(t.raw(`niveaux.${level}.jamais`) as string[]).map((exemple) => (
+                <li key={exemple}>{exemple}</li>
+              ))}
+            </ul>
+            <h3 className="mt-3 font-medium">{t("garanties")}</h3>
+            <p>{t(`niveaux.${level}.garanties`)}</p>
+            {modelCount === 0 ? (
+              <p className="mt-3 italic">{t("aucunModele")}</p>
+            ) : (
+              <p className="mt-3 font-medium">
+                {t("modeles", { nombre: modelCount })}
+                {startingPricePerMillion !== null && ` · ${t("prixDepart", { prix: euros(startingPricePerMillion) })}`}
+              </p>
+            )}
+            <p className="mt-3 flex flex-wrap gap-4">
+              <Link href={`/catalogue/${levelSegment(level)}`}>{t("voirModeles")}</Link>
+              <Link href={`/demandes/nouvelle?niveau=${level}`}>{t("demanderCle")}</Link>
+            </p>
+          </section>
+        ))}
+      </div>
     </>
   );
 }

@@ -110,5 +110,71 @@
     "visible": "Visible des salariés",
     "enregistrer": "Enregistrer",
     "aucunModele": "Aucun modèle n'est déclaré dans la passerelle."
+  },
+  "catalogue": {
+    "titre": "Catalogue des modèles",
+    "introduction": "Choisissez d'abord le niveau de confidentialité des données que vous allez confier à un modèle : chaque niveau ouvre ses propres modèles.",
+    "confier": "Vous pouvez y confier",
+    "jamais": "Jamais",
+    "garanties": "Garanties",
+    "modeles": "{nombre, plural, =0 {Aucun modèle} one {# modèle} other {# modèles}}",
+    "prixDepart": "à partir de {prix} par million de jetons",
+    "voirModeles": "Voir les modèles",
+    "demanderCle": "Demander une clé de ce niveau",
+    "aucunModele": "Aucun modèle n'est encore ouvert à ce niveau. Pour en demander un, écrivez aux administrateurs du portail.",
+    "niveaux": {
+      "N1": {
+        "definition": "Informations publiques ou destinées à l'être.",
+        "confier": [
+          "Code open source et documentation publique",
+          "Contenus déjà publiés : site, articles, communiqués",
+          "Veille et recherche sur des sources publiques"
+        ],
+        "jamais": [
+          "Documents internes non publiés (niveau N2)",
+          "Données clients ou personnelles (niveau N3)"
+        ],
+        "garanties": "Exécution en Union européenne ou hors UE selon le modèle : la zone de chaque modèle est indiquée."
+      },
+      "N2": {
+        "definition": "Informations internes non publiques, sans données personnelles sensibles.",
+        "confier": [
+          "Code et documents internes",
+          "Spécifications et comptes rendus de réunion",
+          "Propositions commerciales non nominatives"
+        ],
+        "jamais": [
+          "Données clients ou personnelles (niveau N3)",
+          "Contrats, secrets et données sous NDA (niveau N3)"
+        ],
+        "garanties": "Fournisseurs engagés à ne pas conserver les données ni à entraîner leurs modèles dessus, en Union européenne de préférence."
+      },
+      "N3": {
+        "definition": "Données clients, personnelles, RH, financières, contractuelles, secrets, données sous NDA ou du secteur public.",
+        "confier": [
+          "Données clients et données personnelles (RGPD)",
+          "Documents RH, financiers et contrats",
+          "Données sous NDA ou du secteur public"
+        ],
+        "jamais": [
+          "Informations classifiées (Diffusion Restreinte et au-delà)",
+          "Données qu'un contrat interdit de confier à un tiers"
+        ],
+        "garanties": "Modèles hébergés en France chez OVHcloud, sous contrat de sous-traitance ; à terme, chez Linagora ou un hébergeur souverain."
+      },
+      "EXP": {
+        "definition": "Modèles récents en bêta, à essayer avec des données publiques uniquement.",
+        "confier": [
+          "Tests et prototypes sur des données publiques",
+          "Contenus déjà publiés ou fictifs",
+          "Découverte de nouvelles capacités"
+        ],
+        "jamais": [
+          "Toute donnée interne, même non sensible",
+          "Toute donnée client ou personnelle"
+        ],
+        "garanties": "Service en bêta, sans garantie : un modèle peut changer ou être retiré sans préavis. Clé dédiée, limitée aux modèles expérimentaux."
+      }
+    }
   }
 }

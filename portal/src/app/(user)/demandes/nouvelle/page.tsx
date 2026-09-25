@@ -17,6 +17,8 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
   const searchParams = await props.searchParams;
   const completing = typeof searchParams.completer === "string" ? searchParams.completer : "";
   const preselected = typeof searchParams.modele === "string" ? searchParams.modele : "";
+  // Niveau choisi depuis le catalogue (« Demander une clé de ce niveau »), s'il est valide.
+  const niveau = DATA_LEVELS.find((l) => l === searchParams.niveau) ?? null;
   const deps = getDeps();
   const [teams, catalog] = await Promise.all([listMyTeams(deps, user), listCatalog(deps)]);
 
@@ -48,7 +50,7 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
             <legend className="font-medium">Niveau de sensibilité des données que vous traiterez</legend>
             {DATA_LEVELS.map((l) => (
               <label key={l} className="font-normal">
-                <input type="radio" name="dataLevel" value={l} required /> {LEVEL_LABELS[l]} — {LEVEL_DESCRIPTIONS[l]}
+                <input type="radio" name="dataLevel" value={l} required defaultChecked={l === niveau} /> {LEVEL_LABELS[l]} — {LEVEL_DESCRIPTIONS[l]}
               </label>
             ))}
           </fieldset>
