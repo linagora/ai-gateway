@@ -52,90 +52,95 @@ export default async function MesClesPage(props: PageProps<"/cles">) {
           </p>
         ) : (
           <div className="flex flex-col gap-4">
-            {keys.map((k) => {
-              const exemples = k.example ? exemplesAppel(k.example.model, k.example.apiKind, textesExemple) : null;
-              return (
-                <article key={k.requestId} aria-labelledby={`cle-emise-${k.requestId}`} className="rounded border border-neutral-300 p-4">
-                  <h3 id={`cle-emise-${k.requestId}`} className="font-medium">
-                    <code>{k.alias}</code>
-                  </h3>
-                  <p className="text-sm">
-                    {k.teamAlias} · {domaine(`niveaux.${k.dataLevel}`)} · {k.models.join(", ")}
-                  </p>
-                  <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-4 text-sm">
-                    <dt className="font-medium">{t("colonnes.statut")}</dt>
-                    <dd>
-                      {domaine(`statuts.${k.status}`)}
-                      {k.gatewayState?.blocked && ` · ${t("bloquee")}`}
-                    </dd>
-                    <dt className="font-medium">{t("colonnes.emise")}</dt>
-                    <dd>{date(k.issuedAt)}</dd>
-                    <dt className="font-medium">{t("colonnes.expiration")}</dt>
-                    <dd>{k.expiresAt ? date(k.expiresAt) : "—"}</dd>
-                    {k.gatewayState && (
-                      <>
-                        <dt className="font-medium">{t("depense")}</dt>
-                        <dd>
-                          {k.gatewayState.maxBudget !== null && (
-                            <progress
-                              value={Math.min(k.gatewayState.spend, k.gatewayState.maxBudget)}
-                              max={k.gatewayState.maxBudget}
-                              aria-hidden="true"
-                              className="mr-2 align-middle"
-                            />
-                          )}
-                          <DepenseSurBudget spend={k.gatewayState.spend} maxBudget={k.gatewayState.maxBudget} />
-                        </dd>
-                        {k.gatewayState.budgetResetAt && (
-                          <>
-                            <dt className="font-medium">{t("remiseAZero")}</dt>
-                            <dd>{date(k.gatewayState.budgetResetAt)}</dd>
-                          </>
+            {keys.map((k) => (
+              <article key={k.requestId} aria-labelledby={`cle-emise-${k.requestId}`} className="rounded border border-neutral-300 p-4">
+                <h3 id={`cle-emise-${k.requestId}`} className="font-medium">
+                  <code>{k.alias}</code>
+                </h3>
+                <p className="text-sm">
+                  {k.teamAlias} · {domaine(`niveaux.${k.dataLevel}`)} · {k.models.join(", ")}
+                </p>
+                <dl className="mt-2 grid grid-cols-[max-content_1fr] gap-x-4 text-sm">
+                  <dt className="font-medium">{t("colonnes.statut")}</dt>
+                  <dd>
+                    {domaine(`statuts.${k.status}`)}
+                    {k.gatewayState?.blocked && ` · ${t("bloquee")}`}
+                  </dd>
+                  <dt className="font-medium">{t("colonnes.emise")}</dt>
+                  <dd>{date(k.issuedAt)}</dd>
+                  <dt className="font-medium">{t("colonnes.expiration")}</dt>
+                  <dd>{k.expiresAt ? date(k.expiresAt) : "—"}</dd>
+                  {k.gatewayState && (
+                    <>
+                      <dt className="font-medium">{t("depense")}</dt>
+                      <dd>
+                        {k.gatewayState.maxBudget !== null && (
+                          <progress
+                            value={Math.min(k.gatewayState.spend, k.gatewayState.maxBudget)}
+                            max={k.gatewayState.maxBudget}
+                            aria-hidden="true"
+                            className="mr-2 align-middle"
+                          />
                         )}
-                      </>
-                    )}
-                  </dl>
-                  {!k.gatewayState && k.status === "CLE_EMISE" && <p className="mt-2 text-sm italic">{t("infoIndisponible")}</p>}
-                  {(k.status === "CLE_EMISE" || k.status === "EXPIREE" || k.status === "REVOQUEE") && (
-                    <p className="mt-2">
-                      <Link href={`/demandes/nouvelle?renouvelle=${k.requestId}`}>{t("renouveler")}</Link>
-                    </p>
+                        <DepenseSurBudget spend={k.gatewayState.spend} maxBudget={k.gatewayState.maxBudget} />
+                      </dd>
+                      {k.gatewayState.budgetResetAt && (
+                        <>
+                          <dt className="font-medium">{t("remiseAZero")}</dt>
+                          <dd>{date(k.gatewayState.budgetResetAt)}</dd>
+                        </>
+                      )}
+                    </>
                   )}
-                  {k.status === "CLE_EMISE" && !k.gatewayState?.blocked && (
-                    <details className="mt-3">
-                      <summary className="cursor-pointer font-medium">{t("remplacer")}</summary>
-                      <p className="mt-2 text-sm">{t("remplacementExplication")}</p>
-                      <GenerationCle requestId={k.requestId} action={remplacerCleAction} libelle={t("confirmerRemplacement")} />
-                    </details>
-                  )}
-                  {k.status === "CLE_EMISE" && (
-                    <details className="mt-3">
-                      <summary className="cursor-pointer font-medium">{t("revoquer")}</summary>
-                      <p className="mt-2 text-sm">{t("revocationAvertissement")}</p>
-                      <form action={revoquerCleAction}>
-                        <input type="hidden" name="id" value={k.requestId} />
-                        <button type="submit">{t("confirmerRevocation")}</button>
-                      </form>
-                    </details>
-                  )}
-                  {exemples && k.status === "CLE_EMISE" && (
-                    <details className="mt-3">
-                      <summary className="cursor-pointer font-medium">{t("commentUtiliser")}</summary>
-                      <p className="mt-2 text-sm">{t("emplacement")}</p>
-                      {LANGAGES.map((langage) => (
-                        <div key={langage} className="mt-3">
-                          <h4 className="text-sm font-medium">{t(`langages.${langage}`)}</h4>
-                          <pre className="overflow-x-auto rounded bg-neutral-900 p-3 text-xs text-neutral-100">
-                            <code>{exemples[langage]}</code>
-                          </pre>
-                          <BoutonCopier texte={exemples[langage]} libelle={t("copierExemple")} libelleCopie={t("exempleCopie")} />
+                </dl>
+                {!k.gatewayState && k.status === "CLE_EMISE" && <p className="mt-2 text-sm italic">{t("infoIndisponible")}</p>}
+                {(k.status === "CLE_EMISE" || k.status === "EXPIREE" || k.status === "REVOQUEE") && (
+                  <p className="mt-2">
+                    <Link href={`/demandes/nouvelle?renouvelle=${k.requestId}`}>{t("renouveler")}</Link>
+                  </p>
+                )}
+                {k.status === "CLE_EMISE" && !k.gatewayState?.blocked && (
+                  <details className="mt-3">
+                    <summary className="cursor-pointer font-medium">{t("remplacer")}</summary>
+                    <p className="mt-2 text-sm">{t("remplacementExplication")}</p>
+                    <GenerationCle requestId={k.requestId} action={remplacerCleAction} libelle={t("confirmerRemplacement")} />
+                  </details>
+                )}
+                {k.status === "CLE_EMISE" && (
+                  <details className="mt-3">
+                    <summary className="cursor-pointer font-medium">{t("revoquer")}</summary>
+                    <p className="mt-2 text-sm">{t("revocationAvertissement")}</p>
+                    <form action={revoquerCleAction}>
+                      <input type="hidden" name="id" value={k.requestId} />
+                      <button type="submit">{t("confirmerRevocation")}</button>
+                    </form>
+                  </details>
+                )}
+                {k.examples.length > 0 && k.status === "CLE_EMISE" && (
+                  <details className="mt-3">
+                    <summary className="cursor-pointer font-medium">{t("commentUtiliser")}</summary>
+                    <p className="mt-2 text-sm">{t("emplacement")}</p>
+                    {k.examples.map(({ model, apiKind }) => {
+                      const exemples = exemplesAppel(model, apiKind, textesExemple);
+                      return (
+                        <div key={model}>
+                          <h4 className="mt-3 font-medium">{t("exemplesPour", { modele: model })}</h4>
+                          {LANGAGES.map((langage) => (
+                            <div key={langage} className="mt-2">
+                              <h5 className="text-sm font-medium">{t(`langages.${langage}`)}</h5>
+                              <pre className="overflow-x-auto rounded bg-neutral-900 p-3 text-xs text-neutral-100">
+                                <code>{exemples[langage]}</code>
+                              </pre>
+                              <BoutonCopier texte={exemples[langage]} libelle={t("copierExemple")} libelleCopie={t("exempleCopie")} />
+                            </div>
+                          ))}
                         </div>
-                      ))}
-                    </details>
-                  )}
-                </article>
-              );
-            })}
+                      );
+                    })}
+                  </details>
+                )}
+              </article>
+            ))}
           </div>
         )}
       </section>

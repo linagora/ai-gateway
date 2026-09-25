@@ -51,8 +51,8 @@ export interface IssuedKey {
   status: RequestStatus;
   /** Dépense, budget, remise à zéro et blocage, lus en direct dans la passerelle ; null s'ils sont indisponibles. */
   gatewayState: Omit<KeyInfo, "expiresAt"> | null;
-  /** Modèle et type d'API de l'exemple d'appel (premier modèle de la clé). */
-  example: { model: string; apiKind: ApiKind } | null;
+  /** Exemples d'appel : un par type d'API que porte la clé, avec le premier de ses modèles de ce type. */
+  examples: { model: string; apiKind: ApiKind }[];
 }
 
 export interface MyKeys {
@@ -86,12 +86,12 @@ export async function listMyKeys(deps: KeyDeps, user: SessionUser): Promise<MyKe
         project: r.project,
         pickupDeadline: delai !== null && r.decidedAt ? pickupDeadline(r.decidedAt, delai) : null,
       })),
-    keys: emises.map((k) => ({ ...k, example: k.models[0] ? { model: k.models[0], apiKind: typesApi.get(k.models[0]) ?? "conversation" } : null })),
+    keys: emises.map((k) => ({ ...k, examples: callExamples(k.models, typesApi) })),
   };
 }
 
 /** Clé émise telle que la présentent « Mes clés » et « Gestion — Clés », avec son état lu dans la passerelle. */
-async function toIssuedKey(litellm: LiteLLMClient, r: AccessRequest): Promise<Omit<IssuedKey, "example">> {
+async function toIssuedKey(litellm: LiteLLMClient, r: AccessRequest): Promise<Omit<IssuedKey, "examples">> {
   return {
     requestId: r.id,
     alias: r.keyAlias as string,
@@ -114,6 +114,16 @@ async function gatewayState(litellm: LiteLLMClient, tokenId: string): Promise<Is
   } catch {
     return null;
   }
+}
+
+/** Un exemple par type d'API, avec le premier modèle de la clé de ce type ; un modèle inconnu vaut conversation. */
+function callExamples(models: string[], typesApi: Map<string, ApiKind>): IssuedKey["examples"] {
+  const parType = new Map<ApiKind, string>();
+  for (const model of models) {
+    const apiKind = typesApi.get(model) ?? "conversation";
+    if (!parType.has(apiKind)) parType.set(apiKind, model);
+  }
+  return [...parType].map(([apiKind, model]) => ({ model, apiKind }));
 }
 
 /**
@@ -214,7 +224,7 @@ export async function renewalDraft(deps: KeyDeps, user: SessionUser, requestId: 
 }
 
 /** Clé émise vue par les admins (« Gestion — Clés ») : avec son titulaire. */
-export interface AdminKey extends Omit<IssuedKey, "example"> {
+export interface AdminKey extends Omit<IssuedKey, "examples"> {
   holderUid: string;
   holderEmail: string;
 }

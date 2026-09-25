@@ -474,6 +474,7 @@
     "infoIndisponible": "Spend and budget unavailable for now: the gateway is not responding.",
     "bloquee": "blocked",
     "commentUtiliser": "How to use it",
+    "exemplesPour": "With {modele}",
     "emplacement": "Keep your key in the LINAGORA_API_KEY environment variable: the examples read it from there, it never appears in them.",
     "langages": {
       "curl": "curl",

@@ -150,18 +150,23 @@ describe("dépense, budget et exemple d'appel dans « Mes clés » (ticket #16)"
     expect((await listMyKeys(deps, titulaire)).keys).toEqual([expect.objectContaining({ requestId: id, gatewayState: null })]);
   });
 
-  test("l'exemple d'appel d'une clé porte son premier modèle et le type d'API de celui-ci", async () => {
-    litellm.withModel({ modelName: "jev-latest", apiKind: "decision" });
+  test("les exemples d'appel d'une clé : un par type d'API qu'elle porte, avec le premier modèle de ce type", async () => {
+    litellm.withModel({ modelName: "glm-beta" }).withModel({ modelName: "jev-latest", apiKind: "decision" });
     const fiche = { shortDescriptionFr: "…", longDescriptionFr: "…", useCases: [], recommendedFor: [], visible: true };
+    await saveCatalogEntry(deps, admin, { ...fiche, modelName: "glm-beta", displayNameFr: "GLM bêta", dataLevel: "EXP" });
     await saveCatalogEntry(deps, admin, { ...fiche, modelName: "jev-latest", displayNameFr: "JEV", dataLevel: "EXP" });
-    const { id } = await createKeyRequest(deps, titulaire, { ...demande, dataLevel: "EXP", models: ["jev-latest"] });
-    await approveKeyRequest(deps, admin, id, { models: ["jev-latest"], budget: 5, budgetDuration: "30d", days: 30, rpmLimit: null, tpmLimit: null });
+    const modeles = ["glm-beta", "jev-latest"];
+    const { id } = await createKeyRequest(deps, titulaire, { ...demande, dataLevel: "EXP", models: modeles });
+    await approveKeyRequest(deps, admin, id, { models: modeles, budget: 5, budgetDuration: "30d", days: 30, rpmLimit: null, tpmLimit: null });
     await pickUpKey(deps, titulaire, id);
     const idConversation = await demandeApprouvee();
     await pickUpKey(deps, titulaire, idConversation);
-    expect(Object.fromEntries((await listMyKeys(deps, titulaire)).keys.map((k) => [k.requestId, k.example]))).toEqual({
-      [id]: { model: "jev-latest", apiKind: "decision" },
-      [idConversation]: { model: "mistral-small", apiKind: "conversation" },
+    expect(Object.fromEntries((await listMyKeys(deps, titulaire)).keys.map((k) => [k.requestId, k.examples]))).toEqual({
+      [id]: [
+        { model: "glm-beta", apiKind: "conversation" },
+        { model: "jev-latest", apiKind: "decision" },
+      ],
+      [idConversation]: [{ model: "mistral-small", apiKind: "conversation" }],
     });
   });
 });

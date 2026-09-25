@@ -474,6 +474,7 @@
     "infoIndisponible": "Dépense et budget indisponibles pour l'instant : la passerelle ne répond pas.",
     "bloquee": "bloquée",
     "commentUtiliser": "Comment l'utiliser",
+    "exemplesPour": "Avec {modele}",
     "emplacement": "Gardez votre clé dans la variable d'environnement LINAGORA_API_KEY : les exemples la lisent là, elle n'y figure jamais.",
     "langages": {
       "curl": "curl",
