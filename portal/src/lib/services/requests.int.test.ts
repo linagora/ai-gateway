@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
+import { FakeMailer } from "@/test/fake-mailer";
 import { saveCatalogEntry } from "./catalog";
 import { provisionUser } from "./provisioning";
 import { cancelRequest, createKeyRequest, createTeamJoinRequest, type KeyRequestInput, listJoinableTeams, listMyRequests, listMyTeams } from "./requests";
@@ -119,5 +120,48 @@ describe("annulation par le demandeur (F-24)", () => {
     const { id } = await createKeyRequest(deps, demandeur, demande);
     const autre = { ...demandeur, uid: "pmartin", email: "pmartin@linagora.com" };
     await expect(cancelRequest(deps, autre, id)).rejects.toMatchObject({ code: "introuvable" });
+  });
+});
+
+describe("notification des admins (ticket #23)", () => {
+  const ADMINS = ["jdupont@linagora.com", "pmartin@linagora.com"];
+  let mailer: FakeMailer;
+  const avecCourriel = () => ({ ...deps, mailer, adminEmails: ADMINS, portalUrl: "https://portail.test" });
+
+  beforeEach(() => {
+    mailer = new FakeMailer();
+    litellm.withTeam({ teamId: "equipe-lps", teamAlias: "LPS Paris", models: [], memberUids: [] });
+  });
+
+  test("une nouvelle demande de clé envoie aux admins un courriel bilingue, avec un lien vers sa fiche de validation", async () => {
+    const { id } = await createKeyRequest(avecCourriel(), demandeur, demande);
+    expect(mailer.outbox).toHaveLength(1);
+    const [courriel] = mailer.outbox;
+    expect(courriel.to).toEqual(ADMINS);
+    expect(courriel.subject).toBe("Nouvelle demande de clé d'API / New API key request");
+    expect(courriel.text).toContain(`https://portail.test/gestion/demandes/${id}`);
+    expect(courriel.text).toContain("mmaudet a demandé une clé d'API pour l'équipe R&D (N2 — Interne).");
+    expect(courriel.text).toContain("mmaudet requested an API key for the R&D team (N2 — Internal).");
+    expect(courriel.text.indexOf("mmaudet a demandé")).toBeLessThan(courriel.text.indexOf("mmaudet requested"));
+  });
+
+  test("une nouvelle demande d'adhésion aussi", async () => {
+    const { id } = await createTeamJoinRequest(avecCourriel(), demandeur, { teamId: "equipe-lps", justification: "Rejoindre mon équipe" });
+    expect(mailer.outbox.map((c) => [c.to, c.subject])).toEqual([[ADMINS, "Nouvelle demande d'adhésion / New team membership request"]]);
+    expect(mailer.outbox[0].text).toContain("mmaudet demande à rejoindre l'équipe LPS Paris.");
+    expect(mailer.outbox[0].text).toContain(`https://portail.test/gestion/demandes/${id}`);
+  });
+
+  test("un échec d'envoi n'empêche pas le dépôt de la demande", async () => {
+    mailer.panne = true;
+    await createKeyRequest(avecCourriel(), demandeur, demande);
+    expect(await listMyRequests(deps, demandeur)).toHaveLength(1);
+  });
+
+  test("sans expéditeur ou sans admin à notifier, rien n'est envoyé et rien n'est bloqué", async () => {
+    await createKeyRequest({ ...avecCourriel(), adminEmails: [] }, demandeur, demande);
+    await createKeyRequest(deps, demandeur, demande);
+    expect(mailer.outbox).toEqual([]);
+    expect(await listMyRequests(deps, demandeur)).toHaveLength(2);
   });
 });

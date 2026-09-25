@@ -488,5 +488,16 @@
     "remplacementExplication": "A new key replaces this one, with the same parameters and the same expiry date. The old key stops working at once.",
     "confirmerRemplacement": "Generate the replacement key",
     "renouveler": "Renew"
+  },
+  "courriels": {
+    "lien": "Link: {url}",
+    "nouvelleDemandeCle": {
+      "sujet": "New API key request",
+      "corps": "{uid} requested an API key for the {equipe} team ({niveau})."
+    },
+    "nouvelleDemandeAdhesion": {
+      "sujet": "New team membership request",
+      "corps": "{uid} asks to join the {equipe} team."
+    }
   }
 }

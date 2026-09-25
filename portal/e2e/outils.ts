@@ -97,3 +97,24 @@ export async function demandeApprouvee(browser: Browser, page: Page, salarie: Pe
   await expect(admin.getByRole("status")).toHaveText("Demande approuvée.");
   await admin.context().close();
 }
+
+/** Courriel reçu par Mailpit (faux serveur de courriel de l'environnement de développement). */
+export interface CourrielRecu {
+  to: string[];
+  subject: string;
+  text: string;
+}
+
+/** Courriels reçus par Mailpit qui contiennent le texte recherché (par exemple l'uid d'une personne de test). */
+export async function courriels(recherche: string): Promise<CourrielRecu[]> {
+  const base = "http://127.0.0.1:54825/api/v1";
+  const { messages } = (await (await fetch(`${base}/search?query=${encodeURIComponent(recherche)}`)).json()) as {
+    messages: { ID: string; Subject: string; To: { Address: string }[] }[];
+  };
+  return Promise.all(
+    messages.map(async (m) => {
+      const { Text } = (await (await fetch(`${base}/message/${m.ID}`)).json()) as { Text: string };
+      return { to: m.To.map((t) => t.Address), subject: m.Subject, text: Text };
+    }),
+  );
+}

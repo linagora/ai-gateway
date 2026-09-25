@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { auth } from "@/auth";
 import { type SessionUser, toPortalUser } from "@/lib/auth-user";
+import { addressesFromEnv, mailerFromEnv } from "@/lib/courriel";
 import { getDb } from "@/lib/db";
 import { getLiteLLM } from "@/lib/litellm/instance";
 
@@ -30,7 +31,13 @@ export async function requireAdminPage(): Promise<SessionUser> {
   return user;
 }
 
-/** Dépendances réelles des cas d'usage. */
+/** Dépendances réelles des cas d'usage ; sans configuration SMTP, aucun courriel n'est envoyé. */
 export function getDeps() {
-  return { db: getDb(), litellm: getLiteLLM() };
+  return {
+    db: getDb(),
+    litellm: getLiteLLM(),
+    mailer: mailerFromEnv(),
+    adminEmails: addressesFromEnv(process.env.ADMIN_NOTIFICATION_EMAILS),
+    portalUrl: process.env.AUTH_URL,
+  };
 }

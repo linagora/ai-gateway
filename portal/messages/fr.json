@@ -488,5 +488,16 @@
     "remplacementExplication": "Une nouvelle clé remplace celle-ci, avec les mêmes paramètres et la même date d'expiration. L'ancienne cesse aussitôt de fonctionner.",
     "confirmerRemplacement": "Générer la clé de remplacement",
     "renouveler": "Renouveler"
+  },
+  "courriels": {
+    "lien": "Lien : {url}",
+    "nouvelleDemandeCle": {
+      "sujet": "Nouvelle demande de clé d'API",
+      "corps": "{uid} a demandé une clé d'API pour l'équipe {equipe} ({niveau})."
+    },
+    "nouvelleDemandeAdhesion": {
+      "sujet": "Nouvelle demande d'adhésion",
+      "corps": "{uid} demande à rejoindre l'équipe {equipe}."
+    }
   }
 }
