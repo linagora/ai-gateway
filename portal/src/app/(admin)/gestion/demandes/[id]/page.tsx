@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { PortalError } from "@/lib/errors";
 import type { Langue } from "@/lib/langue";
-import { DUREES_ABONNEMENT } from "@/lib/durees";
+import { DUREE_ABONNEMENT_PAR_DEFAUT, DUREES_ABONNEMENT } from "@/lib/durees";
 import { modelAcceptsLevel } from "@/lib/policy";
 import { getRequestReview } from "@/lib/services/admin-requests";
 import { equipesGerees } from "@/lib/services/autorite";
@@ -241,7 +241,7 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
             <input type="hidden" name="id" value={review.id} />
             <label>
               {t("validite")}
-              <select name="days" defaultValue={review.requestedDays ?? 90}>
+              <select name="days" defaultValue={review.requestedDays ?? DUREE_ABONNEMENT_PAR_DEFAUT}>
                 {DUREES_ABONNEMENT.map((jours) => (
                   <option key={jours} value={jours}>
                     {libelleDuree(domaine, jours)}

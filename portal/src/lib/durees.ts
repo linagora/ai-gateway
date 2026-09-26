@@ -8,6 +8,12 @@ export const DUREES_VALIDITE = [1, 7, 30, 90, 180, 365, SANS_EXPIRATION] as cons
 /** Durées de validité d'un abonnement (spécification #51), en jours : de 1 mois à 1 an, sans « n'expire jamais ». */
 export const DUREES_ABONNEMENT = [30, 90, 180, 365] as const;
 
+/** Durée d'abonnement proposée par défaut : 3 mois. */
+export const DUREE_ABONNEMENT_PAR_DEFAUT = 90;
+
+/** La durée fait-elle partie des durées d'abonnement proposées ? */
+export const estDureeAbonnement = (jours: number) => (DUREES_ABONNEMENT as readonly number[]).includes(jours);
+
 /** Période d'un budget, pour une clé comme pour une équipe : au format LiteLLM (30d, 12h…). */
 export const PERIODE_BUDGET = /^\d+[smhd]$/;
 

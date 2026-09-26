@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
-import { DUREES_ABONNEMENT } from "@/lib/durees";
+import { DUREE_ABONNEMENT_PAR_DEFAUT, DUREES_ABONNEMENT } from "@/lib/durees";
 import type { Langue } from "@/lib/langue";
 import { type CatalogOffer, listOffers } from "@/lib/services/offers";
 import { offerChangeDraft, renewalDraft } from "@/lib/services/renouvellements";
@@ -191,7 +191,7 @@ async function ChampsCommuns({ valeurs, engagement }: { valeurs?: { justificatio
       </label>
       <label>
         {nouvelle("duree")}
-        <select name="requestedDays" defaultValue={valeurs?.requestedDays ?? 90}>
+        <select name="requestedDays" defaultValue={valeurs?.requestedDays ?? DUREE_ABONNEMENT_PAR_DEFAUT}>
           {DUREES_ABONNEMENT.map((jours) => (
             <option key={jours} value={jours}>
               {libelleDuree(domaine, jours)}

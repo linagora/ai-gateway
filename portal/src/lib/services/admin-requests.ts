@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { Prisma, RequestKind } from "@/generated/prisma/client";
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
-import { DUREES_ABONNEMENT, PERIODE_BUDGET } from "@/lib/durees";
+import { estDureeAbonnement, PERIODE_BUDGET } from "@/lib/durees";
 import { PolicyViolationError, PortalError } from "@/lib/errors";
 import type { LiteLLMClient } from "@/lib/litellm/client";
 import { type Page, tranche } from "@/lib/pagination";
@@ -346,7 +346,7 @@ export async function approveTeamJoinRequest(deps: AdminDeps, actor: SessionUser
 }
 
 /** Durée de validité accordée à un abonnement (spécification #51) : de 1 mois à 1 an. */
-export const subscriptionApprovalSchema = z.object({ days: z.number().refine((jours) => (DUREES_ABONNEMENT as readonly number[]).includes(jours)) });
+export const subscriptionApprovalSchema = z.object({ days: z.number().refine(estDureeAbonnement) });
 
 /**
  * Spécification #51 : approuve une demande d'abonnement en fixant sa durée de validité. Le demandeur apprend comment

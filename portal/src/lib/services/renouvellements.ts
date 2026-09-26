@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { Subscription, SubscriptionOffer } from "@/generated/prisma/client";
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
-import { DUREES_ABONNEMENT } from "@/lib/durees";
+import { DUREE_ABONNEMENT_PAR_DEFAUT, estDureeAbonnement } from "@/lib/durees";
 import { PortalError } from "@/lib/errors";
 import type { Langue } from "@/lib/langue";
 import type { LiteLLMClient } from "@/lib/litellm/client";
@@ -27,7 +27,7 @@ export const RENOUVELLEMENT_POSSIBLE_AVANT = 30;
 export const renewalInputSchema = z.object({
   justification: z.string().trim().min(1),
   project: z.string().trim().nullable(),
-  requestedDays: z.number().refine((jours) => (DUREES_ABONNEMENT as readonly number[]).includes(jours)),
+  requestedDays: z.number().refine(estDureeAbonnement),
   commitment: z.boolean(),
 });
 
@@ -168,7 +168,7 @@ export async function renewalDraft(deps: RenewalDeps, user: SessionUser, subscri
     expiresAt: abonnement.expiresAt,
     justification: origine?.justification ?? "",
     project: origine?.project ?? null,
-    requestedDays: origine?.approvedDays && (DUREES_ABONNEMENT as readonly number[]).includes(origine.approvedDays) ? origine.approvedDays : 90,
+    requestedDays: origine?.approvedDays && estDureeAbonnement(origine.approvedDays) ? origine.approvedDays : DUREE_ABONNEMENT_PAR_DEFAUT,
   };
 }
 

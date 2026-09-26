@@ -3,7 +3,7 @@ import type { Subscription, SubscriptionCharge, SubscriptionOffer, TerminationOr
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
 import type { Langue } from "@/lib/langue";
-import { DUREES_ABONNEMENT } from "@/lib/durees";
+import { estDureeAbonnement } from "@/lib/durees";
 import { PortalError } from "@/lib/errors";
 import type { LiteLLMClient } from "@/lib/litellm/client";
 import { type Page, tranche } from "@/lib/pagination";
@@ -35,7 +35,7 @@ export const subscriptionRequestInputSchema = z.object({
   teamId: z.string().min(1),
   justification: z.string().trim().min(1),
   project: z.string().trim().nullable(),
-  requestedDays: z.number().refine((jours) => (DUREES_ABONNEMENT as readonly number[]).includes(jours)),
+  requestedDays: z.number().refine(estDureeAbonnement),
   commitment: z.boolean(),
 });
 
