@@ -120,7 +120,8 @@
       "responsableDesigne": "Manager designated.",
       "responsableRetire": "Manager role removed.",
       "offreEnregistree": "Offer saved.",
-      "abonnementDeclare": "Subscription declared."
+      "abonnementDeclare": "Subscription declared.",
+      "montantCorrige": "Amount corrected: it applies from the next charge."
     },
     "erreurs": {
       "controles_en_echec": "The request does not comply with the model access policy. Failed checks: {controles}.",
@@ -128,7 +129,7 @@
       "demande_en_cours": "You already have a pending access request for the {equipe} team.",
       "engagement_requis": "Commit to not submitting data above the declared level.",
       "interdit": "Administrators only.",
-      "introuvable": "{objet, select, modele {Model {modele} is not declared in the gateway.} equipe {Team not found.} demande_adhesion {Access request not found.} demande_cle {Key request not found.} membre {Member not found in this team.} responsable {Manager not found in this team.} offre {Subscription offer not found.} demande_abonnement {Subscription request not found.} other {Request not found.}}",
+      "introuvable": "{objet, select, modele {Model {modele} is not declared in the gateway.} equipe {Team not found.} demande_adhesion {Access request not found.} demande_cle {Key request not found.} membre {Member not found in this team.} responsable {Manager not found in this team.} offre {Subscription offer not found.} demande_abonnement {Subscription request not found.} abonnement {Subscription not found.} other {Request not found.}}",
       "motif_obligatoire": "A reason is required.",
       "parametre_manquant": "Budget, budget period and validity are required: enter them or configure default values.",
       "recommandation_hors_cas_usage": "A recommendation can only apply to a checked use case.",
@@ -678,9 +679,15 @@
         "souscrit": "Subscribed on",
         "montant": "Monthly amount",
         "echeance": "Expiry",
-        "statut": "Status"
+        "statut": "Status",
+        "prelevements": "Charges"
       },
-      "horsLinagora": "address outside LINAGORA"
+      "horsLinagora": "address outside LINAGORA",
+      "prelevements": {
+        "aucun": "None",
+        "resume": "{nombre, plural, one {# charge} other {# charges}}, {total} in total",
+        "ligne": "{date}: {montant}, team {equipe}"
+      }
     }
   },
   "introuvable": {
@@ -954,6 +961,13 @@
       "echeance": "Expiry",
       "statut": "Status"
     },
-    "horsLinagora": "address outside LINAGORA"
+    "horsLinagora": "address outside LINAGORA",
+    "correction": {
+      "ouvrir": "Correct the amount",
+      "formulaire": "Correct the amount: {offre}",
+      "montant": "Actual monthly amount (€ incl. VAT)",
+      "aide": "Price increase, exchange rate: the correction applies from the next charge.",
+      "enregistrer": "Save the amount"
+    }
   }
 }

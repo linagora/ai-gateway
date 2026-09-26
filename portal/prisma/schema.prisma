@@ -221,7 +221,24 @@ model Subscription {
   status           SubscriptionStatus @default(ACTIF)
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
+  charges          SubscriptionCharge[]
 
   @@index([holderUid])
+  @@index([teamId])
+}
+
+/// Prélèvement (spécification #51) : montant mensuel d'un abonnement compté à une date anniversaire de sa souscription,
+/// avec le montant alors en vigueur, imputé à l'équipe de l'abonnement à cette date. Un seul par abonnement et par date.
+model SubscriptionCharge {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  chargedOn      DateTime
+  amountEur      Decimal
+  teamId         String
+  teamAlias      String
+  createdAt      DateTime     @default(now())
+
+  @@unique([subscriptionId, chargedOn])
   @@index([teamId])
 }

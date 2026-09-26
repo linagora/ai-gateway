@@ -11,7 +11,7 @@ import { AdminNav } from "../admin-nav";
 /**
  * Spécification #51, ticket #56 : les abonnements approuvés en attente de déclaration, les abonnements actifs, puis
  * l'archive des abonnements résiliés, page par page ; pour un responsable, ceux de ses équipes. Avec `?equipe=`, la
- * page se limite aux abonnements de cette équipe.
+ * page se limite aux abonnements de cette équipe. Chaque abonnement montre ses prélèvements (ticket #57).
  */
 export default async function GestionAbonnementsPage(props: PageProps<"/gestion/abonnements">) {
   const acteur = await requireGestionPage();
@@ -54,6 +54,20 @@ export default async function GestionAbonnementsPage(props: PageProps<"/gestion/
       <td>{euros(a.monthlyAmountEur)}</td>
       <td>{jour(a.expiresAt)}</td>
       <td>{domaine(`statutsAbonnement.${a.status}`)}</td>
+      <td>
+        {a.charges.length === 0 ? (
+          t("prelevements.aucun")
+        ) : (
+          <details>
+            <summary>{t("prelevements.resume", { nombre: a.charges.length, total: euros(a.charges.reduce((total, c) => total + c.amountEur, 0)) })}</summary>
+            <ul className="mt-1 text-xs">
+              {a.charges.map((c) => (
+                <li key={c.chargedOn.toISOString()}>{t("prelevements.ligne", { date: jour(c.chargedOn), montant: euros(c.amountEur), equipe: c.teamAlias })}</li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </td>
     </tr>
   );
   const entetes = (
@@ -66,6 +80,7 @@ export default async function GestionAbonnementsPage(props: PageProps<"/gestion/
       <th>{t("colonnes.montant")}</th>
       <th>{t("colonnes.echeance")}</th>
       <th>{t("colonnes.statut")}</th>
+      <th>{t("colonnes.prelevements")}</th>
     </tr>
   );
 

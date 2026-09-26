@@ -18,7 +18,7 @@ import {
 } from "@/lib/services/admin-requests";
 import { saveCatalogEntry } from "@/lib/services/catalog";
 import { saveOffer } from "@/lib/services/offers";
-import { completeSubscriptionRequest, createSubscriptionRequest, declareSubscription } from "@/lib/services/subscriptions";
+import { completeSubscriptionRequest, correctSubscriptionAmount, createSubscriptionRequest, declareSubscription } from "@/lib/services/subscriptions";
 import { blockKey, pickUpKey, replaceKey, revokeKey, unblockKey } from "@/lib/services/keys";
 import { cancelRequest, completeRequest, createKeyRequest, createTeamJoinRequest } from "@/lib/services/requests";
 import { saveSettings } from "@/lib/services/settings";
@@ -108,6 +108,15 @@ export async function declarerAbonnementAction(formData: FormData): Promise<void
         accountEmail: text(formData, "accountEmail"),
       }),
     { path: "/abonnements", message: "abonnementDeclare" },
+  );
+}
+
+export async function corrigerMontantAbonnementAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  await run(
+    "/abonnements",
+    () => correctSubscriptionAmount(getDeps(), user, text(formData, "subscriptionId"), { monthlyAmountEur: optionalNumber(formData, "monthlyAmountEur") ?? Number.NaN }),
+    { path: "/abonnements", message: "montantCorrige" },
   );
 }
 
@@ -361,6 +370,7 @@ type CleSucces =
   | "catalogueMisAJour"
   | "offreEnregistree"
   | "abonnementDeclare"
+  | "montantCorrige"
   | "demandeApprouvee"
   | "adhesionApprouvee"
   | "demandeRefusee"

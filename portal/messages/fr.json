@@ -120,7 +120,8 @@
       "responsableDesigne": "Responsable désigné.",
       "responsableRetire": "Rôle de responsable retiré.",
       "offreEnregistree": "Offre enregistrée.",
-      "abonnementDeclare": "Abonnement déclaré."
+      "abonnementDeclare": "Abonnement déclaré.",
+      "montantCorrige": "Montant corrigé : il vaut à partir du prochain prélèvement."
     },
     "erreurs": {
       "controles_en_echec": "La demande ne respecte pas la politique d'accès aux modèles. Contrôles en échec : {controles}.",
@@ -128,7 +129,7 @@
       "demande_en_cours": "Vous avez déjà une demande d'accès en cours pour l'équipe {equipe}.",
       "engagement_requis": "Engagez-vous à ne pas soumettre de données d'un niveau supérieur à celui déclaré.",
       "interdit": "Action réservée aux administrateurs.",
-      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} membre {Membre introuvable dans cette équipe.} responsable {Responsable introuvable dans cette équipe.} offre {Offre d'abonnement introuvable.} demande_abonnement {Demande d'abonnement introuvable.} other {Demande introuvable.}}",
+      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} membre {Membre introuvable dans cette équipe.} responsable {Responsable introuvable dans cette équipe.} offre {Offre d'abonnement introuvable.} demande_abonnement {Demande d'abonnement introuvable.} abonnement {Abonnement introuvable.} other {Demande introuvable.}}",
       "motif_obligatoire": "Un motif est obligatoire.",
       "parametre_manquant": "Budget, période du budget et durée de validité sont obligatoires : saisissez-les ou configurez des valeurs par défaut.",
       "recommandation_hors_cas_usage": "Une recommandation ne peut porter que sur un cas d'usage coché.",
@@ -678,9 +679,15 @@
         "souscrit": "Souscrit le",
         "montant": "Montant mensuel",
         "echeance": "Échéance",
-        "statut": "Statut"
+        "statut": "Statut",
+        "prelevements": "Prélèvements"
       },
-      "horsLinagora": "adresse hors LINAGORA"
+      "horsLinagora": "adresse hors LINAGORA",
+      "prelevements": {
+        "aucun": "Aucun",
+        "resume": "{nombre, plural, one {# prélèvement} other {# prélèvements}}, {total} au total",
+        "ligne": "{date} : {montant}, équipe {equipe}"
+      }
     }
   },
   "introuvable": {
@@ -954,6 +961,13 @@
       "echeance": "Échéance",
       "statut": "Statut"
     },
-    "horsLinagora": "adresse hors LINAGORA"
+    "horsLinagora": "adresse hors LINAGORA",
+    "correction": {
+      "ouvrir": "Corriger le montant",
+      "formulaire": "Corriger le montant : {offre}",
+      "montant": "Montant mensuel réel (€ TTC)",
+      "aide": "Hausse de prix, change : la correction vaut à partir du prochain prélèvement.",
+      "enregistrer": "Enregistrer le montant"
+    }
   }
 }

@@ -273,3 +273,34 @@ test("le responsable suit l'abonnement de son équipe : à déclarer dans l'ongl
 
   await nettoyer(situation);
 });
+
+test("le titulaire corrige le montant de son abonnement ; la gestion montre le montant corrigé et le prélèvement déjà compté (ticket #57)", async ({ browser }) => {
+  const situation = await abonnementApprouve(browser, "montant");
+  const { admin, pageMembre, membre, equipe, offre } = situation;
+  await declarer(pageMembre, offre, { montant: "108", adresse: membre.email });
+
+  // Déclaré au jour même, l'abonnement compte son premier prélèvement, que la gestion montre avec l'équipe imputée.
+  const jour = new Intl.DateTimeFormat("fr-FR", { dateStyle: "long", timeZone: "UTC" }).format(new Date());
+  await admin.goto("/gestion/abonnements");
+  const ligne = admin.getByRole("region", { name: "Abonnements actifs" }).getByRole("row", { name: new RegExp(membre.uid) });
+  await ligne.getByText(/^1 prélèvement, 108,00\s€ au total$/).click();
+  await expect(ligne.getByRole("listitem")).toHaveText([new RegExp(`^${jour}\\s:\\s108,00\\s€, équipe ${echapper(equipe)}$`)]);
+
+  // Le titulaire corrige le montant, qui vaut à partir du prochain prélèvement.
+  await pageMembre.goto("/abonnements");
+  const abonnement = pageMembre.getByRole("region", { name: "Abonnements déclarés" }).getByRole("row", { name: new RegExp(echapper(offre)) });
+  await abonnement.getByText("Corriger le montant", { exact: true }).click();
+  const correction = abonnement.getByRole("form", { name: `Corriger le montant : Anthropic · ${offre}` });
+  await expect(correction).toContainText("Hausse de prix, change : la correction vaut à partir du prochain prélèvement.");
+  await correction.getByLabel("Montant mensuel réel (€ TTC)").fill("120");
+  await correction.getByRole("button", { name: "Enregistrer le montant" }).click();
+  await expect(pageMembre.getByRole("status")).toHaveText("Montant corrigé : il vaut à partir du prochain prélèvement.");
+  await expect(abonnement).toContainText(/120,00\s€/);
+
+  // La gestion montre le nouveau montant ; le prélèvement déjà compté garde l'ancien.
+  await admin.reload();
+  await expect(ligne).toContainText(/120,00\s€/);
+  await expect(ligne.getByText(/^1 prélèvement, 108,00\s€ au total$/)).toBeVisible();
+
+  await nettoyer(situation);
+});

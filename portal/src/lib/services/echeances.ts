@@ -3,6 +3,7 @@ import type { LiteLLMClient, LiteLLMTeam } from "@/lib/litellm/client";
 import { recordAudit } from "./audit";
 import { managerEmails } from "./autorite";
 import { type NotificationDeps, notifyDeclarationReminder, notifyExpiryReminder, notifyPickupReminder, notifyTeamBudgetAlert } from "./notifications";
+import { enregistrerPrelevementsEchus } from "./prelevements";
 import { readSettings } from "./settings";
 
 export const JOUR = 86_400_000;
@@ -83,6 +84,7 @@ export interface DailyTaskReport {
   rappelsExpiration: number;
   demandesExpirees: number;
   clesExpirees: number;
+  prelevements: number;
   alertesBudget: number;
 }
 
@@ -90,8 +92,9 @@ export interface DailyTaskReport {
  * F-45 : tâche quotidienne, lancée chaque matin à 7 h (heure de Paris). Elle fait expirer ce qui est échu, puis
  * envoie une seule fois chacun les rappels, comptés en jours calendaires : le matin du troisième jour avant
  * l'échéance de retrait ; un mois, sept jours et un jour avant l'expiration d'une clé, selon sa durée. Après des
- * jours sans tâche, seul le rappel d'expiration le plus proche de l'échéance part. Elle finit par les alertes de
- * budget d'équipe (F-54).
+ * jours sans tâche, seul le rappel d'expiration le plus proche de l'échéance part. Elle compte ensuite les
+ * prélèvements échus des abonnements (spécification #51), rattrapage compris, et finit par les alertes de budget
+ * d'équipe (F-54).
  */
 export async function runDailyTask(deps: DailyTaskDeps): Promise<DailyTaskReport> {
   const maintenant = deps.now?.() ?? new Date();
@@ -146,7 +149,8 @@ export async function runDailyTask(deps: DailyTaskDeps): Promise<DailyTaskReport
     rappelsExpiration++;
     await notifyExpiryReminder(deps, { ...r, keyAlias: r.keyAlias, keyExpiresAt: r.keyExpiresAt }, jours);
   }
-  return { rappelsRetrait, rappelsDeclaration, rappelsExpiration, ...expirations, alertesBudget: await alerterBudgets(deps, maintenant) };
+  const prelevements = await enregistrerPrelevementsEchus(deps.db, maintenant);
+  return { rappelsRetrait, rappelsDeclaration, rappelsExpiration, ...expirations, prelevements, alertesBudget: await alerterBudgets(deps, maintenant) };
 }
 
 /**

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Subscription, SubscriptionOffer } from "@/generated/prisma/client";
+import type { Subscription, SubscriptionCharge, SubscriptionOffer } from "@/generated/prisma/client";
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
 import { DUREES_ABONNEMENT } from "@/lib/durees";
@@ -11,6 +11,7 @@ import { dansEquipes, managerEmails, requireGestion } from "./autorite";
 import { JOUR, markExpired, pickupDeadline, readPickupDays } from "./echeances";
 import { type NotificationDeps, notifyNewRequest } from "./notifications";
 import { libelleOffre } from "./offers";
+import { enregistrerPrelevements, jourUtc } from "./prelevements";
 import { transitionRequest } from "./requests";
 
 /** Dépendances du service des abonnements (spécification #51). */
@@ -135,10 +136,11 @@ export interface MySubscription extends SubscriptionView {
   supplier: string;
 }
 
-/** Abonnement tel que le voit la gestion, avec son titulaire. */
+/** Abonnement tel que le voit la gestion, avec son titulaire et ses prélèvements, du plus ancien au plus récent. */
 export interface AdminSubscription extends SubscriptionView {
   holderUid: string;
   holderEmail: string;
+  charges: { chargedOn: Date; amountEur: number; teamAlias: string }[];
 }
 
 /** Abonnement approuvé qui attend la déclaration de son titulaire, vu par la gestion. */
@@ -153,6 +155,9 @@ export interface AdminSubscriptionToDeclare {
 }
 
 type AbonnementAvecOffre = Subscription & { offer: Pick<SubscriptionOffer, "supplier" | "name"> };
+
+/** Abonnement lu par la gestion, avec son offre et ses prélèvements. */
+const AVEC_PRELEVEMENTS = { offer: true, charges: { orderBy: { chargedOn: "asc" } } } as const;
 
 /** Vue commune d'un abonnement. */
 function vueAbonnement(a: AbonnementAvecOffre): SubscriptionView {
@@ -169,10 +174,12 @@ function vueAbonnement(a: AbonnementAvecOffre): SubscriptionView {
   };
 }
 
-const vueGestion = (a: AbonnementAvecOffre): AdminSubscription => ({ ...vueAbonnement(a), holderUid: a.holderUid, holderEmail: a.holderEmail });
-
-/** Minuit (UTC) du jour d'un instant : les dates d'un abonnement se comptent en jours. */
-const jourUtc = (instant: Date) => new Date(Date.UTC(instant.getUTCFullYear(), instant.getUTCMonth(), instant.getUTCDate()));
+const vueGestion = (a: AbonnementAvecOffre & { charges: SubscriptionCharge[] }): AdminSubscription => ({
+  ...vueAbonnement(a),
+  holderUid: a.holderUid,
+  holderEmail: a.holderEmail,
+  charges: a.charges.map((c) => ({ chargedOn: c.chargedOn, amountEur: c.amountEur.toNumber(), teamAlias: c.teamAlias })),
+});
 
 /** « Mes abonnements » : les abonnements approuvés à déclarer, puis les abonnements déclarés, du plus récent au plus ancien. */
 export async function listMySubscriptions(deps: SubscriptionDeps, user: SessionUser): Promise<{ aDeclarer: SubscriptionToDeclare[]; abonnements: MySubscription[] }> {
@@ -241,6 +248,8 @@ export async function declareSubscription(deps: SubscriptionDeps, user: SessionU
       },
     });
   });
+  // Une souscription passée (régularisation) compte d'un coup les prélèvements déjà échus.
+  await enregistrerPrelevements(deps.db, abonnement, deps.now?.() ?? new Date());
   await recordAudit(deps.db, {
     actorUid: user.uid,
     action: "SUBSCRIPTION_DECLARED",
@@ -248,6 +257,32 @@ export async function declareSubscription(deps: SubscriptionDeps, user: SessionU
     details: { offre: libelleOffre(offer), montant: data.monthlyAmountEur, compteHorsLinagora: horsLinagora(data.accountEmail) },
   });
   return abonnement.id;
+}
+
+/** Montant mensuel corrigé par le titulaire (hausse de prix, change) : en euros TTC, positif. */
+export const amountCorrectionSchema = z.object({ monthlyAmountEur: z.number().positive() });
+
+export type AmountCorrection = z.infer<typeof amountCorrectionSchema>;
+
+/**
+ * Le titulaire corrige le montant mensuel de son abonnement (ticket #57) : la correction vaut à partir du prélèvement
+ * suivant, et elle est inscrite au journal d'audit.
+ */
+export async function correctSubscriptionAmount(deps: SubscriptionDeps, user: SessionUser, subscriptionId: string, input: AmountCorrection): Promise<void> {
+  const { monthlyAmountEur } = amountCorrectionSchema.parse(input);
+  const abonnement = await deps.db.subscription.findUnique({ where: { id: subscriptionId } });
+  if (!abonnement || abonnement.holderUid !== user.uid || abonnement.status === "RESILIE") {
+    throw new PortalError("introuvable", "Abonnement introuvable.", { objet: "abonnement" });
+  }
+  // Les prélèvements déjà échus gardent l'ancien montant, même si la tâche quotidienne ne les a pas encore comptés.
+  await enregistrerPrelevements(deps.db, abonnement, deps.now?.() ?? new Date());
+  await deps.db.subscription.update({ where: { id: abonnement.id }, data: { monthlyAmountEur } });
+  await recordAudit(deps.db, {
+    actorUid: user.uid,
+    action: "SUBSCRIPTION_AMOUNT_CORRECTED",
+    targetId: abonnement.id,
+    details: { ancien: abonnement.monthlyAmountEur.toNumber(), nouveau: monthlyAmountEur },
+  });
 }
 
 /**
@@ -283,7 +318,7 @@ export async function listActiveSubscriptions(deps: SubscriptionDeps, actor: Ses
   const equipes = await requireGestion(deps.db, actor);
   const abonnements = await deps.db.subscription.findMany({
     where: { status: { not: "RESILIE" }, ...dansEquipes(equipes, teamId) },
-    include: { offer: true },
+    include: AVEC_PRELEVEMENTS,
     orderBy: [{ subscribedAt: "desc" }, { id: "desc" }],
   });
   return abonnements.map(vueGestion);
@@ -295,6 +330,6 @@ export async function listSubscriptionArchive(deps: SubscriptionDeps, actor: Ses
   const where = { status: "RESILIE" as const, ...dansEquipes(equipes, teamId) };
   const total = await deps.db.subscription.count({ where });
   const { page: courante, pages, skip, take } = tranche(total, page);
-  const rows = await deps.db.subscription.findMany({ where, include: { offer: true }, orderBy: [{ updatedAt: "desc" }, { id: "desc" }], skip, take });
+  const rows = await deps.db.subscription.findMany({ where, include: AVEC_PRELEVEMENTS, orderBy: [{ updatedAt: "desc" }, { id: "desc" }], skip, take });
   return { elements: rows.map(vueGestion), page: courante, pages, total };
 }

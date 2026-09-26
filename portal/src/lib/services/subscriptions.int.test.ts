@@ -11,6 +11,7 @@ import { saveSettings } from "./settings";
 import { deleteTeam, getTeamPage, removeTeamMember } from "./teams";
 import {
   completeSubscriptionRequest,
+  correctSubscriptionAmount,
   createSubscriptionRequest,
   declareSubscription,
   listActiveSubscriptions,
@@ -316,6 +317,7 @@ describe("onglet « Abonnements » de la gestion et résumé sur la page d'une �
         monthlyAmountEur: 108,
         expiresAt: new Date("2026-12-30T00:00:00Z"),
         status: "ACTIF",
+        charges: [{ chargedOn: new Date("2026-09-20T00:00:00Z"), amountEur: 108, teamAlias: "R&D" }],
       },
     ]);
     expect(await listSubscriptionArchive(deps, admin)).toEqual({ elements: [], page: 1, pages: 1, total: 0 });
@@ -339,3 +341,59 @@ describe("onglet « Abonnements » de la gestion et résumé sur la page d'une �
     expect((await getTeamPage(deps, admin, "equipe-data")).subscriptions).toEqual({ count: 0, monthlyTotalEur: 0 });
   });
 });
+
+describe("prélèvements aux dates anniversaires et correction du montant (ticket #57)", () => {
+  /** Abonnement de Paul Martin dans R&D, approuvé le 1er octobre 2026 puis déclaré à la date donnée. */
+  async function declare(souscription: string, montant = 108): Promise<string> {
+    return declareSubscription(deps, membre, await approuvee(), { subscribedAt: souscription, monthlyAmountEur: montant, accountEmail: "pmartin@linagora.com" });
+  }
+  const prelevements = async () => (await listActiveSubscriptions(deps, admin))[0].charges.map((c) => [c.chargedOn.toISOString().slice(0, 10), c.amountEur, c.teamAlias]);
+
+  test("une déclaration passée compte d'un coup les prélèvements déjà échus : à la souscription, puis chaque mois au même jour, ramené à la fin des mois courts", async () => {
+    await declare("2026-07-31");
+    expect(await prelevements()).toEqual([
+      ["2026-07-31", 108, "R&D"],
+      ["2026-08-31", 108, "R&D"],
+      ["2026-09-30", 108, "R&D"],
+    ]);
+  });
+
+  test("une souscription du 31 janvier est prélevée le dernier jour de février, le 28 ou le 29 selon l'année", async () => {
+    await declare("2026-01-31");
+    await runDailyTask({ ...deps, now: () => new Date("2028-03-01T05:00:00Z") });
+    const dates = (await prelevements()).map(([date]) => date);
+    expect(dates.slice(0, 4)).toEqual(["2026-01-31", "2026-02-28", "2026-03-31", "2026-04-30"]);
+    expect(dates.filter((date) => String(date).slice(5, 7) === "02")).toEqual(["2026-02-28", "2027-02-28", "2028-02-29"]);
+  });
+
+  test("la tâche quotidienne compte les prélèvements échus, rattrapage compris, une seule fois chacun ; son compte rendu les compte", async () => {
+    await declare("2026-10-01");
+    const tache = (date: string) => runDailyTask({ ...deps, now: () => new Date(date) });
+    expect(await tache("2026-10-15T05:00:00Z")).toMatchObject({ prelevements: 0 });
+    expect(await tache("2027-01-05T05:00:00Z")).toMatchObject({ prelevements: 3 });
+    expect(await tache("2027-01-06T05:00:00Z")).toMatchObject({ prelevements: 0 });
+    expect((await prelevements()).map(([date]) => date)).toEqual(["2026-10-01", "2026-11-01", "2026-12-01", "2027-01-01"]);
+  });
+
+  test("le titulaire corrige le montant de son abonnement : la correction vaut à partir du prélèvement suivant, et elle est inscrite au journal", async () => {
+    const abonnement = await declare("2026-10-01");
+    await correctSubscriptionAmount(deps, membre, abonnement, { monthlyAmountEur: 120 });
+    await runDailyTask({ ...deps, now: () => new Date("2026-11-02T05:00:00Z") });
+    expect(await prelevements()).toEqual([
+      ["2026-10-01", 108, "R&D"],
+      ["2026-11-01", 120, "R&D"],
+    ]);
+    expect((await listMySubscriptions(deps, membre)).abonnements[0].monthlyAmountEur).toBe(120);
+    expect((await listAudit(testDb)).filter((e) => e.action === "SUBSCRIPTION_AMOUNT_CORRECTED").map((e) => [e.actorUid, e.targetId, e.details])).toEqual([
+      ["pmartin", abonnement, { ancien: 108, nouveau: 120 }],
+    ]);
+  });
+
+  test("seul le titulaire corrige le montant de son abonnement, qui doit rester positif", async () => {
+    const abonnement = await declare("2026-10-01");
+    await expect(correctSubscriptionAmount(deps, responsable, abonnement, { monthlyAmountEur: 50 })).rejects.toMatchObject({ code: "introuvable" });
+    await expect(correctSubscriptionAmount(deps, membre, abonnement, { monthlyAmountEur: 0 })).rejects.toMatchObject({ name: "ZodError" });
+    expect((await listMySubscriptions(deps, membre)).abonnements[0].monthlyAmountEur).toBe(108);
+  });
+});
+
