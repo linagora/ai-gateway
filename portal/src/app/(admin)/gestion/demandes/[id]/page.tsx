@@ -6,7 +6,7 @@ import { modelAcceptsLevel } from "@/lib/policy";
 import { getRequestReview } from "@/lib/services/admin-requests";
 import { listCatalog } from "@/lib/services/catalog";
 import { readSettings } from "@/lib/services/settings";
-import { getDeps, requireAdminPage } from "@/lib/session";
+import { getDeps, requireGestionPage } from "@/lib/session";
 import {
   approveKeyRequestAction,
   approveTeamJoinRequestAction,
@@ -19,7 +19,7 @@ import { AdminNav } from "../../admin-nav";
 
 /** F-31 / F-32 : fiche d'une demande, contrôles de politique ✔/✘ et décisions. */
 export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id]">) {
-  const admin = await requireAdminPage();
+  const admin = await requireGestionPage();
   const [{ date, euros }, t, domaine, avis, language] = await Promise.all([
     formats(),
     getTranslations("gestion.fiche"),
@@ -53,6 +53,8 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
     </label>
   );
   const pending = review.status === "SOUMISE";
+  // Les décisions restent aux admins ; celles d'un responsable arrivent avec le ticket #41.
+  const peutDecider = pending && admin.isAdmin;
 
   return (
     <>
@@ -119,9 +121,9 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
         </>
       )}
 
-      {pending && <ExplicationObligatoires />}
+      {peutDecider && <ExplicationObligatoires />}
 
-      {pending && review.kind === "CLE" && (
+      {peutDecider && review.kind === "CLE" && (
         <>
           <h2>{t("approuverCle")}</h2>
           <form action={approveKeyRequestAction}>
@@ -167,7 +169,7 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
         </>
       )}
 
-      {pending && review.kind === "ADHESION_EQUIPE" && (
+      {peutDecider && review.kind === "ADHESION_EQUIPE" && (
         <form action={approveTeamJoinRequestAction}>
           <input type="hidden" name="id" value={review.id} />
           {choixEquipe(t("equipeAffectation"))}
@@ -175,7 +177,7 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
         </form>
       )}
 
-      {pending && (
+      {peutDecider && (
         <>
           <h2>{t("refuserOuCompleter")}</h2>
           <form action={refuseRequestAction}>

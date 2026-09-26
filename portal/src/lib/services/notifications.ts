@@ -116,8 +116,11 @@ function recapCle(t: Traducteur, r: AccessRequest): string[] {
 /** Paragraphe d'introduction suivi d'un récapitulatif en liste. */
 const avecRecap = (introduction: string, recap: string[]) => [introduction, ...recap].join("\n");
 
-/** F-30 : chaque nouvelle demande est notifiée aux admins : qui la dépose, ce qu'elle demande, et le lien vers sa fiche. */
-export async function notifyNewRequest(deps: NotificationDeps, demande: AccessRequest): Promise<void> {
+/**
+ * F-30 : chaque nouvelle demande est notifiée aux admins et aux responsables de l'équipe désignés par le service (hors
+ * le demandeur) : qui la dépose, ce qu'elle demande, et le lien vers sa fiche.
+ */
+export async function notifyNewRequest(deps: NotificationDeps, demande: AccessRequest, responsables: string[] = []): Promise<void> {
   const qui = { nom: nom(demande), email: demande.requesterEmail };
   const message = bilingue(
     (t) =>
@@ -136,7 +139,7 @@ export async function notifyNewRequest(deps: NotificationDeps, demande: AccessRe
           },
     lienVers(deps, `/gestion/demandes/${demande.id}`),
   );
-  await envoyer(deps, deps.adminEmails ?? [], message);
+  await envoyer(deps, [...new Set([...(deps.adminEmails ?? []), ...responsables])], message);
 }
 
 /** F-40 : demande de clé approuvée, avec les paramètres de la clé et l'échéance de retrait ; jamais de clé. */

@@ -7,6 +7,7 @@ import type { Prisma } from "@/generated/prisma/client";
 import { type CatalogModel, checkKeyRequest, checkTransition, DATA_LEVELS, type DataLevel, type KeyRequestDraft, type PolicyVerdict, type RequestStatus } from "@/lib/policy";
 import { recordAudit } from "./audit";
 import { markExpired } from "./echeances";
+import { managerEmails } from "./autorite";
 import { type NotificationDeps, notifyNewRequest } from "./notifications";
 
 interface RequestDeps extends NotificationDeps {
@@ -59,7 +60,7 @@ export async function createKeyRequest(deps: RequestDeps, user: SessionUser, inp
     targetId: created.id,
     details: origine ? { kind: "CLE", teamAlias: created.teamAlias, origine: origine.id } : { kind: "CLE", teamAlias: created.teamAlias },
   });
-  await notifyNewRequest(deps, created);
+  await notifyNewRequest(deps, created, await managerEmails(deps.db, created.teamId, [created.requesterUid]));
   return { id: created.id };
 }
 
@@ -131,7 +132,7 @@ export async function createTeamJoinRequest(deps: RequestDeps, user: SessionUser
     },
   });
   await recordAudit(deps.db, { actorUid: user.uid, action: "REQUEST_CREATED", targetId: created.id, details: { kind: "ADHESION_EQUIPE", teamAlias: team.teamAlias } });
-  await notifyNewRequest(deps, created);
+  await notifyNewRequest(deps, created, await managerEmails(deps.db, created.teamId, [created.requesterUid]));
   return { id: created.id };
 }
 

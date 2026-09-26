@@ -4,6 +4,7 @@ import { PortalError } from "@/lib/errors";
 import type { LiteLLMClient, LiteLLMTeam } from "@/lib/litellm/client";
 import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
+import { managerEmails, requireAutorite, requireGestion } from "./autorite";
 import { revokeMemberKeys } from "./keys";
 import { type NotificationDeps, notifyManagerDesignated, notifyMemberAdded, notifyMemberRemoved, notifyTeamChange } from "./notifications";
 import { cancelMemberRequests } from "./requests";
@@ -38,23 +39,29 @@ export interface TeamPage extends TeamOverview {
 /** Longueur maximale d'un nom d'équipe. */
 const NOM_MAX = 100;
 
-/** F-53 : toutes les équipes, par ordre alphabétique, avec leurs membres réels et leurs clés actives. */
+/**
+ * F-53 : les équipes (pour un responsable, les siennes), par ordre alphabétique, avec leurs membres réels, leurs clés
+ * actives et leurs responsables.
+ */
 export async function listTeamOverviews(deps: TeamDeps, actor: SessionUser): Promise<TeamOverview[]> {
-  requireAdmin(actor);
+  const equipes = await requireGestion(deps.db, actor);
   const [teams, cles, responsables] = await Promise.all([deps.litellm.listTeams(), activeKeyCounts(deps.db), approversByTeam(deps.db, null)]);
-  return teams.map((t) => overview(t, cles, responsables)).sort((a, b) => a.teamAlias.localeCompare(b.teamAlias, "fr"));
+  return teams
+    .filter((t) => equipes === null || equipes.includes(t.teamId))
+    .map((t) => overview(t, cles, responsables))
+    .sort((a, b) => a.teamAlias.localeCompare(b.teamAlias, "fr"));
 }
 
 /** F-53 : une équipe ; introuvable si LiteLLM ne la connaît pas. */
 export async function getTeamOverview(deps: TeamDeps, actor: SessionUser, teamId: string): Promise<TeamOverview> {
-  requireAdmin(actor);
+  await requireAutorite(deps.db, actor, teamId, "equipe");
   const team = await existingTeam(deps, teamId);
   return overview(team, await activeKeyCounts(deps.db), await approversByTeam(deps.db, [team.teamId]));
 }
 
 /** F-53 : page d'une équipe ; introuvable si LiteLLM ne la connaît pas. */
 export async function getTeamPage(deps: TeamDeps, actor: SessionUser, teamId: string): Promise<TeamPage> {
-  requireAdmin(actor);
+  await requireAutorite(deps.db, actor, teamId, "equipe");
   const team = await existingTeam(deps, teamId);
   const managers = await deps.db.teamManager.findMany({ where: { teamId: team.teamId }, orderBy: { uid: "asc" } });
   return {
@@ -95,14 +102,14 @@ export async function designateManager(deps: TeamDeps, actor: SessionUser, input
   await deps.db.teamManager.create({ data: { teamId: team.teamId, uid, email: salarie.email ?? "", designatedBy: actor.uid } });
   await recordAudit(deps.db, { actorUid: actor.uid, action: "MANAGER_DESIGNATED", targetId: team.teamId, details: { responsable: uid } });
   if (salarie.email) await notifyManagerDesignated(deps, { email: salarie.email, equipe: team.teamAlias, auteur: actor });
-  await notifyTeamChange(deps, { type: "responsableDesigne", teamId: team.teamId, equipe: team.teamAlias, responsable: uid, auteur: actor }, await autresResponsables(deps.db, team.teamId, [actor.uid, uid]));
+  await notifyTeamChange(deps, { type: "responsableDesigne", teamId: team.teamId, equipe: team.teamAlias, responsable: uid, auteur: actor }, await managerEmails(deps.db, team.teamId, [actor.uid, uid]));
 }
 
 /** F-54 : retrait du rôle de responsable par un admin ; le salarié reste membre de l'équipe, et il en est prévenu. */
 export async function removeManager(deps: TeamDeps, actor: SessionUser, input: { teamId: string; uid: string }): Promise<void> {
   requireAdmin(actor);
   const team = await existingTeam(deps, input.teamId);
-  const destinataires = await autresResponsables(deps.db, team.teamId, [actor.uid]);
+  const destinataires = await managerEmails(deps.db, team.teamId, [actor.uid]);
   const { count } = await deps.db.teamManager.deleteMany({ where: { teamId: team.teamId, uid: input.uid } });
   if (count === 0) throw new PortalError("introuvable", `${input.uid} n'est pas responsable de ${team.teamAlias}.`, { objet: "responsable" });
   await recordAudit(deps.db, { actorUid: actor.uid, action: "MANAGER_REMOVED", targetId: team.teamId, details: { responsable: input.uid } });
@@ -123,7 +130,7 @@ export async function addTeamMember(deps: TeamDeps, actor: SessionUser, input: {
   await deps.litellm.addTeamMember(team.teamId, uid);
   await recordAudit(deps.db, { actorUid: actor.uid, action: "MEMBER_ADDED", targetId: team.teamId, details: { membre: uid } });
   if (salarie.email) await notifyMemberAdded(deps, { email: salarie.email, equipe: team.teamAlias, auteur: actor });
-  await notifyTeamChange(deps, { type: "membreAjoute", teamId: team.teamId, equipe: team.teamAlias, membre: uid, auteur: actor }, await autresResponsables(deps.db, team.teamId, [actor.uid]));
+  await notifyTeamChange(deps, { type: "membreAjoute", teamId: team.teamId, equipe: team.teamAlias, membre: uid, auteur: actor }, await managerEmails(deps.db, team.teamId, [actor.uid]));
 }
 
 /**
@@ -148,7 +155,7 @@ export async function removeTeamMember(deps: TeamDeps, actor: SessionUser, input
   });
   const email = (await deps.litellm.getUser(input.uid))?.email;
   if (email) await notifyMemberRemoved(deps, { email, equipe: team.teamAlias, auteur: actor, cles, demandes });
-  await notifyTeamChange(deps, { type: "membreSorti", teamId: team.teamId, equipe: team.teamAlias, membre: input.uid, auteur: actor }, await autresResponsables(deps.db, team.teamId, [actor.uid]));
+  await notifyTeamChange(deps, { type: "membreSorti", teamId: team.teamId, equipe: team.teamAlias, membre: input.uid, auteur: actor }, await managerEmails(deps.db, team.teamId, [actor.uid]));
 }
 
 /**
@@ -165,7 +172,7 @@ export async function deleteTeam(deps: TeamDeps, actor: SessionUser, teamId: str
   if (cles + demandes > 0) {
     throw new PortalError("equipe_non_vide", `L'équipe ${team.teamAlias} a encore des clés ou des demandes en cours.`, { cles: String(cles), demandes: String(demandes) });
   }
-  const destinataires = await autresResponsables(deps.db, team.teamId, [actor.uid]);
+  const destinataires = await managerEmails(deps.db, team.teamId, [actor.uid]);
   await deps.litellm.deleteTeam(team.teamId);
   await deps.db.teamManager.deleteMany({ where: { teamId: team.teamId } });
   await recordAudit(deps.db, { actorUid: actor.uid, action: "TEAM_DELETED", targetId: team.teamId, details: { equipe: team.teamAlias } });
@@ -190,7 +197,7 @@ export async function renameTeam(deps: TeamDeps, actor: SessionUser, input: { te
   if (nom === team.teamAlias) return;
   await deps.litellm.updateTeam(team.teamId, { alias: nom });
   await recordAudit(deps.db, { actorUid: actor.uid, action: "TEAM_RENAMED", targetId: team.teamId, details: { ancienNom: team.teamAlias, nouveauNom: nom } });
-  await notifyTeamChange(deps, { type: "renommee", teamId: team.teamId, equipe: nom, ancienNom: team.teamAlias, auteur: actor }, await autresResponsables(deps.db, team.teamId, [actor.uid]));
+  await notifyTeamChange(deps, { type: "renommee", teamId: team.teamId, equipe: nom, ancienNom: team.teamAlias, auteur: actor }, await managerEmails(deps.db, team.teamId, [actor.uid]));
 }
 
 async function existingTeam(deps: TeamDeps, teamId: string): Promise<LiteLLMTeam> {
@@ -207,12 +214,6 @@ async function nomLibre(deps: TeamDeps, saisi: string, teamId: string | null): P
   const homonyme = (await deps.litellm.listTeams()).find((t) => t.teamId !== teamId && t.teamAlias.toLocaleLowerCase("fr") === minuscules);
   if (homonyme) throw new PortalError("nom_equipe_pris", `Nom déjà pris : ${homonyme.teamAlias}.`, { nom: homonyme.teamAlias });
   return nom;
-}
-
-/** Adresses des responsables d'une équipe, hors ceux exclus (l'auteur d'un changement) : destinataires en plus des admins. */
-async function autresResponsables(db: Db, teamId: string, exclus: string[]): Promise<string[]> {
-  const rows = await db.teamManager.findMany({ where: { teamId, uid: { notIn: exclus } }, orderBy: { uid: "asc" } });
-  return rows.map((m) => m.email).filter(Boolean);
 }
 
 /** Clés émises par le portail et encore actives, par équipe. */

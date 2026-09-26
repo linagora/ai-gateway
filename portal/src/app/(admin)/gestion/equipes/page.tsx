@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { listTeamOverviews } from "@/lib/services/teams";
-import { getDeps, requireAdminPage } from "@/lib/session";
+import { getDeps, requireGestionPage } from "@/lib/session";
 import { creerEquipeAction } from "../../../actions";
 import { Notice } from "../../../components";
 import { AdminNav } from "../admin-nav";
 
 /** F-53 : les équipes de la passerelle, avec leurs membres réels et leurs clés actives, et la création d'une équipe. */
 export default async function EquipesPage(props: PageProps<"/gestion/equipes">) {
-  const admin = await requireAdminPage();
+  const admin = await requireGestionPage();
   const [t, searchParams, equipes] = await Promise.all([getTranslations("gestion.equipes"), props.searchParams, listTeamOverviews(getDeps(), admin)]);
 
   return (
@@ -16,13 +16,15 @@ export default async function EquipesPage(props: PageProps<"/gestion/equipes">) 
       <AdminNav />
       <h1>{t("titre")}</h1>
       <Notice searchParams={searchParams} />
-      <form action={creerEquipeAction} className="flex flex-wrap items-end gap-3">
-        <label>
-          {t("nouvelle")}
-          <input name="nom" required maxLength={100} />
-        </label>
-        <button type="submit">{t("creer")}</button>
-      </form>
+      {admin.isAdmin && (
+        <form action={creerEquipeAction} className="flex flex-wrap items-end gap-3">
+          <label>
+            {t("nouvelle")}
+            <input name="nom" required maxLength={100} />
+          </label>
+          <button type="submit">{t("creer")}</button>
+        </form>
+      )}
       {equipes.length === 0 ? (
         <p className="mt-6">{t("aucune")}</p>
       ) : (

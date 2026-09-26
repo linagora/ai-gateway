@@ -38,6 +38,13 @@ async function ajouterMembre(admin: Page, uid: string): Promise<void> {
   await expect(admin.getByRole("status")).toHaveText("Membre ajouté.");
 }
 
+/** Sur la page d'une équipe, l'admin désigne un responsable parmi les salariés déjà connectés. */
+async function designer(admin: Page, uid: string): Promise<void> {
+  await admin.getByLabel("Uid du responsable").fill(uid);
+  await admin.getByRole("button", { name: "Désigner responsable" }).click();
+  await expect(admin.getByRole("status")).toHaveText("Responsable désigné.");
+}
+
 /** Sur la page d'une équipe, l'admin demande sa suppression, avec confirmation. */
 async function supprimerEquipe(admin: Page): Promise<void> {
   const zone = admin.getByRole("region", { name: "Suppression de l'équipe" });
@@ -228,6 +235,71 @@ test("un admin désigne un responsable, qui devient membre ; le formulaire de de
   // Nettoyage.
   await faireSortir(admin, responsable.uid);
   await faireSortir(admin, membre.uid);
+  await supprimerEquipe(admin);
+  await expect(admin.getByRole("status")).toHaveText("Équipe supprimée.");
+});
+
+test("un responsable voit, dans une gestion limitée à son équipe, ses demandes, ses clés et ses membres ; le reste lui est introuvable (ticket #40)", async ({ browser }) => {
+  const responsable = personne("gestionnaire");
+  const membre = personne("equipier");
+  const etranger = personne("etranger");
+  const pageResponsable = await (await connecter(browser, responsable)).newPage();
+  const pageMembre = await (await connecter(browser, membre)).newPage();
+  const pageEtranger = await (await connecter(browser, etranger)).newPage();
+  const admin = await (await connecter(browser, ADMIN)).newPage();
+  const nom = `Équipe gestion ${suffixe}`;
+  await nouvelleEquipe(admin, nom);
+  await designer(admin, responsable.uid);
+  await ajouterMembre(admin, membre.uid);
+  const pageEquipe = admin.url();
+
+  // Une demande dans l'équipe, une autre dans R&D, hors de l'autorité du responsable.
+  await deposerDemande(pageMembre, nom, "Demande de l'équipe");
+  await ajouterAEquipe(etranger.uid, "R&D");
+  await deposerDemande(pageEtranger, "R&D", "Demande d'une autre équipe");
+
+  // Un salarié sans rôle n'a pas de gestion.
+  await pageMembre.goto("/");
+  await expect(pageMembre.getByRole("link", { name: /^Gestion/ })).toHaveCount(0);
+  expect((await pageMembre.goto("/gestion/demandes"))?.status()).toBe(404);
+
+  // Le responsable : lien « Gestion » avec la pastille de son équipe, onglets limités.
+  await pageResponsable.goto("/");
+  await pageResponsable.getByRole("link", { name: "Gestion (1 demande à valider)" }).click();
+  await expect(pageResponsable.getByRole("navigation", { name: "Administration" }).getByRole("link")).toHaveText([/^Demandes/, /^Clés/, "Équipes"]);
+  await expect(pageResponsable.getByRole("table").first()).toContainText(membre.uid);
+  await expect(pageResponsable.getByRole("main")).not.toContainText(etranger.uid);
+  await pageResponsable.getByRole("row", { name: new RegExp(membre.uid) }).getByRole("link", { name: "Examiner" }).click();
+  await expect(pageResponsable.getByRole("heading", { level: 1 })).toHaveText(`Clé d'API pour ${membre.uid}`);
+
+  // Hors de son autorité : introuvable.
+  await admin.goto("/gestion/demandes");
+  const ficheEtrangere = await admin.getByRole("row", { name: new RegExp(etranger.uid) }).getByRole("link", { name: "Examiner" }).getAttribute("href");
+  expect((await pageResponsable.goto(ficheEtrangere!))?.status()).toBe(404);
+  for (const chemin of ["/gestion/catalogue", "/gestion/parametres", "/gestion/outils"]) {
+    expect((await pageResponsable.goto(chemin))?.status(), chemin).toBe(404);
+  }
+
+  // Son équipe seulement, en lecture.
+  await pageResponsable.goto("/gestion/equipes");
+  await expect(pageResponsable.getByRole("button", { name: "Créer l'équipe" })).toHaveCount(0);
+  await expect(pageResponsable.getByRole("row")).toHaveCount(2);
+  await pageResponsable.getByRole("link", { name: nom, exact: true }).click();
+  await expect(pageResponsable.getByRole("region", { name: "Membres" })).toContainText(membre.uid);
+  await expect(pageResponsable.getByRole("button", { name: "Renommer" })).toHaveCount(0);
+  await pageResponsable.goto("/gestion/cles");
+  await expect(pageResponsable.getByRole("heading", { level: 1 })).toHaveText("Clés d'API");
+
+  // La nouvelle demande a été annoncée au responsable et aux admins.
+  await expect.poll(async () => (await courriels(membre.uid)).find((c) => c.subject.includes("Nouvelle demande de clé"))?.to, { timeout: 15_000 }).toEqual([
+    "admins-e2e@example.org",
+    responsable.email,
+  ]);
+
+  // Nettoyage.
+  await admin.goto(pageEquipe);
+  await faireSortir(admin, membre.uid);
+  await faireSortir(admin, responsable.uid);
   await supprimerEquipe(admin);
   await expect(admin.getByRole("status")).toHaveText("Équipe supprimée.");
 });

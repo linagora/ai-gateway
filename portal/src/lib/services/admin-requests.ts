@@ -6,6 +6,7 @@ import type { LiteLLMClient } from "@/lib/litellm/client";
 import type { DataLevel, PolicyCheck, RequestStatus } from "@/lib/policy";
 import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
+import { dansEquipes, requireAutorite, requireGestion } from "./autorite";
 import { markExpired, pickupDeadline, readPickupDays } from "./echeances";
 import { type NotificationDeps, notifyCompletionRequested, notifyKeyApproved, notifyMembershipApproved, notifyRefused } from "./notifications";
 import { evaluateKeyRequest, transitionRequest } from "./requests";
@@ -31,10 +32,10 @@ export interface PendingRequest {
   createdAt: Date;
 }
 
-/** F-30 : demandes en attente, de la plus ancienne à la plus récente. */
+/** F-30 : demandes en attente, de la plus ancienne à la plus récente ; pour un responsable, celles de ses équipes. */
 export async function listPendingRequests(deps: AdminDeps, actor: SessionUser): Promise<PendingRequest[]> {
-  requireAdmin(actor);
-  const rows = await deps.db.accessRequest.findMany({ where: { status: "SOUMISE" }, orderBy: { createdAt: "asc" } });
+  const equipes = await requireGestion(deps.db, actor);
+  const rows = await deps.db.accessRequest.findMany({ where: { status: "SOUMISE", ...dansEquipes(equipes) }, orderBy: { createdAt: "asc" } });
   return rows.map((r) => ({
     id: r.id,
     kind: r.kind,
@@ -48,13 +49,17 @@ export async function listPendingRequests(deps: AdminDeps, actor: SessionUser): 
   }));
 }
 
-/** Pastilles du menu d'administration : demandes à valider, et clés approuvées que leur titulaire n'a pas retirées. */
+/**
+ * Pastilles du menu de gestion : demandes à valider, et clés approuvées que leur titulaire n'a pas retirées. Pour un
+ * responsable, celles de ses équipes, hors ses propres demandes, qu'il ne valide pas.
+ */
 export async function countAdminPending(deps: AdminDeps, actor: SessionUser): Promise<{ demandes: number; clesARetirer: number }> {
-  requireAdmin(actor);
+  const equipes = await requireGestion(deps.db, actor);
   await markExpired(deps.db, deps.now?.() ?? new Date());
+  const siennes = equipes === null ? {} : { requesterUid: { not: actor.uid } };
   const [demandes, clesARetirer] = await Promise.all([
-    deps.db.accessRequest.count({ where: { status: "SOUMISE" } }),
-    deps.db.accessRequest.count({ where: { kind: "CLE", status: "APPROUVEE" } }),
+    deps.db.accessRequest.count({ where: { status: "SOUMISE", ...dansEquipes(equipes), ...siennes } }),
+    deps.db.accessRequest.count({ where: { kind: "CLE", status: "APPROUVEE", ...dansEquipes(equipes) } }),
   ]);
   return { demandes, clesARetirer };
 }
@@ -69,9 +74,9 @@ export interface ProcessedRequest extends PendingRequest {
 
 /** Archive des demandes (F-30) : toutes celles qui ne sont plus à valider, la plus récemment modifiée d'abord. */
 export async function listProcessedRequests(deps: AdminDeps, actor: SessionUser): Promise<ProcessedRequest[]> {
-  requireAdmin(actor);
+  const equipes = await requireGestion(deps.db, actor);
   await markExpired(deps.db, deps.now?.() ?? new Date());
-  const rows = await deps.db.accessRequest.findMany({ where: { status: { not: "SOUMISE" } }, orderBy: { updatedAt: "desc" } });
+  const rows = await deps.db.accessRequest.findMany({ where: { status: { not: "SOUMISE" }, ...dansEquipes(equipes) }, orderBy: { updatedAt: "desc" } });
   return rows.map((r) => ({
     id: r.id,
     kind: r.kind,
@@ -106,10 +111,11 @@ export interface RequestReview extends PendingRequest {
 }
 
 export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: string): Promise<RequestReview> {
-  requireAdmin(actor);
+  await requireGestion(deps.db, actor);
   await markExpired(deps.db, deps.now?.() ?? new Date());
   const r = await deps.db.accessRequest.findUnique({ where: { id } });
   if (!r) throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
+  await requireAutorite(deps.db, actor, r.teamId, "demande");
   const checks =
     r.kind === "CLE" && r.dataLevel
       ? (await evaluateKeyRequest(deps, { requesterUid: r.requesterUid, teamId: r.teamId, dataLevel: r.dataLevel, models: r.models })).checks

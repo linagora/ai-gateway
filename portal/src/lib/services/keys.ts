@@ -8,6 +8,7 @@ import type { DataLevel, RequestStatus } from "@/lib/policy";
 import type { LimiteDeDebit } from "@/lib/limite-de-debit";
 import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
+import { dansEquipes, requireGestion } from "./autorite";
 import { markExpired, pickupDeadline, readPickupDays } from "./echeances";
 import { type NotificationDeps, notifyAdminKeyAction } from "./notifications";
 import { ownKeyToRenew, transitionRequest } from "./requests";
@@ -249,10 +250,10 @@ export interface AdminKeyToPickUp {
 
 /** Clés approuvées que leur titulaire n'a pas encore retirées, de la plus ancienne approbation à la plus récente. */
 export async function listKeysToPickUp(deps: KeyDeps, actor: SessionUser): Promise<AdminKeyToPickUp[]> {
-  requireAdmin(actor);
+  const equipes = await requireGestion(deps.db, actor);
   await markExpired(deps.db, deps.now?.() ?? new Date());
   const [rows, delai] = await Promise.all([
-    deps.db.accessRequest.findMany({ where: { kind: "CLE", status: "APPROUVEE" }, orderBy: { decidedAt: "asc" } }),
+    deps.db.accessRequest.findMany({ where: { kind: "CLE", status: "APPROUVEE", ...dansEquipes(equipes) }, orderBy: { decidedAt: "asc" } }),
     readPickupDays(deps.db),
   ]);
   return rows.map((r) => ({
@@ -268,12 +269,15 @@ export async function listKeysToPickUp(deps: KeyDeps, actor: SessionUser): Promi
   }));
 }
 
-/** F-43 : toutes les clés émises, les actives d'abord puis les plus récentes, avec leur dépense lue en direct. */
+/**
+ * F-43 : toutes les clés émises (pour un responsable, celles de ses équipes), les actives d'abord puis les plus
+ * récentes, avec leur dépense lue en direct.
+ */
 export async function listAllKeys(deps: KeyDeps, actor: SessionUser): Promise<AdminKey[]> {
-  requireAdmin(actor);
+  const equipes = await requireGestion(deps.db, actor);
   await markExpired(deps.db, deps.now?.() ?? new Date());
   const rows = await deps.db.accessRequest.findMany({
-    where: { kind: "CLE", keyAlias: { not: null }, keyIssuedAt: { not: null } },
+    where: { kind: "CLE", keyAlias: { not: null }, keyIssuedAt: { not: null }, ...dansEquipes(equipes) },
     orderBy: { keyIssuedAt: "desc" },
   });
   const cles = await Promise.all(rows.map(async (r) => ({ ...(await toIssuedKey(deps.litellm, r)), holderUid: r.requesterUid, holderEmail: r.requesterEmail })));
