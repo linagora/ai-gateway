@@ -368,7 +368,8 @@
       "parametres": "Default values",
       "cles": "Keys",
       "aValider": "{nombre, plural, one {# request to review} other {# requests to review}}",
-      "aRetirer": "{nombre, plural, one {# key to pick up} other {# keys to pick up}}"
+      "aRetirer": "{nombre, plural, one {# key to pick up} other {# keys to pick up}}",
+      "outils": "Tools"
     },
     "file": {
       "titre": "Requests awaiting validation",
@@ -473,6 +474,25 @@
         "colonnes": {
           "emise": "Issued on"
         }
+      }
+    },
+    "outils": {
+      "titre": "Administration tools",
+      "intro": "Admin-only features, served next to the portal by other services. They open in a new tab.",
+      "nouvelOnglet": "new tab",
+      "reporting": {
+        "titre": "Reporting (Superset)",
+        "description": "Dashboards of the gateway's usage: costs, requests and tokens by team, model and level. The “Pilotage” (steering) dashboard is for admins only; reporting readers see “Consommation” (usage).",
+        "consommation": "“Consommation” dashboard (usage)",
+        "pilotage": "“Pilotage” dashboard (steering)",
+        "accueil": "Superset home"
+      },
+      "passerelle": {
+        "titre": "Gateway (LiteLLM)",
+        "description": "Technical view of the gateway: models, keys, teams, spend and logs. Only reachable from allowed addresses, with the console's own credentials.",
+        "avertissement": "A change made in the console bypasses the portal's rules (levels, approvals, emails, audit log): keep it for troubleshooting.",
+        "console": "LiteLLM console",
+        "openapi": "OpenAPI schema of the admin API"
       }
     }
   },

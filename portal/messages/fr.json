@@ -368,7 +368,8 @@
       "parametres": "Valeurs par défaut",
       "cles": "Clés",
       "aValider": "{nombre, plural, one {# demande à valider} other {# demandes à valider}}",
-      "aRetirer": "{nombre, plural, one {# clé à retirer} other {# clés à retirer}}"
+      "aRetirer": "{nombre, plural, one {# clé à retirer} other {# clés à retirer}}",
+      "outils": "Outils"
     },
     "file": {
       "titre": "Demandes en attente de validation",
@@ -473,6 +474,25 @@
         "colonnes": {
           "emise": "Émise le"
         }
+      }
+    },
+    "outils": {
+      "titre": "Outils d'administration",
+      "intro": "Fonctions réservées aux admins, servies à côté du portail par d'autres services. Elles s'ouvrent dans un nouvel onglet.",
+      "nouvelOnglet": "nouvel onglet",
+      "reporting": {
+        "titre": "Reporting (Superset)",
+        "description": "Tableaux de bord de la consommation de la passerelle : coûts, requêtes et jetons par équipe, par modèle et par niveau. « Pilotage » est réservé aux admins ; les lecteurs du reporting voient « Consommation ».",
+        "consommation": "Tableau de bord « Consommation »",
+        "pilotage": "Tableau de bord « Pilotage »",
+        "accueil": "Accueil de Superset"
+      },
+      "passerelle": {
+        "titre": "Passerelle (LiteLLM)",
+        "description": "Vue technique de la passerelle : modèles, clés, équipes, dépenses et journaux. Accessible seulement depuis les adresses autorisées, avec les identifiants propres à la console.",
+        "avertissement": "Une modification faite dans la console échappe aux règles du portail (niveaux, validations, courriels, journal d'audit) : à réserver au dépannage.",
+        "console": "Console LiteLLM",
+        "openapi": "Schéma OpenAPI de l'API d'administration"
       }
     }
   },

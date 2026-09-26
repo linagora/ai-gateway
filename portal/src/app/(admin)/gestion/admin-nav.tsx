@@ -20,6 +20,7 @@ export async function AdminNav() {
       </Link>
       <Link href="/gestion/catalogue">{t("catalogue")}</Link>
       <Link href="/gestion/parametres">{t("parametres")}</Link>
+      <Link href="/gestion/outils">{t("outils")}</Link>
     </nav>
   );
 }

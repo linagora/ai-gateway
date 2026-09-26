@@ -35,3 +35,25 @@ test("le menu signale les demandes à valider et les clés à retirer ; les page
   await expect(admin.getByRole("region", { name: "Clés approuvées, à retirer par le salarié" }).getByRole("row", { name: new RegExp(salarie.uid) })).toBeVisible();
   await expect(admin.getByRole("region", { name: "Archive : clés révoquées ou expirées" })).toBeVisible();
 });
+
+test("l'onglet « Outils » mène, dans un nouvel onglet, aux fonctions réservées aux admins hors du portail : reporting et passerelle", async ({ browser }) => {
+  const admin = await (await connecter(browser, ADMIN)).newPage();
+  await admin.goto("/gestion/demandes");
+  await admin.getByRole("navigation", { name: "Administration" }).getByRole("link", { name: "Outils" }).click();
+  await expect(admin.getByRole("heading", { level: 1 })).toHaveText("Outils d'administration");
+  for (const [nom, adresse] of [
+    ["Tableau de bord « Consommation »", "/stats/superset/dashboard/consommation/"],
+    ["Tableau de bord « Pilotage »", "/stats/superset/dashboard/pilotage/"],
+    ["Accueil de Superset", "/stats/"],
+    ["Console LiteLLM", "/admin/ui/"],
+    ["Schéma OpenAPI de l'API d'administration", "/admin/openapi.json"],
+  ]) {
+    const lien = admin.getByRole("link", { name: new RegExp(`^${nom} \\(nouvel onglet\\)$`) });
+    await expect(lien).toHaveAttribute("href", adresse);
+    await expect(lien).toHaveAttribute("target", "_blank");
+  }
+
+  // Un salarié n'y a pas accès.
+  const salarie = await (await connecter(browser, personne("outils"))).newPage();
+  expect((await salarie.goto("/gestion/outils"))?.status()).toBe(404);
+});
