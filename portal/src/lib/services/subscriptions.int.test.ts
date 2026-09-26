@@ -288,6 +288,17 @@ describe("déclarer un abonnement et le suivre dans « Mes abonnements » (ticke
     expect(await tache("2026-10-16T05:00:00Z")).toMatchObject({ demandesExpirees: 1 });
     expect(await listMyRequests(deps, membre)).toEqual([expect.objectContaining({ id, status: "EXPIREE" })]);
   });
+
+  test("passé le délai de retrait, une déclaration est refusée même si rien n'a encore constaté l'expiration de la demande", async () => {
+    const id = await approuvee();
+    deps.now = () => new Date("2026-10-16T09:00:00Z");
+    await expect(declareSubscription(deps, membre, id, { subscribedAt: "2026-10-10", monthlyAmountEur: 108, accountEmail: "pmartin@linagora.com" })).rejects.toMatchObject({
+      code: "transition_interdite",
+      params: { cas: "declaration_expiree" },
+    });
+    expect(await listMyRequests(deps, membre)).toEqual([expect.objectContaining({ id, status: "EXPIREE" })]);
+    expect((await listMySubscriptions(deps, membre)).abonnements).toEqual([]);
+  });
 });
 
 describe("onglet « Abonnements » de la gestion et résumé sur la page d'une équipe (ticket #56)", () => {
@@ -716,12 +727,12 @@ describe("échéance, renouvellement et changement d'offre (ticket #59)", () => 
     expect(mailer.outbox[0].text).toContain(
       "Cet abonnement remplace votre abonnement Anthropic · Claude Max 5x : à sa déclaration, l'abonnement remplacé sera résilié à la date de souscription déclarée.",
     );
-    deps.now = () => new Date("2026-10-16T09:00:00Z");
-    const nouveau = await declareSubscription(deps, membre, demande, { subscribedAt: "2026-10-15", monthlyAmountEur: 216, accountEmail: "pmartin@linagora.com" });
-    expect((await listSubscriptionArchive(deps, admin)).elements.map((a) => [a.id, a.terminatedOn])).toEqual([[origine, new Date("2026-10-15T00:00:00Z")]]);
+    deps.now = () => new Date("2026-10-14T09:00:00Z");
+    const nouveau = await declareSubscription(deps, membre, demande, { subscribedAt: "2026-10-13", monthlyAmountEur: 216, accountEmail: "pmartin@linagora.com" });
+    expect((await listSubscriptionArchive(deps, admin)).elements.map((a) => [a.id, a.terminatedOn])).toEqual([[origine, new Date("2026-10-13T00:00:00Z")]]);
     expect((await listActiveSubscriptions(deps, admin)).map((a) => a.id).sort()).toEqual([jumeau, nouveau].sort());
     expect(await journal("SUBSCRIPTION_OFFER_CHANGED")).toEqual([
-      ["pmartin", origine, { offre: "Anthropic · Claude Max 5x", nouvelleOffre: "Anthropic · Claude Max 20x", date: "2026-10-15", nouvelAbonnement: nouveau }],
+      ["pmartin", origine, { offre: "Anthropic · Claude Max 5x", nouvelleOffre: "Anthropic · Claude Max 20x", date: "2026-10-13", nouvelAbonnement: nouveau }],
     ]);
   });
 

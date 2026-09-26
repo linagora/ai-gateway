@@ -139,7 +139,7 @@
       "parametre_manquant": "Budget, budget period and validity are required: enter them or configure default values.",
       "recommandation_hors_cas_usage": "A recommendation can only apply to a checked use case.",
       "tarif_eur_manquant": "Model {modele} has no price in euros: it cannot be made visible.",
-      "transition_interdite": "{cas, select, modifiee {The request was modified in the meantime; reload the page.} traitee {This request has already been processed.} expiree {This key has expired: request its renewal.} bloquee {This key has been blocked by an administrator.} abonnement {This action is not possible in the current status of the subscription; reload the page.} other {This action is not possible in the current status of the request.}}",
+      "transition_interdite": "{cas, select, modifiee {The request was modified in the meantime; reload the page.} traitee {This request has already been processed.} expiree {This key has expired: request its renewal.} bloquee {This key has been blocked by an administrator.} declaration_expiree {The declaration deadline has passed: this subscription request has expired. Submit a new request.} abonnement {This action is not possible in the current status of the subscription; reload the page.} other {This action is not possible in the current status of the request.}}",
       "saisie_invalide": "Invalid input: check the fields {champs}.",
       "inconnue": "An error occurred.",
       "passerelle_indisponible": "The gateway is not responding: try again in a few moments.",

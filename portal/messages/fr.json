@@ -139,7 +139,7 @@
       "parametre_manquant": "Budget, période du budget et durée de validité sont obligatoires : saisissez-les ou configurez des valeurs par défaut.",
       "recommandation_hors_cas_usage": "Une recommandation ne peut porter que sur un cas d'usage coché.",
       "tarif_eur_manquant": "Le modèle {modele} n'a pas de tarif en euros : il ne peut pas être rendu visible.",
-      "transition_interdite": "{cas, select, modifiee {La demande a été modifiée entre-temps ; rechargez la page.} traitee {Cette demande a déjà été traitée.} expiree {Cette clé a expiré : demandez son renouvellement.} bloquee {Cette clé est bloquée par un administrateur.} abonnement {Cette action n'est pas possible au statut actuel de l'abonnement ; rechargez la page.} other {Cette action n'est pas possible au statut actuel de la demande.}}",
+      "transition_interdite": "{cas, select, modifiee {La demande a été modifiée entre-temps ; rechargez la page.} traitee {Cette demande a déjà été traitée.} expiree {Cette clé a expiré : demandez son renouvellement.} bloquee {Cette clé est bloquée par un administrateur.} declaration_expiree {Le délai de déclaration est passé : cette demande d'abonnement a expiré. Faites une nouvelle demande.} abonnement {Cette action n'est pas possible au statut actuel de l'abonnement ; rechargez la page.} other {Cette action n'est pas possible au statut actuel de la demande.}}",
       "saisie_invalide": "Saisie invalide : vérifiez les champs {champs}.",
       "inconnue": "Une erreur est survenue.",
       "passerelle_indisponible": "La passerelle ne répond pas : réessayez dans quelques instants.",

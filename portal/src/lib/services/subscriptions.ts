@@ -288,15 +288,21 @@ export async function listMySubscriptions(deps: SubscriptionDeps, user: SessionU
  */
 export async function declareSubscription(deps: SubscriptionDeps, user: SessionUser, requestId: string, input: DeclarationInput): Promise<string> {
   const data = declarationInputSchema.parse(input);
+  const maintenant = deps.now?.() ?? new Date();
   const souscription = new Date(`${data.subscribedAt}T00:00:00Z`);
-  if (souscription > jourUtc(deps.now?.() ?? new Date())) {
+  if (souscription > jourUtc(maintenant)) {
     throw new PortalError("date_future", "La date de souscription ne peut pas être dans le futur.");
   }
+  // Comme au retrait d'une clé : une demande dont le délai est passé expire d'abord, et ne se déclare plus.
+  await markExpired(deps.db, maintenant);
   const request = await deps.db.accessRequest.findUnique({ where: { id: requestId }, include: { offer: true } });
   if (!request || request.requesterUid !== user.uid || request.kind !== "ABONNEMENT" || !request.offer) {
     throw new PortalError("introuvable", "Demande d'abonnement introuvable.", { objet: "demande_abonnement" });
   }
   const { offer } = request;
+  if (request.status === "EXPIREE") {
+    throw new PortalError("transition_interdite", "Le délai de déclaration est passé : la demande a expiré.", { cas: "declaration_expiree" });
+  }
   if (request.status !== "APPROUVEE" || request.approvedDays === null || !request.decidedAt) {
     throw new PortalError("transition_interdite", "Seule une demande d'abonnement approuvée se déclare.");
   }
@@ -322,7 +328,7 @@ export async function declareSubscription(deps: SubscriptionDeps, user: SessionU
     });
   });
   // Une souscription passée (régularisation) compte d'un coup les prélèvements déjà échus.
-  await enregistrerPrelevements(deps.db, abonnement, deps.now?.() ?? new Date());
+  await enregistrerPrelevements(deps.db, abonnement, maintenant);
   await recordAudit(deps.db, {
     actorUid: user.uid,
     action: "SUBSCRIPTION_DECLARED",
