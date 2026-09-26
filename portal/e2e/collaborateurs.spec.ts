@@ -17,9 +17,9 @@ import {
   supprimerEquipe,
 } from "./outils";
 
-/* Fiche d'un salarié (retours de l'utilisateur du 2026-09-26) : ses équipes, ses clés et ses abonnements en cours, et les actions de la gestion. */
+/* Fiche d'un collaborateur (retours de l'utilisateur du 2026-09-26) : ses équipes, ses clés et ses abonnements en cours, et les actions de la gestion. */
 const suffixe = Date.now().toString(36);
-const personne = (n: string) => ({ uid: `salaries-${n}-${suffixe}`, email: `salaries-${n}-${suffixe}@example.org`, name: `Personne ${n} ${suffixe}` });
+const personne = (n: string) => ({ uid: `collaborateurs-${n}-${suffixe}`, email: `collaborateurs-${n}-${suffixe}@example.org`, name: `Personne ${n} ${suffixe}` });
 
 test.beforeAll(async ({ browser }) => {
   const context = await connecter(browser, ADMIN);
@@ -27,7 +27,7 @@ test.beforeAll(async ({ browser }) => {
   await context.close();
 });
 
-test("depuis la page de son équipe, la fiche d'un salarié montre sa clé et son abonnement ; les actions faites depuis la fiche y ramènent", async ({ browser }) => {
+test("depuis la page de son équipe, la fiche d'un collaborateur montre sa clé et son abonnement ; les actions faites depuis la fiche y ramènent", async ({ browser }) => {
   const membre = personne("fiche");
   const pageMembre = await (await connecter(browser, membre)).newPage();
   const admin = await (await connecter(browser, ADMIN)).newPage();
@@ -68,7 +68,7 @@ test("depuis la page de son équipe, la fiche d'un salarié montre sa clé et so
   await expect(ligneAbonnement).toContainText("Actif");
 
   // Demande de résiliation, révocation, puis déclaration de la résiliation : chacune ramène à la fiche.
-  const fiche = new RegExp(`/gestion/salaries/${echapper(membre.uid)}\\?ok=`);
+  const fiche = new RegExp(`/gestion/collaborateurs/${echapper(membre.uid)}\\?ok=`);
   await ligneAbonnement.getByText("Demander la résiliation").click();
   await ligneAbonnement.getByLabel("Motif").fill("Fin du projet");
   await ligneAbonnement.getByRole("button", { name: "Envoyer la demande de résiliation" }).click();
@@ -96,7 +96,7 @@ test("depuis la page de son équipe, la fiche d'un salarié montre sa clé et so
   await masquerOffre(admin, "Anthropic", offre);
 });
 
-test("onglet « Salariés » : le nombre de membres d'une équipe y mène, la recherche retrouve un salarié et son uid exact ouvre sa fiche", async ({ browser }) => {
+test("onglet « Collaborateurs » : le nombre de membres d'une équipe y mène, la recherche retrouve un collaborateur et son uid exact ouvre sa fiche", async ({ browser }) => {
   const membre = personne("liste");
   await (await connecter(browser, membre)).close();
   const admin = await (await connecter(browser, ADMIN)).newPage();
@@ -105,24 +105,24 @@ test("onglet « Salariés » : le nombre de membres d'une équipe y mène, la re
   await ajouterMembre(admin, membre.uid);
   const pageEquipe = admin.url();
 
-  // Depuis l'onglet « Équipes », le nombre de membres mène aux salariés de l'équipe.
+  // Depuis l'onglet « Équipes », le nombre de membres mène aux collaborateurs de l'équipe.
   await admin.goto("/gestion/equipes");
   await admin.getByRole("row", { name: new RegExp(echapper(equipe)) }).getByRole("link", { name: "Voir le membre de l'équipe" }).click();
-  await expect(admin.getByRole("heading", { level: 1 })).toHaveText("Salariés");
-  await expect(admin.getByText(`Salariés de l'équipe ${equipe}`)).toBeVisible();
+  await expect(admin.getByRole("heading", { level: 1 })).toHaveText("Collaborateurs");
+  await expect(admin.getByText(`Collaborateurs de l'équipe ${equipe}`)).toBeVisible();
   const liste = admin.getByRole("table");
   await expect(liste.getByRole("row")).toHaveCount(2);
   await expect(liste.getByRole("row", { name: new RegExp(echapper(membre.uid)) })).toContainText(equipe);
 
-  // La recherche retrouve un salarié par une partie de son uid ; son uid exact ouvre sa fiche.
-  await admin.getByRole("link", { name: "Tous les salariés" }).click();
-  await admin.getByLabel("Rechercher un salarié").fill(membre.uid.slice(0, -3));
+  // La recherche retrouve un collaborateur par une partie de son uid ; son uid exact ouvre sa fiche.
+  await admin.getByRole("link", { name: "Tous les collaborateurs" }).click();
+  await admin.getByLabel("Rechercher un collaborateur").fill(membre.uid.slice(0, -3));
   await admin.getByRole("button", { name: "Rechercher" }).click();
   await expect(admin.getByRole("table").getByRole("link", { name: membre.uid, exact: true })).toBeVisible();
-  await admin.getByLabel("Rechercher un salarié").fill(membre.uid);
+  await admin.getByLabel("Rechercher un collaborateur").fill(membre.uid);
   await admin.getByRole("button", { name: "Rechercher" }).click();
   await expect(admin.getByRole("heading", { level: 1 })).toHaveText(membre.uid);
-  await expect(admin.getByRole("navigation", { name: "Administration" }).getByRole("link", { name: "Salariés" })).toHaveAttribute("aria-current", "true");
+  await expect(admin.getByRole("navigation", { name: "Administration" }).getByRole("link", { name: "Collaborateurs" })).toHaveAttribute("aria-current", "true");
 
   // Nettoyage.
   await admin.goto(pageEquipe);

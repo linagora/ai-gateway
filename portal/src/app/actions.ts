@@ -521,10 +521,10 @@ function pageAbonnements(formData: FormData): string {
   return pageGestion(formData, equipe ? `/gestion/abonnements?equipe=${encodeURIComponent(equipe)}` : "/gestion/abonnements");
 }
 
-/** Fiche du salarié que nomme le formulaire (champ « salarie »), d'où vient l'action ; sinon, la page par défaut. */
+/** Fiche du collaborateur que nomme le formulaire (champ « collaborateur »), d'où vient l'action ; sinon, la page par défaut. */
 function pageGestion(formData: FormData, parDefaut: string): string {
-  const salarie = text(formData, "salarie");
-  return salarie ? `/gestion/salaries/${encodeURIComponent(salarie)}` : parDefaut;
+  const collaborateur = text(formData, "collaborateur");
+  return collaborateur ? `/gestion/collaborateurs/${encodeURIComponent(collaborateur)}` : parDefaut;
 }
 
 function text(formData: FormData, name: string): string {

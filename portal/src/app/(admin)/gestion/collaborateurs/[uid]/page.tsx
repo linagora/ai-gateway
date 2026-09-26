@@ -10,15 +10,15 @@ import { ActionsAbonnement, ActionsCle } from "../../actions-gestion";
 import { AdminNav } from "../../admin-nav";
 
 /**
- * Fiche d'un salarié (retours de l'utilisateur du 2026-09-26) : ses équipes, ses clés et ses abonnements en cours, avec
+ * Fiche d'un collaborateur (retours de l'utilisateur du 2026-09-26) : ses équipes, ses clés et ses abonnements en cours, avec
  * les actions de la gestion (blocage et révocation d'une clé ; demande ou déclaration de la résiliation d'un
  * abonnement), qui ramènent à la fiche. Un responsable d'équipe n'y voit que ce qui relève de ses équipes.
  */
-export default async function SalariePage(props: PageProps<"/gestion/salaries/[uid]">) {
+export default async function CollaborateurPage(props: PageProps<"/gestion/collaborateurs/[uid]">) {
   const acteur = await requireGestionPage();
   const [{ uid }, t, tCles, tAbonnements, cles, domaine, searchParams, { date, euros, jour }] = await Promise.all([
     props.params,
-    getTranslations("gestion.salaries"),
+    getTranslations("gestion.collaborateurs"),
     getTranslations("gestion.cles"),
     getTranslations("gestion.abonnements"),
     getTranslations("cles"),
@@ -30,14 +30,14 @@ export default async function SalariePage(props: PageProps<"/gestion/salaries/[u
     if (e instanceof PortalError && e.code === "introuvable") notFound();
     throw e;
   });
-  const retour = { salarie: fiche.uid };
+  const retour = { collaborateur: fiche.uid };
   const sousTitre = "mt-4 mb-2 font-semibold";
 
   return (
     <>
       <AdminNav />
       <p>
-        <Link href="/gestion/salaries" className="inline-flex items-center gap-1">
+        <Link href="/gestion/collaborateurs" className="inline-flex items-center gap-1">
           <ArrowLeft aria-hidden="true" className="size-4" />
           {t("tous")}
         </Link>

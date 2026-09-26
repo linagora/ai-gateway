@@ -40,7 +40,7 @@ test("le menu signale les demandes à valider, pas les clés que le salarié doi
   await admin.goto("/gestion/demandes");
 
   await menu.getByRole("link", { name: /^Clés/ }).click();
-  await expect(admin.getByRole("region", { name: "Clés approuvées, à retirer par le salarié" }).getByRole("row", { name: new RegExp(salarie.uid) })).toBeVisible();
+  await expect(admin.getByRole("region", { name: "Clés approuvées, à retirer par le collaborateur" }).getByRole("row", { name: new RegExp(salarie.uid) })).toBeVisible();
   await expect(admin.getByRole("region", { name: "Archive : clés révoquées ou expirées" })).toBeVisible();
 });
 

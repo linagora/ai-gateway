@@ -4,7 +4,7 @@ import { listPendingRequests, listProcessedRequests } from "@/lib/services/admin
 import { getDeps, requireGestionPage } from "@/lib/session";
 import { Notice, PaginationArchive, formats } from "../../../components";
 import { AdminNav } from "../admin-nav";
-import { LienSalarie } from "../lien-salarie";
+import { LienCollaborateur } from "../lien-collaborateur";
 
 /** F-30 : demandes en attente, de la plus ancienne à la plus récente, puis l'archive des demandes traitées, page par page. */
 export default async function PendingRequestsPage(props: PageProps<"/gestion/demandes">) {
@@ -35,7 +35,7 @@ export default async function PendingRequestsPage(props: PageProps<"/gestion/dem
             <tr key={r.id}>
               <td>{date(r.createdAt)}</td>
               <td>
-                <LienSalarie uid={r.requesterUid} />
+                <LienCollaborateur uid={r.requesterUid} />
               </td>
               <td>{domaine(`typesDemande.${r.kind}`)}</td>
               <td>{r.teamAlias}</td>
@@ -74,7 +74,7 @@ export default async function PendingRequestsPage(props: PageProps<"/gestion/dem
                 <tr key={r.id}>
                   <td>{date(r.updatedAt)}</td>
                   <td>
-                    <LienSalarie uid={r.requesterUid} />
+                    <LienCollaborateur uid={r.requesterUid} />
                   </td>
                   <td>{domaine(`typesDemande.${r.kind}`)}</td>
                   <td>{r.teamAlias}</td>

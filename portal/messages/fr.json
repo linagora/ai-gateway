@@ -134,7 +134,7 @@
       "renouvellement_trop_tot": "Le renouvellement se demande au plus tôt un mois avant l'échéance de l'abonnement.",
       "engagement_requis": "Engagez-vous à ne pas soumettre de données d'un niveau supérieur à celui déclaré.",
       "interdit": "Action réservée aux administrateurs.",
-      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} membre {Membre introuvable dans cette équipe.} responsable {Responsable introuvable dans cette équipe.} offre {Offre d'abonnement introuvable.} demande_abonnement {Demande d'abonnement introuvable.} abonnement {Abonnement introuvable.} salarie {Salarié introuvable.} other {Demande introuvable.}}",
+      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} membre {Membre introuvable dans cette équipe.} responsable {Responsable introuvable dans cette équipe.} offre {Offre d'abonnement introuvable.} demande_abonnement {Demande d'abonnement introuvable.} abonnement {Abonnement introuvable.} collaborateur {Collaborateur introuvable.} other {Demande introuvable.}}",
       "motif_obligatoire": "Un motif est obligatoire.",
       "parametre_manquant": "Budget, période du budget et durée de validité sont obligatoires : saisissez-les ou configurez des valeurs par défaut.",
       "recommandation_hors_cas_usage": "Une recommandation ne peut porter que sur un cas d'usage coché.",
@@ -146,7 +146,7 @@
       "trop_de_generations": "Trop de clés générées en peu de temps : réessayez dans quelques minutes.",
       "nom_equipe_invalide": "Donnez un nom à l'équipe (100 caractères au plus).",
       "nom_equipe_pris": "Le nom {nom} est déjà pris par une autre équipe.",
-      "salarie_inconnu": "Aucun salarié ne s'est encore connecté au portail avec l'identifiant {uid}.",
+      "salarie_inconnu": "Aucun collaborateur ne s'est encore connecté au portail avec l'identifiant {uid}.",
       "membre_existant": "{uid} est déjà membre de l'équipe {equipe}.",
       "equipe_non_vide": "Cette équipe a encore des clés actives ({cles}), des demandes en cours ({demandes}) ou des abonnements non résiliés ({abonnements}) : révoquez ses clés, y compris celles créées depuis la console de LiteLLM, traitez ses demandes, et faites résilier ou rattacher à une autre équipe ses abonnements avant de la supprimer.",
       "responsable_existant": "{uid} est déjà responsable de l'équipe {equipe}.",
@@ -176,7 +176,7 @@
       "useCases": "Cas d'usage",
       "recommendedFor": "Recommandé pour",
       "dataLevel": "Niveau de confidentialité",
-      "visible": "Visible des salariés",
+      "visible": "Visible des collaborateurs",
       "teamId": "Équipe",
       "models": "Modèles",
       "justification": "Motif",
@@ -224,12 +224,12 @@
     "casUsage": "Cas d'usage",
     "recommandePour": "Recommandé pour",
     "niveau": "Niveau maximal",
-    "visible": "Visible des salariés",
+    "visible": "Visible des collaborateurs",
     "enregistrer": "Enregistrer",
     "aucunModele": "Aucun modèle n'est déclaré dans la passerelle.",
     "offres": {
       "titre": "Offres d'abonnement",
-      "introduction": "Offres que les salariés peuvent demander pour leur équipe, puis souscrire eux-mêmes chez le fournisseur. Une offre masquée n'est plus proposée, sans être supprimée.",
+      "introduction": "Offres que les collaborateurs peuvent demander pour leur équipe, puis souscrire eux-mêmes chez le fournisseur. Une offre masquée n'est plus proposée, sans être supprimée.",
       "aucune": "Aucune offre pour l'instant.",
       "fournisseur": "Fournisseur",
       "nom": "Nom de l'offre",
@@ -262,11 +262,11 @@
     "aucunModele": "Aucun modèle n'est encore ouvert à ce niveau. Pour en demander un, écrivez aux administrateurs du portail.",
     "niveaux": {
       "N1": {
-        "definition": "Informations publiques (NC) ou destinées à tous les salariés (C1).",
+        "definition": "Informations publiques (NC) ou destinées à tous les collaborateurs (C1).",
         "confier": [
           "Code open source, documentation et contenus publiés",
           "Veille et recherche sur des sources publiques",
-          "Notes et documents internes destinés à tous les salariés (C1)"
+          "Notes et documents internes destinés à tous les collaborateurs (C1)"
         ],
         "jamais": [
           "Informations à diffusion restreinte (C2, niveau N2)",
@@ -445,16 +445,16 @@
     "retour": "Retour au portail"
   },
   "gestion": {
-    "salaries": {
-      "titre": "Salariés",
-      "tous": "Tous les salariés",
-      "filtreEquipe": "Salariés de l'équipe {equipe}",
-      "recherche": "Rechercher un salarié (uid ou adresse)",
+    "collaborateurs": {
+      "titre": "Collaborateurs",
+      "tous": "Tous les collaborateurs",
+      "filtreEquipe": "Collaborateurs de l'équipe {equipe}",
+      "recherche": "Rechercher un collaborateur (uid ou adresse)",
       "rechercher": "Rechercher",
-      "aucun": "Aucun salarié.",
-      "aucunResultat": "Aucun salarié ne correspond à « {recherche} ».",
+      "aucun": "Aucun collaborateur.",
+      "aucunResultat": "Aucun collaborateur ne correspond à « {recherche} ».",
       "colonnes": {
-        "salarie": "Salarié",
+        "collaborateur": "Collaborateur",
         "equipes": "Équipes",
         "cles": "Clés actives",
         "abonnements": "Abonnements actifs"
@@ -463,9 +463,9 @@
       "aucuneEquipe": "Membre d'aucune équipe.",
       "responsable": "responsable",
       "cles": "Clés d'API",
-      "clesARetirer": "Clés approuvées, à retirer par le salarié",
+      "clesARetirer": "Clés approuvées, à retirer par le collaborateur",
       "abonnements": "Abonnements",
-      "abonnementsADeclarer": "Abonnements approuvés, à déclarer par le salarié"
+      "abonnementsADeclarer": "Abonnements approuvés, à déclarer par le collaborateur"
     },
     "nav": {
       "libelle": "Administration",
@@ -477,7 +477,7 @@
       "equipes": "Équipes",
       "aValider": "{nombre, plural, one {# demande à valider} other {# demandes à valider}}",
       "outils": "Outils",
-      "salaries": "Salariés"
+      "collaborateurs": "Collaborateurs"
     },
     "file": {
       "titre": "Demandes en attente de validation",
@@ -588,7 +588,7 @@
       "bloquer": "Bloquer",
       "debloquer": "Débloquer",
       "aRetirer": {
-        "titre": "Clés approuvées, à retirer par le salarié",
+        "titre": "Clés approuvées, à retirer par le collaborateur",
         "colonnes": {
           "modeles": "Modèles",
           "approuvee": "Approuvée le",
@@ -641,7 +641,7 @@
         "budget": "Budget",
         "responsables": "Responsables"
       },
-      "voirMembres": "{nombre, plural, =0 {Voir les salariés de l'équipe} one {Voir le membre de l'équipe} other {Voir les # membres de l'équipe}}",
+      "voirMembres": "{nombre, plural, =0 {Voir les collaborateurs de l'équipe} one {Voir le membre de l'équipe} other {Voir les # membres de l'équipe}}",
       "voirCles": "{nombre, plural, =0 {Voir les clés de l'équipe} one {Voir la clé active de l'équipe} other {Voir les # clés actives de l'équipe}}",
       "toutes": "Toutes les équipes",
       "resume": "Résumé de l'équipe",
@@ -661,7 +661,7 @@
       },
       "membres": "Membres",
       "aucunMembre": "Aucun membre.",
-      "uid": "Uid du salarié",
+      "uid": "Uid du collaborateur",
       "ajouter": "Ajouter à l'équipe",
       "colonneMembre": "Membre",
       "faireSortir": "Faire sortir de l'équipe",
@@ -701,7 +701,7 @@
       "filtreEquipe": "Abonnements de l'équipe {equipe}",
       "tous": "Tous les abonnements",
       "aDeclarer": {
-        "titre": "Abonnements approuvés, à déclarer par le salarié",
+        "titre": "Abonnements approuvés, à déclarer par le collaborateur",
         "approuve": "Approuvé le",
         "avant": "À déclarer avant le"
       },

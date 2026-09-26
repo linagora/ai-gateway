@@ -8,7 +8,7 @@ import { getDeps, requireGestionPage } from "@/lib/session";
 import { formats, Notice, PaginationArchive } from "../../../components";
 import { ActionsAbonnement } from "../actions-gestion";
 import { AdminNav } from "../admin-nav";
-import { LienSalarie } from "../lien-salarie";
+import { LienCollaborateur } from "../lien-collaborateur";
 
 /**
  * Spécification #51, ticket #56 : les abonnements approuvés en attente de déclaration, les abonnements actifs, puis
@@ -39,7 +39,7 @@ export default async function GestionAbonnementsPage(props: PageProps<"/gestion/
   ]);
   const titulaire = (uid: string, email: string) => (
     <td>
-      <LienSalarie uid={uid} />
+      <LienCollaborateur uid={uid} />
       <br />
       <span className="text-xs text-neutral-600">{email}</span>
     </td>

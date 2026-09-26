@@ -18,7 +18,7 @@ import {
 } from "../../../../actions";
 import { DepenseSurBudget, formats, Notice } from "../../../../components";
 import { AdminNav } from "../../admin-nav";
-import { LienSalarie } from "../../lien-salarie";
+import { LienCollaborateur } from "../../lien-collaborateur";
 
 /**
  * F-53 et F-54 : page d'une équipe : son résumé, son renommage, son budget, ses responsables et ses membres
@@ -49,7 +49,7 @@ export default async function EquipePage(props: PageProps<"/gestion/equipes/[id]
       <dl className="grid grid-cols-[12rem_1fr] gap-x-4 gap-y-1" aria-label={t("resume")}>
         <dt>{t("colonnes.membres")}</dt>
         <dd>
-          <Link href={`/gestion/salaries?equipe=${encodeURIComponent(equipe.teamId)}`} aria-label={t("voirMembres", { nombre: equipe.memberCount })}>
+          <Link href={`/gestion/collaborateurs?equipe=${encodeURIComponent(equipe.teamId)}`} aria-label={t("voirMembres", { nombre: equipe.memberCount })}>
             {equipe.memberCount}
           </Link>
         </dd>
@@ -133,7 +133,7 @@ export default async function EquipePage(props: PageProps<"/gestion/equipes/[id]
               {equipe.managers.map((m) => (
                 <tr key={m.uid}>
                   <td>
-                    <LienSalarie uid={m.uid} />
+                    <LienCollaborateur uid={m.uid} />
                   </td>
                   <td>{m.email}</td>
                   {estAdmin && (
@@ -180,7 +180,7 @@ export default async function EquipePage(props: PageProps<"/gestion/equipes/[id]
               {equipe.members.map((uid) => (
                 <tr key={uid}>
                   <td>
-                    <LienSalarie uid={uid} />
+                    <LienCollaborateur uid={uid} />
                   </td>
                   {/* Un admin ou un responsable de l'équipe peut faire sortir un membre ; un responsable, seul un admin (F-54). */}
                   <td>
