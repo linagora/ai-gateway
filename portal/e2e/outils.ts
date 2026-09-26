@@ -39,7 +39,7 @@ export async function enrichirModele(
   await section.getByLabel("Description courte (français)").fill(`Modèle de démonstration ${modele.niveau}`);
   await section.getByLabel("Description longue (français)").fill(`Modèle de démonstration ${modele.niveau}, à réponses simulées.`);
   await section.getByLabel("Niveau maximal").selectOption(modele.niveau);
-  await section.getByLabel("Visible des salariés").check();
+  await section.getByLabel("Visible des collaborateurs").check();
   for (const [groupe, coches] of [["Cas d'usage", modele.casUsage], ["Recommandé pour", modele.recommandePour]] as const) {
     if (!coches) continue;
     for (const cas of CAS_USAGE) await section.getByRole("group", { name: groupe }).getByLabel(cas, { exact: true }).setChecked(coches.includes(cas));
@@ -154,7 +154,7 @@ export async function faireSortir(admin: Page, uid: string): Promise<void> {
 
 /** Sur la page d'une équipe, l'admin ajoute directement un salarié déjà connecté. */
 export async function ajouterMembre(admin: Page, uid: string): Promise<void> {
-  await admin.getByLabel("Uid du salarié").fill(uid);
+  await admin.getByLabel("Uid du collaborateur").fill(uid);
   await admin.getByRole("button", { name: "Ajouter à l'équipe" }).click();
   await expect(admin.getByRole("status")).toHaveText("Membre ajouté.");
 }

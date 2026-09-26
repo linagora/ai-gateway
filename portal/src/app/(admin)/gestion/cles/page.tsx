@@ -8,7 +8,7 @@ import { getDeps, requireGestionPage } from "@/lib/session";
 import { DepenseSurBudget, formats, Notice, PaginationArchive } from "../../../components";
 import { ActionsCle } from "../actions-gestion";
 import { AdminNav } from "../admin-nav";
-import { LienSalarie } from "../lien-salarie";
+import { LienCollaborateur } from "../lien-collaborateur";
 
 /**
  * F-43, tickets #19 et #42 : les clés approuvées qui attendent leur retrait, les clés actives avec la révocation, le
@@ -39,7 +39,7 @@ export default async function GestionClesPage(props: PageProps<"/gestion/cles">)
   ]);
   const titulaire = (uid: string, email: string) => (
     <td>
-      <LienSalarie uid={uid} />
+      <LienCollaborateur uid={uid} />
       <br />
       <span className="text-xs text-neutral-600">{email}</span>
     </td>

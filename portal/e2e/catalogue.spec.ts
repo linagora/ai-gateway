@@ -200,7 +200,7 @@ test.describe("vue d'ensemble des niveaux (ticket #5)", () => {
     const pageAdmin = await admin.newPage();
     await pageAdmin.goto("/gestion/catalogue");
     const fiche = pageAdmin.locator("section").filter({ has: pageAdmin.locator("code", { hasText: /^dev-experimental$/ }) });
-    await fiche.getByLabel("Visible des salariés").uncheck();
+    await fiche.getByLabel("Visible des collaborateurs").uncheck();
     await fiche.getByRole("button", { name: "Enregistrer" }).click();
     await expect(pageAdmin.getByRole("status")).toHaveText("Catalogue mis à jour.");
     const context = await connecter(browser, salarie);

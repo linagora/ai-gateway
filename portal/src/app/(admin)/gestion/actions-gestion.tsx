@@ -5,17 +5,17 @@ import type { AdminSubscription } from "@/lib/services/subscriptions";
 import { bloquerCleAction, debloquerCleAction, declarerResiliationGestionAction, demanderResiliationAction, revoquerCleAdminAction } from "../../actions";
 import { Obligatoire } from "../../obligatoire";
 
-/** Page où revenir après une action : l'onglet filtré sur une équipe, ou la fiche d'un salarié. */
+/** Page où revenir après une action : l'onglet filtré sur une équipe, ou la fiche d'un collaborateur. */
 export interface Retour {
   equipe?: string;
-  salarie?: string;
+  collaborateur?: string;
 }
 
 function ChampsRetour({ retour }: { retour: Retour }) {
   return (
     <>
       {retour.equipe && <input type="hidden" name="equipe" value={retour.equipe} />}
-      {retour.salarie && <input type="hidden" name="salarie" value={retour.salarie} />}
+      {retour.collaborateur && <input type="hidden" name="collaborateur" value={retour.collaborateur} />}
     </>
   );
 }

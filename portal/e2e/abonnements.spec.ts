@@ -240,7 +240,7 @@ test("le responsable suit l'abonnement de son équipe : à déclarer dans l'ongl
   await pageResponsable.goto("/gestion/demandes");
   await pageResponsable.getByRole("navigation", { name: "Administration" }).getByRole("link", { name: "Abonnements", exact: true }).click();
   await expect(pageResponsable.getByRole("heading", { level: 1 })).toHaveText("Abonnements");
-  await expect(pageResponsable.getByRole("region", { name: "Abonnements approuvés, à déclarer par le salarié" }).getByRole("row", { name: new RegExp(membre.uid) })).toContainText(offre);
+  await expect(pageResponsable.getByRole("region", { name: "Abonnements approuvés, à déclarer par le collaborateur" }).getByRole("row", { name: new RegExp(membre.uid) })).toContainText(offre);
 
   // Déclaré, il apparaît dans le résumé de la page de l'équipe, qui mène à l'onglet filtré sur l'équipe.
   await declarer(pageMembre, offre, { montant: "108", adresse: `${membre.uid}@gmail.com` });

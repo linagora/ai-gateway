@@ -78,12 +78,12 @@ test("un admin ajoute directement un salarié à une équipe, puis l'en fait sor
   await expect(membres).toContainText("Aucun membre.");
 
   // Un uid qui ne s'est jamais connecté au portail est refusé.
-  await admin.getByLabel("Uid du salarié").fill(`inconnu-${suffixe}`);
+  await admin.getByLabel("Uid du collaborateur").fill(`inconnu-${suffixe}`);
   await admin.getByRole("button", { name: "Ajouter à l'équipe" }).click();
-  await expect(admin.getByRole("main").getByRole("alert")).toHaveText(`Aucun salarié ne s'est encore connecté au portail avec l'identifiant inconnu-${suffixe}.`);
+  await expect(admin.getByRole("main").getByRole("alert")).toHaveText(`Aucun collaborateur ne s'est encore connecté au portail avec l'identifiant inconnu-${suffixe}.`);
 
   // Ajout direct : le salarié devient membre, et peut aussitôt demander une clé pour l'équipe.
-  await admin.getByLabel("Uid du salarié").fill(salarie.uid);
+  await admin.getByLabel("Uid du collaborateur").fill(salarie.uid);
   await admin.getByRole("button", { name: "Ajouter à l'équipe" }).click();
   await expect(admin.getByRole("status")).toHaveText("Membre ajouté.");
   await expect(membres.getByRole("row", { name: new RegExp(salarie.uid) })).toBeVisible();
@@ -120,7 +120,7 @@ test("une équipe qui a une demande en cours ne peut pas être supprimée ; vide
   const admin = await (await connecter(browser, ADMIN)).newPage();
   const nom = `Équipe suppression ${suffixe}`;
   await nouvelleEquipe(admin, nom);
-  await admin.getByLabel("Uid du salarié").fill(salarie.uid);
+  await admin.getByLabel("Uid du collaborateur").fill(salarie.uid);
   await admin.getByRole("button", { name: "Ajouter à l'équipe" }).click();
   await expect(admin.getByRole("status")).toHaveText("Membre ajouté.");
   await deposerDemande(page, nom, "Demande en cours");
@@ -227,7 +227,7 @@ test("un responsable voit, dans une gestion limitée à son équipe, ses demande
   // Le responsable : lien « Gestion » avec la pastille de son équipe, onglets limités.
   await pageResponsable.goto("/");
   await pageResponsable.getByRole("link", { name: "Gestion (1 demande à valider)" }).click();
-  await expect(pageResponsable.getByRole("navigation", { name: "Administration" }).getByRole("link")).toHaveText([/^Demandes/, /^Clés/, /^Abonnements/, "Équipes", "Salariés"]);
+  await expect(pageResponsable.getByRole("navigation", { name: "Administration" }).getByRole("link")).toHaveText([/^Demandes/, /^Clés/, /^Abonnements/, "Équipes", "Collaborateurs"]);
   await expect(pageResponsable.getByRole("table").first()).toContainText(membre.uid);
   await expect(pageResponsable.getByRole("main")).not.toContainText(etranger.uid);
   await pageResponsable.getByRole("row", { name: new RegExp(membre.uid) }).getByRole("link", { name: "Examiner" }).click();
