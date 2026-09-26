@@ -5,6 +5,7 @@ import { getDeps, requireGestionPage } from "@/lib/session";
 import { creerEquipeAction } from "../../../actions";
 import { DepenseSurBudget, Notice } from "../../../components";
 import { AdminNav } from "../admin-nav";
+import { LienSalarie } from "../lien-salarie";
 
 /**
  * F-53 : les équipes de la passerelle, avec leurs responsables, leurs membres réels, leurs clés actives et la dépense de
@@ -47,7 +48,16 @@ export default async function EquipesPage(props: PageProps<"/gestion/equipes">) 
                 <td>
                   <Link href={`/gestion/equipes/${encodeURIComponent(e.teamId)}`}>{e.teamAlias}</Link>
                 </td>
-                <td>{e.managerUids.join(", ") || t("aucun")}</td>
+                <td>
+                  {e.managerUids.length === 0
+                    ? t("aucun")
+                    : e.managerUids.map((uid, i) => (
+                        <span key={uid}>
+                          {i > 0 && ", "}
+                          <LienSalarie uid={uid} />
+                        </span>
+                      ))}
+                </td>
                 <td>
                   <Link href={`/gestion/salaries?equipe=${encodeURIComponent(e.teamId)}`} aria-label={t("voirMembres", { nombre: e.memberCount })}>
                     {e.memberCount}

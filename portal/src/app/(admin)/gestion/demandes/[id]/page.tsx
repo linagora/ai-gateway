@@ -20,6 +20,7 @@ import {
 import { ChoixDuree, ExplicationObligatoires, libelleDuree, Notice, formats } from "../../../../components";
 import { Obligatoire } from "../../../../obligatoire";
 import { AdminNav } from "../../admin-nav";
+import { LienSalarie } from "../../lien-salarie";
 
 /** F-31 / F-32 : fiche d'une demande, contrôles de politique réussis ou en échec, et décisions. */
 export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id]">) {
@@ -92,7 +93,7 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
         <dd>{date(review.createdAt)}</dd>
         <dt>{t("demandeur")}</dt>
         <dd>
-          {review.requesterUid} ({review.requesterEmail})
+          <LienSalarie uid={review.requesterUid} /> ({review.requesterEmail})
         </dd>
         <dt>{t("equipe")}</dt>
         <dd>{review.teamAlias}</dd>

@@ -4,6 +4,7 @@ import { listPendingRequests, listProcessedRequests } from "@/lib/services/admin
 import { getDeps, requireGestionPage } from "@/lib/session";
 import { Notice, PaginationArchive, formats } from "../../../components";
 import { AdminNav } from "../admin-nav";
+import { LienSalarie } from "../lien-salarie";
 
 /** F-30 : demandes en attente, de la plus ancienne à la plus récente, puis l'archive des demandes traitées, page par page. */
 export default async function PendingRequestsPage(props: PageProps<"/gestion/demandes">) {
@@ -33,7 +34,9 @@ export default async function PendingRequestsPage(props: PageProps<"/gestion/dem
           {pending.map((r) => (
             <tr key={r.id}>
               <td>{date(r.createdAt)}</td>
-              <td>{r.requesterUid}</td>
+              <td>
+                <LienSalarie uid={r.requesterUid} />
+              </td>
               <td>{domaine(`typesDemande.${r.kind}`)}</td>
               <td>{r.teamAlias}</td>
               <td>{r.dataLevel ? domaine(`niveaux.${r.dataLevel}`) : ""}</td>
@@ -70,7 +73,9 @@ export default async function PendingRequestsPage(props: PageProps<"/gestion/dem
               {archive.elements.map((r) => (
                 <tr key={r.id}>
                   <td>{date(r.updatedAt)}</td>
-                  <td>{r.requesterUid}</td>
+                  <td>
+                    <LienSalarie uid={r.requesterUid} />
+                  </td>
                   <td>{domaine(`typesDemande.${r.kind}`)}</td>
                   <td>{r.teamAlias}</td>
                   <td>{r.dataLevel ? domaine(`niveaux.${r.dataLevel}`) : ""}</td>

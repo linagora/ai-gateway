@@ -44,6 +44,17 @@ test("depuis la page de son équipe, la fiche d'un salarié montre sa clé et so
   await approuverDemande(admin, membre);
   await declarer(pageMembre, offre, { montant: "21.60", adresse: membre.email });
 
+  // Dans les onglets de la gestion, l'uid du demandeur ou du titulaire mène à sa fiche.
+  for (const [onglet, zone] of [
+    ["/gestion/demandes", "Archive : demandes traitées"],
+    ["/gestion/cles", "Clés actives"],
+    ["/gestion/abonnements", "Abonnements actifs"],
+  ] as const) {
+    await admin.goto(onglet);
+    await admin.getByRole("region", { name: zone }).getByRole("link", { name: membre.uid, exact: true }).first().click();
+    await expect(admin.getByRole("heading", { level: 1 })).toHaveText(membre.uid);
+  }
+
   // L'uid du membre, sur la page de l'équipe, mène à sa fiche.
   await admin.goto(pageEquipe);
   await admin.getByRole("region", { name: "Membres" }).getByRole("link", { name: membre.uid, exact: true }).click();
