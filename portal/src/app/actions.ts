@@ -19,7 +19,7 @@ import { saveCatalogEntry } from "@/lib/services/catalog";
 import { blockKey, pickUpKey, replaceKey, revokeKey, unblockKey } from "@/lib/services/keys";
 import { cancelRequest, completeRequest, createKeyRequest, createTeamJoinRequest } from "@/lib/services/requests";
 import { saveSettings } from "@/lib/services/settings";
-import { addTeamMember, createTeam, deleteTeam, designateManager, removeManager, removeTeamMember, renameTeam } from "@/lib/services/teams";
+import { addTeamMember, createTeam, deleteTeam, designateManager, removeManager, removeTeamMember, renameTeam, setTeamBudget } from "@/lib/services/teams";
 import { getDeps, requireUser } from "@/lib/session";
 
 /*
@@ -171,42 +171,53 @@ export async function creerEquipeAction(formData: FormData): Promise<void> {
 /** F-53 : renommage d'une équipe par un admin. */
 export async function renommerEquipeAction(formData: FormData): Promise<void> {
   const user = await requireUser();
-  const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+  const page = pageEquipe(formData);
   await run(page, () => renameTeam(getDeps(), user, { teamId: text(formData, "id"), name: text(formData, "nom") }), { path: page, message: "equipeRenommee" });
+}
+
+/** F-53 : budget d'équipe et sa période, fixés par un admin ; 0 : sans limite. */
+export async function fixerBudgetEquipeAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const page = pageEquipe(formData);
+  await run(
+    page,
+    () => setTeamBudget(getDeps(), user, { teamId: text(formData, "id"), budget: optionalNumber(formData, "budget"), period: text(formData, "periode") }),
+    { path: page, message: "budgetFixe" },
+  );
 }
 
 /** F-53 : ajout direct d'un salarié à une équipe par un admin. */
 export async function ajouterMembreAction(formData: FormData): Promise<void> {
   const user = await requireUser();
-  const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+  const page = pageEquipe(formData);
   await run(page, () => addTeamMember(getDeps(), user, { teamId: text(formData, "id"), uid: text(formData, "uid") }), { path: page, message: "membreAjoute" });
 }
 
-/** F-54 : sortie d'une équipe, décidée par un admin. */
+/** F-54 : sortie d'une équipe, décidée par un admin ou un responsable de l'équipe. */
 export async function faireSortirMembreAction(formData: FormData): Promise<void> {
   const user = await requireUser();
-  const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+  const page = pageEquipe(formData);
   await run(page, () => removeTeamMember(getDeps(), user, { teamId: text(formData, "id"), uid: text(formData, "uid") }), { path: page, message: "membreSorti" });
 }
 
 /** F-53 : suppression d'une équipe par un admin ; en cas de refus, la page de l'équipe en donne la raison. */
 export async function supprimerEquipeAction(formData: FormData): Promise<void> {
   const user = await requireUser();
-  const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+  const page = pageEquipe(formData);
   await run(page, () => deleteTeam(getDeps(), user, text(formData, "id")), { path: "/gestion/equipes", message: "equipeSupprimee" });
 }
 
 /** F-54 : désignation d'un responsable d'équipe par un admin. */
 export async function designerResponsableAction(formData: FormData): Promise<void> {
   const user = await requireUser();
-  const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+  const page = pageEquipe(formData);
   await run(page, () => designateManager(getDeps(), user, { teamId: text(formData, "id"), uid: text(formData, "uid") }), { path: page, message: "responsableDesigne" });
 }
 
 /** F-54 : retrait du rôle de responsable par un admin. */
 export async function retirerResponsableAction(formData: FormData): Promise<void> {
   const user = await requireUser();
-  const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+  const page = pageEquipe(formData);
   await run(page, () => removeManager(getDeps(), user, { teamId: text(formData, "id"), uid: text(formData, "uid") }), { path: page, message: "responsableRetire" });
 }
 
@@ -218,19 +229,19 @@ export async function revoquerCleAction(formData: FormData): Promise<void> {
   await run("/cles", () => revokeKey(getDeps(), user, text(formData, "id")), { path: "/cles", message: "cleRevoquee" });
 }
 
-/** F-43 : révocation d'une clé par un admin, depuis « Gestion — Clés ». */
+/** F-43 : révocation d'une clé par un admin ou un responsable de son équipe, depuis « Gestion — Clés ». */
 export async function revoquerCleAdminAction(formData: FormData): Promise<void> {
   const user = await requireUser();
   await run("/gestion/cles", () => revokeKey(getDeps(), user, text(formData, "id")), { path: "/gestion/cles", message: "cleRevoquee" });
 }
 
-/** F-43 : blocage d'une clé par un admin (suspension temporaire et réversible). */
+/** F-43 : blocage d'une clé par un admin ou un responsable de son équipe (suspension temporaire et réversible). */
 export async function bloquerCleAction(formData: FormData): Promise<void> {
   const user = await requireUser();
   await run("/gestion/cles", () => blockKey(getDeps(), user, text(formData, "id")), { path: "/gestion/cles", message: "cleBloquee" });
 }
 
-/** F-43 : déblocage d'une clé par un admin. */
+/** F-43 : déblocage d'une clé par un admin ou un responsable de son équipe. */
 export async function debloquerCleAction(formData: FormData): Promise<void> {
   const user = await requireUser();
   await run("/gestion/cles", () => unblockKey(getDeps(), user, text(formData, "id")), { path: "/gestion/cles", message: "cleDebloquee" });
@@ -286,6 +297,7 @@ type CleSucces =
   | "cleDebloquee"
   | "equipeCreee"
   | "equipeRenommee"
+  | "budgetFixe"
   | "membreAjoute"
   | "membreSorti"
   | "equipeSupprimee"
@@ -330,6 +342,11 @@ function keyRequestFromForm(formData: FormData) {
     commitment: formData.get("commitment") === "on",
     renewsRequestId: optionalText(formData, "renewsRequestId"),
   };
+}
+
+/** Page de l'équipe visée par un formulaire de la gestion des équipes (champ « id »). */
+function pageEquipe(formData: FormData): string {
+  return `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
 }
 
 function text(formData: FormData, name: string): string {

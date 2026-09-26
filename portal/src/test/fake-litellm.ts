@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import type { GeneratedKey, KeyInfo, KeyParams, LiteLLMClient, LiteLLMModel, LiteLLMTeam, LiteLLMUser } from "@/lib/litellm/client";
+import type { GeneratedKey, KeyInfo, KeyParams, LiteLLMClient, LiteLLMModel, LiteLLMTeam, LiteLLMUser, TeamChanges } from "@/lib/litellm/client";
 
 /** Clé connue du LiteLLM simulé ; `key` n'y est gardée que pour les vérifications des tests. */
 export interface FakeKey extends KeyParams {
@@ -10,6 +10,9 @@ export interface FakeKey extends KeyParams {
   budgetResetAt: Date;
   blocked: boolean;
 }
+
+/** Équipe sans budget d'équipe : ni plafond, ni période, aucune dépense. */
+const SANS_BUDGET = { maxBudget: null, budgetDuration: null, spend: 0, budgetResetAt: null };
 
 /** Durée LiteLLM (30d, 12h, 90m, 3600s) en millisecondes. */
 function durationMs(duration: string): number {
@@ -75,6 +78,7 @@ export class FakeLiteLLM implements LiteLLMClient {
   }
 
   async listTeams(): Promise<LiteLLMTeam[]> {
+    if (this.panne) throw new Error("LiteLLM injoignable");
     return [...this.teams.values()].map((t) => ({ ...t, models: [...t.models], memberUids: [...t.memberUids] }));
   }
 
@@ -82,7 +86,7 @@ export class FakeLiteLLM implements LiteLLMClient {
     if (this.panne) throw new Error("LiteLLM injoignable");
     // Comme LiteLLM 1.102.1 : un nom déjà pris n'est pas refusé ; l'unicité est l'affaire du portail.
     const teamId = `equipe-${randomBytes(4).toString("hex")}`;
-    this.teams.set(teamId, { teamId, teamAlias: alias, models: [], memberUids: [] });
+    this.teams.set(teamId, { teamId, teamAlias: alias, models: [], memberUids: [], ...SANS_BUDGET });
     return teamId;
   }
 
@@ -93,11 +97,23 @@ export class FakeLiteLLM implements LiteLLMClient {
     for (const [tokenId, cle] of this.keys) if (cle.teamId === teamId) this.keys.delete(tokenId);
   }
 
-  async updateTeam(teamId: string, { alias }: { alias: string }): Promise<void> {
+  async countActiveTeamKeys(teamId: string): Promise<number> {
+    if (this.panne) throw new Error("LiteLLM injoignable");
+    const maintenant = this.horloge().getTime();
+    return [...this.keys.values()].filter((k) => k.teamId === teamId && (k.expiresAt === null || k.expiresAt.getTime() > maintenant)).length;
+  }
+
+  async updateTeam(teamId: string, changes: TeamChanges): Promise<void> {
     if (this.panne) throw new Error("LiteLLM injoignable");
     const team = this.teams.get(teamId);
     if (!team) throw new Error(`équipe inconnue : ${teamId}`);
-    team.teamAlias = alias;
+    if (changes.alias !== undefined) team.teamAlias = changes.alias;
+    if (changes.maxBudget !== undefined) team.maxBudget = changes.maxBudget;
+    if (changes.budgetDuration !== undefined) {
+      team.budgetDuration = changes.budgetDuration;
+      // Comme LiteLLM : une période fixe la prochaine remise à zéro ; sans période, il n'y en a pas.
+      team.budgetResetAt = changes.budgetDuration ? new Date(this.horloge().getTime() + durationMs(changes.budgetDuration)) : null;
+    }
   }
 
   async generateKey(params: KeyParams): Promise<GeneratedKey> {
@@ -142,8 +158,8 @@ export class FakeLiteLLM implements LiteLLMClient {
 
   // --- préparation des scénarios ---
 
-  withTeam(team: { teamId: string; teamAlias?: string; models: string[]; memberUids: string[] }): this {
-    this.teams.set(team.teamId, { teamAlias: team.teamId, ...team });
+  withTeam(team: { teamId: string; teamAlias?: string; models: string[]; memberUids: string[] } & Partial<Omit<LiteLLMTeam, "teamId">>): this {
+    this.teams.set(team.teamId, { teamAlias: team.teamId, ...SANS_BUDGET, ...team });
     return this;
   }
 

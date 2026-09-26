@@ -1,7 +1,9 @@
+import { z } from "zod";
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
+import { PERIODE_BUDGET } from "@/lib/durees";
 import { PortalError } from "@/lib/errors";
-import type { LiteLLMClient, LiteLLMTeam } from "@/lib/litellm/client";
+import type { LiteLLMClient, LiteLLMTeam, LiteLLMUser } from "@/lib/litellm/client";
 import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
 import { managerEmails, requireAutorite, requireGestion } from "./autorite";
@@ -15,13 +17,25 @@ export interface TeamDeps extends NotificationDeps {
   litellm: LiteLLMClient;
 }
 
-/** Équipe telle que la présente la gestion : ses membres réels, ses clés actives émises par le portail, ses responsables. */
+/**
+ * Budget d'équipe (F-53), lu dans LiteLLM : plafond (null : sans limite), période au format LiteLLM, dépense de la
+ * période en cours et date de sa remise à zéro.
+ */
+export interface TeamBudget {
+  max: number | null;
+  period: string | null;
+  spend: number;
+  resetAt: Date | null;
+}
+
+/** Équipe telle que la présente la gestion : ses membres réels, ses clés actives émises par le portail, ses responsables, son budget. */
 export interface TeamOverview {
   teamId: string;
   teamAlias: string;
   memberCount: number;
   activeKeyCount: number;
   managerUids: string[];
+  budget: TeamBudget;
 }
 
 /** Responsable d'une équipe, avec l'adresse à laquelle le portail le prévient. */
@@ -38,6 +52,17 @@ export interface TeamPage extends TeamOverview {
 
 /** Longueur maximale d'un nom d'équipe. */
 const NOM_MAX = 100;
+
+/*
+ * Saisies de la gestion des équipes, validées par zod comme toute entrée du portail ; un refus garde son code métier,
+ * pour un message qui dit quoi corriger.
+ */
+const nomEquipeSchema = z.string().trim().min(1).max(NOM_MAX);
+const uidSchema = z.string().trim().min(1);
+/** Budget d'équipe : positif ou nul (0 : sans limite) ; positif, il lui faut une période au format d'une clé (30d…). */
+const budgetEquipeSchema = z
+  .object({ budget: z.number().finite().nonnegative(), period: z.string().trim() })
+  .refine(({ budget, period }) => budget === 0 || PERIODE_BUDGET.test(period));
 
 /**
  * F-53 : les équipes (pour un responsable, les siennes), par ordre alphabétique, avec leurs membres réels, leurs clés
@@ -89,9 +114,7 @@ export async function approversByTeam(db: Db, teamIds: string[] | null): Promise
 export async function designateManager(deps: TeamDeps, actor: SessionUser, input: { teamId: string; uid: string }): Promise<void> {
   requireAdmin(actor);
   const team = await existingTeam(deps, input.teamId);
-  const uid = input.uid.trim();
-  const salarie = uid ? await deps.litellm.getUser(uid) : null;
-  if (!salarie) throw new PortalError("salarie_inconnu", `Salarié inconnu de la passerelle : ${uid}.`, { uid });
+  const { uid, salarie } = await salarieConnu(deps, input.uid);
   if (await deps.db.teamManager.findUnique({ where: { teamId_uid: { teamId: team.teamId, uid } } })) {
     throw new PortalError("responsable_existant", `${uid} est déjà responsable de ${team.teamAlias}.`, { uid, equipe: team.teamAlias });
   }
@@ -123,9 +146,7 @@ export async function removeManager(deps: TeamDeps, actor: SessionUser, input: {
 export async function addTeamMember(deps: TeamDeps, actor: SessionUser, input: { teamId: string; uid: string }): Promise<void> {
   requireAdmin(actor);
   const team = await existingTeam(deps, input.teamId);
-  const uid = input.uid.trim();
-  const salarie = uid ? await deps.litellm.getUser(uid) : null;
-  if (!salarie) throw new PortalError("salarie_inconnu", `Salarié inconnu de la passerelle : ${uid}.`, { uid });
+  const { uid, salarie } = await salarieConnu(deps, input.uid);
   if (team.memberUids.includes(uid)) throw new PortalError("membre_existant", `${uid} est déjà membre de ${team.teamAlias}.`, { uid, equipe: team.teamAlias });
   await deps.litellm.addTeamMember(team.teamId, uid);
   await recordAudit(deps.db, { actorUid: actor.uid, action: "MEMBER_ADDED", targetId: team.teamId, details: { membre: uid } });
@@ -134,13 +155,18 @@ export async function addTeamMember(deps: TeamDeps, actor: SessionUser, input: {
 }
 
 /**
- * F-54 : sortie d'une équipe, décidée par un admin ou un responsable de l'équipe. Ses clés de l'équipe sont révoquées d'abord (un échec laisse le membre en place), puis
- * ses demandes en cours dans l'équipe annulées, avant son retrait de l'équipe dans LiteLLM ; il en est prévenu.
+ * F-54 : sortie d'une équipe, décidée par un admin ou un responsable de l'équipe (un responsable n'en fait sortir ni un
+ * autre responsable ni lui-même). Ses clés de l'équipe sont révoquées d'abord (un échec laisse le membre en place),
+ * puis ses demandes en cours dans l'équipe annulées, avant sa sortie de l'équipe dans LiteLLM ; il en est prévenu.
  */
 export async function removeTeamMember(deps: TeamDeps, actor: SessionUser, input: { teamId: string; uid: string }): Promise<void> {
   await requireAutorite(deps.db, actor, input.teamId, "equipe");
   const team = await existingTeam(deps, input.teamId);
   if (!team.memberUids.includes(input.uid)) throw new PortalError("introuvable", `${input.uid} n'est pas membre de ${team.teamAlias}.`, { objet: "membre" });
+  // Faire sortir un responsable, c'est lui retirer son rôle : cela revient aux admins, comme sa désignation.
+  if (!actor.isAdmin && (await deps.db.teamManager.findUnique({ where: { teamId_uid: { teamId: team.teamId, uid: input.uid } } }))) {
+    throw new PortalError("interdit", `Seul un admin fait sortir un responsable de ${team.teamAlias}.`);
+  }
   const cles = await revokeMemberKeys(deps, actor, team.teamId, input.uid);
   const demandes = await cancelMemberRequests(deps.db, team.teamId, input.uid);
   await deps.litellm.removeTeamMember(team.teamId, input.uid);
@@ -160,21 +186,26 @@ export async function removeTeamMember(deps: TeamDeps, actor: SessionUser, input
 
 /**
  * F-53 : supprime une équipe. LiteLLM supprimant aussi ses clés, la suppression est refusée tant que l'équipe a des clés
- * actives ou des demandes en cours (DEMANDES_EN_COURS) ; l'historique des demandes reste.
+ * actives, émises par le portail ou créées depuis la console de LiteLLM, ou des demandes en cours (DEMANDES_EN_COURS) ;
+ * l'historique des demandes reste.
  */
 export async function deleteTeam(deps: TeamDeps, actor: SessionUser, teamId: string): Promise<void> {
   requireAdmin(actor);
   const team = await existingTeam(deps, teamId);
-  const [cles, demandes] = await Promise.all([
+  const [clesPortail, clesPasserelle, demandes] = await Promise.all([
     deps.db.accessRequest.count({ where: { teamId: team.teamId, kind: "CLE", status: "CLE_EMISE" } }),
+    // LiteLLM supprimerait aussi les clés de l'équipe créées depuis sa console : elles comptent.
+    deps.litellm.countActiveTeamKeys(team.teamId),
     deps.db.accessRequest.count({ where: { teamId: team.teamId, ...DEMANDES_EN_COURS } }),
   ]);
+  const cles = Math.max(clesPortail, clesPasserelle);
   if (cles + demandes > 0) {
     throw new PortalError("equipe_non_vide", `L'équipe ${team.teamAlias} a encore des clés ou des demandes en cours.`, { cles: String(cles), demandes: String(demandes) });
   }
   const destinataires = await managerEmails(deps.db, team.teamId, [actor.uid]);
   await deps.litellm.deleteTeam(team.teamId);
   await deps.db.teamManager.deleteMany({ where: { teamId: team.teamId } });
+  await deps.db.teamBudgetAlert.deleteMany({ where: { teamId: team.teamId } });
   await recordAudit(deps.db, { actorUid: actor.uid, action: "TEAM_DELETED", targetId: team.teamId, details: { equipe: team.teamAlias } });
   await notifyTeamChange(deps, { type: "supprimee", teamId: team.teamId, equipe: team.teamAlias, auteur: actor }, destinataires);
 }
@@ -187,6 +218,24 @@ export async function createTeam(deps: TeamDeps, actor: SessionUser, input: { na
   await recordAudit(deps.db, { actorUid: actor.uid, action: "TEAM_CREATED", targetId: teamId, details: { equipe: nom } });
   await notifyTeamChange(deps, { type: "creee", teamId, equipe: nom, auteur: actor });
   return teamId;
+}
+
+/**
+ * F-53 : budget d'équipe fixé par un admin, avec sa période au format d'une clé (30d…) ; 0 retire le plafond. LiteLLM
+ * plafonne alors la dépense de toutes les clés de l'équipe, qu'il refuse une fois le budget atteint jusqu'à la période
+ * suivante.
+ */
+export async function setTeamBudget(deps: TeamDeps, actor: SessionUser, input: { teamId: string; budget: number | null; period: string }): Promise<void> {
+  requireAdmin(actor);
+  const saisie = budgetEquipeSchema.safeParse({ budget: input.budget, period: input.period });
+  if (!saisie.success) throw new PortalError("budget_equipe_invalide", "Budget d'équipe négatif, ou positif sans période valide (30d, 12h…).");
+  const { budget, period: periode } = saisie.data;
+  const team = await existingTeam(deps, input.teamId);
+  // 0 : sans limite, transmis à LiteLLM comme l'absence de plafond et de période.
+  const plafond = budget > 0 ? { montant: budget, periode } : null;
+  await deps.litellm.updateTeam(team.teamId, { maxBudget: plafond?.montant ?? null, budgetDuration: plafond?.periode ?? null });
+  await recordAudit(deps.db, { actorUid: actor.uid, action: "TEAM_BUDGET_SET", targetId: team.teamId, details: { budget, periode: plafond?.periode ?? null } });
+  await notifyTeamChange(deps, { type: "budget", teamId: team.teamId, equipe: team.teamAlias, plafond, auteur: actor }, await managerEmails(deps.db, team.teamId, [actor.uid]));
 }
 
 /** F-53 : renomme une équipe ; les clés gardent leur alias et l'historique des demandes l'ancien nom. */
@@ -208,12 +257,21 @@ async function existingTeam(deps: TeamDeps, teamId: string): Promise<LiteLLMTeam
 
 /** Nom d'équipe valide et libre : non vide, sans espaces autour, pas déjà pris par une autre équipe aux majuscules près. */
 async function nomLibre(deps: TeamDeps, saisi: string, teamId: string | null): Promise<string> {
-  const nom = saisi.trim();
-  if (!nom || nom.length > NOM_MAX) throw new PortalError("nom_equipe_invalide", "Nom d'équipe vide ou trop long.");
+  const saisie = nomEquipeSchema.safeParse(saisi);
+  if (!saisie.success) throw new PortalError("nom_equipe_invalide", "Nom d'équipe vide ou trop long.");
+  const nom = saisie.data;
   const minuscules = nom.toLocaleLowerCase("fr");
   const homonyme = (await deps.litellm.listTeams()).find((t) => t.teamId !== teamId && t.teamAlias.toLocaleLowerCase("fr") === minuscules);
   if (homonyme) throw new PortalError("nom_equipe_pris", `Nom déjà pris : ${homonyme.teamAlias}.`, { nom: homonyme.teamAlias });
   return nom;
+}
+
+/** Salarié saisi par son uid, qui doit s'être connecté au portail : celui-ci l'a alors inscrit dans LiteLLM. */
+async function salarieConnu(deps: TeamDeps, saisi: string): Promise<{ uid: string; salarie: LiteLLMUser }> {
+  const saisie = uidSchema.safeParse(saisi);
+  const salarie = saisie.success ? await deps.litellm.getUser(saisie.data) : null;
+  if (!saisie.success || !salarie) throw new PortalError("salarie_inconnu", `Salarié inconnu de la passerelle : ${saisi.trim()}.`, { uid: saisi.trim() });
+  return { uid: saisie.data, salarie };
 }
 
 /** Clés émises par le portail et encore actives, par équipe. */
@@ -229,5 +287,6 @@ function overview(team: LiteLLMTeam, cles: Map<string, number>, responsables: Ma
     memberCount: team.memberUids.length,
     activeKeyCount: cles.get(team.teamId) ?? 0,
     managerUids: responsables.get(team.teamId) ?? [],
+    budget: { max: team.maxBudget, period: team.budgetDuration, spend: team.spend, resetAt: team.budgetResetAt },
   };
 }

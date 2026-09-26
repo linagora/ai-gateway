@@ -5,7 +5,7 @@ import { FakeMailer } from "@/test/fake-mailer";
 import { approveKeyRequest, approveTeamJoinRequest, countAdminPending, getRequestReview, listPendingRequests, listProcessedRequests, refuseRequest, requestCompletion } from "./admin-requests";
 import { listAudit } from "./audit";
 import { saveCatalogEntry } from "./catalog";
-import { blockKey, listAllKeys, listKeysToPickUp, revokeKey, unblockKey } from "./keys";
+import { blockKey, listAllKeys, listKeysToPickUp, pickUpKey, revokeKey, unblockKey } from "./keys";
 import { createKeyRequest, createTeamJoinRequest } from "./requests";
 import { addTeamMember, deleteTeam, designateManager, getTeamPage, listTeamOverviews, removeTeamMember, renameTeam } from "./teams";
 
@@ -118,6 +118,25 @@ describe("le responsable valide les demandes de ses équipes (ticket #41)", () =
     expect(mailer.outbox[1].text).toContain(`https://portail.test/gestion/demandes/${id}`);
   });
 
+  test("il valide aussi une demande N3 de son équipe, les contrôles de niveau restant bloquants, et une demande de renouvellement", async () => {
+    litellm.withModel({ modelName: "qwen3.8" });
+    await saveCatalogEntry(deps, admin, { modelName: "qwen3.8", displayNameFr: "Qwen 3.8", shortDescriptionFr: "…", longDescriptionFr: "…", useCases: [], recommendedFor: [], dataLevel: "N3", visible: true });
+    const brouillon = { teamId: "equipe-rd", justification: "Essai", project: null, requestedBudget: null, requestedDays: 90, commitment: true };
+    const { id: n3 } = await createKeyRequest(deps, membre, { ...brouillon, dataLevel: "N3", models: ["qwen3.8"] });
+    await expect(approveKeyRequest(deps, responsable, n3, { ...parametres, models: ["qwen3.8", "mistral-small"] })).rejects.toMatchObject({
+      code: "controles_en_echec",
+      failedChecks: [{ id: "niveau_modeles", ok: false, offending: ["mistral-small"] }],
+    });
+    await approveKeyRequest(deps, responsable, n3, { ...parametres, models: ["qwen3.8"] });
+    await pickUpKey(deps, membre, n3);
+    const { id: renouvellement } = await createKeyRequest(deps, membre, { ...brouillon, dataLevel: "N3", models: ["qwen3.8"], renewsRequestId: n3 });
+    await approveKeyRequest(deps, responsable, renouvellement, { ...parametres, models: ["qwen3.8"] });
+    expect(await testDb.accessRequest.findMany({ where: { id: { in: [n3, renouvellement] } }, orderBy: { createdAt: "asc" }, select: { status: true, decidedBy: true, renewsRequestId: true } })).toEqual([
+      { status: "CLE_EMISE", decidedBy: "lbernard", renewsRequestId: null },
+      { status: "APPROUVEE", decidedBy: "lbernard", renewsRequestId: n3 },
+    ]);
+  });
+
   test("il refuse ou renvoie pour complément une demande de son équipe, et accepte une demande d'accès à son équipe", async () => {
     const refusee = await demande("pmartin", "equipe-rd", "R&D");
     await refuseRequest(deps, responsable, refusee.id, "Hors du périmètre de l'équipe");
@@ -131,6 +150,25 @@ describe("le responsable valide les demandes de ses équipes (ticket #41)", () =
       { status: "APPROUVEE", decidedBy: "lbernard" },
     ]);
     expect((await litellm.getTeam("equipe-rd"))?.memberUids).toContain("jdupont");
+  });
+
+  test("la décision d'un admin dans une équipe qui a des responsables leur est annoncée, sans l'être aux admins", async () => {
+    const { id: acces } = await createTeamJoinRequest(deps, membre, { teamId: "equipe-data", justification: "Rejoindre Data" });
+    const { id: accesRd } = await createTeamJoinRequest(deps, admin, { teamId: "equipe-rd", justification: "Rejoindre R&D" });
+    const refusee = await demande("pmartin", "equipe-rd", "R&D");
+    const sienne = await demande("lbernard", "equipe-rd", "R&D");
+    mailer.outbox.length = 0;
+    // Data n'a pas de responsable : rien à annoncer.
+    await approveTeamJoinRequest(deps, admin, acces);
+    await approveTeamJoinRequest(deps, admin, accesRd);
+    await refuseRequest(deps, admin, refusee.id, "Hors du périmètre");
+    // Le responsable demandeur reçoit la décision sur sa demande, sans l'annonce faite aux responsables.
+    await refuseRequest(deps, admin, sienne.id, "Hors du périmètre");
+    expect(mailer.outbox.filter((m) => m.subject.includes("Demande traitée")).map((m) => [m.to, m.subject])).toEqual([
+      [["lbernard@linagora.com"], "[AI GATEWAY] Demande traitée dans l'équipe R&D : jdupont / Request processed in the team R&D: jdupont"],
+      [["lbernard@linagora.com"], "[AI GATEWAY] Demande traitée dans l'équipe R&D : pmartin / Request processed in the team R&D: pmartin"],
+    ]);
+    expect(mailer.outbox.find((m) => m.subject.includes("jdupont"))?.text).toContain("Jeanne Dupont (jdupont) a accepté la demande d'accès de jdupont.");
   });
 
   test("il ne peut pas décider de ses propres demandes ; un autre responsable de l'équipe ou un admin le peut", async () => {
@@ -196,11 +234,31 @@ describe("le responsable gère les clés et les membres de ses équipes (ticket 
     expect(litellm.keys.get(sienne.keyTokenId!)?.blocked).toBe(false);
   });
 
+  test("l'action d'un admin sur une clé d'une équipe qui a des responsables leur est annoncée, sans l'être aux admins", async () => {
+    const cle = await cleEmise("pmartin", "equipe-rd", "R&D");
+    await blockKey(deps, admin, cle.id);
+    expect(mailer.outbox.map((m) => [m.to, m.subject])).toEqual([
+      [["pmartin@linagora.com"], "[AI GATEWAY] Votre clé pmartin-equipe-rd-cle est bloquée / Your key pmartin-equipe-rd-cle is blocked"],
+      [["lbernard@linagora.com"], "[AI GATEWAY] Action sur une clé de l'équipe R&D : pmartin-equipe-rd-cle / Action on a key of the team R&D: pmartin-equipe-rd-cle"],
+    ]);
+    expect(mailer.outbox[1].text).toContain("Jeanne Dupont (jdupont) a bloqué la clé pmartin-equipe-rd-cle de pmartin.");
+  });
+
   test("une clé d'une autre équipe lui reste introuvable", async () => {
     const cle = await cleEmise("jdupont", "equipe-data", "Data");
     await expect(blockKey(deps, responsable, cle.id)).rejects.toMatchObject({ code: "introuvable" });
     await expect(revokeKey(deps, responsable, cle.id)).rejects.toMatchObject({ code: "introuvable" });
     expect((await testDb.accessRequest.findUniqueOrThrow({ where: { id: cle.id } })).status).toBe("CLE_EMISE");
+  });
+
+  test("il ne fait sortir de l'équipe ni un autre responsable ni lui-même : le rôle de responsable ne se retire que par un admin", async () => {
+    await testDb.teamManager.create({ data: { teamId: "equipe-rd", uid: "pmartin", email: "pmartin@linagora.com", designatedBy: "jdupont" } });
+    await expect(removeTeamMember(deps, responsable, { teamId: "equipe-rd", uid: "pmartin" })).rejects.toMatchObject({ code: "interdit" });
+    await expect(removeTeamMember(deps, responsable, { teamId: "equipe-rd", uid: "lbernard" })).rejects.toMatchObject({ code: "interdit" });
+    const equipe = await getTeamPage(deps, admin, "equipe-rd");
+    expect([equipe.members, equipe.managers.map((m) => m.uid)]).toEqual([["lbernard", "pmartin"], ["lbernard", "pmartin"]]);
+    await removeTeamMember(deps, admin, { teamId: "equipe-rd", uid: "pmartin" });
+    expect((await getTeamPage(deps, admin, "equipe-rd")).members).toEqual(["lbernard"]);
   });
 
   test("il fait sortir un membre de son équipe, avec révocation de ses clés de l'équipe ; ajout direct, désignation, renommage et suppression restent aux admins", async () => {

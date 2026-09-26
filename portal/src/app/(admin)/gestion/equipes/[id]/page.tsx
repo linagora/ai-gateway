@@ -1,29 +1,31 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { joursDePeriode } from "@/lib/durees";
 import { PortalError } from "@/lib/errors";
-import { getTeamPage } from "@/lib/services/teams";
+import { getTeamPage, type TeamBudget } from "@/lib/services/teams";
 import { getDeps, requireGestionPage } from "@/lib/session";
 import {
   ajouterMembreAction,
   designerResponsableAction,
   faireSortirMembreAction,
+  fixerBudgetEquipeAction,
   renommerEquipeAction,
   retirerResponsableAction,
   supprimerEquipeAction,
 } from "../../../../actions";
-import { Notice } from "../../../../components";
+import { DepenseSurBudget, formats, Notice } from "../../../../components";
 import { AdminNav } from "../../admin-nav";
 
 /**
- * F-53 et F-54 : page d'une équipe : son résumé, son renommage, ses responsables et ses membres (ajout direct, sortie
- * d'une équipe), et sa suppression. Un responsable d'équipe la consulte et peut en faire sortir un membre ; le reste
- * est réservé aux admins.
+ * F-53 et F-54 : page d'une équipe : son résumé, son renommage, son budget, ses responsables et ses membres
+ * (ajout direct, sortie d'une équipe), et sa suppression. Un responsable d'équipe la consulte et peut en faire sortir
+ * un membre ; le reste est réservé aux admins.
  */
 export default async function EquipePage(props: PageProps<"/gestion/equipes/[id]">) {
   const acteur = await requireGestionPage();
   const estAdmin = acteur.isAdmin;
-  const [{ id }, t, searchParams] = await Promise.all([props.params, getTranslations("gestion.equipes"), props.searchParams]);
+  const [{ id }, t, searchParams, { date }] = await Promise.all([props.params, getTranslations("gestion.equipes"), props.searchParams, formats()]);
   const equipe = await getTeamPage(getDeps(), acteur, decodeURIComponent(id)).catch((e: unknown) => {
     if (e instanceof PortalError && e.code === "introuvable") notFound();
     throw e;
@@ -56,6 +58,45 @@ export default async function EquipePage(props: PageProps<"/gestion/equipes/[id]
           <button type="submit">{t("renommer")}</button>
         </form>
       )}
+
+      <section aria-labelledby="budget" className="mt-8">
+        <h2 id="budget">{t("budget.titre")}</h2>
+        <dl className="grid grid-cols-[12rem_1fr] gap-x-4 gap-y-1">
+          <dt>{t("budget.plafond")}</dt>
+          <dd>
+            <BudgetEquipe budget={equipe.budget} />
+          </dd>
+          {equipe.budget.max !== null && (
+            <>
+              <dt>{t("budget.depense")}</dt>
+              <dd>
+                <DepenseSurBudget spend={equipe.budget.spend} maxBudget={equipe.budget.max} />
+              </dd>
+            </>
+          )}
+          {equipe.budget.max !== null && equipe.budget.resetAt && (
+            <>
+              <dt>{t("budget.remiseAZero")}</dt>
+              <dd>{date(equipe.budget.resetAt)}</dd>
+            </>
+          )}
+        </dl>
+        {estAdmin && (
+          <form action={fixerBudgetEquipeAction} className="mt-4 flex flex-wrap items-end gap-3">
+            <input type="hidden" name="id" value={equipe.teamId} />
+            <label>
+              {t("budget.montant")}
+              <input name="budget" type="number" min="0" step="0.01" required defaultValue={equipe.budget.max ?? 0} />
+            </label>
+            <label>
+              {t("budget.periode")}
+              <input name="periode" defaultValue={equipe.budget.period ?? ""} />
+            </label>
+            <button type="submit">{t("budget.enregistrer")}</button>
+            <p className="basis-full text-sm text-neutral-600">{t("budget.aide")}</p>
+          </form>
+        )}
+      </section>
 
       <section aria-labelledby="responsables" className="mt-8">
         <h2 id="responsables">{t("responsables")}</h2>
@@ -119,17 +160,19 @@ export default async function EquipePage(props: PageProps<"/gestion/equipes/[id]
               {equipe.members.map((uid) => (
                 <tr key={uid}>
                   <td>{uid}</td>
-                  {/* Un admin ou un responsable de l'équipe peut faire sortir un membre (F-54). */}
+                  {/* Un admin ou un responsable de l'équipe peut faire sortir un membre ; un responsable, seul un admin (F-54). */}
                   <td>
-                    <details>
-                      <summary className="cursor-pointer">{t("faireSortir")}</summary>
-                      <p className="text-sm">{t("avertissementSortie")}</p>
-                      <form action={faireSortirMembreAction}>
-                        <input type="hidden" name="id" value={equipe.teamId} />
-                        <input type="hidden" name="uid" value={uid} />
-                        <button type="submit">{t("confirmerSortie")}</button>
-                      </form>
-                    </details>
+                    {(estAdmin || !equipe.managers.some((m) => m.uid === uid)) && (
+                      <details>
+                        <summary className="cursor-pointer">{t("faireSortir")}</summary>
+                        <p className="text-sm">{t("avertissementSortie")}</p>
+                        <form action={faireSortirMembreAction}>
+                          <input type="hidden" name="id" value={equipe.teamId} />
+                          <input type="hidden" name="uid" value={uid} />
+                          <button type="submit">{t("confirmerSortie")}</button>
+                        </form>
+                      </details>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -163,4 +206,13 @@ export default async function EquipePage(props: PageProps<"/gestion/equipes/[id]
       )}
     </>
   );
+}
+
+/** Budget d'une équipe : « 50,00 € par période de 30 jours », ou « Sans limite » ; une période hors jours (12h…) reste telle quelle. */
+async function BudgetEquipe({ budget }: { budget: TeamBudget }) {
+  const [t, domaine, { euros }] = await Promise.all([getTranslations("gestion.equipes.budget"), getTranslations("domaine"), formats()]);
+  if (budget.max === null) return <>{t("sansLimite")}</>;
+  if (budget.period === null) return <>{euros(budget.max)}</>;
+  const jours = joursDePeriode(budget.period);
+  return <>{t("valeur", { montant: budget.max, periode: jours !== null ? domaine("dureeEnJours", { nombre: jours }) : budget.period })}</>;
 }

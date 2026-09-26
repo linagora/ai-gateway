@@ -284,8 +284,8 @@ export async function listAllKeys(deps: KeyDeps, actor: SessionUser): Promise<Ad
 }
 
 /**
- * F-43 : révocation d'une clé, par son titulaire ou par un admin : suppression dans LiteLLM, demande
- * « Révoquée » (statut final). Le journal d'audit nomme l'auteur.
+ * F-43 : révocation d'une clé, par son titulaire, par un admin ou par un responsable de son équipe : suppression dans
+ * LiteLLM, demande « Révoquée » (statut final). Le journal d'audit nomme l'auteur.
  */
 export async function revokeKey(deps: KeyDeps, user: SessionUser, requestId: string): Promise<void> {
   const request = await activeKeyRequest(deps.db, requestId, async (r) => r.requesterUid === user.uid || (await aAutorite(deps.db, user, r.teamId)));
@@ -375,7 +375,7 @@ export async function blockKey(deps: KeyDeps, actor: SessionUser, requestId: str
   await changeBlocking(deps, actor, requestId, BLOCAGE.bloquer);
 }
 
-/** F-43 : déblocage d'une clé bloquée par un admin. */
+/** F-43 : déblocage d'une clé bloquée, par un admin ou un responsable de son équipe. */
 export async function unblockKey(deps: KeyDeps, actor: SessionUser, requestId: string): Promise<void> {
   await changeBlocking(deps, actor, requestId, BLOCAGE.debloquer);
 }
@@ -398,17 +398,17 @@ async function changeBlocking(deps: KeyDeps, actor: SessionUser, requestId: stri
 }
 
 /**
- * Action d'un admin ou d'un responsable d'équipe sur la clé d'un autre : le titulaire en est prévenu ; celle d'un
- * responsable est aussi annoncée aux admins et aux autres responsables de l'équipe (F-54).
+ * Action d'un admin ou d'un responsable d'équipe sur la clé d'un autre : le titulaire en est prévenu ; elle est annoncée
+ * aux responsables de l'équipe, hors son auteur et le titulaire, et, celle d'un responsable, aux admins (F-54).
  */
 async function prevenirActionSurCle(deps: KeyDeps, actor: SessionUser, request: AccessRequest, action: "revocation" | "blocage" | "deblocage"): Promise<void> {
   if (!request.keyAlias) return;
   await notifyAdminKeyAction(deps, { ...request, keyAlias: request.keyAlias }, action, actor.isAdmin ? "admin" : "responsable");
-  if (actor.isAdmin) return;
   await notifyTeamChange(
     deps,
     { type: "cle", action, alias: request.keyAlias, titulaire: request.requesterUid, teamId: request.teamId, equipe: request.teamAlias, auteur: actor },
-    await managerEmails(deps.db, request.teamId, [actor.uid]),
+    // Le titulaire, fût-il responsable, reçoit déjà son propre courriel.
+    await managerEmails(deps.db, request.teamId, [actor.uid, request.requesterUid]),
   );
 }
 

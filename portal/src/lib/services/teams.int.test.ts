@@ -3,7 +3,8 @@ import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
 import { FakeMailer } from "@/test/fake-mailer";
 import { listAudit } from "./audit";
-import { addTeamMember, approversByTeam, createTeam, deleteTeam, designateManager, getTeamOverview, getTeamPage, listTeamOverviews, removeManager, removeTeamMember, renameTeam } from "./teams";
+import { runDailyTask } from "./echeances";
+import { addTeamMember, approversByTeam, createTeam, deleteTeam, designateManager, getTeamOverview, getTeamPage, listTeamOverviews, removeManager, removeTeamMember, renameTeam, setTeamBudget } from "./teams";
 
 const admin = { uid: "jdupont", email: "jdupont@linagora.com", name: "Jeanne Dupont", isAdmin: true };
 const salarie = { uid: "mmaudet", email: "mmaudet@linagora.com", name: "Michel-Marie Maudet", isAdmin: false };
@@ -23,7 +24,14 @@ beforeEach(async () => {
 describe("créer, renommer et lister les équipes (ticket #36)", () => {
   test("un admin crée une équipe : elle existe dans la passerelle, sans membre ni clé ; la création est inscrite au journal et annoncée aux admins", async () => {
     const teamId = await createTeam(deps, admin, { name: "  Data Science  " });
-    expect(await getTeamOverview(deps, admin, teamId)).toEqual({ teamId, teamAlias: "Data Science", memberCount: 0, activeKeyCount: 0, managerUids: [] });
+    expect(await getTeamOverview(deps, admin, teamId)).toEqual({
+      teamId,
+      teamAlias: "Data Science",
+      memberCount: 0,
+      activeKeyCount: 0,
+      managerUids: [],
+      budget: { max: null, period: null, spend: 0, resetAt: null },
+    });
     expect(await listAudit(testDb)).toEqual([expect.objectContaining({ actorUid: "jdupont", action: "TEAM_CREATED", targetId: teamId, details: { equipe: "Data Science" } })]);
     expect(mailer.outbox).toEqual([
       expect.objectContaining({ to: ADMINS, subject: "[AI GATEWAY] Équipe créée : Data Science / Team created: Data Science" }),
@@ -164,6 +172,14 @@ describe("supprimer une équipe (ticket #38)", () => {
     expect(mailer.outbox).toEqual([]);
   });
 
+  test("une clé de l'équipe créée depuis la console de LiteLLM, que LiteLLM supprimerait avec elle, bloque aussi la suppression ; une clé expirée ne la bloque pas", async () => {
+    await litellm.generateKey({ userId: "pmartin", teamId: "equipe-rd", models: [], maxBudget: 5, budgetDuration: "30d", duration: "1d", rpmLimit: null, tpmLimit: null, alias: "cle-console", metadata: {} });
+    await expect(deleteTeam(deps, admin, "equipe-rd")).rejects.toMatchObject({ code: "equipe_non_vide", params: { cles: "1", demandes: "0" } });
+    litellm.horloge = () => new Date(Date.now() + 2 * 86_400_000);
+    await deleteTeam(deps, admin, "equipe-rd");
+    expect(litellm.teams.has("equipe-rd")).toBe(false);
+  });
+
   test("une équipe sans clé active ni demande en cours est supprimée de la passerelle ; ses demandes passées restent ; la suppression est inscrite et annoncée", async () => {
     const passee = await testDb.accessRequest.create({ data: { kind: "CLE", status: "REVOQUEE", requesterUid: "mmaudet", requesterEmail: "mmaudet@linagora.com", teamId: "equipe-rd", teamAlias: "R&D", dataLevel: "N1", models: ["mistral-small"], justification: "Essai" } });
     await deleteTeam(deps, admin, "equipe-rd");
@@ -230,7 +246,7 @@ describe("responsables d'équipe (ticket #39)", () => {
     await removeManager(deps, admin, { teamId: "equipe-rd", uid: "mmaudet" });
     expect((await getTeamPage(deps, admin, "equipe-rd")).managers.map((m) => m.uid)).toEqual(["pmartin"]);
     expect((await getTeamPage(deps, admin, "equipe-rd")).members).toContain("mmaudet");
-    expect(mailer.outbox.at(-1)?.subject).toBe("[AI GATEWAY] Responsable retiré de l'équipe R&D : mmaudet / Manager removed from the team R&D: mmaudet");
+    expect(mailer.outbox.at(-1)?.subject).toBe("[AI GATEWAY] Rôle de responsable retiré dans l'équipe R&D : mmaudet / Manager role withdrawn in the team R&D: mmaudet");
     expect(mailer.outbox.at(-1)?.to).toEqual([...ADMINS, "mmaudet@linagora.com", "pmartin@linagora.com"]);
     await removeTeamMember(deps, admin, { teamId: "equipe-rd", uid: "pmartin" });
     expect((await getTeamPage(deps, admin, "equipe-rd")).managers).toEqual([]);
@@ -253,5 +269,60 @@ describe("responsables d'équipe (ticket #39)", () => {
     litellm.withTeam({ teamId: "equipe-data", teamAlias: "Data", models: [], memberUids: [] });
     await designateManager(deps, admin, { teamId: "equipe-rd", uid: "mmaudet" });
     expect(await approversByTeam(testDb, ["equipe-rd", "equipe-data"])).toEqual(new Map([["equipe-rd", ["mmaudet"]], ["equipe-data", []]]));
+  });
+});
+
+describe("budget d'équipe et alertes (ticket #43)", () => {
+  test("un admin fixe le budget d'équipe et sa période ; 0 le retire ; chaque changement est inscrit et annoncé", async () => {
+    await setTeamBudget(deps, admin, { teamId: "equipe-rd", budget: 100, period: "30d" });
+    expect(litellm.teams.get("equipe-rd")).toMatchObject({ maxBudget: 100, budgetDuration: "30d" });
+    expect((await getTeamPage(deps, admin, "equipe-rd")).budget).toMatchObject({ max: 100, period: "30d", spend: 0 });
+    expect((await listAudit(testDb)).at(-1)).toMatchObject({ action: "TEAM_BUDGET_SET", targetId: "equipe-rd", details: { budget: 100, periode: "30d" } });
+    expect(mailer.outbox.at(-1)?.subject).toMatch(/^\[AI GATEWAY\] Budget de l'équipe R&D : 100,00\s€ par période de 30 jours \/ Budget of the team R&D: €100\.00 every 30 days$/);
+    await setTeamBudget(deps, admin, { teamId: "equipe-rd", budget: 0, period: "" });
+    expect(litellm.teams.get("equipe-rd")).toMatchObject({ maxBudget: null, budgetDuration: null });
+    expect((await listTeamOverviews(deps, admin)).find((t) => t.teamId === "equipe-rd")?.budget).toMatchObject({ max: null, period: null });
+    expect(mailer.outbox.at(-1)?.subject).toBe("[AI GATEWAY] Budget de l'équipe R&D : sans limite / Budget of the team R&D: no limit");
+    expect(mailer.outbox.at(-1)?.to).toEqual(ADMINS);
+  });
+
+  test("un budget négatif, ou positif sans période valide, est refusé ; seul un admin fixe le budget", async () => {
+    await expect(setTeamBudget(deps, admin, { teamId: "equipe-rd", budget: -5, period: "30d" })).rejects.toMatchObject({ code: "budget_equipe_invalide" });
+    await expect(setTeamBudget(deps, admin, { teamId: "equipe-rd", budget: 50, period: "un mois" })).rejects.toMatchObject({ code: "budget_equipe_invalide" });
+    await expect(setTeamBudget(deps, salarie, { teamId: "equipe-rd", budget: 50, period: "30d" })).rejects.toMatchObject({ code: "interdit" });
+    expect(litellm.teams.get("equipe-rd")).toMatchObject({ maxBudget: null });
+  });
+
+  test("la tâche quotidienne alerte les admins et les responsables à 80 %, puis à 100 %, une seule fois par période ; jamais sans budget", async () => {
+    litellm.users.set("mmaudet", { email: "mmaudet@linagora.com" });
+    litellm.withTeam({ teamId: "equipe-data", teamAlias: "Data", models: [], memberUids: [], maxBudget: 50, budgetDuration: "30d", spend: 45, budgetResetAt: new Date("2026-10-31T00:00:00Z") });
+    await designateManager(deps, admin, { teamId: "equipe-data", uid: "mmaudet" });
+    // Sans budget, R&D n'est jamais alertée, quelle que soit sa dépense.
+    litellm.teams.get("equipe-rd")!.spend = 999;
+    mailer.outbox.length = 0;
+    const tache = () => runDailyTask({ ...deps, now: () => new Date("2026-10-15T05:00:00Z") });
+
+    expect((await tache()).alertesBudget).toBe(1);
+    expect(mailer.outbox.map((m) => [m.to, m.subject])).toEqual([
+      [[...ADMINS, "mmaudet@linagora.com"], "[AI GATEWAY] Budget de l'équipe Data atteint à 80 % / Budget of the team Data 80% used"],
+    ]);
+    expect(mailer.outbox[0].text).toMatch(/L'équipe Data a dépensé 45,00\s€ sur son budget de 50,00\s€ pour la période qui s'achève le 31 octobre 2026\./);
+    expect((await tache()).alertesBudget).toBe(0);
+
+    litellm.teams.get("equipe-data")!.spend = 50;
+    expect((await tache()).alertesBudget).toBe(1);
+    expect(mailer.outbox.at(-1)?.subject).toBe("[AI GATEWAY] Budget de l'équipe Data atteint à 100 % / Budget of the team Data 100% used");
+    expect(mailer.outbox.at(-1)?.text).toContain("Ses clés sont refusées par la passerelle jusqu'à cette date.");
+    expect((await tache()).alertesBudget).toBe(0);
+
+    // Nouvelle période : les alertes repartent.
+    Object.assign(litellm.teams.get("equipe-data")!, { spend: 42, budgetResetAt: new Date("2026-11-30T00:00:00Z") });
+    expect((await tache()).alertesBudget).toBe(1);
+    expect(mailer.outbox.at(-1)?.subject).toBe("[AI GATEWAY] Budget de l'équipe Data atteint à 80 % / Budget of the team Data 80% used");
+  });
+
+  test("une passerelle injoignable n'empêche pas le reste de la tâche quotidienne", async () => {
+    litellm.panne = true;
+    expect(await runDailyTask({ ...deps, now: () => new Date("2026-10-15T05:00:00Z") })).toMatchObject({ alertesBudget: 0 });
   });
 });

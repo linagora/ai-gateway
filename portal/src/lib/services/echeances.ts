@@ -1,6 +1,8 @@
 import type { Db } from "@/lib/db";
+import type { LiteLLMClient, LiteLLMTeam } from "@/lib/litellm/client";
 import { recordAudit } from "./audit";
-import { type NotificationDeps, notifyExpiryReminder, notifyPickupReminder } from "./notifications";
+import { managerEmails } from "./autorite";
+import { type NotificationDeps, notifyExpiryReminder, notifyPickupReminder, notifyTeamBudgetAlert } from "./notifications";
 import { readSettings } from "./settings";
 
 export const JOUR = 86_400_000;
@@ -14,6 +16,9 @@ export const SYSTEME = "systeme";
  */
 const RAPPEL_RETRAIT = 3;
 const RAPPELS_EXPIRATION = [30, 7, 1];
+
+/** F-54 : seuils d'alerte du budget d'équipe, en pourcentage du budget, du plus bas au plus haut. */
+const SEUILS_BUDGET = [80, 100];
 
 /** Délai de retrait configuré, en jours ; null si aucun n'est configuré (les demandes approuvées n'expirent pas). */
 export async function readPickupDays(db: Db): Promise<number | null> {
@@ -66,6 +71,7 @@ export async function markExpired(db: Db, now: Date): Promise<{ demandesExpirees
 /** Dépendances de la tâche quotidienne ; la date du jour est injectée pour rendre les échéances testables. */
 export interface DailyTaskDeps extends NotificationDeps {
   db: Db;
+  litellm: LiteLLMClient;
   now?: () => Date;
 }
 
@@ -75,13 +81,15 @@ export interface DailyTaskReport {
   rappelsExpiration: number;
   demandesExpirees: number;
   clesExpirees: number;
+  alertesBudget: number;
 }
 
 /**
  * F-45 : tâche quotidienne, lancée chaque matin à 7 h (heure de Paris). Elle fait expirer ce qui est échu, puis
  * envoie une seule fois chacun les rappels, comptés en jours calendaires : le matin du troisième jour avant
  * l'échéance de retrait ; un mois, sept jours et un jour avant l'expiration d'une clé, selon sa durée. Après des
- * jours sans tâche, seul le rappel d'expiration le plus proche de l'échéance part.
+ * jours sans tâche, seul le rappel d'expiration le plus proche de l'échéance part. Elle finit par les alertes de
+ * budget d'équipe (F-54).
  */
 export async function runDailyTask(deps: DailyTaskDeps): Promise<DailyTaskReport> {
   const maintenant = deps.now?.() ?? new Date();
@@ -123,5 +131,44 @@ export async function runDailyTask(deps: DailyTaskDeps): Promise<DailyTaskReport
     rappelsExpiration++;
     await notifyExpiryReminder(deps, { ...r, keyAlias: r.keyAlias, keyExpiresAt: r.keyExpiresAt }, jours);
   }
-  return { rappelsRetrait, rappelsExpiration, ...expirations };
+  return { rappelsRetrait, rappelsExpiration, ...expirations, alertesBudget: await alerterBudgets(deps, maintenant) };
+}
+
+/**
+ * F-54 : alertes de budget d'équipe. Pour chaque équipe plafonnée, le plus haut seuil atteint (80 puis 100 %) est
+ * annoncé une seule fois par période aux admins et aux responsables de l'équipe ; une nouvelle période, ou un nouveau
+ * budget, fait repartir les alertes. Une passerelle injoignable n'empêche pas le reste de la tâche.
+ */
+async function alerterBudgets(deps: DailyTaskDeps, maintenant: Date): Promise<number> {
+  let equipes: LiteLLMTeam[];
+  try {
+    equipes = await deps.litellm.listTeams();
+  } catch (e) {
+    console.error(`Alertes de budget d'équipe non vérifiées : ${e instanceof Error ? e.message : "erreur inconnue"}`);
+    return 0;
+  }
+  let alertes = 0;
+  for (const equipe of equipes) {
+    const budget = equipe.maxBudget;
+    // Sans plafond (budget à 0), une équipe n'est jamais alertée.
+    if (!budget) continue;
+    const seuil = SEUILS_BUDGET.filter((s) => equipe.spend * 100 >= budget * s).at(-1);
+    if (seuil === undefined) continue;
+    const suivi = await deps.db.teamBudgetAlert.findUnique({ where: { teamId: equipe.teamId } });
+    const memePeriode = suivi !== null && suivi.budget.toNumber() === budget && suivi.resetAt?.getTime() === equipe.budgetResetAt?.getTime();
+    if (memePeriode && suivi.level >= seuil) continue;
+    const annonce = { resetAt: equipe.budgetResetAt, budget, level: seuil, sentAt: maintenant };
+    // Écriture conditionnelle, comme pour les rappels : deux tâches simultanées n'envoient pas deux fois une alerte.
+    const { count } = suivi
+      ? await deps.db.teamBudgetAlert.updateMany({ where: { teamId: equipe.teamId, sentAt: suivi.sentAt }, data: annonce })
+      : await deps.db.teamBudgetAlert.createMany({ data: [{ teamId: equipe.teamId, ...annonce }], skipDuplicates: true });
+    if (count === 0) continue;
+    alertes++;
+    await notifyTeamBudgetAlert(
+      deps,
+      { teamId: equipe.teamId, equipe: equipe.teamAlias, seuil, depense: equipe.spend, budget, fin: equipe.budgetResetAt },
+      await managerEmails(deps.db, equipe.teamId, []),
+    );
+  }
+  return alertes;
 }

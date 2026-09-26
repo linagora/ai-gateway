@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
+import { PERIODE_BUDGET } from "@/lib/durees";
 import { PolicyViolationError, PortalError } from "@/lib/errors";
 import type { LiteLLMClient } from "@/lib/litellm/client";
 import type { DataLevel, PolicyCheck, RequestStatus } from "@/lib/policy";
@@ -166,7 +167,7 @@ export const approvalInputSchema = z.object({
   teamId: z.string().min(1).optional(),
   models: z.array(z.string().min(1)),
   budget: z.number().positive().nullable(),
-  budgetDuration: z.string().regex(/^\d+[smhd]$/).nullable(),
+  budgetDuration: z.string().regex(PERIODE_BUDGET).nullable(),
   /** Durée de validité en jours ; SANS_EXPIRATION (0) : la clé n'expire jamais. */
   days: z.number().int().nonnegative().nullable(),
   rpmLimit: z.number().int().positive().nullable(),
@@ -323,17 +324,20 @@ async function requireDecision(deps: AdminDeps, actor: SessionUser, request: { t
   }
 }
 
-/** La décision d'un responsable d'équipe est annoncée aux admins et aux autres responsables de l'équipe (F-54). */
+/**
+ * Une décision est annoncée aux responsables de l'équipe, hors son auteur et le demandeur, et, celle d'un responsable,
+ * aux admins (F-54).
+ */
 async function annoncerDecision(
   deps: AdminDeps,
   actor: SessionUser,
   request: { id: string; teamId: string; teamAlias: string; requesterUid: string },
   decision: "approuvee" | "refusee" | "complement" | "adhesion",
 ): Promise<void> {
-  if (actor.isAdmin) return;
   await notifyTeamChange(
     deps,
     { type: "decision", decision, demandeur: request.requesterUid, demandeId: request.id, teamId: request.teamId, equipe: request.teamAlias, auteur: actor },
-    await managerEmails(deps.db, request.teamId, [actor.uid]),
+    // Le demandeur, fût-il responsable, reçoit déjà la décision sur sa demande.
+    await managerEmails(deps.db, request.teamId, [actor.uid, request.requesterUid]),
   );
 }

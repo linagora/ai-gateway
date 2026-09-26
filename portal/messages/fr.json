@@ -98,6 +98,7 @@
       "cleDebloquee": "Clé débloquée.",
       "equipeCreee": "Équipe créée.",
       "equipeRenommee": "Équipe renommée.",
+      "budgetFixe": "Budget de l'équipe enregistré.",
       "membreAjoute": "Membre ajouté.",
       "membreSorti": "Le membre est sorti de l'équipe : ses clés de l'équipe sont révoquées.",
       "equipeSupprimee": "Équipe supprimée.",
@@ -124,9 +125,10 @@
       "nom_equipe_pris": "Le nom {nom} est déjà pris par une autre équipe.",
       "salarie_inconnu": "Aucun salarié ne s'est encore connecté au portail avec l'identifiant {uid}.",
       "membre_existant": "{uid} est déjà membre de l'équipe {equipe}.",
-      "equipe_non_vide": "Cette équipe a encore des clés actives ({cles}) ou des demandes en cours ({demandes}) : révoquez ses clés et traitez ses demandes avant de la supprimer.",
+      "equipe_non_vide": "Cette équipe a encore des clés actives ({cles}) ou des demandes en cours ({demandes}) : révoquez ses clés, y compris celles créées depuis la console de LiteLLM, et traitez ses demandes avant de la supprimer.",
       "responsable_existant": "{uid} est déjà responsable de l'équipe {equipe}.",
-      "quatre_yeux": "{cas, select, cle {Vous ne pouvez pas bloquer ni débloquer votre propre clé : un autre responsable de l'équipe ou un administrateur s'en chargera.} other {Vous ne pouvez pas décider de votre propre demande : un autre responsable de l'équipe ou un administrateur s'en chargera.}}"
+      "quatre_yeux": "{cas, select, cle {Vous ne pouvez pas bloquer ni débloquer votre propre clé : un autre responsable de l'équipe ou un administrateur s'en chargera.} other {Vous ne pouvez pas décider de votre propre demande : un autre responsable de l'équipe ou un administrateur s'en chargera.}}",
+      "budget_equipe_invalide": "Budget d'équipe invalide : saisissez un montant positif ou nul (0 : sans limite) et, pour un montant positif, une période au format 30d, 12h…"
     },
     "controles": {
       "membre_equipe": "Le demandeur est membre de l'équipe",
@@ -526,12 +528,25 @@
         "equipe": "Équipe",
         "membres": "Membres",
         "cles": "Clés actives",
+        "budget": "Budget",
         "responsables": "Responsables"
       },
       "toutes": "Toutes les équipes",
       "resume": "Résumé de l'équipe",
       "nom": "Nom de l'équipe",
       "renommer": "Renommer",
+      "budget": {
+        "titre": "Budget d'équipe",
+        "plafond": "Budget",
+        "sansLimite": "Sans limite",
+        "valeur": "{montant, number, ::currency/EUR} par période de {periode}",
+        "depense": "Dépense de la période",
+        "remiseAZero": "Remise à zéro",
+        "montant": "Budget (€)",
+        "periode": "Période du budget (ex. 30d)",
+        "aide": "0 : sans limite. Une fois le budget atteint, la passerelle refuse toutes les clés de l'équipe jusqu'à la période suivante.",
+        "enregistrer": "Enregistrer le budget"
+      },
       "membres": "Membres",
       "aucunMembre": "Aucun membre.",
       "uid": "Uid du salarié",
@@ -717,6 +732,11 @@
         "sujet": "Équipe renommée : {equipe}",
         "corps": "{auteur} a renommé l'équipe {ancienNom} en {equipe}."
       },
+      "budget": {
+        "sujet": "Budget de l'équipe {equipe} : {budget}",
+        "corps": "{plafond, select, oui {{auteur} a fixé le budget de l'équipe {equipe} à {budget}. Une fois ce budget atteint, la passerelle refuse les clés de l'équipe jusqu'à la période suivante.} other {{auteur} a retiré le plafond du budget de l'équipe {equipe} : sa dépense n'est plus limitée.}}",
+        "sansLimite": "sans limite"
+      },
       "membreAjoute": {
         "sujet": "Membre ajouté à l'équipe {equipe} : {membre}",
         "corps": "{auteur} a ajouté {membre} à l'équipe {equipe}."
@@ -734,7 +754,7 @@
         "corps": "{auteur} a désigné {responsable} responsable de l'équipe {equipe}."
       },
       "responsableRetire": {
-        "sujet": "Responsable retiré de l'équipe {equipe} : {responsable}",
+        "sujet": "Rôle de responsable retiré dans l'équipe {equipe} : {responsable}",
         "corps": "{auteur} a retiré à {responsable} son rôle de responsable de l'équipe {equipe}."
       },
       "decision": {
@@ -745,6 +765,11 @@
         "sujet": "Action sur une clé de l'équipe {equipe} : {alias}",
         "corps": "{auteur} a {action, select, revocation {révoqué} blocage {bloqué} other {débloqué}} la clé {alias} de {titulaire}."
       }
+    },
+    "alerteBudget": {
+      "sujet": "Budget de l'équipe {equipe} atteint à {seuil} %",
+      "corps": "L'équipe {equipe} a dépensé {depense, number, ::currency/EUR} sur son budget de {budget, number, ::currency/EUR}{fin, select, aucune {} other { pour la période qui s'achève le {fin}}}.",
+      "suite": "{niveau, select, atteint {Ses clés sont refusées par la passerelle} other {Une fois ce budget atteint, ses clés seront refusées par la passerelle}} {fin, select, aucune {tant qu'il n'est pas relevé} other {jusqu'à cette date}}."
     },
     "ajoutMembre": {
       "sujet": "Vous êtes membre de l'équipe {equipe}",

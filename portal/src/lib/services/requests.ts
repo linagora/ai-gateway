@@ -157,7 +157,7 @@ export const DEMANDES_EN_COURS: Prisma.AccessRequestWhereInput = {
 
 /**
  * F-54 : sortie d'une équipe. Annule les demandes en cours d'un membre dans cette équipe, pour qu'il ne puisse plus y
- * obtenir de clé ; rend leur nombre.
+ * obtenir de clé ; rend leur nombre. Appelée par le service des équipes, qui contrôle l'autorité de l'acteur.
  */
 export async function cancelMemberRequests(db: Db, teamId: string, uid: string): Promise<number> {
   const enCours = await db.accessRequest.findMany({ where: { teamId, requesterUid: uid, ...DEMANDES_EN_COURS } });
