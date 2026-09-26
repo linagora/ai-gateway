@@ -5,6 +5,7 @@ import { DUREES_VALIDITE, joursDePeriode } from "@/lib/durees";
 import type { Langue } from "@/lib/langue";
 import en from "../../../messages/en.json";
 import fr from "../../../messages/fr.json";
+import { libelleOffre } from "./offers";
 
 /** Dépendances des notifications : sans expéditeur, rien n'est envoyé et rien n'est bloqué. */
 export interface NotificationDeps {
@@ -122,7 +123,7 @@ function recapDemande(t: Traducteur, r: DemandeAvecOffre): string[] {
 function recapAbonnement(t: Traducteur, r: AccessRequest, offre: NonNullable<DemandeAvecOffre["offer"]>): string[] {
   return lignes(t, [
     ["equipe", r.teamAlias],
-    ["offre", `${offre.supplier} · ${offre.name}`],
+    ["offre", libelleOffre(offre)],
     ["prixMensuel", t("courriels.recap.prixMensuelValeur", { montant: offre.monthlyPriceEur.toNumber() })],
     ["niveauMaximal", t(`domaine.niveauxOffre.${offre.dataLevel}`)],
     ["projet", r.project],
@@ -225,7 +226,7 @@ export async function notifySubscriptionApproved(
         avecRecap(
           t("courriels.abonnementApprouve.corps", { equipe: demande.teamAlias }),
           lignes(t, [
-            ["offre", `${offre.supplier} · ${offre.name}`],
+            ["offre", libelleOffre(offre)],
             ["prixMensuel", t("courriels.recap.prixMensuelValeur", { montant: offre.monthlyPriceEur.toNumber() })],
             ["niveauMaximal", t(`domaine.niveauxOffre.${offre.dataLevel}`)],
             ["validite", demande.approvedDays !== null ? duree(t, demande.approvedDays) : null],
@@ -249,7 +250,7 @@ export async function notifyRenewalApproved(
   offre: Pick<SubscriptionOffer, "supplier" | "name">,
   echeance: Date,
 ): Promise<void> {
-  const valeurs = { offre: `${offre.supplier} · ${offre.name}`, equipe: demande.teamAlias, date: echeance };
+  const valeurs = { offre: libelleOffre(offre), equipe: demande.teamAlias, date: echeance };
   const message = bilingue(
     (t) => ({
       sujet: t("courriels.renouvellementApprouve.sujet"),
@@ -267,7 +268,7 @@ export async function notifySubscriptionExpiryReminder(
   offre: Pick<SubscriptionOffer, "supplier" | "name">,
   jours: number,
 ): Promise<void> {
-  const valeurs = { offre: `${offre.supplier} · ${offre.name}`, equipe: abonnement.teamAlias, date: abonnement.expiresAt, jours, fournisseur: offre.supplier };
+  const valeurs = { offre: libelleOffre(offre), equipe: abonnement.teamAlias, date: abonnement.expiresAt, jours, fournisseur: offre.supplier };
   const message = bilingue(
     (t) => ({
       sujet: t("courriels.rappelEcheance.sujet", valeurs),
@@ -349,7 +350,7 @@ export async function notifyDeclarationReminder(deps: NotificationDeps, demande:
       sujet: t("courriels.rappelDeclaration.sujet"),
       paragraphes: [
         t("courriels.bonjour", { nom: nom(demande) }),
-        t("courriels.rappelDeclaration.corps", { offre: `${offre.supplier} · ${offre.name}`, equipe: demande.teamAlias, date: echeance }),
+        t("courriels.rappelDeclaration.corps", { offre: libelleOffre(offre), equipe: demande.teamAlias, date: echeance }),
       ],
     }),
     lienVers(deps, "/abonnements"),
@@ -367,7 +368,7 @@ export async function notifyTerminationRequested(
   offre: Pick<SubscriptionOffer, "supplier" | "name">,
   echeance: Date | null,
 ): Promise<void> {
-  const valeurs = { origine: abonnement.terminationOrigin ?? "ADMIN", offre: `${offre.supplier} · ${offre.name}`, equipe: abonnement.teamAlias };
+  const valeurs = { origine: abonnement.terminationOrigin ?? "ADMIN", offre: libelleOffre(offre), equipe: abonnement.teamAlias };
   const message = bilingue(
     (t) => ({
       sujet: t("courriels.demandeResiliation.sujet", valeurs),
@@ -393,7 +394,7 @@ export async function notifyTerminationDeclaredByAdmin(
   date: Date,
   email: string,
 ): Promise<void> {
-  const valeurs = { offre: `${offre.supplier} · ${offre.name}`, equipe: abonnement.teamAlias, date, fournisseur: offre.supplier };
+  const valeurs = { offre: libelleOffre(offre), equipe: abonnement.teamAlias, date, fournisseur: offre.supplier };
   const message = bilingue(
     (t) => ({
       sujet: t("courriels.resiliationParAdmin.sujet", valeurs),
@@ -414,7 +415,7 @@ export async function notifyUndeclaredTermination(
   offre: Pick<SubscriptionOffer, "supplier" | "name">,
   responsables: string[],
 ): Promise<void> {
-  const valeurs = { offre: `${offre.supplier} · ${offre.name}`, titulaire: abonnement.holderUid, equipe: abonnement.teamAlias, date: abonnement.terminationRequestedAt ?? new Date(0) };
+  const valeurs = { offre: libelleOffre(offre), titulaire: abonnement.holderUid, equipe: abonnement.teamAlias, date: abonnement.terminationRequestedAt ?? new Date(0) };
   const message = bilingue(
     (t) => ({
       sujet: t("courriels.alerteResiliation.sujet", valeurs),

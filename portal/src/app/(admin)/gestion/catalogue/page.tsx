@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { DATA_LEVELS } from "@/lib/policy";
 import { listCatalogForAdmin } from "@/lib/services/catalog";
-import { type AdminOffer, listOffersForAdmin } from "@/lib/services/offers";
+import { type AdminOffer, libelleOffre, listOffersForAdmin } from "@/lib/services/offers";
 import { getDeps, requireAdminPage } from "@/lib/session";
 import { USE_CASES } from "@/lib/use-cases";
 import { enregistrerOffreAction, saveCatalogEntryAction } from "../../../actions";
@@ -132,7 +132,7 @@ export default async function AdminCataloguePage(props: PageProps<"/gestion/cata
         {offres.map((offre) => (
           <article key={offre.id} aria-labelledby={`offre-${offre.id}`} className="mt-4 border-t pt-3">
             <h3 id={`offre-${offre.id}`} className="mt-0">
-              {offre.supplier} · {offre.name}
+              {libelleOffre(offre)}
               {!offre.visible && <span className="ml-2 text-sm font-normal text-neutral-500">({o("masquee")})</span>}
             </h3>
             <FormulaireOffre offre={offre} />
@@ -149,7 +149,7 @@ export default async function AdminCataloguePage(props: PageProps<"/gestion/cata
 async function FormulaireOffre({ offre }: { offre?: AdminOffer }) {
   const [o, domaine] = await Promise.all([getTranslations("gestionCatalogue.offres"), getTranslations("domaine")]);
   return (
-    <form action={enregistrerOffreAction} aria-label={offre ? `${offre.supplier} · ${offre.name}` : o("nouvelle")}>
+    <form action={enregistrerOffreAction} aria-label={offre ? libelleOffre(offre) : o("nouvelle")}>
       {offre && <input type="hidden" name="id" value={offre.id} />}
       <div className="grid gap-x-6 md:grid-cols-2">
         <label>
