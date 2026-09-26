@@ -5,6 +5,7 @@ import type { Db } from "@/lib/db";
 import { PERIODE_BUDGET } from "@/lib/durees";
 import { PolicyViolationError, PortalError } from "@/lib/errors";
 import type { LiteLLMClient } from "@/lib/litellm/client";
+import { type Page, tranche } from "@/lib/pagination";
 import type { DataLevel, PolicyCheck, RequestStatus } from "@/lib/policy";
 import { recordAudit } from "./audit";
 import { dansEquipes, managerEmails, requireAutorite, requireGestion } from "./autorite";
@@ -73,36 +74,24 @@ export interface ProcessedRequest extends PendingRequest {
   updatedAt: Date;
 }
 
-/** Demandes traitées par page d'archive. */
-export const ARCHIVE_PAR_PAGE = 50;
-
-/** Une page de l'archive : ses demandes, son numéro (ramené entre 1 et le nombre de pages), le nombre de pages et de demandes. */
-export interface ArchivePage {
-  demandes: ProcessedRequest[];
-  page: number;
-  pages: number;
-  total: number;
-}
-
 /**
  * Archive des demandes (F-30) : celles qui ne sont plus à valider, la plus récemment modifiée d'abord, par pages de
- * ARCHIVE_PAR_PAGE ; une page hors limites mène à la plus proche.
+ * PAR_PAGE ; une page hors limites mène à la plus proche.
  */
-export async function listProcessedRequests(deps: AdminDeps, actor: SessionUser, page = 1): Promise<ArchivePage> {
+export async function listProcessedRequests(deps: AdminDeps, actor: SessionUser, page = 1): Promise<Page<ProcessedRequest>> {
   const equipes = await requireGestion(deps.db, actor);
   await markExpired(deps.db, deps.now?.() ?? new Date());
   const where: Prisma.AccessRequestWhereInput = { status: { not: "SOUMISE" }, ...dansEquipes(equipes) };
   const total = await deps.db.accessRequest.count({ where });
-  const pages = Math.max(1, Math.ceil(total / ARCHIVE_PAR_PAGE));
-  const courante = Math.min(Math.max(1, Math.trunc(page) || 1), pages);
+  const { page: courante, pages, skip, take } = tranche(total, page);
   const rows = await deps.db.accessRequest.findMany({
     where,
     // L'identifiant départage les demandes modifiées au même instant : une page ne répète ni ne saute aucune demande.
     orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
-    skip: (courante - 1) * ARCHIVE_PAR_PAGE,
-    take: ARCHIVE_PAR_PAGE,
+    skip,
+    take,
   });
-  const demandes = rows.map((r) => ({
+  const elements = rows.map((r) => ({
     id: r.id,
     kind: r.kind,
     requesterUid: r.requesterUid,
@@ -117,7 +106,7 @@ export async function listProcessedRequests(deps: AdminDeps, actor: SessionUser,
     decisionComment: r.decisionComment,
     updatedAt: r.updatedAt,
   }));
-  return { demandes, page: courante, pages, total };
+  return { elements, page: courante, pages, total };
 }
 
 /** Fiche de validation (F-32) : la demande et ses contrôles, rejoués avec l'état actuel (règle 4). */

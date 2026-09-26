@@ -1,9 +1,8 @@
-import { ArrowLeft, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { listPendingRequests, listProcessedRequests } from "@/lib/services/admin-requests";
 import { getDeps, requireGestionPage } from "@/lib/session";
-import { Notice, formats } from "../../../components";
+import { Notice, PaginationArchive, formats } from "../../../components";
 import { AdminNav } from "../admin-nav";
 
 /** F-30 : demandes en attente, de la plus ancienne à la plus récente, puis l'archive des demandes traitées, page par page. */
@@ -68,7 +67,7 @@ export default async function PendingRequestsPage(props: PageProps<"/gestion/dem
               </tr>
             </thead>
             <tbody>
-              {archive.demandes.map((r) => (
+              {archive.elements.map((r) => (
                 <tr key={r.id}>
                   <td>{date(r.updatedAt)}</td>
                   <td>{r.requesterUid}</td>
@@ -85,23 +84,16 @@ export default async function PendingRequestsPage(props: PageProps<"/gestion/dem
             </tbody>
           </table>
         )}
-        {archive.total > 0 && (
-          <nav aria-label={t("archive.pagination")} className="mt-4 flex flex-wrap items-center gap-4">
-            {archive.page > 1 && (
-              <Link href={`/gestion/demandes?page=${archive.page - 1}`} className="inline-flex items-center gap-1">
-                <ArrowLeft aria-hidden="true" className="size-4" />
-                {t("archive.plusRecentes")}
-              </Link>
-            )}
-            <span>{t("archive.position", { page: archive.page, pages: archive.pages, total: archive.total })}</span>
-            {archive.page < archive.pages && (
-              <Link href={`/gestion/demandes?page=${archive.page + 1}`} className="inline-flex items-center gap-1">
-                {t("archive.plusAnciennes")}
-                <ArrowRight aria-hidden="true" className="size-4" />
-              </Link>
-            )}
-          </nav>
-        )}
+        <PaginationArchive
+          archive={archive}
+          lien={(page) => `/gestion/demandes?page=${page}`}
+          libelles={{
+            pagination: t("archive.pagination"),
+            position: t("archive.position", { page: archive.page, pages: archive.pages, total: archive.total }),
+            plusRecentes: t("archive.plusRecentes"),
+            plusAnciennes: t("archive.plusAnciennes"),
+          }}
+        />
       </section>
     </>
   );
