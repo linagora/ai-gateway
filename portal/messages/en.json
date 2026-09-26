@@ -213,28 +213,28 @@
     "aucunModele": "No model is open at this level yet. To request one, write to the portal administrators.",
     "niveaux": {
       "N1": {
-        "definition": "Information that is public or intended to be.",
+        "definition": "Public information (NC) or information intended for all employees (C1).",
         "confier": [
-          "Open source code and public documentation",
-          "Content already published: website, articles, press releases",
-          "Monitoring and research on public sources"
+          "Open source code, documentation and published content",
+          "Monitoring and research on public sources",
+          "Internal notes and documents intended for all employees (C1)"
         ],
         "jamais": [
-          "Unpublished internal documents (level N2)",
-          "Customer or personal data (level N3)"
+          "Restricted information (C2, level N2)",
+          "Customer or personal data (C3, level N3)"
         ],
         "garanties": "Executed in the European Union or outside the EU depending on the model: each model shows its execution region."
       },
       "N2": {
-        "definition": "Non-public internal information, without sensitive personal data.",
+        "definition": "Restricted internal information (C2), without sensitive personal data.",
         "confier": [
-          "Internal code and documents",
+          "Unpublished code and project documents",
           "Specifications and meeting minutes",
           "Non-nominative commercial proposals"
         ],
         "jamais": [
-          "Customer or personal data (level N3)",
-          "Contracts, secrets and data under NDA (level N3)"
+          "Customer or personal data (C3, level N3)",
+          "Contracts, secrets and data under NDA (C3, level N3)"
         ],
         "garanties": "Hosts committed to neither retaining the data nor using it for training, preferably in the European Union."
       },
@@ -246,7 +246,7 @@
           "Data under NDA or from the public sector"
         ],
         "jamais": [
-          "Classified information (Restricted and above)",
+          "Government classified information (Diffusion Restreinte and above)",
           "Data that a contract forbids entrusting to a third party"
         ],
         "garanties": "Models hosted in France by OVHcloud, under a data processing agreement; eventually by LINAGORA or a sovereign host."

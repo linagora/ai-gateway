@@ -19,10 +19,10 @@ type Classification = "NC" | "C1" | "C2" | "C3";
 
 /**
  * Classifications que chaque niveau accepte (décision du 2026-09-26), montrées par les pastilles fournies par LINAGORA,
- * servies telles quelles (public/classification, 880 × 168, nettes sur un écran haute densité) ; aucune pour le niveau
- * Expérimental.
+ * servies telles quelles (public/classification, 880 × 168, nettes sur un écran haute densité). Le niveau Expérimental,
+ * réservé aux données publiques, n'accepte que NC.
  */
-const CLASSIFICATIONS: Record<DataLevel, readonly Classification[]> = { N1: ["NC", "C1"], N2: ["C2"], N3: ["C3"], EXP: [] };
+const CLASSIFICATIONS: Record<DataLevel, readonly Classification[]> = { N1: ["NC", "C1"], N2: ["C2"], N3: ["C3"], EXP: ["NC"] };
 
 /**
  * Ticket #5 : vue d'ensemble des niveaux de confidentialité, point d'entrée du catalogue. Les quatre cartes tiennent

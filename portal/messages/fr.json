@@ -213,28 +213,28 @@
     "aucunModele": "Aucun modèle n'est encore ouvert à ce niveau. Pour en demander un, écrivez aux administrateurs du portail.",
     "niveaux": {
       "N1": {
-        "definition": "Informations publiques ou destinées à l'être.",
+        "definition": "Informations publiques (NC) ou destinées à tous les salariés (C1).",
         "confier": [
-          "Code open source et documentation publique",
-          "Contenus déjà publiés : site, articles, communiqués",
-          "Veille et recherche sur des sources publiques"
+          "Code open source, documentation et contenus publiés",
+          "Veille et recherche sur des sources publiques",
+          "Notes et documents internes destinés à tous les salariés (C1)"
         ],
         "jamais": [
-          "Documents internes non publiés (niveau N2)",
-          "Données clients ou personnelles (niveau N3)"
+          "Informations à diffusion restreinte (C2, niveau N2)",
+          "Données clients ou personnelles (C3, niveau N3)"
         ],
         "garanties": "Exécution en Union européenne ou hors UE selon le modèle : la zone de chaque modèle est indiquée."
       },
       "N2": {
-        "definition": "Informations internes non publiques, sans données personnelles sensibles.",
+        "definition": "Informations internes à diffusion restreinte (C2), sans données personnelles sensibles.",
         "confier": [
-          "Code et documents internes",
+          "Code et documents de projet non publiés",
           "Spécifications et comptes rendus de réunion",
           "Propositions commerciales non nominatives"
         ],
         "jamais": [
-          "Données clients ou personnelles (niveau N3)",
-          "Contrats, secrets et données sous NDA (niveau N3)"
+          "Données clients ou personnelles (C3, niveau N3)",
+          "Contrats, secrets et données sous NDA (C3, niveau N3)"
         ],
         "garanties": "Hébergeurs engagés à ne pas conserver les données ni à les utiliser pour l'entraînement, en Union européenne de préférence."
       },
@@ -246,7 +246,7 @@
           "Données sous NDA ou du secteur public"
         ],
         "jamais": [
-          "Informations classifiées (Diffusion Restreinte et au-delà)",
+          "Informations classifiées de l'État (Diffusion Restreinte et au-delà)",
           "Données qu'un contrat interdit de confier à un tiers"
         ],
         "garanties": "Modèles hébergés en France chez OVHcloud, sous contrat de sous-traitance ; à terme, chez LINAGORA ou un hébergeur souverain."

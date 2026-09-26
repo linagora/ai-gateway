@@ -127,7 +127,7 @@ test.describe("vue d'ensemble des niveaux (ticket #5)", () => {
           "N1 Public": ["Classification NC · Public", "Classification C1 · Interne"],
           "N2 Interne": ["Classification C2 · Restreint"],
           "N3 Confidentiel": ["Classification C3 · Secret"],
-          "Expérimental (bêta)": [],
+          "Expérimental (bêta)": ["Classification NC · Public"],
         },
       ],
       [
@@ -136,7 +136,7 @@ test.describe("vue d'ensemble des niveaux (ticket #5)", () => {
           "N1 Public": ["Classification NC · Public", "Classification C1 · Internal"],
           "N2 Internal": ["Classification C2 · Restricted"],
           "N3 Confidential": ["Classification C3 · Secret"],
-          "Experimental (beta)": [],
+          "Experimental (beta)": ["Classification NC · Public"],
         },
       ],
     ] as const) {
