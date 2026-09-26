@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Subscription, SubscriptionCharge, SubscriptionOffer, TerminationOrigin } from "@/generated/prisma/client";
+import type { Subscription, SubscriptionCharge, SubscriptionOffer, SubscriptionStatus, TerminationOrigin } from "@/generated/prisma/client";
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
 import type { Langue } from "@/lib/langue";
@@ -14,7 +14,7 @@ import { markExpired } from "./echeances";
 import { type NotificationDeps, notifyNewRequest } from "./notifications";
 import { type CatalogOffer, libelleOffre, vueCatalogue } from "./offers";
 import { enregistrerPrelevements, jourUtc } from "./prelevements";
-import { DEMANDE_SUR_ABONNEMENT_EN_COURS, renewalInputSchema, renouvelableLe } from "./renouvellements";
+import { DEMANDE_SUR_ABONNEMENT_EN_COURS, exigerEngagement, type LienAbonnement, lienAbonnement, renewalInputSchema, renouvelableLe } from "./renouvellements";
 import { transitionRequest } from "./requests";
 import { enregistrerResiliation } from "./resiliations";
 
@@ -64,7 +64,7 @@ export async function createSubscriptionRequest(deps: SubscriptionDeps, user: Se
 export interface SubscriptionRequestDraft extends Omit<SubscriptionRequestInput, "commitment"> {
   offer: CatalogOffer;
   teamAlias: string;
-  linked: "RENOUVELLEMENT" | "CHANGEMENT_OFFRE" | null;
+  linked: LienAbonnement | null;
 }
 
 /** Brouillon de la demande d'abonnement du salarié renvoyée pour complément ; null si elle n'est pas à compléter. */
@@ -79,7 +79,7 @@ export async function subscriptionRequestDraft(deps: { db: Db }, user: SessionUs
     justification: r.justification,
     project: r.project,
     requestedDays: r.requestedDays,
-    linked: r.renewsSubscriptionId ? "RENOUVELLEMENT" : r.replacesSubscriptionId ? "CHANGEMENT_OFFRE" : null,
+    linked: lienAbonnement(r),
   };
 }
 
@@ -93,9 +93,9 @@ export async function completeSubscriptionRequest(deps: SubscriptionDeps, user: 
   if (!request || request.requesterUid !== user.uid || request.kind !== "ABONNEMENT") {
     throw new PortalError("introuvable", "Demande d'abonnement introuvable.", { objet: "demande_abonnement" });
   }
-  if (request.renewsSubscriptionId || request.replacesSubscriptionId) {
+  if (lienAbonnement(request)) {
     const { justification, project, requestedDays, commitment } = renewalInputSchema.parse(input);
-    if (!commitment) throw new PortalError("engagement_requis", "Engagez-vous à ne pas soumettre de données d'un niveau supérieur au niveau maximal de l'offre.");
+    exigerEngagement(commitment);
     await transitionRequest(deps.db, request, "SOUMISE", { data: { justification, project, requestedDays } });
     return;
   }
@@ -106,9 +106,7 @@ export async function completeSubscriptionRequest(deps: SubscriptionDeps, user: 
 /** Saisie validée, engagement pris, offre proposée au catalogue, équipe existante dont le demandeur est membre. */
 async function validateSubscriptionRequest(deps: SubscriptionDeps, user: SessionUser, input: SubscriptionRequestInput) {
   const data = subscriptionRequestInputSchema.parse(input);
-  if (!data.commitment) {
-    throw new PortalError("engagement_requis", "Engagez-vous à ne pas soumettre de données d'un niveau supérieur au niveau maximal de l'offre.");
-  }
+  exigerEngagement(data.commitment);
   const offre = await deps.db.subscriptionOffer.findUnique({ where: { id: data.offerId } });
   if (!offre?.visible) throw new PortalError("introuvable", "Offre d'abonnement introuvable.", { objet: "offre" });
   const team = await deps.litellm.getTeam(data.teamId);
@@ -169,7 +167,7 @@ interface SubscriptionView {
   subscribedAt: Date;
   monthlyAmountEur: number;
   expiresAt: Date;
-  status: "ACTIF" | "A_RESILIER" | "RESILIE";
+  status: SubscriptionStatus;
   /** Demande de résiliation, en cours (« à résilier ») ou qui a précédé la résiliation ; null sans demande. */
   termination: TerminationRequest | null;
   /** Date de résiliation, pour un abonnement résilié. */
@@ -184,7 +182,7 @@ export interface MySubscription extends SubscriptionView {
   /** Changement d'offre possible : abonnement non résilié, sans autre demande en cours. */
   canChangeOffer: boolean;
   /** Demande de renouvellement ou de changement d'offre en cours sur cet abonnement. */
-  pendingRequest: { id: string; type: "RENOUVELLEMENT" | "CHANGEMENT_OFFRE" } | null;
+  pendingRequest: { id: string; type: LienAbonnement } | null;
 }
 
 /** Abonnement tel que le voit la gestion, avec son titulaire et ses prélèvements, du plus ancien au plus récent. */
@@ -251,7 +249,8 @@ export async function listMySubscriptions(deps: SubscriptionDeps, user: SessionU
   const maintenant = deps.now?.() ?? new Date();
   const demandeEnCours = (id: string): MySubscription["pendingRequest"] => {
     const demande = enCours.find((d) => d.renewsSubscriptionId === id || d.replacesSubscriptionId === id);
-    return demande ? { id: demande.id, type: demande.renewsSubscriptionId ? "RENOUVELLEMENT" : "CHANGEMENT_OFFRE" } : null;
+    const type = demande && lienAbonnement(demande);
+    return demande && type ? { id: demande.id, type } : null;
   };
   return {
     aDeclarer: demandes.flatMap((d) =>

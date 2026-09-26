@@ -99,7 +99,7 @@ export async function demanderAbonnementAction(formData: FormData): Promise<void
 }
 
 /** Champs d'un renouvellement ou d'un changement d'offre : motif, projet, durée souhaitée et engagement. */
-function renouvellementDuFormulaire(formData: FormData) {
+function demandeSurAbonnementDuFormulaire(formData: FormData) {
   return {
     justification: text(formData, "justification"),
     project: optionalText(formData, "project"),
@@ -112,7 +112,7 @@ function renouvellementDuFormulaire(formData: FormData) {
 export async function demanderRenouvellementAction(formData: FormData): Promise<void> {
   const user = await requireUser();
   const abonnement = text(formData, "subscriptionId");
-  await run(`/demandes/abonnement?renouveler=${encodeURIComponent(abonnement)}`, () => requestRenewal(getDeps(), user, abonnement, renouvellementDuFormulaire(formData)), {
+  await run(`/demandes/abonnement?renouveler=${encodeURIComponent(abonnement)}`, () => requestRenewal(getDeps(), user, abonnement, demandeSurAbonnementDuFormulaire(formData)), {
     path: "/demandes",
     message: "demandeEnvoyee",
   });
@@ -124,7 +124,7 @@ export async function demanderChangementOffreAction(formData: FormData): Promise
   const abonnement = text(formData, "subscriptionId");
   await run(
     `/demandes/abonnement?changer=${encodeURIComponent(abonnement)}`,
-    () => requestOfferChange(getDeps(), user, abonnement, { ...renouvellementDuFormulaire(formData), offerId: text(formData, "offerId") }),
+    () => requestOfferChange(getDeps(), user, abonnement, { ...demandeSurAbonnementDuFormulaire(formData), offerId: text(formData, "offerId") }),
     { path: "/demandes", message: "demandeEnvoyee" },
   );
 }

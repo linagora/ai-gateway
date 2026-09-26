@@ -38,6 +38,20 @@ export const offerChangeInputSchema = renewalInputSchema.extend({ offerId: z.str
 
 export type OfferChangeInput = z.infer<typeof offerChangeInputSchema>;
 
+/** Lien d'une demande d'abonnement à un abonnement existant : son renouvellement, ou son changement d'offre. */
+export type LienAbonnement = "RENOUVELLEMENT" | "CHANGEMENT_OFFRE";
+
+/** Lien d'une demande à un abonnement existant ; null pour une demande d'une nouvelle offre. */
+export const lienAbonnement = (r: { renewsSubscriptionId: string | null; replacesSubscriptionId: string | null }): LienAbonnement | null =>
+  r.renewsSubscriptionId ? "RENOUVELLEMENT" : r.replacesSubscriptionId ? "CHANGEMENT_OFFRE" : null;
+
+/** Engagement du demandeur à ne pas confier à l'abonnement de données d'un niveau supérieur au niveau maximal de l'offre. */
+export function exigerEngagement(commitment: boolean): void {
+  if (!commitment) {
+    throw new PortalError("engagement_requis", "Engagez-vous à ne pas soumettre de données d'un niveau supérieur au niveau maximal de l'offre.");
+  }
+}
+
 /** Demande portant sur un abonnement (renouvellement ou changement d'offre) encore en cours : ni décidée, ni déclarée. */
 export const DEMANDE_SUR_ABONNEMENT_EN_COURS = { status: { in: ["SOUMISE" as const, "A_COMPLETER" as const, "APPROUVEE" as const] } };
 
@@ -55,13 +69,11 @@ async function abonnementDuTitulaire(db: Db, user: SessionUser, subscriptionId: 
 }
 
 /**
- * Contrôles communs : engagement pris, pas d'autre demande en cours sur l'abonnement, titulaire toujours membre de
- * l'équipe de l'abonnement, à laquelle la demande est rattachée.
+ * Contrôles d'une demande portant sur un abonnement : engagement pris, pas d'autre demande en cours sur l'abonnement,
+ * titulaire toujours membre de l'équipe de l'abonnement, à laquelle la demande est rattachée.
  */
-async function controler(deps: RenewalDeps, user: SessionUser, abonnement: Subscription, commitment: boolean): Promise<void> {
-  if (!commitment) {
-    throw new PortalError("engagement_requis", "Engagez-vous à ne pas soumettre de données d'un niveau supérieur au niveau maximal de l'offre.");
-  }
+async function verifierDemandeSurAbonnement(deps: RenewalDeps, user: SessionUser, abonnement: Subscription, commitment: boolean): Promise<void> {
+  exigerEngagement(commitment);
   const enCours = await deps.db.accessRequest.count({
     where: { OR: [{ renewsSubscriptionId: abonnement.id }, { replacesSubscriptionId: abonnement.id }], ...DEMANDE_SUR_ABONNEMENT_EN_COURS },
   });
@@ -73,7 +85,7 @@ async function controler(deps: RenewalDeps, user: SessionUser, abonnement: Subsc
 }
 
 /** Crée la demande d'abonnement (renouvellement ou changement d'offre) et l'annonce aux responsables de l'équipe et aux admins. */
-async function deposer(
+async function deposerDemandeSurAbonnement(
   deps: RenewalDeps,
   user: SessionUser,
   abonnement: Subscription,
@@ -112,8 +124,8 @@ export async function requestRenewal(deps: RenewalDeps, user: SessionUser, subsc
   if (!renouvelableLe(abonnement, deps.now?.() ?? new Date())) {
     throw new PortalError("renouvellement_trop_tot", "Le renouvellement se demande au plus tôt un mois avant l'échéance de l'abonnement.");
   }
-  await controler(deps, user, abonnement, data.commitment);
-  const created = await deposer(deps, user, abonnement, abonnement.offer, data, { renewsSubscriptionId: abonnement.id });
+  await verifierDemandeSurAbonnement(deps, user, abonnement, data.commitment);
+  const created = await deposerDemandeSurAbonnement(deps, user, abonnement, abonnement.offer, data, { renewsSubscriptionId: abonnement.id });
   await recordAudit(deps.db, {
     actorUid: user.uid,
     action: "RENEWAL_REQUESTED",
@@ -134,8 +146,8 @@ export async function requestOfferChange(deps: RenewalDeps, user: SessionUser, s
   if (!offre?.visible || offre.supplier !== abonnement.offer.supplier || offre.id === abonnement.offerId) {
     throw new PortalError("introuvable", "Offre d'abonnement introuvable.", { objet: "offre" });
   }
-  await controler(deps, user, abonnement, data.commitment);
-  const created = await deposer(deps, user, abonnement, offre, data, { replacesSubscriptionId: abonnement.id });
+  await verifierDemandeSurAbonnement(deps, user, abonnement, data.commitment);
+  const created = await deposerDemandeSurAbonnement(deps, user, abonnement, offre, data, { replacesSubscriptionId: abonnement.id });
   await recordAudit(deps.db, {
     actorUid: user.uid,
     action: "REQUEST_CREATED",
