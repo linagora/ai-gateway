@@ -446,6 +446,19 @@
   },
   "gestion": {
     "salaries": {
+      "titre": "Employees",
+      "tous": "All employees",
+      "filtreEquipe": "Employees of team {equipe}",
+      "recherche": "Search for an employee (uid or address)",
+      "rechercher": "Search",
+      "aucun": "No employees.",
+      "aucunResultat": "No employee matches “{recherche}”.",
+      "colonnes": {
+        "salarie": "Employee",
+        "equipes": "Teams",
+        "cles": "Active keys",
+        "abonnements": "Active subscriptions"
+      },
       "equipes": "Teams",
       "aucuneEquipe": "Not a member of any team.",
       "responsable": "manager",
@@ -463,7 +476,8 @@
       "abonnements": "Subscriptions",
       "equipes": "Teams",
       "aValider": "{nombre, plural, one {# request to review} other {# requests to review}}",
-      "outils": "Tools"
+      "outils": "Tools",
+      "salaries": "Employees"
     },
     "file": {
       "titre": "Requests awaiting validation",
@@ -627,6 +641,7 @@
         "budget": "Budget",
         "responsables": "Managers"
       },
+      "voirMembres": "{nombre, plural, =0 {See the team's employees} one {See the team's member} other {See the team's # members}}",
       "voirCles": "{nombre, plural, =0 {See the team's keys} one {See the team's active key} other {See the team's # active keys}}",
       "toutes": "All teams",
       "resume": "Team summary",

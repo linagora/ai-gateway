@@ -6,7 +6,7 @@ import { Pastille } from "../../pastille";
 
 /**
  * Menu de la gestion ; sa pastille compte les demandes à valider, seule action qui attend l'admin ou le responsable.
- * Un responsable d'équipe n'y voit que les demandes, les clés, les abonnements et les équipes (F-54).
+ * Un responsable d'équipe n'y voit que les demandes, les clés, les abonnements, les équipes et leurs salariés (F-54).
  */
 export async function AdminNav() {
   const admin = await requireGestionPage();
@@ -27,6 +27,7 @@ export async function AdminNav() {
           { href: "/gestion/cles", contenu: t("cles") },
           { href: "/gestion/abonnements", contenu: t("abonnements") },
           { href: "/gestion/equipes", contenu: t("equipes") },
+          { href: "/gestion/salaries", contenu: t("salaries") },
           ...(admin.isAdmin
             ? [
                 { href: "/gestion/catalogue", contenu: t("catalogue") },

@@ -48,7 +48,11 @@ export default async function EquipePage(props: PageProps<"/gestion/equipes/[id]
       <Notice searchParams={searchParams} />
       <dl className="grid grid-cols-[12rem_1fr] gap-x-4 gap-y-1" aria-label={t("resume")}>
         <dt>{t("colonnes.membres")}</dt>
-        <dd>{equipe.memberCount}</dd>
+        <dd>
+          <Link href={`/gestion/salaries?equipe=${encodeURIComponent(equipe.teamId)}`} aria-label={t("voirMembres", { nombre: equipe.memberCount })}>
+            {equipe.memberCount}
+          </Link>
+        </dd>
         <dt>{t("colonnes.cles")}</dt>
         <dd>
           <Link href={`/gestion/cles?equipe=${encodeURIComponent(equipe.teamId)}`} aria-label={t("voirCles", { nombre: equipe.activeKeyCount })}>

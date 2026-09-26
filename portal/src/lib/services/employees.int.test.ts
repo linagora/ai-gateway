@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
 import { FakeMailer } from "@/test/fake-mailer";
-import { getEmployeePage } from "./employees";
+import { getEmployeePage, listEmployees } from "./employees";
 
 /*
  * Fiche d'un salarié (retours de l'utilisateur du 2026-09-26) : ce qu'il utilise, clés et abonnements, avec ses équipes.
@@ -103,5 +103,52 @@ describe("fiche d'un salarié", () => {
   test("un uid inconnu est introuvable ; un salarié sans rôle n'accède à aucune fiche", async () => {
     await expect(getEmployeePage(deps, admin, "inconnu")).rejects.toMatchObject({ code: "introuvable" });
     await expect(getEmployeePage(deps, membre, "pmartin")).rejects.toMatchObject({ code: "interdit" });
+  });
+});
+
+describe("onglet « Salariés »", () => {
+  /** Paul Martin : deux clés émises (R&D, Data), une à retirer, un abonnement actif (Data), un résilié (R&D). Un ancien salarié, sans équipe, a une clé révoquée dans Data. */
+  const situation = async () => {
+    await cle("pmartin", "equipe-rd", "CLE_EMISE");
+    await cle("pmartin", "equipe-data", "CLE_EMISE");
+    await cle("pmartin", "equipe-data", "APPROUVEE");
+    await abonnement("pmartin", "equipe-data", "ACTIF");
+    await abonnement("pmartin", "equipe-rd", "RESILIE");
+    await cle("ancien", "equipe-data", "REVOQUEE");
+  };
+
+  test("un admin voit tous les salariés connus du portail, par uid, avec leurs équipes, leurs clés actives et leurs abonnements actifs", async () => {
+    await situation();
+    expect(await listEmployees(deps, admin)).toEqual([
+      { uid: "ancien", email: "ancien@linagora.com", teams: [], activeKeyCount: 0, activeSubscriptionCount: 0 },
+      { uid: "jdupont", email: null, teams: ["Data"], activeKeyCount: 0, activeSubscriptionCount: 0 },
+      { uid: "lbernard", email: "lbernard@linagora.com", teams: ["R&D"], activeKeyCount: 0, activeSubscriptionCount: 0 },
+      { uid: "pmartin", email: "pmartin@linagora.com", teams: ["Data", "R&D"], activeKeyCount: 2, activeSubscriptionCount: 1 },
+    ]);
+  });
+
+  test("un responsable ne voit que les salariés de ses équipes, avec ce qu'ils y utilisent", async () => {
+    await situation();
+    expect(await listEmployees(deps, responsable)).toEqual([
+      { uid: "lbernard", email: "lbernard@linagora.com", teams: ["R&D"], activeKeyCount: 0, activeSubscriptionCount: 0 },
+      { uid: "pmartin", email: "pmartin@linagora.com", teams: ["R&D"], activeKeyCount: 1, activeSubscriptionCount: 0 },
+    ]);
+    await expect(listEmployees(deps, membre)).rejects.toMatchObject({ code: "interdit" });
+  });
+
+  test("la recherche retient les salariés dont l'uid ou l'adresse contient le texte, sans tenir compte de la casse", async () => {
+    await situation();
+    expect((await listEmployees(deps, admin, { recherche: " MART " })).map((s) => s.uid)).toEqual(["pmartin"]);
+    expect((await listEmployees(deps, admin, { recherche: "ancien@linagora" })).map((s) => s.uid)).toEqual(["ancien"]);
+    expect(await listEmployees(deps, admin, { recherche: "personne" })).toEqual([]);
+  });
+
+  test("filtrée sur une équipe (depuis le nombre de ses membres), la liste ne retient qu'elle, dans l'autorité de l'acteur", async () => {
+    await situation();
+    expect(await listEmployees(deps, admin, { equipe: "equipe-rd" })).toEqual([
+      { uid: "lbernard", email: "lbernard@linagora.com", teams: ["R&D"], activeKeyCount: 0, activeSubscriptionCount: 0 },
+      { uid: "pmartin", email: "pmartin@linagora.com", teams: ["R&D"], activeKeyCount: 1, activeSubscriptionCount: 0 },
+    ]);
+    expect(await listEmployees(deps, responsable, { equipe: "equipe-data" })).toEqual([]);
   });
 });

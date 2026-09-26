@@ -446,6 +446,19 @@
   },
   "gestion": {
     "salaries": {
+      "titre": "Salariés",
+      "tous": "Tous les salariés",
+      "filtreEquipe": "Salariés de l'équipe {equipe}",
+      "recherche": "Rechercher un salarié (uid ou adresse)",
+      "rechercher": "Rechercher",
+      "aucun": "Aucun salarié.",
+      "aucunResultat": "Aucun salarié ne correspond à « {recherche} ».",
+      "colonnes": {
+        "salarie": "Salarié",
+        "equipes": "Équipes",
+        "cles": "Clés actives",
+        "abonnements": "Abonnements actifs"
+      },
       "equipes": "Équipes",
       "aucuneEquipe": "Membre d'aucune équipe.",
       "responsable": "responsable",
@@ -463,7 +476,8 @@
       "abonnements": "Abonnements",
       "equipes": "Équipes",
       "aValider": "{nombre, plural, one {# demande à valider} other {# demandes à valider}}",
-      "outils": "Outils"
+      "outils": "Outils",
+      "salaries": "Salariés"
     },
     "file": {
       "titre": "Demandes en attente de validation",
@@ -627,6 +641,7 @@
         "budget": "Budget",
         "responsables": "Responsables"
       },
+      "voirMembres": "{nombre, plural, =0 {Voir les salariés de l'équipe} one {Voir le membre de l'équipe} other {Voir les # membres de l'équipe}}",
       "voirCles": "{nombre, plural, =0 {Voir les clés de l'équipe} one {Voir la clé active de l'équipe} other {Voir les # clés actives de l'équipe}}",
       "toutes": "Toutes les équipes",
       "resume": "Résumé de l'équipe",

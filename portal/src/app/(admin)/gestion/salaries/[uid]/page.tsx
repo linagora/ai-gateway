@@ -1,3 +1,4 @@
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -35,6 +36,12 @@ export default async function SalariePage(props: PageProps<"/gestion/salaries/[u
   return (
     <>
       <AdminNav />
+      <p>
+        <Link href="/gestion/salaries" className="inline-flex items-center gap-1">
+          <ArrowLeft aria-hidden="true" className="size-4" />
+          {t("tous")}
+        </Link>
+      </p>
       <h1 className="mb-1">{fiche.uid}</h1>
       {fiche.email && <p className="mb-4 text-neutral-600">{fiche.email}</p>}
       <Notice searchParams={searchParams} />

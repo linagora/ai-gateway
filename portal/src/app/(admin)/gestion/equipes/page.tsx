@@ -48,7 +48,11 @@ export default async function EquipesPage(props: PageProps<"/gestion/equipes">) 
                   <Link href={`/gestion/equipes/${encodeURIComponent(e.teamId)}`}>{e.teamAlias}</Link>
                 </td>
                 <td>{e.managerUids.join(", ") || t("aucun")}</td>
-                <td>{e.memberCount}</td>
+                <td>
+                  <Link href={`/gestion/salaries?equipe=${encodeURIComponent(e.teamId)}`} aria-label={t("voirMembres", { nombre: e.memberCount })}>
+                    {e.memberCount}
+                  </Link>
+                </td>
                 <td>{e.activeKeyCount}</td>
                 <td>{e.budget.max === null ? t("budget.sansLimite") : <DepenseSurBudget spend={e.budget.spend} maxBudget={e.budget.max} />}</td>
               </tr>

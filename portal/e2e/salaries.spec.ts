@@ -84,3 +84,38 @@ test("depuis la page de son équipe, la fiche d'un salarié montre sa clé et so
   await expect(admin.getByRole("status")).toHaveText("Équipe supprimée.");
   await masquerOffre(admin, "Anthropic", offre);
 });
+
+test("onglet « Salariés » : le nombre de membres d'une équipe y mène, la recherche retrouve un salarié et son uid exact ouvre sa fiche", async ({ browser }) => {
+  const membre = personne("liste");
+  await (await connecter(browser, membre)).close();
+  const admin = await (await connecter(browser, ADMIN)).newPage();
+  const equipe = `Équipe liste ${suffixe}`;
+  await nouvelleEquipe(admin, equipe);
+  await ajouterMembre(admin, membre.uid);
+  const pageEquipe = admin.url();
+
+  // Depuis l'onglet « Équipes », le nombre de membres mène aux salariés de l'équipe.
+  await admin.goto("/gestion/equipes");
+  await admin.getByRole("row", { name: new RegExp(echapper(equipe)) }).getByRole("link", { name: "Voir le membre de l'équipe" }).click();
+  await expect(admin.getByRole("heading", { level: 1 })).toHaveText("Salariés");
+  await expect(admin.getByText(`Salariés de l'équipe ${equipe}`)).toBeVisible();
+  const liste = admin.getByRole("table");
+  await expect(liste.getByRole("row")).toHaveCount(2);
+  await expect(liste.getByRole("row", { name: new RegExp(echapper(membre.uid)) })).toContainText(equipe);
+
+  // La recherche retrouve un salarié par une partie de son uid ; son uid exact ouvre sa fiche.
+  await admin.getByRole("link", { name: "Tous les salariés" }).click();
+  await admin.getByLabel("Rechercher un salarié").fill(membre.uid.slice(0, -3));
+  await admin.getByRole("button", { name: "Rechercher" }).click();
+  await expect(admin.getByRole("table").getByRole("link", { name: membre.uid, exact: true })).toBeVisible();
+  await admin.getByLabel("Rechercher un salarié").fill(membre.uid);
+  await admin.getByRole("button", { name: "Rechercher" }).click();
+  await expect(admin.getByRole("heading", { level: 1 })).toHaveText(membre.uid);
+  await expect(admin.getByRole("navigation", { name: "Administration" }).getByRole("link", { name: "Salariés" })).toHaveAttribute("aria-current", "true");
+
+  // Nettoyage.
+  await admin.goto(pageEquipe);
+  await faireSortir(admin, membre.uid);
+  await supprimerEquipe(admin);
+  await expect(admin.getByRole("status")).toHaveText("Équipe supprimée.");
+});
