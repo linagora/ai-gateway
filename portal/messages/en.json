@@ -71,7 +71,8 @@
       "CLE_EMISE": "Key issued",
       "EXPIREE": "Expired",
       "REVOQUEE": "Revoked",
-      "DECLAREE": "Declared"
+      "DECLAREE": "Declared",
+      "RENOUVELEE": "Expiry extended"
     },
     "statutsAbonnement": {
       "ACTIF": "Active",
@@ -129,7 +130,8 @@
     "erreurs": {
       "controles_en_echec": "The request does not comply with the model access policy. Failed checks: {controles}.",
       "deja_membre": "You are already a member of the {equipe} team.",
-      "demande_en_cours": "You already have a pending access request for the {equipe} team.",
+      "demande_en_cours": "{cas, select, abonnement {A renewal or offer change request is already pending for this subscription.} other {You already have a pending access request for the {equipe} team.}}",
+      "renouvellement_trop_tot": "Renewal can be requested at the earliest one month before the subscription expires.",
       "engagement_requis": "Commit to not submitting data above the declared level.",
       "interdit": "Administrators only.",
       "introuvable": "{objet, select, modele {Model {modele} is not declared in the gateway.} equipe {Team not found.} demande_adhesion {Access request not found.} demande_cle {Key request not found.} membre {Member not found in this team.} responsable {Manager not found in this team.} offre {Subscription offer not found.} demande_abonnement {Subscription request not found.} abonnement {Subscription not found.} other {Request not found.}}",
@@ -514,6 +516,8 @@
       "equipeAffectation": "Assigned team",
       "aideEquipe": "If the requester is not a member of the chosen team, approval adds them to it.",
       "renouvellement": "Renewal of the key {alias}.",
+      "renouvellementAbonnement": "Renewal of the subscription {offre}, which expires on {echeance}: once approved, it extends this expiry by the granted validity period, without a new declaration.",
+      "changementOffre": "Offer change: this subscription replaces the subscription {offre}, cancelled when the new offer is declared.",
       "depenseOrigine": "Spend of this key: {depense}.",
       "propreDemande": "You cannot decide on your own request: another manager of the team or an administrator will handle it.",
       "approuverAbonnement": "Approve (subscription validity period)",
@@ -851,7 +855,17 @@
       "souscrire": "Take it out yourself with {fournisseur}, preferably with your work address, and turn off the use of your data for model training.",
       "regles": "Usage rules: {regles}",
       "declarer": "Then declare the subscription in “My subscriptions” before {date, date, long}.",
-      "declarerSansEcheance": "Then declare the subscription in “My subscriptions”."
+      "declarerSansEcheance": "Then declare the subscription in “My subscriptions”.",
+      "remplace": "This subscription replaces your subscription {offre}: when you declare it, the replaced subscription will be cancelled as of the declared subscription date."
+    },
+    "renouvellementApprouve": {
+      "sujet": "Your renewal request is approved",
+      "corps": "The expiry of your subscription {offre}, attached to the {equipe} team, is extended to {date, date, long}: nothing else to do."
+    },
+    "rappelEcheance": {
+      "sujet": "Expiry of your subscription {offre}",
+      "corps": "Your subscription {offre}, attached to the {equipe} team, expires on {date, date, long}, {jours, plural, one {tomorrow} other {in # days}}.",
+      "suite": "Request its renewal in “My subscriptions”; otherwise, cancel it with {fournisseur}, then declare the cancellation."
     },
     "demandeRefusee": {
       "sujet": "Your request is refused",
@@ -880,7 +894,7 @@
     },
     "demandeResiliation": {
       "sujet": "Cancellation request for your subscription {offre}",
-      "corps": "{origine, select, SORTIE {Since you left the {equipe} team, your subscription {offre}, which was attached to it, is to be cancelled, unless an admin or a manager of another of your teams attaches it to that team.} RESPONSABLE {A manager of your team requests the cancellation of your subscription {offre}, attached to the {equipe} team.} other {An administrator requests the cancellation of your subscription {offre}, attached to the {equipe} team.}}",
+      "corps": "{origine, select, SORTIE {Since you left the {equipe} team, your subscription {offre}, which was attached to it, is to be cancelled, unless an admin or a manager of another of your teams attaches it to that team.} ECHEANCE {Your subscription {offre}, attached to the {equipe} team, has expired without being renewed: it is to be cancelled.} RENOUVELLEMENT_REFUSE {The renewal of your subscription {offre}, attached to the {equipe} team, is refused: it is to be cancelled.} RESPONSABLE {A manager of your team requests the cancellation of your subscription {offre}, attached to the {equipe} team.} other {An administrator requests the cancellation of your subscription {offre}, attached to the {equipe} team.}}",
       "motif": "Reason: {motif}",
       "suite": "Cancel it with {fournisseur}, then declare the cancellation in “My subscriptions” before {date, date, long}.",
       "suiteSansEcheance": "Cancel it with {fournisseur}, then declare the cancellation in “My subscriptions”."
@@ -985,10 +999,28 @@
   "demandeAbonnement": {
     "titre": "Request a subscription",
     "titreCompleter": "Complete your subscription request",
-    "offre": "Requested offer",
+    "offreDemandee": "Requested offer: {offre}",
     "engagement": "I commit not to entrust this subscription with any data above: {niveau}.",
     "offreIntrouvable": "This offer is no longer available.",
-    "voirOffres": "See the offers"
+    "voirOffres": "See the offers",
+    "completerRenouvellement": "Renewal of your subscription attached to the {equipe} team: the offer and the team remain those of the subscription.",
+    "completerChangement": "Offer change of your subscription attached to the {equipe} team: the team remains that of the subscription.",
+    "titreRenouveler": "Renew a subscription",
+    "renouvellementImpossible": "This subscription cannot be renewed now: the renewal of a subscription that is not cancelled can be requested from one month before its expiry.",
+    "retourAbonnements": "Back to “My subscriptions”",
+    "abonnementRenouvele": "Renewed subscription: {offre}",
+    "equipeEtEcheance": "Attached to the {equipe} team, expires on {date}.",
+    "aideRenouvellement": "Once approved, the renewal extends the expiry by the granted period, from the current expiry, without a new declaration.",
+    "envoyerRenouvellement": "Request the renewal",
+    "titreChanger": "Change offer",
+    "abonnementIntrouvable": "This subscription cannot be found or is cancelled.",
+    "aucuneAutreOffre": "No other offer from the supplier of your subscription {offre} is available.",
+    "abonnementRemplace": "Replaced subscription: {offre}, attached to the {equipe} team.",
+    "nouvelleOffre": "New offer",
+    "choixOffre": "{offre}: {prix} incl. VAT per month, {niveau}",
+    "aideChangement": "Once the request is approved, take out the new offer with the supplier, then declare it in “My subscriptions”: the replaced subscription will be cancelled as of the declared subscription date.",
+    "engagementOffreChoisie": "I commit not to entrust this subscription with any data above the maximum level of the chosen offer.",
+    "envoyerChangement": "Request the offer change"
   },
   "mesAbonnements": {
     "titre": "My subscriptions",
@@ -1019,6 +1051,10 @@
     "resilieLe": "Cancelled on {date}",
     "resiliationDemandee": "Cancellation requested on {date}",
     "motif": "Reason: {motif}",
+    "renouveler": "Request the renewal",
+    "changerOffre": "Change offer",
+    "renouvellementDemande": "Renewal requested",
+    "changementDemande": "Offer change requested",
     "resiliation": {
       "ouvrir": "Declare the cancellation",
       "formulaire": "Declare the cancellation: {offre}",

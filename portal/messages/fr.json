@@ -71,7 +71,8 @@
       "CLE_EMISE": "Clé émise",
       "EXPIREE": "Expirée",
       "REVOQUEE": "Révoquée",
-      "DECLAREE": "Déclarée"
+      "DECLAREE": "Déclarée",
+      "RENOUVELEE": "Échéance reportée"
     },
     "statutsAbonnement": {
       "ACTIF": "Actif",
@@ -129,7 +130,8 @@
     "erreurs": {
       "controles_en_echec": "La demande ne respecte pas la politique d'accès aux modèles. Contrôles en échec : {controles}.",
       "deja_membre": "Vous êtes déjà membre de l'équipe {equipe}.",
-      "demande_en_cours": "Vous avez déjà une demande d'accès en cours pour l'équipe {equipe}.",
+      "demande_en_cours": "{cas, select, abonnement {Une demande de renouvellement ou de changement d'offre est déjà en cours pour cet abonnement.} other {Vous avez déjà une demande d'accès en cours pour l'équipe {equipe}.}}",
+      "renouvellement_trop_tot": "Le renouvellement se demande au plus tôt un mois avant l'échéance de l'abonnement.",
       "engagement_requis": "Engagez-vous à ne pas soumettre de données d'un niveau supérieur à celui déclaré.",
       "interdit": "Action réservée aux administrateurs.",
       "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} membre {Membre introuvable dans cette équipe.} responsable {Responsable introuvable dans cette équipe.} offre {Offre d'abonnement introuvable.} demande_abonnement {Demande d'abonnement introuvable.} abonnement {Abonnement introuvable.} other {Demande introuvable.}}",
@@ -514,6 +516,8 @@
       "equipeAffectation": "Équipe d'affectation",
       "aideEquipe": "Si le demandeur n'est pas membre de l'équipe choisie, l'approbation l'y ajoute.",
       "renouvellement": "Renouvellement de la clé {alias}.",
+      "renouvellementAbonnement": "Renouvellement de l'abonnement {offre}, qui arrive à échéance le {echeance} : approuvé, il reporte cette échéance de la durée de validité accordée, sans nouvelle déclaration.",
+      "changementOffre": "Changement d'offre : cet abonnement remplace l'abonnement {offre}, résilié à la déclaration de la nouvelle offre.",
       "depenseOrigine": "Dépense de cette clé : {depense}.",
       "propreDemande": "Vous ne pouvez pas décider de votre propre demande : un autre responsable de l'équipe ou un administrateur s'en chargera.",
       "approuverAbonnement": "Approuver (durée de validité de l'abonnement)",
@@ -851,7 +855,17 @@
       "souscrire": "Souscrivez-le vous-même chez {fournisseur}, de préférence avec votre adresse professionnelle, et désactivez l'utilisation de vos données pour l'entraînement des modèles.",
       "regles": "Règles d'usage : {regles}",
       "declarer": "Déclarez ensuite l'abonnement dans « Mes abonnements » avant le {date, date, long}.",
-      "declarerSansEcheance": "Déclarez ensuite l'abonnement dans « Mes abonnements »."
+      "declarerSansEcheance": "Déclarez ensuite l'abonnement dans « Mes abonnements ».",
+      "remplace": "Cet abonnement remplace votre abonnement {offre} : à sa déclaration, l'abonnement remplacé sera résilié à la date de souscription déclarée."
+    },
+    "renouvellementApprouve": {
+      "sujet": "Votre demande de renouvellement est approuvée",
+      "corps": "L'échéance de votre abonnement {offre}, rattaché à l'équipe {equipe}, est reportée au {date, date, long} : rien d'autre à faire."
+    },
+    "rappelEcheance": {
+      "sujet": "Échéance de votre abonnement {offre}",
+      "corps": "Votre abonnement {offre}, rattaché à l'équipe {equipe}, arrive à échéance le {date, date, long}, {jours, plural, one {demain} other {dans # jours}}.",
+      "suite": "Demandez son renouvellement dans « Mes abonnements » ; sinon, résiliez-le chez {fournisseur}, puis déclarez la résiliation."
     },
     "demandeRefusee": {
       "sujet": "Votre demande est refusée",
@@ -880,7 +894,7 @@
     },
     "demandeResiliation": {
       "sujet": "Demande de résiliation de votre abonnement {offre}",
-      "corps": "{origine, select, SORTIE {Après votre sortie de l'équipe {equipe}, votre abonnement {offre}, qui lui était rattaché, est à résilier, sauf si un admin ou un responsable d'une autre de vos équipes l'y rattache.} RESPONSABLE {Un responsable de votre équipe demande la résiliation de votre abonnement {offre}, rattaché à l'équipe {equipe}.} other {Un administrateur demande la résiliation de votre abonnement {offre}, rattaché à l'équipe {equipe}.}}",
+      "corps": "{origine, select, SORTIE {Après votre sortie de l'équipe {equipe}, votre abonnement {offre}, qui lui était rattaché, est à résilier, sauf si un admin ou un responsable d'une autre de vos équipes l'y rattache.} ECHEANCE {Votre abonnement {offre}, rattaché à l'équipe {equipe}, est arrivé à échéance sans être renouvelé : il est à résilier.} RENOUVELLEMENT_REFUSE {Le renouvellement de votre abonnement {offre}, rattaché à l'équipe {equipe}, est refusé : il est à résilier.} RESPONSABLE {Un responsable de votre équipe demande la résiliation de votre abonnement {offre}, rattaché à l'équipe {equipe}.} other {Un administrateur demande la résiliation de votre abonnement {offre}, rattaché à l'équipe {equipe}.}}",
       "motif": "Motif : {motif}",
       "suite": "Résiliez-le chez {fournisseur}, puis déclarez la résiliation dans « Mes abonnements » avant le {date, date, long}.",
       "suiteSansEcheance": "Résiliez-le chez {fournisseur}, puis déclarez la résiliation dans « Mes abonnements »."
@@ -985,10 +999,28 @@
   "demandeAbonnement": {
     "titre": "Demander un abonnement",
     "titreCompleter": "Compléter votre demande d'abonnement",
-    "offre": "Offre demandée",
+    "offreDemandee": "Offre demandée : {offre}",
     "engagement": "Je m'engage à ne confier à cet abonnement aucune donnée d'un niveau supérieur à : {niveau}.",
     "offreIntrouvable": "Cette offre n'est plus proposée.",
-    "voirOffres": "Voir les offres"
+    "voirOffres": "Voir les offres",
+    "completerRenouvellement": "Renouvellement de votre abonnement rattaché à l'équipe {equipe} : l'offre et l'équipe restent celles de l'abonnement.",
+    "completerChangement": "Changement d'offre de votre abonnement rattaché à l'équipe {equipe} : l'équipe reste celle de l'abonnement.",
+    "titreRenouveler": "Renouveler un abonnement",
+    "renouvellementImpossible": "Cet abonnement ne peut pas être renouvelé maintenant : le renouvellement d'un abonnement non résilié se demande à partir d'un mois avant son échéance.",
+    "retourAbonnements": "Retour à « Mes abonnements »",
+    "abonnementRenouvele": "Abonnement renouvelé : {offre}",
+    "equipeEtEcheance": "Rattaché à l'équipe {equipe}, échéance le {date}.",
+    "aideRenouvellement": "Approuvé, le renouvellement reporte l'échéance de la durée accordée, à partir de l'échéance en cours, sans nouvelle déclaration.",
+    "envoyerRenouvellement": "Demander le renouvellement",
+    "titreChanger": "Changer d'offre",
+    "abonnementIntrouvable": "Cet abonnement est introuvable ou résilié.",
+    "aucuneAutreOffre": "Aucune autre offre du fournisseur de votre abonnement {offre} n'est proposée.",
+    "abonnementRemplace": "Abonnement remplacé : {offre}, rattaché à l'équipe {equipe}.",
+    "nouvelleOffre": "Nouvelle offre",
+    "choixOffre": "{offre} : {prix} TTC par mois, {niveau}",
+    "aideChangement": "Une fois la demande approuvée, souscrivez la nouvelle offre chez le fournisseur, puis déclarez-la dans « Mes abonnements » : l'abonnement remplacé sera résilié à la date de souscription déclarée.",
+    "engagementOffreChoisie": "Je m'engage à ne confier à cet abonnement aucune donnée d'un niveau supérieur au niveau maximal de l'offre choisie.",
+    "envoyerChangement": "Demander le changement d'offre"
   },
   "mesAbonnements": {
     "titre": "Mes abonnements",
@@ -1019,6 +1051,10 @@
     "resilieLe": "Résilié le {date}",
     "resiliationDemandee": "Résiliation demandée le {date}",
     "motif": "Motif : {motif}",
+    "renouveler": "Demander le renouvellement",
+    "changerOffre": "Changer d'offre",
+    "renouvellementDemande": "Renouvellement demandé",
+    "changementDemande": "Changement d'offre demandé",
     "resiliation": {
       "ouvrir": "Déclarer la résiliation",
       "formulaire": "Déclarer la résiliation : {offre}",

@@ -3,7 +3,7 @@ import { readSettings } from "./settings";
 
 export const JOUR = 86_400_000;
 
-/** Auteur des expirations au journal d'audit : ni le titulaire ni un admin. */
+/** Auteur au journal d'audit des actions de la tâche quotidienne (expirations, demandes de résiliation) : ni un salarié ni un admin. */
 export const SYSTEME = "systeme";
 
 /** Délai de retrait configuré, en jours ; null si aucun n'est configuré (les demandes approuvées n'expirent pas). */

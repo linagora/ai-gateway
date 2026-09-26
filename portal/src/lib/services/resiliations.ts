@@ -1,12 +1,12 @@
 import { z } from "zod";
-import type { TerminationOrigin } from "@/generated/prisma/client";
+import type { Subscription, SubscriptionOffer, TerminationOrigin } from "@/generated/prisma/client";
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
 import { PortalError } from "@/lib/errors";
 import type { LiteLLMClient } from "@/lib/litellm/client";
 import { recordAudit } from "./audit";
 import { managerEmails, requireAutorite } from "./autorite";
-import { pickupDeadline, readPickupDays } from "./delais";
+import { pickupDeadline, readPickupDays, SYSTEME } from "./delais";
 import { type NotificationDeps, notifyTeamChange, notifyTerminationDeclaredByAdmin, notifyTerminationRequested } from "./notifications";
 import { libelleOffre } from "./offers";
 import { enregistrerPrelevements, jourUtc } from "./prelevements";
@@ -35,6 +35,52 @@ const demandeDeResiliation = (origine: TerminationOrigin, auteur: string, mainte
   terminationAlertSentAt: null,
 });
 
+/** Abonnement de nouveau actif : sans demande de résiliation (levée par un rattachement ou un renouvellement). */
+export const SANS_DEMANDE_DE_RESILIATION = {
+  status: "ACTIF" as const,
+  terminationOrigin: null,
+  terminationRequestedBy: null,
+  terminationRequestedAt: null,
+  terminationReason: null,
+  terminationAlertSentAt: null,
+};
+
+/**
+ * Pose une demande de résiliation sur un abonnement actif, l'inscrit au journal et en prévient le titulaire, avec
+ * l'échéance de la déclaration. Rend faux si l'abonnement n'était plus actif (rien n'est alors fait).
+ */
+async function poserDemande(
+  deps: TerminationDeps,
+  abonnement: Subscription & { offer: SubscriptionOffer },
+  demande: { origine: TerminationOrigin; auteur: string; maintenant: Date; motif: string | null; echeance: Date | null },
+): Promise<boolean> {
+  const champs = demandeDeResiliation(demande.origine, demande.auteur, demande.maintenant, demande.motif);
+  const { count } = await deps.db.subscription.updateMany({ where: { id: abonnement.id, status: "ACTIF" }, data: champs });
+  if (count === 0) return false;
+  await recordAudit(deps.db, {
+    actorUid: demande.auteur,
+    action: "SUBSCRIPTION_TERMINATION_REQUESTED",
+    targetId: abonnement.id,
+    details: { origine: demande.origine, offre: libelleOffre(abonnement.offer), equipe: abonnement.teamAlias, motif: demande.motif },
+  });
+  await notifyTerminationRequested(deps, { ...abonnement, ...champs }, abonnement.offer, demande.echeance);
+  return true;
+}
+
+/**
+ * Résiliation d'un abonnement à la date donnée : il passe « résilié » ; les prélèvements comptés à partir de cette date
+ * sont retirés, et ceux échus avant elle, que la tâche quotidienne n'aurait pas encore comptés, sont ajoutés.
+ */
+export async function enregistrerResiliation(db: Db, abonnement: Subscription, date: Date, maintenant: Date): Promise<void> {
+  await db.$transaction(async (tx) => {
+    // Condition sur le statut : une résiliation ne s'enregistre qu'une fois, même en cas de double envoi.
+    const { count } = await tx.subscription.updateMany({ where: { id: abonnement.id, status: { not: "RESILIE" } }, data: { status: "RESILIE", terminatedOn: date } });
+    if (count === 0) throw new PortalError("transition_interdite", "Cet abonnement est déjà résilié.", { cas: "abonnement" });
+    await tx.subscriptionCharge.deleteMany({ where: { subscriptionId: abonnement.id, chargedOn: { gte: date } } });
+  });
+  await enregistrerPrelevements(db, { ...abonnement, terminatedOn: date }, maintenant);
+}
+
 /** Échéance de la déclaration d'une résiliation demandée : la date de la demande plus le délai de retrait, s'il est fixé. */
 async function echeanceDeDeclaration(db: Db, demandeeLe: Date): Promise<Date | null> {
   const delai = await readPickupDays(db);
@@ -58,14 +104,7 @@ export async function declareTermination(deps: TerminationDeps, actor: SessionUs
   if (date < abonnement.subscribedAt) throw new PortalError("date_avant_souscription", "La date de résiliation ne peut pas précéder la souscription.");
   // Déclarée par un admin, la résiliation est annoncée au titulaire s'il est toujours là (connu de la passerelle).
   const titulaire = abonnement.holderUid !== actor.uid ? await deps.litellm.getUser(abonnement.holderUid) : null;
-  await deps.db.$transaction(async (tx) => {
-    // Condition sur le statut : une résiliation ne se déclare qu'une fois, même en cas de double envoi.
-    const { count } = await tx.subscription.updateMany({ where: { id: abonnement.id, status: { not: "RESILIE" } }, data: { status: "RESILIE", terminatedOn: date } });
-    if (count === 0) throw new PortalError("transition_interdite", "Cet abonnement est déjà résilié.", { cas: "abonnement" });
-    await tx.subscriptionCharge.deleteMany({ where: { subscriptionId: abonnement.id, chargedOn: { gte: date } } });
-  });
-  // Les prélèvements échus avant la résiliation, que la tâche quotidienne n'aurait pas encore comptés.
-  await enregistrerPrelevements(deps.db, { ...abonnement, terminatedOn: date }, maintenant);
+  await enregistrerResiliation(deps.db, abonnement, date, maintenant);
   await recordAudit(deps.db, {
     actorUid: actor.uid,
     action: "SUBSCRIPTION_TERMINATED",
@@ -87,20 +126,13 @@ export async function requestTermination(deps: TerminationDeps, actor: SessionUs
   if (!motif) throw new PortalError("motif_obligatoire", "Le motif de la demande de résiliation est obligatoire.");
   const maintenant = deps.now?.() ?? new Date();
   const origine: TerminationOrigin = actor.isAdmin ? "ADMIN" : "RESPONSABLE";
-  const demande = demandeDeResiliation(origine, actor.uid, maintenant, motif);
-  const { count } = await deps.db.subscription.updateMany({ where: { id: abonnement.id, status: "ACTIF" }, data: demande });
-  if (count === 0) throw new PortalError("transition_interdite", "Cet abonnement n'est plus actif.", { cas: "abonnement" });
-  const offre = libelleOffre(abonnement.offer);
-  await recordAudit(deps.db, {
-    actorUid: actor.uid,
-    action: "SUBSCRIPTION_TERMINATION_REQUESTED",
-    targetId: abonnement.id,
-    details: { origine, offre, equipe: abonnement.teamAlias, motif },
-  });
-  await notifyTerminationRequested(deps, { ...abonnement, ...demande }, abonnement.offer, await echeanceDeDeclaration(deps.db, maintenant));
+  const echeance = await echeanceDeDeclaration(deps.db, maintenant);
+  if (!(await poserDemande(deps, abonnement, { origine, auteur: actor.uid, maintenant, motif, echeance }))) {
+    throw new PortalError("transition_interdite", "Cet abonnement n'est plus actif.", { cas: "abonnement" });
+  }
   await notifyTeamChange(
     deps,
-    { type: "resiliationDemandee", teamId: abonnement.teamId, equipe: abonnement.teamAlias, titulaire: abonnement.holderUid, offre, auteur: actor },
+    { type: "resiliationDemandee", teamId: abonnement.teamId, equipe: abonnement.teamAlias, titulaire: abonnement.holderUid, offre: libelleOffre(abonnement.offer), auteur: actor },
     await managerEmails(deps.db, abonnement.teamId, [actor.uid, abonnement.holderUid]),
   );
 }
@@ -115,17 +147,40 @@ export async function requestTerminationsOnExit(deps: TerminationDeps, actor: Se
   const echeance = abonnements.length > 0 ? await echeanceDeDeclaration(deps.db, maintenant) : null;
   let demandes = 0;
   for (const abonnement of abonnements) {
-    const demande = demandeDeResiliation("SORTIE", actor.uid, maintenant, null);
-    const { count } = await deps.db.subscription.updateMany({ where: { id: abonnement.id, status: "ACTIF" }, data: demande });
-    if (count === 0) continue;
-    demandes++;
-    await recordAudit(deps.db, {
-      actorUid: actor.uid,
-      action: "SUBSCRIPTION_TERMINATION_REQUESTED",
-      targetId: abonnement.id,
-      details: { origine: "SORTIE", offre: libelleOffre(abonnement.offer), equipe: abonnement.teamAlias, motif: null },
-    });
-    await notifyTerminationRequested(deps, { ...abonnement, ...demande }, abonnement.offer, echeance);
+    if (await poserDemande(deps, abonnement, { origine: "SORTIE", auteur: actor.uid, maintenant, motif: null, echeance })) demandes++;
+  }
+  return demandes;
+}
+
+/**
+ * Ticket #59 : le refus du renouvellement d'un abonnement actif en fait une demande de résiliation, par l'auteur du
+ * refus et avec son motif ; le titulaire en est prévenu.
+ */
+export async function requestTerminationAfterRefusedRenewal(deps: TerminationDeps, actor: SessionUser, subscriptionId: string, motif: string): Promise<void> {
+  const abonnement = await deps.db.subscription.findUnique({ where: { id: subscriptionId }, include: { offer: true } });
+  if (!abonnement) return;
+  const maintenant = deps.now?.() ?? new Date();
+  const echeance = await echeanceDeDeclaration(deps.db, maintenant);
+  await poserDemande(deps, abonnement, { origine: "RENOUVELLEMENT_REFUSE", auteur: actor.uid, maintenant, motif, echeance });
+}
+
+/**
+ * Ticket #59, tâche quotidienne : à l'échéance d'un abonnement actif non renouvelé, une demande de résiliation part à
+ * son titulaire ; un renouvellement en attente de décision la suspend. Rend le nombre de demandes faites.
+ */
+export async function requestTerminationsAtExpiry(deps: TerminationDeps, maintenant: Date): Promise<number> {
+  const echus = await deps.db.subscription.findMany({ where: { status: "ACTIF", expiresAt: { lte: maintenant } }, include: { offer: true } });
+  if (echus.length === 0) return 0;
+  const renouvellements = await deps.db.accessRequest.findMany({
+    where: { renewsSubscriptionId: { in: echus.map((a) => a.id) }, status: { in: ["SOUMISE", "A_COMPLETER"] } },
+    select: { renewsSubscriptionId: true },
+  });
+  const enAttente = new Set(renouvellements.map((r) => r.renewsSubscriptionId));
+  const echeance = await echeanceDeDeclaration(deps.db, maintenant);
+  let demandes = 0;
+  for (const abonnement of echus) {
+    if (enAttente.has(abonnement.id)) continue;
+    if (await poserDemande(deps, abonnement, { origine: "ECHEANCE", auteur: SYSTEME, maintenant, motif: null, echeance })) demandes++;
   }
   return demandes;
 }
@@ -146,15 +201,7 @@ export async function reattachSubscription(deps: TerminationDeps, actor: Session
   }
   await enregistrerPrelevements(deps.db, abonnement, deps.now?.() ?? new Date());
   const levee = abonnement.status === "A_RESILIER" && abonnement.terminationOrigin === "SORTIE";
-  const sansDemande = {
-    status: "ACTIF" as const,
-    terminationOrigin: null,
-    terminationRequestedBy: null,
-    terminationRequestedAt: null,
-    terminationReason: null,
-    terminationAlertSentAt: null,
-  };
-  await deps.db.subscription.update({ where: { id: abonnement.id }, data: { teamId: equipe.teamId, teamAlias: equipe.teamAlias, ...(levee ? sansDemande : {}) } });
+  await deps.db.subscription.update({ where: { id: abonnement.id }, data: { teamId: equipe.teamId, teamAlias: equipe.teamAlias, ...(levee ? SANS_DEMANDE_DE_RESILIATION : {}) } });
   await recordAudit(deps.db, {
     actorUid: actor.uid,
     action: "SUBSCRIPTION_REATTACHED",

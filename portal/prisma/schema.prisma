@@ -28,6 +28,8 @@ enum RequestStatus {
   REVOQUEE
   /// Demande d'abonnement dont l'abonnement est déclaré (spécification #51).
   DECLAREE
+  /// Renouvellement d'abonnement approuvé : l'échéance de l'abonnement est reportée, sans nouvelle déclaration.
+  RENOUVELEE
 }
 
 enum RequestKind {
@@ -128,6 +130,10 @@ model AccessRequest {
   offerId         String?
   offer           SubscriptionOffer? @relation(fields: [offerId], references: [id])
   subscription    Subscription?
+  /// abonnement dont cette demande renouvelle l'échéance (ticket #59)
+  renewsSubscriptionId   String?
+  /// abonnement que cette demande remplace par une autre offre du même fournisseur (changement d'offre, ticket #59)
+  replacesSubscriptionId String?
 }
 
 /// Valeurs par défaut configurables (F-51) : default_budget, default_budget_duration, default_days,
@@ -200,11 +206,14 @@ enum SubscriptionStatus {
   RESILIE
 }
 
-/// Origine d'une demande de résiliation : un responsable de l'équipe, un admin, ou la sortie de l'équipe.
+/// Origine d'une demande de résiliation : un responsable de l'équipe, un admin, la sortie de l'équipe, l'échéance d'un
+/// abonnement non renouvelé, ou le refus de son renouvellement.
 enum TerminationOrigin {
   RESPONSABLE
   ADMIN
   SORTIE
+  ECHEANCE
+  RENOUVELLEMENT_REFUSE
 }
 
 /// Abonnement (spécification #51) : offre souscrite par un salarié lui-même, après la validation de sa demande, puis
@@ -235,6 +244,9 @@ model Subscription {
   terminationAlertSentAt DateTime?
   /// Date de résiliation (statut « résilié ») : aucun prélèvement à partir de ce jour.
   terminatedOn     DateTime?
+  /// dernier rappel d'échéance envoyé (ticket #59) : date d'envoi et délai annoncé, en jours (30, 7 ou 1)
+  expiryReminderSentAt DateTime?
+  expiryReminderLead   Int?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   charges          SubscriptionCharge[]

@@ -66,6 +66,9 @@ const lienVers = (deps: NotificationDeps, chemin: string) => `${(deps.portalUrl 
 /** Nom du demandeur ; les demandes antérieures à son enregistrement n'ont que son identifiant. */
 const nom = (r: AccessRequest) => r.requesterName || r.requesterUid;
 
+/** Titulaire d'un abonnement, tel que le salue un courriel ; sans nom enregistré, son identifiant. */
+const titulaire = (a: Pick<Subscription, "holderUid" | "holderName">) => a.holderName || a.holderUid;
+
 /** Nom d'une durée de validité : « 3 mois », « N'expire jamais », ou « 60 jours » hors de la liste proposée. */
 function duree(t: Traducteur, jours: number): string {
   const proposee = DUREES_VALIDITE.find((d) => d === jours);
@@ -206,7 +209,14 @@ export async function notifyKeyApproved(deps: NotificationDeps, demande: AccessR
  * adresse professionnelle, entraînement sur ses données désactivé), les règles d'usage de l'offre, et quand déclarer
  * l'abonnement dans « Mes abonnements ».
  */
-export async function notifySubscriptionApproved(deps: NotificationDeps, demande: AccessRequest, offre: SubscriptionOffer, echeance: Date | null): Promise<void> {
+export async function notifySubscriptionApproved(
+  deps: NotificationDeps,
+  demande: AccessRequest,
+  offre: SubscriptionOffer,
+  echeance: Date | null,
+  /** Changement d'offre (ticket #59) : l'offre de l'abonnement remplacé, « Anthropic · Claude Max 5x ». */
+  remplace: string | null = null,
+): Promise<void> {
   const message = bilingue(
     (t, langue) => ({
       sujet: t("courriels.abonnementApprouve.sujet"),
@@ -224,11 +234,48 @@ export async function notifySubscriptionApproved(deps: NotificationDeps, demande
         t("courriels.abonnementApprouve.souscrire", { fournisseur: offre.supplier }),
         t("courriels.abonnementApprouve.regles", { regles: langue === "en" ? (offre.rulesEn ?? offre.rulesFr) : offre.rulesFr }),
         echeance ? t("courriels.abonnementApprouve.declarer", { date: echeance }) : t("courriels.abonnementApprouve.declarerSansEcheance"),
+        ...(remplace ? [t("courriels.abonnementApprouve.remplace", { offre: remplace })] : []),
       ],
     }),
     lienVers(deps, "/abonnements"),
   );
   await envoyer(deps, [demande.requesterEmail], message);
+}
+
+/** Ticket #59 : renouvellement approuvé ; l'échéance de l'abonnement est reportée, sans rien d'autre à faire. */
+export async function notifyRenewalApproved(
+  deps: NotificationDeps,
+  demande: AccessRequest,
+  offre: Pick<SubscriptionOffer, "supplier" | "name">,
+  echeance: Date,
+): Promise<void> {
+  const valeurs = { offre: `${offre.supplier} · ${offre.name}`, equipe: demande.teamAlias, date: echeance };
+  const message = bilingue(
+    (t) => ({
+      sujet: t("courriels.renouvellementApprouve.sujet"),
+      paragraphes: [t("courriels.bonjour", { nom: nom(demande) }), t("courriels.renouvellementApprouve.corps", valeurs)],
+    }),
+    lienVers(deps, "/abonnements"),
+  );
+  await envoyer(deps, [demande.requesterEmail], message);
+}
+
+/** Ticket #59 : rappel d'échéance d'un abonnement, un mois, sept jours et la veille ; son renouvellement se demande dans « Mes abonnements ». */
+export async function notifySubscriptionExpiryReminder(
+  deps: NotificationDeps,
+  abonnement: Pick<Subscription, "holderUid" | "holderName" | "holderEmail" | "teamAlias" | "expiresAt">,
+  offre: Pick<SubscriptionOffer, "supplier" | "name">,
+  jours: number,
+): Promise<void> {
+  const valeurs = { offre: `${offre.supplier} · ${offre.name}`, equipe: abonnement.teamAlias, date: abonnement.expiresAt, jours, fournisseur: offre.supplier };
+  const message = bilingue(
+    (t) => ({
+      sujet: t("courriels.rappelEcheance.sujet", valeurs),
+      paragraphes: [t("courriels.bonjour", { nom: titulaire(abonnement) }), t("courriels.rappelEcheance.corps", valeurs), t("courriels.rappelEcheance.suite", valeurs)],
+    }),
+    lienVers(deps, "/abonnements"),
+  );
+  await envoyer(deps, [abonnement.holderEmail], message);
 }
 
 /** Demande refusée, avec le motif du refus et le rappel de la demande. */
@@ -309,9 +356,6 @@ export async function notifyDeclarationReminder(deps: NotificationDeps, demande:
   );
   await envoyer(deps, [demande.requesterEmail], message);
 }
-
-/** Titulaire d'un abonnement, tel que le salue un courriel ; les abonnements antérieurs à son nom n'ont que son identifiant. */
-const titulaire = (a: Pick<Subscription, "holderUid" | "holderName">) => a.holderName || a.holderUid;
 
 /**
  * Ticket #58 : demande de résiliation, quelle qu'en soit l'origine (responsable, admin, sortie de l'équipe), annoncée au

@@ -8,14 +8,17 @@ import {
   notifyDeclarationReminder,
   notifyExpiryReminder,
   notifyPickupReminder,
+  notifySubscriptionExpiryReminder,
   notifyTeamBudgetAlert,
   notifyUndeclaredTermination,
 } from "./notifications";
 import { enregistrerPrelevementsEchus } from "./prelevements";
+import { requestTerminationsAtExpiry } from "./resiliations";
 
 /**
  * Rappels, en jours calendaires à Paris : trois jours avant l'échéance de retrait ; un mois, sept jours et la veille
- * de l'expiration d'une clé (ticket #27), pour les seuls délais plus courts que la durée de validité de la clé.
+ * de l'expiration d'une clé (ticket #27) ou de l'échéance d'un abonnement (ticket #59), pour les seuls délais plus
+ * courts que leur durée de validité.
  */
 const RAPPEL_RETRAIT = 3;
 const RAPPELS_EXPIRATION = [30, 7, 1];
@@ -64,9 +67,11 @@ export interface DailyTaskReport {
   rappelsRetrait: number;
   rappelsDeclaration: number;
   rappelsExpiration: number;
+  rappelsEcheance: number;
   demandesExpirees: number;
   clesExpirees: number;
   prelevements: number;
+  demandesResiliation: number;
   alertesResiliation: number;
   alertesBudget: number;
 }
@@ -75,9 +80,10 @@ export interface DailyTaskReport {
  * F-45 : tâche quotidienne, lancée chaque matin à 7 h (heure de Paris). Elle fait expirer ce qui est échu, puis
  * envoie une seule fois chacun les rappels, comptés en jours calendaires : le matin du troisième jour avant
  * l'échéance de retrait ; un mois, sept jours et un jour avant l'expiration d'une clé, selon sa durée. Après des
- * jours sans tâche, seul le rappel d'expiration le plus proche de l'échéance part. Elle compte ensuite les
- * prélèvements échus des abonnements (spécification #51), rattrapage compris, alerte une fois des résiliations demandées
- * et non déclarées dans le délai de retrait, et finit par les alertes de budget d'équipe (F-54).
+ * jours sans tâche, seul le rappel d'expiration le plus proche de l'échéance part ; de même pour l'échéance d'un
+ * abonnement. Elle compte ensuite les prélèvements échus des abonnements (spécification #51), rattrapage compris, fait
+ * une demande de résiliation des abonnements arrivés à échéance sans renouvellement, alerte une fois des résiliations
+ * demandées et non déclarées dans le délai de retrait, et finit par les alertes de budget d'équipe (F-54).
  */
 export async function runDailyTask(deps: DailyTaskDeps): Promise<DailyTaskReport> {
   const maintenant = deps.now?.() ?? new Date();
@@ -132,9 +138,46 @@ export async function runDailyTask(deps: DailyTaskDeps): Promise<DailyTaskReport
     rappelsExpiration++;
     await notifyExpiryReminder(deps, { ...r, keyAlias: r.keyAlias, keyExpiresAt: r.keyExpiresAt }, jours);
   }
+  const rappelsEcheance = await rappelerEcheances(deps, maintenant, horizon(Math.max(...RAPPELS_EXPIRATION)));
   const prelevements = await enregistrerPrelevementsEchus(deps.db, maintenant);
+  const demandesResiliation = await requestTerminationsAtExpiry(deps, maintenant);
   const alertesResiliation = delai !== null ? await alerterResiliationsNonDeclarees(deps, maintenant, delai) : 0;
-  return { rappelsRetrait, rappelsDeclaration, rappelsExpiration, ...expirations, prelevements, alertesResiliation, alertesBudget: await alerterBudgets(deps, maintenant) };
+  return {
+    rappelsRetrait,
+    rappelsDeclaration,
+    rappelsExpiration,
+    rappelsEcheance,
+    ...expirations,
+    prelevements,
+    demandesResiliation,
+    alertesResiliation,
+    alertesBudget: await alerterBudgets(deps, maintenant),
+  };
+}
+
+/**
+ * Ticket #59 : rappels d'échéance des abonnements actifs, au titulaire, un mois, sept jours et la veille, chacun une
+ * seule fois et seulement s'il est plus court que la durée de l'abonnement (de sa souscription à son échéance). Rend le
+ * nombre de rappels envoyés.
+ */
+async function rappelerEcheances(deps: DailyTaskDeps, maintenant: Date, horizon: Date): Promise<number> {
+  const abonnements = await deps.db.subscription.findMany({ where: { status: "ACTIF", expiresAt: { gt: maintenant, lte: horizon } }, include: { offer: true } });
+  let rappels = 0;
+  for (const a of abonnements) {
+    const jours = calendarDaysUntil(maintenant, a.expiresAt);
+    const duree = (a.expiresAt.getTime() - a.subscribedAt.getTime()) / JOUR;
+    const dus = RAPPELS_EXPIRATION.filter((delai) => jours <= delai && delai < duree && (a.expiryReminderLead === null || delai < a.expiryReminderLead));
+    if (dus.length === 0) continue;
+    // Écriture conditionnelle : deux tâches simultanées n'envoient pas deux fois le même rappel.
+    const { count } = await deps.db.subscription.updateMany({
+      where: { id: a.id, expiryReminderLead: a.expiryReminderLead },
+      data: { expiryReminderLead: Math.min(...dus), expiryReminderSentAt: maintenant },
+    });
+    if (count === 0) continue;
+    rappels++;
+    await notifySubscriptionExpiryReminder(deps, a, a.offer, jours);
+  }
+  return rappels;
 }
 
 /**

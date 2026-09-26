@@ -7,6 +7,7 @@ import { FakeMailer } from "@/test/fake-mailer";
 import { approveSubscriptionRequest, getRequestReview, listPendingRequests, refuseRequest, requestCompletion } from "./admin-requests";
 import { type OfferInput, saveOffer } from "./offers";
 import { cancelRequest, listMyRequests } from "./requests";
+import { requestOfferChange, requestRenewal } from "./renouvellements";
 import { declareTermination, reattachSubscription, requestTermination } from "./resiliations";
 import { saveSettings } from "./settings";
 import { deleteTeam, getTeamPage, removeTeamMember } from "./teams";
@@ -19,6 +20,7 @@ import {
   listMySubscriptions,
   listSubscriptionArchive,
   listSubscriptionsToDeclare,
+  subscriptionRequestDraft,
   type SubscriptionRequestInput,
 } from "./subscriptions";
 
@@ -207,6 +209,9 @@ describe("déclarer un abonnement et le suivre dans « Mes abonnements » (ticke
           status: "ACTIF",
           termination: null,
           terminatedOn: null,
+          canRenew: false,
+          canChangeOffer: true,
+          pendingRequest: null,
         },
       ],
     });
@@ -573,5 +578,182 @@ describe("résiliation, demandes de résiliation et rattachement (ticket #58)", 
     await expect(deleteTeam(deps, admin, "equipe-rd")).rejects.toMatchObject({ code: "equipe_non_vide", params: { abonnements: "1" } });
     await declareTermination(deps, admin, id, { terminatedOn: "2026-09-30" });
     await deleteTeam(deps, admin, "equipe-rd");
+  });
+});
+
+describe("échéance, renouvellement et changement d'offre (ticket #59)", () => {
+  /** Abonnement de Paul Martin dans R&D, approuvé le 1er octobre 2026 pour la durée donnée, souscrit à la date donnée. */
+  async function declare(souscription = "2026-10-01", jours = 90): Promise<string> {
+    return declareSubscription(deps, membre, await approuvee({}, jours), { subscribedAt: souscription, monthlyAmountEur: 108, accountEmail: "pmartin@linagora.com" });
+  }
+  const renouvellement = () => ({ justification: "Usage quotidien pour le projet Twake", project: "Twake", requestedDays: 180, commitment: true });
+  const changement = () => ({ justification: "Besoin de plus de capacité", project: null, requestedDays: 90, commitment: true });
+  const tache = (date: string) => runDailyTask({ ...deps, now: () => new Date(date) });
+  const journal = async (action: string) => (await listAudit(testDb)).filter((e) => e.action === action).map((e) => [e.actorUid, e.targetId, e.details]);
+  const DEMANDE_DE_RESILIATION =
+    "[AI GATEWAY] Demande de résiliation de votre abonnement Anthropic · Claude Max 5x / Cancellation request for your subscription Anthropic · Claude Max 5x";
+  const RAPPEL = "[AI GATEWAY] Échéance de votre abonnement Anthropic · Claude Max 5x / Expiry of your subscription Anthropic · Claude Max 5x";
+
+  test("la tâche quotidienne rappelle au titulaire l'échéance de son abonnement un mois, sept jours et la veille, chacun une seule fois", async () => {
+    await declare();
+    mailer.outbox.length = 0;
+    const rappels: number[] = [];
+    for (const date of ["2026-11-29T06:00:00Z", "2026-11-30T06:00:00Z", "2026-12-01T06:00:00Z", "2026-12-23T06:00:00Z", "2026-12-24T06:00:00Z", "2026-12-29T06:00:00Z", "2026-12-29T18:00:00Z"]) {
+      rappels.push((await tache(date)).rappelsEcheance);
+    }
+    expect(rappels).toEqual([0, 1, 0, 1, 0, 1, 0]);
+    expect(mailer.outbox.map((m) => [m.to, m.subject])).toEqual(Array(3).fill([["pmartin@linagora.com"], RAPPEL]));
+    const [unMois, , veille] = mailer.outbox.map((m) => m.text);
+    expect(unMois).toContain("Votre abonnement Anthropic · Claude Max 5x, rattaché à l'équipe R&D, arrive à échéance le 30 décembre 2026, dans 30 jours.");
+    expect(unMois).toContain("Demandez son renouvellement dans « Mes abonnements » ; sinon, résiliez-le chez Anthropic, puis déclarez la résiliation.");
+    expect(veille).toContain("arrive à échéance le 30 décembre 2026, demain.");
+  });
+
+  test("un abonnement autorisé pour un mois n'a pas de rappel un mois avant son échéance", async () => {
+    await declare("2026-10-01", 30);
+    expect(await tache("2026-10-01T10:00:00Z")).toMatchObject({ rappelsEcheance: 0 });
+    expect(await tache("2026-10-24T06:00:00Z")).toMatchObject({ rappelsEcheance: 1 });
+  });
+
+  test("à l'échéance d'un abonnement non renouvelé, la tâche quotidienne fait une demande de résiliation, dont le titulaire est prévenu", async () => {
+    const id = await declare();
+    mailer.outbox.length = 0;
+    expect(await tache("2026-12-29T06:00:00Z")).toMatchObject({ demandesResiliation: 0 });
+    expect(await tache("2026-12-30T06:00:00Z")).toMatchObject({ demandesResiliation: 1 });
+    expect(await tache("2026-12-31T06:00:00Z")).toMatchObject({ demandesResiliation: 0 });
+    expect((await listActiveSubscriptions(deps, admin))[0]).toMatchObject({
+      id,
+      status: "A_RESILIER",
+      termination: { origin: "ECHEANCE", requestedBy: "systeme", requestedAt: new Date("2026-12-30T06:00:00Z"), reason: null },
+    });
+    const demande = mailer.outbox.find((m) => m.subject === DEMANDE_DE_RESILIATION);
+    expect(demande?.to).toEqual(["pmartin@linagora.com"]);
+    expect(demande?.text).toContain("Votre abonnement Anthropic · Claude Max 5x, rattaché à l'équipe R&D, est arrivé à échéance sans être renouvelé : il est à résilier.");
+    expect(demande?.text).toContain("Résiliez-le chez Anthropic, puis déclarez la résiliation dans « Mes abonnements » avant le 13 janvier 2027.");
+    expect(await journal("SUBSCRIPTION_TERMINATION_REQUESTED")).toEqual([["systeme", id, { origine: "ECHEANCE", offre: "Anthropic · Claude Max 5x", equipe: "R&D", motif: null }]]);
+  });
+
+  test("dès un mois avant l'échéance, le titulaire demande le renouvellement ; approuvé, il reporte l'échéance de la durée approuvée, sans nouvelle déclaration", async () => {
+    const id = await declare();
+    deps.now = () => new Date("2026-11-29T09:00:00Z");
+    expect((await listMySubscriptions(deps, membre)).abonnements[0]).toMatchObject({ canRenew: false, canChangeOffer: true, pendingRequest: null });
+    await expect(requestRenewal(deps, membre, id, renouvellement())).rejects.toMatchObject({ code: "renouvellement_trop_tot" });
+    deps.now = () => new Date("2026-11-30T09:00:00Z");
+    expect((await listMySubscriptions(deps, membre)).abonnements[0]).toMatchObject({ canRenew: true });
+    const { id: demande } = await requestRenewal(deps, membre, id, renouvellement());
+    await expect(requestRenewal(deps, membre, id, renouvellement())).rejects.toMatchObject({ code: "demande_en_cours" });
+    expect((await listMySubscriptions(deps, membre)).abonnements[0]).toMatchObject({ canRenew: false, canChangeOffer: false, pendingRequest: { id: demande, type: "RENOUVELLEMENT" } });
+    expect(await listPendingRequests(deps, responsable)).toEqual([expect.objectContaining({ id: demande, kind: "ABONNEMENT", offer: "Anthropic · Claude Max 5x" })]);
+    expect(await getRequestReview(deps, responsable, demande)).toMatchObject({
+      requestedDays: 180,
+      renewedSubscription: { id, offer: "Anthropic · Claude Max 5x", expiresAt: new Date("2026-12-30T00:00:00Z") },
+      replacedSubscription: null,
+    });
+    expect(await tache("2026-11-30T10:00:00Z")).toMatchObject({ rappelsEcheance: 1 });
+
+    mailer.outbox.length = 0;
+    await approveSubscriptionRequest(deps, responsable, demande, { days: 180 });
+    const [abonnement] = (await listMySubscriptions(deps, membre)).abonnements;
+    expect(abonnement).toMatchObject({ id, status: "ACTIF", expiresAt: new Date("2027-06-28T00:00:00Z"), pendingRequest: null });
+    expect((await listMySubscriptions(deps, membre)).aDeclarer).toEqual([]);
+    expect(await listMyRequests(deps, membre)).toEqual(expect.arrayContaining([expect.objectContaining({ id: demande, status: "RENOUVELEE" })]));
+    expect(mailer.outbox[0]).toMatchObject({ to: ["pmartin@linagora.com"], subject: "[AI GATEWAY] Votre demande de renouvellement est approuvée / Your renewal request is approved" });
+    expect(mailer.outbox[0].text).toContain("L'échéance de votre abonnement Anthropic · Claude Max 5x, rattaché à l'équipe R&D, est reportée au 28 juin 2027 : rien d'autre à faire.");
+    // Les rappels repartent pour la nouvelle échéance.
+    expect(await tache("2027-05-29T06:00:00Z")).toMatchObject({ rappelsEcheance: 1 });
+  });
+
+  test("refusé, le renouvellement fait une demande de résiliation, dont le titulaire est prévenu avec le motif", async () => {
+    const id = await declare();
+    deps.now = () => new Date("2026-12-01T09:00:00Z");
+    const { id: demande } = await requestRenewal(deps, membre, id, renouvellement());
+    mailer.outbox.length = 0;
+    await refuseRequest(deps, responsable, demande, "Budget de l'équipe épuisé");
+    expect((await listActiveSubscriptions(deps, admin))[0]).toMatchObject({
+      id,
+      status: "A_RESILIER",
+      termination: { origin: "RENOUVELLEMENT_REFUSE", requestedBy: "lbernard", requestedAt: new Date("2026-12-01T09:00:00Z"), reason: "Budget de l'équipe épuisé" },
+    });
+    expect(mailer.outbox.map((m) => m.subject)).toEqual(expect.arrayContaining(["[AI GATEWAY] Votre demande est refusée / Your request is refused", DEMANDE_DE_RESILIATION]));
+    const resiliation = mailer.outbox.find((m) => m.subject === DEMANDE_DE_RESILIATION)?.text;
+    expect(resiliation).toContain("Le renouvellement de votre abonnement Anthropic · Claude Max 5x, rattaché à l'équipe R&D, est refusé : il est à résilier.");
+    expect(resiliation).toContain("Motif : Budget de l'équipe épuisé");
+  });
+
+  test("à l'échéance, un renouvellement en attente suspend la demande de résiliation", async () => {
+    const id = await declare();
+    deps.now = () => new Date("2026-12-20T09:00:00Z");
+    await requestRenewal(deps, membre, id, renouvellement());
+    expect(await tache("2026-12-30T06:00:00Z")).toMatchObject({ demandesResiliation: 0 });
+    expect((await listActiveSubscriptions(deps, admin))[0]).toMatchObject({ id, status: "ACTIF" });
+  });
+
+  test("approuvé après l'échéance, le renouvellement lève la demande de résiliation née de l'échéance et reporte l'échéance passée", async () => {
+    const id = await declare();
+    await tache("2026-12-30T06:00:00Z");
+    deps.now = () => new Date("2027-01-02T09:00:00Z");
+    const { id: demande } = await requestRenewal(deps, membre, id, { ...renouvellement(), requestedDays: 90 });
+    await approveSubscriptionRequest(deps, responsable, demande, { days: 90 });
+    expect((await listActiveSubscriptions(deps, admin))[0]).toMatchObject({ id, status: "ACTIF", termination: null, expiresAt: new Date("2027-03-30T00:00:00Z") });
+  });
+
+  test("changement d'offre : à la déclaration de la nouvelle offre, seul l'abonnement d'origine est résilié, à la date de souscription déclarée", async () => {
+    const origine = await declare();
+    const jumeau = await declare();
+    const max20 = await saveOffer(deps, admin, { ...claudeMax, name: "Claude Max 20x", monthlyPriceEur: 216 });
+    const autreFournisseur = await saveOffer(deps, admin, { ...claudeMax, supplier: "OpenAI", name: "ChatGPT Pro 5x", monthlyPriceEur: 103 });
+    await expect(requestOfferChange(deps, membre, origine, { ...changement(), offerId: autreFournisseur })).rejects.toMatchObject({ code: "introuvable" });
+    await expect(requestOfferChange(deps, membre, origine, { ...changement(), offerId: offre })).rejects.toMatchObject({ code: "introuvable" });
+    const { id: demande } = await requestOfferChange(deps, membre, origine, { ...changement(), offerId: max20 });
+    expect((await listMySubscriptions(deps, membre)).abonnements.find((a) => a.id === origine)).toMatchObject({ pendingRequest: { id: demande, type: "CHANGEMENT_OFFRE" } });
+    expect(await getRequestReview(deps, responsable, demande)).toMatchObject({
+      subscriptionOffer: { name: "Claude Max 20x" },
+      renewedSubscription: null,
+      replacedSubscription: { id: origine, offer: "Anthropic · Claude Max 5x" },
+    });
+    mailer.outbox.length = 0;
+    await approveSubscriptionRequest(deps, responsable, demande, { days: 90 });
+    expect(mailer.outbox[0].text).toContain(
+      "Cet abonnement remplace votre abonnement Anthropic · Claude Max 5x : à sa déclaration, l'abonnement remplacé sera résilié à la date de souscription déclarée.",
+    );
+    deps.now = () => new Date("2026-10-16T09:00:00Z");
+    const nouveau = await declareSubscription(deps, membre, demande, { subscribedAt: "2026-10-15", monthlyAmountEur: 216, accountEmail: "pmartin@linagora.com" });
+    expect((await listSubscriptionArchive(deps, admin)).elements.map((a) => [a.id, a.terminatedOn])).toEqual([[origine, new Date("2026-10-15T00:00:00Z")]]);
+    expect((await listActiveSubscriptions(deps, admin)).map((a) => a.id).sort()).toEqual([jumeau, nouveau].sort());
+    expect(await journal("SUBSCRIPTION_OFFER_CHANGED")).toEqual([
+      ["pmartin", origine, { offre: "Anthropic · Claude Max 5x", nouvelleOffre: "Anthropic · Claude Max 20x", date: "2026-10-15", nouvelAbonnement: nouveau }],
+    ]);
+  });
+
+  test("renvoyé pour complément, un renouvellement se complète sans changer d'offre ni d'équipe", async () => {
+    const id = await declare();
+    deps.now = () => new Date("2026-12-01T09:00:00Z");
+    const { id: demande } = await requestRenewal(deps, membre, id, renouvellement());
+    await requestCompletion(deps, responsable, demande, "Précisez l'usage");
+    expect(await subscriptionRequestDraft(deps, membre, demande)).toMatchObject({
+      linked: "RENOUVELLEMENT",
+      offerId: offre,
+      teamId: "equipe-rd",
+      requestedDays: 180,
+      offer: expect.objectContaining({ name: "Claude Max 5x", rules: "Désactivez l'entraînement sur vos données." }),
+    });
+    await completeSubscriptionRequest(deps, membre, demande, { offerId: "autre", teamId: "equipe-data", justification: "Rapports quotidiens", project: null, requestedDays: 90, commitment: true });
+    expect(await getRequestReview(deps, responsable, demande)).toMatchObject({
+      status: "SOUMISE",
+      teamAlias: "R&D",
+      offer: "Anthropic · Claude Max 5x",
+      justification: "Rapports quotidiens",
+      requestedDays: 90,
+      renewedSubscription: { id },
+    });
+  });
+
+  test("seul le titulaire demande le renouvellement ou le changement d'offre d'un abonnement non résilié", async () => {
+    const id = await declare();
+    deps.now = () => new Date("2026-12-01T09:00:00Z");
+    await expect(requestRenewal(deps, responsable, id, renouvellement())).rejects.toMatchObject({ code: "introuvable" });
+    await declareTermination(deps, membre, id, { terminatedOn: "2026-11-15" });
+    await expect(requestRenewal(deps, membre, id, renouvellement())).rejects.toMatchObject({ code: "introuvable" });
+    await expect(requestOfferChange(deps, membre, id, { ...changement(), offerId: offre })).rejects.toMatchObject({ code: "introuvable" });
   });
 });

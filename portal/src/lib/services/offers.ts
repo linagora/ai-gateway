@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { SubscriptionOffer } from "@/generated/prisma/client";
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
 import type { Langue } from "@/lib/langue";
@@ -61,18 +62,21 @@ export const libelleOffre = (offre: { supplier: string; name: string }) => `${of
 /** Ordre des offres : par fournisseur, puis par prix croissant, pour lire les gammes d'un fournisseur dans l'ordre. */
 const ORDRE_DES_OFFRES = [{ supplier: "asc" }, { monthlyPriceEur: "asc" }, { name: "asc" }] as const;
 
+/** Offre telle que la voit un salarié, avec ses règles dans sa langue (en français à défaut). */
+export const vueCatalogue = (o: SubscriptionOffer, language: Langue): CatalogOffer => ({
+  id: o.id,
+  supplier: o.supplier,
+  name: o.name,
+  monthlyPriceEur: o.monthlyPriceEur.toNumber(),
+  dataLevel: o.dataLevel,
+  rules: language === "en" ? (o.rulesEn ?? o.rulesFr) : o.rulesFr,
+  url: o.url,
+});
+
 /** Offres visibles au catalogue, par fournisseur puis par prix croissant. */
 export async function listOffers(deps: OfferDeps, language: Langue = "fr"): Promise<CatalogOffer[]> {
   const offres = await deps.db.subscriptionOffer.findMany({ where: { visible: true }, orderBy: [...ORDRE_DES_OFFRES] });
-  return offres.map((o) => ({
-    id: o.id,
-    supplier: o.supplier,
-    name: o.name,
-    monthlyPriceEur: o.monthlyPriceEur.toNumber(),
-    dataLevel: o.dataLevel,
-    rules: language === "en" ? (o.rulesEn ?? o.rulesFr) : o.rulesFr,
-    url: o.url,
-  }));
+  return offres.map((o) => vueCatalogue(o, language));
 }
 
 /** Toutes les offres, masquées comprises, pour la gestion du catalogue : réservé aux admins. */

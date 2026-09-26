@@ -17,11 +17,14 @@ import {
   notifyKeyApproved,
   notifyMembershipApproved,
   notifyRefused,
+  notifyRenewalApproved,
   notifySubscriptionApproved,
   notifyTeamChange,
 } from "./notifications";
 import { libelleOffre } from "./offers";
+import { reporterEcheance } from "./renouvellements";
 import { evaluateKeyRequest, transitionRequest } from "./requests";
+import { requestTerminationAfterRefusedRenewal } from "./resiliations";
 import { readSettings, type SettingValues } from "./settings";
 
 interface AdminDeps extends NotificationDeps {
@@ -137,6 +140,10 @@ export interface RequestReview extends PendingRequest {
   approvedDays: number | null;
   /** Demande d'abonnement : les abonnements en cours (non résiliés) du demandeur, pour décider en connaissance de cause. */
   requesterSubscriptions: { offer: string; teamAlias: string; subscribedAt: Date; monthlyAmountEur: number }[];
+  /** Renouvellement d'un abonnement (ticket #59) : l'abonnement renouvelé, avec son échéance en cours. */
+  renewedSubscription: { id: string; offer: string; expiresAt: Date } | null;
+  /** Changement d'offre (ticket #59) : l'abonnement remplacé. */
+  replacedSubscription: { id: string; offer: string } | null;
   teamId: string;
   justification: string;
   requestedBudget: number | null;
@@ -160,6 +167,9 @@ export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: 
     r.kind === "ABONNEMENT"
       ? await deps.db.subscription.findMany({ where: { holderUid: r.requesterUid, status: { not: "RESILIE" } }, include: { offer: true }, orderBy: { subscribedAt: "asc" } })
       : [];
+  const [renouvele, remplace] = await Promise.all(
+    [r.renewsSubscriptionId, r.replacesSubscriptionId].map((id) => (id ? deps.db.subscription.findUnique({ where: { id }, include: { offer: true } }) : null)),
+  );
   const checks =
     r.kind === "CLE" && r.dataLevel
       ? (await evaluateKeyRequest(deps, { requesterUid: r.requesterUid, teamId: r.teamId, dataLevel: r.dataLevel, models: r.models })).checks
@@ -171,6 +181,8 @@ export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: 
     subscriptionOffer: r.offer && { supplier: r.offer.supplier, name: r.offer.name, monthlyPriceEur: r.offer.monthlyPriceEur.toNumber(), dataLevel: r.offer.dataLevel },
     approvedDays: r.approvedDays,
     requesterSubscriptions: abonnements.map((a) => ({ offer: libelleOffre(a.offer), teamAlias: a.teamAlias, subscribedAt: a.subscribedAt, monthlyAmountEur: a.monthlyAmountEur.toNumber() })),
+    renewedSubscription: renouvele && { id: renouvele.id, offer: libelleOffre(renouvele.offer), expiresAt: renouvele.expiresAt },
+    replacedSubscription: remplace && { id: remplace.id, offer: libelleOffre(remplace.offer) },
     requesterUid: r.requesterUid,
     requesterEmail: r.requesterEmail,
     teamId: r.teamId,
@@ -296,6 +308,8 @@ export async function refuseRequest(deps: AdminDeps, actor: SessionUser, id: str
   await recordAudit(deps.db, { actorUid: actor.uid, action: "REQUEST_REFUSED", targetId: request.id, details: { motif: comment.trim() } });
   await notifyRefused(deps, request, comment.trim());
   await annoncerDecision(deps, actor, request, "refusee");
+  // Ticket #59 : refusé, le renouvellement d'un abonnement en fait une demande de résiliation.
+  if (request.renewsSubscriptionId) await requestTerminationAfterRefusedRenewal(deps, actor, request.renewsSubscriptionId, comment.trim());
 }
 
 /** F-31 : renvoie la demande au demandeur pour qu'il la complète (statut A_COMPLETER). */
@@ -336,6 +350,8 @@ export const subscriptionApprovalSchema = z.object({ days: z.number().refine((jo
 /**
  * Spécification #51 : approuve une demande d'abonnement en fixant sa durée de validité. Le demandeur apprend comment
  * souscrire, puis déclarer l'abonnement dans le délai de retrait ; la décision est annoncée selon les règles des équipes.
+ * Un renouvellement (ticket #59) s'applique aussitôt : l'échéance de l'abonnement est reportée de la durée approuvée,
+ * sans nouvelle déclaration.
  */
 export async function approveSubscriptionRequest(deps: AdminDeps, actor: SessionUser, id: string, input: { days: number }): Promise<void> {
   await requireGestion(deps.db, actor);
@@ -344,11 +360,30 @@ export async function approveSubscriptionRequest(deps: AdminDeps, actor: Session
   if (!request || request.kind !== "ABONNEMENT" || !request.offer) throw new PortalError("introuvable", "Demande d'abonnement introuvable.", { objet: "demande_abonnement" });
   await requireDecision(deps, actor, request, "demande_abonnement");
   if (request.status !== "SOUMISE") throw new PortalError("transition_interdite", "Cette demande a déjà été traitée.", { cas: "traitee" });
+  const [renouvele, remplace] = await Promise.all(
+    [request.renewsSubscriptionId, request.replacesSubscriptionId].map((id) => (id ? deps.db.subscription.findUnique({ where: { id }, include: { offer: true } }) : null)),
+  );
+  if (request.renewsSubscriptionId && (!renouvele || renouvele.status === "RESILIE")) {
+    throw new PortalError("transition_interdite", "L'abonnement à renouveler est résilié.", { cas: "abonnement" });
+  }
   const approuveeLe = deps.now?.() ?? new Date();
   await transitionRequest(deps.db, request, "APPROUVEE", { data: { approvedDays: days, decidedBy: actor.uid, decidedAt: approuveeLe } });
-  await recordAudit(deps.db, { actorUid: actor.uid, action: "REQUEST_APPROVED", targetId: request.id, details: { kind: "ABONNEMENT", offre: libelleOffre(request.offer), jours: days } });
-  const delai = await readPickupDays(deps.db);
-  await notifySubscriptionApproved(deps, { ...request, approvedDays: days }, request.offer, delai !== null ? pickupDeadline(approuveeLe, delai) : null);
+  if (renouvele) {
+    const echeance = await reporterEcheance(deps.db, renouvele, days);
+    await transitionRequest(deps.db, { id: request.id, status: "APPROUVEE" }, "RENOUVELEE");
+    await recordAudit(deps.db, {
+      actorUid: actor.uid,
+      action: "REQUEST_APPROVED",
+      targetId: request.id,
+      details: { kind: "ABONNEMENT", offre: libelleOffre(request.offer), jours: days, echeance: echeance.toISOString().slice(0, 10) },
+    });
+    await notifyRenewalApproved(deps, request, request.offer, echeance);
+  } else {
+    await recordAudit(deps.db, { actorUid: actor.uid, action: "REQUEST_APPROVED", targetId: request.id, details: { kind: "ABONNEMENT", offre: libelleOffre(request.offer), jours: days } });
+    const delai = await readPickupDays(deps.db);
+    const echeanceDeDeclaration = delai !== null ? pickupDeadline(approuveeLe, delai) : null;
+    await notifySubscriptionApproved(deps, { ...request, approvedDays: days }, request.offer, echeanceDeDeclaration, remplace && libelleOffre(remplace.offer));
+  }
   await annoncerDecision(deps, actor, request, "abonnement");
 }
 

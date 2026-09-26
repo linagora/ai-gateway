@@ -40,13 +40,13 @@ async function masquerOffre(admin: Page, fournisseur: string, nom: string): Prom
   await expect(admin.getByRole("status")).toHaveText("Offre enregistrée.");
 }
 
-/** Le membre (page ouverte) demande l'offre pour l'équipe, pour trois mois, en prenant l'engagement. */
-async function demanderOffre(pageMembre: Page, offre: string, equipe: string): Promise<void> {
+/** Le membre (page ouverte) demande l'offre pour l'équipe, pour la durée donnée (trois mois), en prenant l'engagement. */
+async function demanderOffre(pageMembre: Page, offre: string, equipe: string, duree = "3 mois"): Promise<void> {
   await pageMembre.goto("/catalogue/abonnements");
   await pageMembre.getByRole("article", { name: offre }).getByRole("link", { name: "Demander cet abonnement" }).click();
   await pageMembre.getByLabel("Équipe").selectOption({ label: equipe });
   await pageMembre.getByLabel("Motif").fill("Usage quotidien pour le projet");
-  await pageMembre.getByLabel("Durée souhaitée").selectOption({ label: "3 mois" });
+  await pageMembre.getByLabel("Durée souhaitée").selectOption({ label: duree });
   await pageMembre.getByLabel(/Je m'engage à ne confier à cet abonnement/).check();
   await pageMembre.getByRole("button", { name: "Envoyer la demande" }).click();
   await expect(pageMembre.getByRole("status")).toHaveText("Demande envoyée aux administrateurs.");
@@ -74,9 +74,9 @@ interface Situation {
 
 /**
  * Mise en place : une offre visible, une équipe avec son responsable et son membre, et la demande d'abonnement du
- * membre approuvée par le responsable.
+ * membre, pour la durée donnée (trois mois), approuvée par le responsable.
  */
-async function abonnementApprouve(browser: Browser, nom: string): Promise<Situation> {
+async function abonnementApprouve(browser: Browser, nom: string, duree = "3 mois"): Promise<Situation> {
   const responsable = personne(`${nom}-responsable`);
   const membre = personne(`${nom}-membre`);
   const pageResponsable = await (await connecter(browser, responsable)).newPage();
@@ -89,7 +89,7 @@ async function abonnementApprouve(browser: Browser, nom: string): Promise<Situat
   await designer(admin, responsable.uid);
   await ajouterMembre(admin, membre.uid);
   const pageEquipe = admin.url();
-  await demanderOffre(pageMembre, offre, equipe);
+  await demanderOffre(pageMembre, offre, equipe, duree);
   await approuverDemande(pageResponsable, membre);
   return { admin, pageResponsable, pageMembre, responsable, membre, equipe, pageEquipe, offre };
 }
@@ -407,4 +407,87 @@ test("la sortie d'une équipe rend l'abonnement à résilier ; le responsable de
   await viderEtSupprimer(admin, pageEquipeArrivee, [membre.uid, responsableArrivee.uid]);
   await viderEtSupprimer(admin, pageEquipe, [situation.responsable.uid]);
   await masquerOffre(admin, "Anthropic", offre);
+});
+
+/** Jour J + n (UTC), tel que l'écrit le portail en français : « 26 septembre 2026 ». */
+const jourDansNJours = (n: number) => new Intl.DateTimeFormat("fr-FR", { dateStyle: "long", timeZone: "UTC" }).format(new Date(Date.now() + n * 86_400_000));
+
+test("dès un mois avant l'échéance, le titulaire demande le renouvellement, que le responsable approuve : l'échéance est reportée, sans nouvelle déclaration (ticket #59)", async ({ browser }) => {
+  // Autorisé pour un mois, l'abonnement déclaré aujourd'hui est aussitôt renouvelable.
+  const situation = await abonnementApprouve(browser, "renouvellement", "1 mois");
+  const { pageResponsable, pageMembre, membre, offre } = situation;
+  await declarer(pageMembre, offre, { montant: "108", adresse: membre.email });
+  const abonnement = pageMembre.getByRole("region", { name: "Abonnements déclarés" }).getByRole("row", { name: new RegExp(echapper(offre)) });
+  await expect(abonnement).toContainText(jourDansNJours(30));
+
+  // Le titulaire demande le renouvellement, prérempli avec sa demande d'origine.
+  await abonnement.getByRole("link", { name: "Demander le renouvellement" }).click();
+  await expect(pageMembre.getByRole("heading", { level: 1 })).toHaveText("Renouveler un abonnement");
+  await expect(pageMembre.getByRole("region", { name: new RegExp(`Abonnement renouvelé.*${echapper(offre)}`) })).toContainText(`échéance le ${jourDansNJours(30)}`);
+  await expect(pageMembre.getByLabel("Motif")).toHaveValue("Usage quotidien pour le projet");
+  await pageMembre.getByLabel("Durée souhaitée").selectOption({ label: "6 mois" });
+  await pageMembre.getByLabel(/Je m'engage à ne confier à cet abonnement/).check();
+  await pageMembre.getByRole("button", { name: "Demander le renouvellement" }).click();
+  await expect(pageMembre.getByRole("status")).toHaveText("Demande envoyée aux administrateurs.");
+  await pageMembre.goto("/abonnements");
+  await expect(abonnement.getByRole("link", { name: "Renouvellement demandé" })).toBeVisible();
+
+  // Le responsable l'approuve depuis sa file : la fiche annonce un renouvellement.
+  await pageResponsable.goto("/gestion/demandes");
+  await pageResponsable.getByRole("row", { name: new RegExp(`${membre.uid}.*Abonnement`) }).getByRole("link", { name: "Examiner" }).click();
+  await expect(pageResponsable.getByText(`Renouvellement de l'abonnement Anthropic · ${offre}, qui arrive à échéance le ${jourDansNJours(30)}`)).toBeVisible();
+  await expect(pageResponsable.getByLabel("Durée de validité")).toHaveValue("180");
+  await pageResponsable.getByRole("button", { name: "Approuver", exact: true }).click();
+  await expect(pageResponsable.getByRole("status")).toHaveText("Demande approuvée.");
+
+  // Le titulaire l'apprend par courriel ; son abonnement a sa nouvelle échéance, sans rien à déclarer.
+  const sujet = "[AI GATEWAY] Votre demande de renouvellement est approuvée / Your renewal request is approved";
+  await expect.poll(async () => (await courriels(membre.uid)).map((c) => c.subject), { timeout: 15_000 }).toContain(sujet);
+  expect((await courriels(membre.uid)).find((c) => c.subject === sujet)?.text).toContain(`est reportée au ${jourDansNJours(210)} : rien d'autre à faire.`);
+  await pageMembre.goto("/abonnements");
+  await expect(abonnement).toContainText(jourDansNJours(210));
+  await expect(pageMembre.getByRole("region", { name: "À déclarer" })).toHaveCount(0);
+  await pageMembre.goto("/demandes");
+  await expect(pageMembre.getByRole("row", { name: /Abonnement.*Échéance reportée/ })).toBeVisible();
+
+  await nettoyer(situation);
+});
+
+test("le titulaire change d'offre ; à la déclaration de la nouvelle offre, seul l'abonnement d'origine est résilié (ticket #59)", async ({ browser }) => {
+  const situation = await abonnementApprouve(browser, "changement");
+  const { admin, pageResponsable, pageMembre, membre, offre } = situation;
+  await declarer(pageMembre, offre, { montant: "108", adresse: membre.email });
+  const superieure = `Offre changement supérieure ${suffixe}`;
+  await creerOffre(admin, { fournisseur: "Anthropic", nom: superieure, prix: "216", niveau: "N1 Public", reglesFr: "Désactivez l'entraînement sur vos données." });
+
+  // Le titulaire demande à passer à l'offre supérieure du même fournisseur.
+  await pageMembre.goto("/abonnements");
+  const origine = pageMembre.getByRole("region", { name: "Abonnements déclarés" }).getByRole("row", { name: new RegExp(echapper(offre)) });
+  await origine.getByRole("link", { name: "Changer d'offre" }).click();
+  await expect(pageMembre.getByRole("heading", { level: 1 })).toHaveText("Changer d'offre");
+  await expect(pageMembre.getByText(`Abonnement remplacé : Anthropic · ${offre}`)).toBeVisible();
+  await pageMembre.getByRole("radio", { name: new RegExp(`^${echapper(superieure)} : 216,00\\s€ TTC par mois`) }).check();
+  await pageMembre.getByLabel("Motif").fill("Besoin de plus de capacité");
+  await pageMembre.getByLabel(/Je m'engage à ne confier à cet abonnement/).check();
+  await pageMembre.getByRole("button", { name: "Demander le changement d'offre" }).click();
+  await expect(pageMembre.getByRole("status")).toHaveText("Demande envoyée aux administrateurs.");
+
+  // Le responsable l'approuve ; le courriel annonce le remplacement.
+  await pageResponsable.goto("/gestion/demandes");
+  await pageResponsable.getByRole("row", { name: new RegExp(`${membre.uid}.*Abonnement`) }).getByRole("link", { name: "Examiner" }).click();
+  await expect(pageResponsable.getByText(`Changement d'offre : cet abonnement remplace l'abonnement Anthropic · ${offre}`)).toBeVisible();
+  await pageResponsable.getByRole("button", { name: "Approuver", exact: true }).click();
+  await expect(pageResponsable.getByRole("status")).toHaveText("Demande approuvée.");
+  const sujet = "[AI GATEWAY] Votre demande d'abonnement est approuvée / Your subscription request is approved";
+  await expect.poll(async () => (await courriels(membre.uid)).filter((c) => c.subject === sujet).length, { timeout: 15_000 }).toBe(2);
+  expect((await courriels(membre.uid)).map((c) => c.text).join("\n")).toContain(`Cet abonnement remplace votre abonnement Anthropic · ${offre}`);
+
+  // Déclarée, la nouvelle offre remplace l'abonnement d'origine, résilié à la date de souscription déclarée.
+  await declarer(pageMembre, superieure, { montant: "216", adresse: membre.email });
+  const abonnements = pageMembre.getByRole("region", { name: "Abonnements déclarés" });
+  await expect(abonnements.getByRole("row", { name: new RegExp(echapper(superieure)) })).toContainText("Actif");
+  await expect(abonnements.getByRole("row", { name: new RegExp(echapper(offre)) })).toContainText(`Résilié le ${jourDansNJours(0)}`);
+
+  await nettoyer(situation);
+  await masquerOffre(admin, "Anthropic", superieure);
 });

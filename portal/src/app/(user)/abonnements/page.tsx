@@ -9,7 +9,8 @@ import { Obligatoire } from "../../obligatoire";
 /**
  * Spécification #51, ticket #55 : « Mes abonnements ». Les demandes approuvées à déclarer, chacune avec son formulaire
  * de déclaration (date de souscription, montant prélevé, adresse du compte), puis les abonnements déclarés, dont le
- * titulaire corrige le montant (ticket #57) et déclare la résiliation (ticket #58).
+ * titulaire corrige le montant (ticket #57), déclare la résiliation (ticket #58), demande le renouvellement ou le
+ * changement d'offre (ticket #59).
  */
 export default async function MesAbonnementsPage(props: PageProps<"/abonnements">) {
   const user = await requireUser();
@@ -107,6 +108,21 @@ export default async function MesAbonnementsPage(props: PageProps<"/abonnements"
                     )}
                   </td>
                   <td className="space-y-1 text-sm">
+                    {a.pendingRequest && (
+                      <p>
+                        <Link href="/demandes">{t(a.pendingRequest.type === "RENOUVELLEMENT" ? "renouvellementDemande" : "changementDemande")}</Link>
+                      </p>
+                    )}
+                    {a.canRenew && (
+                      <p>
+                        <Link href={`/demandes/abonnement?renouveler=${a.id}`}>{t("renouveler")}</Link>
+                      </p>
+                    )}
+                    {a.canChangeOffer && (
+                      <p>
+                        <Link href={`/demandes/abonnement?changer=${a.id}`}>{t("changerOffre")}</Link>
+                      </p>
+                    )}
                     {a.status !== "RESILIE" && (
                       <>
                         <details>

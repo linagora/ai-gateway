@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { Subscription, SubscriptionCharge, SubscriptionOffer, TerminationOrigin } from "@/generated/prisma/client";
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
+import type { Langue } from "@/lib/langue";
 import { DUREES_ABONNEMENT } from "@/lib/durees";
 import { PortalError } from "@/lib/errors";
 import type { LiteLLMClient } from "@/lib/litellm/client";
@@ -11,9 +12,11 @@ import { dansEquipes, managerEmails, requireGestion } from "./autorite";
 import { JOUR, pickupDeadline, readPickupDays } from "./delais";
 import { markExpired } from "./echeances";
 import { type NotificationDeps, notifyNewRequest } from "./notifications";
-import { libelleOffre } from "./offers";
+import { type CatalogOffer, libelleOffre, vueCatalogue } from "./offers";
 import { enregistrerPrelevements, jourUtc } from "./prelevements";
+import { DEMANDE_SUR_ABONNEMENT_EN_COURS, renewalInputSchema, renouvelableLe } from "./renouvellements";
 import { transitionRequest } from "./requests";
+import { enregistrerResiliation } from "./resiliations";
 
 /** Dépendances du service des abonnements (spécification #51). */
 export interface SubscriptionDeps extends NotificationDeps {
@@ -54,18 +57,46 @@ export async function createSubscriptionRequest(deps: SubscriptionDeps, user: Se
   return { id: created.id };
 }
 
-/** Brouillon d'une demande d'abonnement renvoyée pour complément, pour préremplir le formulaire de son demandeur. */
-export async function subscriptionRequestDraft(deps: { db: Db }, user: SessionUser, id: string): Promise<Omit<SubscriptionRequestInput, "commitment"> | null> {
-  const r = await deps.db.accessRequest.findUnique({ where: { id } });
-  if (!r || r.requesterUid !== user.uid || r.kind !== "ABONNEMENT" || r.status !== "A_COMPLETER" || !r.offerId || r.requestedDays === null) return null;
-  return { offerId: r.offerId, teamId: r.teamId, justification: r.justification, project: r.project, requestedDays: r.requestedDays };
+/**
+ * Brouillon d'une demande d'abonnement renvoyée pour complément, pour préremplir le formulaire de son demandeur : ses
+ * champs, son offre (même masquée depuis) et, pour un renouvellement ou un changement d'offre, ce lien à un abonnement.
+ */
+export interface SubscriptionRequestDraft extends Omit<SubscriptionRequestInput, "commitment"> {
+  offer: CatalogOffer;
+  teamAlias: string;
+  linked: "RENOUVELLEMENT" | "CHANGEMENT_OFFRE" | null;
 }
 
-/** Le demandeur complète sa demande d'abonnement renvoyée pour complément ; elle repasse en SOUMISE. */
+export async function subscriptionRequestDraft(deps: { db: Db }, user: SessionUser, id: string, language: Langue = "fr"): Promise<SubscriptionRequestDraft | null> {
+  const r = await deps.db.accessRequest.findUnique({ where: { id }, include: { offer: true } });
+  if (!r || r.requesterUid !== user.uid || r.kind !== "ABONNEMENT" || r.status !== "A_COMPLETER" || !r.offer || r.requestedDays === null) return null;
+  return {
+    offerId: r.offer.id,
+    offer: vueCatalogue(r.offer, language),
+    teamId: r.teamId,
+    teamAlias: r.teamAlias,
+    justification: r.justification,
+    project: r.project,
+    requestedDays: r.requestedDays,
+    linked: r.renewsSubscriptionId ? "RENOUVELLEMENT" : r.replacesSubscriptionId ? "CHANGEMENT_OFFRE" : null,
+  };
+}
+
+/**
+ * Le demandeur complète sa demande d'abonnement renvoyée pour complément ; elle repasse en SOUMISE. Un renouvellement
+ * ou un changement d'offre (ticket #59) garde l'offre et l'équipe de sa demande : seuls le motif, le projet et la durée
+ * souhaitée changent.
+ */
 export async function completeSubscriptionRequest(deps: SubscriptionDeps, user: SessionUser, id: string, input: SubscriptionRequestInput): Promise<void> {
   const request = await deps.db.accessRequest.findUnique({ where: { id } });
   if (!request || request.requesterUid !== user.uid || request.kind !== "ABONNEMENT") {
     throw new PortalError("introuvable", "Demande d'abonnement introuvable.", { objet: "demande_abonnement" });
+  }
+  if (request.renewsSubscriptionId || request.replacesSubscriptionId) {
+    const { justification, project, requestedDays, commitment } = renewalInputSchema.parse(input);
+    if (!commitment) throw new PortalError("engagement_requis", "Engagez-vous à ne pas soumettre de données d'un niveau supérieur au niveau maximal de l'offre.");
+    await transitionRequest(deps.db, request, "SOUMISE", { data: { justification, project, requestedDays } });
+    return;
   }
   const { champs } = await validateSubscriptionRequest(deps, user, input);
   await transitionRequest(deps.db, request, "SOUMISE", { data: champs });
@@ -144,9 +175,15 @@ interface SubscriptionView {
   terminatedOn: Date | null;
 }
 
-/** Abonnement tel que le voit son titulaire, avec son fournisseur. */
+/** Abonnement tel que le voit son titulaire, avec son fournisseur et ce qu'il peut en demander (ticket #59). */
 export interface MySubscription extends SubscriptionView {
   supplier: string;
+  /** Renouvellement possible : abonnement non résilié, à un mois ou moins de son échéance, sans autre demande en cours. */
+  canRenew: boolean;
+  /** Changement d'offre possible : abonnement non résilié, sans autre demande en cours. */
+  canChangeOffer: boolean;
+  /** Demande de renouvellement ou de changement d'offre en cours sur cet abonnement. */
+  pendingRequest: { id: string; type: "RENOUVELLEMENT" | "CHANGEMENT_OFFRE" } | null;
 }
 
 /** Abonnement tel que le voit la gestion, avec son titulaire et ses prélèvements, du plus ancien au plus récent. */
@@ -202,11 +239,19 @@ const vueGestion = (a: AbonnementAvecOffre & { charges: SubscriptionCharge[] }):
 /** « Mes abonnements » : les abonnements approuvés à déclarer, puis les abonnements déclarés, du plus récent au plus ancien. */
 export async function listMySubscriptions(deps: SubscriptionDeps, user: SessionUser): Promise<{ aDeclarer: SubscriptionToDeclare[]; abonnements: MySubscription[] }> {
   await markExpired(deps.db, deps.now?.() ?? new Date());
-  const [demandes, abonnements, delai] = await Promise.all([
+  const [demandes, abonnements, delai, enCours] = await Promise.all([
     deps.db.accessRequest.findMany({ where: { requesterUid: user.uid, kind: "ABONNEMENT", status: "APPROUVEE" }, include: { offer: true }, orderBy: { decidedAt: "asc" } }),
     deps.db.subscription.findMany({ where: { holderUid: user.uid }, include: { offer: true }, orderBy: [{ subscribedAt: "desc" }, { id: "desc" }] }),
     readPickupDays(deps.db),
+    deps.db.accessRequest.findMany({
+      where: { requesterUid: user.uid, OR: [{ renewsSubscriptionId: { not: null } }, { replacesSubscriptionId: { not: null } }], ...DEMANDE_SUR_ABONNEMENT_EN_COURS },
+    }),
   ]);
+  const maintenant = deps.now?.() ?? new Date();
+  const demandeEnCours = (id: string): MySubscription["pendingRequest"] => {
+    const demande = enCours.find((d) => d.renewsSubscriptionId === id || d.replacesSubscriptionId === id);
+    return demande ? { id: demande.id, type: demande.renewsSubscriptionId ? "RENOUVELLEMENT" : "CHANGEMENT_OFFRE" } : null;
+  };
   return {
     aDeclarer: demandes.flatMap((d) =>
       d.offer
@@ -222,7 +267,17 @@ export async function listMySubscriptions(deps: SubscriptionDeps, user: SessionU
           ]
         : [],
     ),
-    abonnements: abonnements.map((a) => ({ ...vueAbonnement(a), supplier: a.offer.supplier })),
+    abonnements: abonnements.map((a) => {
+      const pendingRequest = demandeEnCours(a.id);
+      const ouvert = a.status !== "RESILIE" && !pendingRequest;
+      return {
+        ...vueAbonnement(a),
+        supplier: a.offer.supplier,
+        canRenew: ouvert && renouvelableLe(a, maintenant),
+        canChangeOffer: ouvert,
+        pendingRequest,
+      };
+    }),
   };
 }
 
@@ -274,7 +329,26 @@ export async function declareSubscription(deps: SubscriptionDeps, user: SessionU
     targetId: abonnement.id,
     details: { offre: libelleOffre(offer), montant: data.monthlyAmountEur, compteHorsLinagora: horsLinagora(data.accountEmail) },
   });
+  if (request.replacesSubscriptionId) await resilierLAbonnementRemplace(deps, user, request.replacesSubscriptionId, abonnement);
   return abonnement.id;
+}
+
+/**
+ * Changement d'offre (ticket #59) : à la déclaration de la nouvelle offre, l'abonnement remplacé, et lui seul, est
+ * résilié à la date de souscription déclarée (au plus tôt à sa propre souscription). Inscrit au journal.
+ */
+async function resilierLAbonnementRemplace(deps: SubscriptionDeps, user: SessionUser, remplaceId: string, nouveau: Subscription): Promise<void> {
+  const remplace = await deps.db.subscription.findUnique({ where: { id: remplaceId }, include: { offer: true } });
+  if (!remplace || remplace.status === "RESILIE") return;
+  const date = new Date(Math.max(nouveau.subscribedAt.getTime(), remplace.subscribedAt.getTime()));
+  await enregistrerResiliation(deps.db, remplace, date, deps.now?.() ?? new Date());
+  const nouvelle = await deps.db.subscriptionOffer.findUniqueOrThrow({ where: { id: nouveau.offerId } });
+  await recordAudit(deps.db, {
+    actorUid: user.uid,
+    action: "SUBSCRIPTION_OFFER_CHANGED",
+    targetId: remplace.id,
+    details: { offre: libelleOffre(remplace.offer), nouvelleOffre: libelleOffre(nouvelle), date: date.toISOString().slice(0, 10), nouvelAbonnement: nouveau.id },
+  });
 }
 
 /** Montant mensuel corrigé par le titulaire (hausse de prix, change) : en euros TTC, positif. */

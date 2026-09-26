@@ -18,6 +18,7 @@ import {
 } from "@/lib/services/admin-requests";
 import { saveCatalogEntry } from "@/lib/services/catalog";
 import { saveOffer } from "@/lib/services/offers";
+import { requestOfferChange, requestRenewal } from "@/lib/services/renouvellements";
 import { declareTermination, reattachSubscription, requestTermination } from "@/lib/services/resiliations";
 import { completeSubscriptionRequest, correctSubscriptionAmount, createSubscriptionRequest, declareSubscription } from "@/lib/services/subscriptions";
 import { blockKey, pickUpKey, replaceKey, revokeKey, unblockKey } from "@/lib/services/keys";
@@ -94,6 +95,37 @@ export async function demanderAbonnementAction(formData: FormData): Promise<void
       else await createSubscriptionRequest(getDeps(), user, input);
     },
     { path: "/demandes", message: completing ? "demandeResoumise" : "demandeEnvoyee" },
+  );
+}
+
+/** Champs d'un renouvellement ou d'un changement d'offre : motif, projet, durée souhaitée et engagement. */
+function renouvellementDuFormulaire(formData: FormData) {
+  return {
+    justification: text(formData, "justification"),
+    project: optionalText(formData, "project"),
+    requestedDays: optionalNumber(formData, "requestedDays") ?? Number.NaN,
+    commitment: formData.get("commitment") === "on",
+  };
+}
+
+/** Ticket #59 : le titulaire demande le renouvellement d'un abonnement, dès un mois avant son échéance. */
+export async function demanderRenouvellementAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const abonnement = text(formData, "subscriptionId");
+  await run(`/demandes/abonnement?renouveler=${encodeURIComponent(abonnement)}`, () => requestRenewal(getDeps(), user, abonnement, renouvellementDuFormulaire(formData)), {
+    path: "/demandes",
+    message: "demandeEnvoyee",
+  });
+}
+
+/** Ticket #59 : le titulaire demande à passer un abonnement à une autre offre du même fournisseur. */
+export async function demanderChangementOffreAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const abonnement = text(formData, "subscriptionId");
+  await run(
+    `/demandes/abonnement?changer=${encodeURIComponent(abonnement)}`,
+    () => requestOfferChange(getDeps(), user, abonnement, { ...renouvellementDuFormulaire(formData), offerId: text(formData, "offerId") }),
+    { path: "/demandes", message: "demandeEnvoyee" },
   );
 }
 

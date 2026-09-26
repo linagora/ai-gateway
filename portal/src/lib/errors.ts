@@ -24,6 +24,7 @@ export type PortalErrorCode =
   | "passerelle_indisponible"
   | "quatre_yeux"
   | "recommandation_hors_cas_usage"
+  | "renouvellement_trop_tot"
   | "responsable_existant"
   | "salarie_inconnu"
   | "tarif_eur_manquant"

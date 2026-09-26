@@ -77,6 +77,14 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
           {review.renewal.spend !== null && ` ${t("depenseOrigine", { depense: euros(review.renewal.spend) })}`}
         </p>
       )}
+      {review.renewedSubscription && (
+        <p className="mb-4 rounded border border-neutral-300 bg-neutral-50 p-3">
+          {t("renouvellementAbonnement", { offre: review.renewedSubscription.offer, echeance: jour(review.renewedSubscription.expiresAt) })}
+        </p>
+      )}
+      {review.replacedSubscription && (
+        <p className="mb-4 rounded border border-neutral-300 bg-neutral-50 p-3">{t("changementOffre", { offre: review.replacedSubscription.offer })}</p>
+      )}
       <dl className="grid grid-cols-[12rem_1fr] gap-x-4 gap-y-1">
         <dt>{t("statut")}</dt>
         <dd>{domaine(`statuts.${review.status}`)}</dd>
