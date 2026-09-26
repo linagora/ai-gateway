@@ -5,7 +5,7 @@ import { FakeMailer } from "@/test/fake-mailer";
 import { approveKeyRequest, approveTeamJoinRequest, countAdminPending, getRequestReview, listPendingRequests, listProcessedRequests, refuseRequest, requestCompletion } from "./admin-requests";
 import { listAudit } from "./audit";
 import { saveCatalogEntry } from "./catalog";
-import { blockKey, listAllKeys, listKeysToPickUp, pickUpKey, revokeKey, unblockKey } from "./keys";
+import { blockKey, listActiveKeys, listKeysToPickUp, pickUpKey, revokeKey, unblockKey } from "./keys";
 import { createKeyRequest, createTeamJoinRequest } from "./requests";
 import { addTeamMember, deleteTeam, designateManager, getTeamPage, listTeamOverviews, removeTeamMember, renameTeam } from "./teams";
 
@@ -54,7 +54,7 @@ describe("gestion limitée du responsable d'équipe (ticket #40)", () => {
     await demande("jdupont", "equipe-data", "Data", "APPROUVEE");
     const equipes = <T extends { teamAlias: string }>(lignes: T[]) => [...new Set(lignes.map((l) => l.teamAlias))];
     expect(equipes(await listPendingRequests(deps, responsable))).toEqual(["R&D"]);
-    expect(equipes((await listProcessedRequests(deps, responsable)).demandes)).toEqual(["R&D"]);
+    expect(equipes((await listProcessedRequests(deps, responsable)).elements)).toEqual(["R&D"]);
     expect(equipes(await listKeysToPickUp(deps, responsable))).toEqual(["R&D"]);
     expect((await listTeamOverviews(deps, responsable)).map((t) => t.teamAlias)).toEqual(["R&D"]);
     expect(equipes(await listPendingRequests(deps, admin)).sort()).toEqual(["Data", "R&D"]);
@@ -64,8 +64,10 @@ describe("gestion limitée du responsable d'équipe (ticket #40)", () => {
   test("les clés actives d'une autre équipe ne sont pas montrées au responsable", async () => {
     await demande("pmartin", "equipe-rd", "R&D", "CLE_EMISE");
     await demande("jdupont", "equipe-data", "Data", "CLE_EMISE");
-    expect((await listAllKeys(deps, responsable)).map((k) => k.teamAlias)).toEqual(["R&D"]);
-    expect((await listAllKeys(deps, admin)).map((k) => k.teamAlias).sort()).toEqual(["Data", "R&D"]);
+    expect((await listActiveKeys(deps, responsable)).map((k) => k.teamAlias)).toEqual(["R&D"]);
+    expect((await listActiveKeys(deps, admin)).map((k) => k.teamAlias).sort()).toEqual(["Data", "R&D"]);
+    // Filtrées sur une équipe hors de son autorité, les clés restent invisibles au responsable.
+    expect(await listActiveKeys(deps, responsable, "equipe-data")).toEqual([]);
   });
 
   test("la pastille d'un responsable compte les demandes à valider de ses équipes, hors les siennes", async () => {

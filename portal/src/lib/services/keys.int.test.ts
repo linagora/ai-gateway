@@ -8,7 +8,7 @@ import { approveKeyRequest, getRequestReview, refuseRequest } from "./admin-requ
 import { listAudit } from "./audit";
 import { saveCatalogEntry } from "./catalog";
 import { runDailyTask } from "./echeances";
-import { blockKey, listAllKeys, listKeysToPickUp, listMyKeys, pickUpKey, renewalDraft, replaceKey, revokeKey, unblockKey } from "./keys";
+import { blockKey, listActiveKeys, listKeyArchive, listKeysToPickUp, listMyKeys, pickUpKey, renewalDraft, replaceKey, revokeKey, unblockKey } from "./keys";
 import { createKeyRequest, type KeyRequestInput, listMyRequests } from "./requests";
 import { saveSettings } from "./settings";
 
@@ -290,7 +290,7 @@ describe("« Gestion — Clés » et révocation par un admin (ticket #19)", () 
     await approveKeyRequest(deps, admin, idCollegue, { models: ["mistral-small"], budget: 10, budgetDuration: "30d", days: 30, rpmLimit: null, tpmLimit: null });
     await pickUpKey(deps, collegue, idCollegue);
 
-    const cles = await listAllKeys(deps, admin);
+    const cles = await listActiveKeys(deps, admin);
     expect(cles).toHaveLength(2);
     expect(cles.find((k) => k.requestId === id)).toMatchObject({
       holderUid: "mmaudet",
@@ -316,7 +316,42 @@ describe("« Gestion — Clés » et révocation par un admin (ticket #19)", () 
   });
 
   test("un salarié n'accède pas à la liste des clés", async () => {
-    await expect(listAllKeys(deps, titulaire)).rejects.toMatchObject({ code: "interdit" });
+    await expect(listActiveKeys(deps, titulaire)).rejects.toMatchObject({ code: "interdit" });
+    await expect(listKeyArchive(deps, titulaire)).rejects.toMatchObject({ code: "interdit" });
+  });
+
+  test("l'archive des clés se lit par pages de 50, la plus récemment émise d'abord ; une page hors limites mène à la plus proche", async () => {
+    expect(await listKeyArchive(deps, admin)).toEqual({ elements: [], page: 1, pages: 1, total: 0 });
+    const debut = Date.parse("2026-06-01T08:00:00Z");
+    await testDb.accessRequest.createMany({
+      data: Array.from({ length: 60 }, (_, i) => ({
+        kind: "CLE" as const, status: i % 2 ? ("REVOQUEE" as const) : ("EXPIREE" as const), requesterUid: `salarie-${i}`, requesterEmail: `salarie-${i}@linagora.com`,
+        teamId: "equipe-rd", teamAlias: "R&D", dataLevel: "N2" as const, models: ["mistral-small"], approvedModels: ["mistral-small"], justification: "Essai",
+        keyAlias: `cle-${i}`, keyIssuedAt: new Date(debut + i * JOUR),
+      })),
+    });
+    const premiere = await listKeyArchive(deps, admin);
+    expect(premiere).toMatchObject({ page: 1, pages: 2, total: 60 });
+    expect(premiere.elements).toHaveLength(50);
+    expect(premiere.elements.slice(0, 2).map((k) => k.alias)).toEqual(["cle-59", "cle-58"]);
+    expect((await listKeyArchive(deps, admin, 2)).elements.map((k) => k.alias)).toEqual(Array.from({ length: 10 }, (_, i) => `cle-${9 - i}`));
+    expect(await listKeyArchive(deps, admin, 99)).toMatchObject({ page: 2 });
+    expect(await listActiveKeys(deps, admin)).toEqual([]);
+  });
+
+  test("filtrées sur une équipe, les listes ne gardent que ses clés à retirer, actives et archivées", async () => {
+    const cle = (teamId: string, teamAlias: string, status: "APPROUVEE" | "CLE_EMISE" | "REVOQUEE", i: number) => ({
+      kind: "CLE" as const, status, requesterUid: `salarie-${i}`, requesterEmail: `salarie-${i}@linagora.com`, teamId, teamAlias, dataLevel: "N2" as const,
+      models: ["mistral-small"], approvedModels: ["mistral-small"], justification: "Essai", decidedAt: maintenant,
+      ...(status === "APPROUVEE" ? {} : { keyAlias: `cle-${i}`, keyIssuedAt: maintenant }),
+    });
+    await testDb.accessRequest.createMany({
+      data: [cle("equipe-rd", "R&D", "APPROUVEE", 1), cle("equipe-rd", "R&D", "CLE_EMISE", 2), cle("equipe-rd", "R&D", "REVOQUEE", 3), cle("equipe-data", "Data", "APPROUVEE", 4), cle("equipe-data", "Data", "CLE_EMISE", 5), cle("equipe-data", "Data", "REVOQUEE", 6)],
+    });
+    expect((await listKeysToPickUp(deps, admin, "equipe-rd")).map((k) => k.holderUid)).toEqual(["salarie-1"]);
+    expect((await listActiveKeys(deps, admin, "equipe-rd")).map((k) => k.alias)).toEqual(["cle-2"]);
+    expect((await listKeyArchive(deps, admin, 1, "equipe-rd")).elements.map((k) => k.alias)).toEqual(["cle-3"]);
+    expect((await listActiveKeys(deps, admin)).map((k) => k.alias).sort()).toEqual(["cle-2", "cle-5"]);
   });
 
   test("un admin révoque la clé d'un salarié, avec le même effet ; le journal d'audit le nomme comme auteur", async () => {
@@ -324,7 +359,8 @@ describe("« Gestion — Clés » et révocation par un admin (ticket #19)", () 
     const { key } = await pickUpKey(deps, titulaire, id);
     await revokeKey(deps, admin, id);
     expect([...litellm.keys.values()].some((k) => k.key === key)).toBe(false);
-    expect((await listAllKeys(deps, admin))[0]).toMatchObject({ requestId: id, status: "REVOQUEE" });
+    expect((await listKeyArchive(deps, admin)).elements[0]).toMatchObject({ requestId: id, status: "REVOQUEE" });
+    expect(await listActiveKeys(deps, admin)).toEqual([]);
     expect((await listAudit(testDb)).map((e) => [e.actorUid, e.action, e.targetId])).toContainEqual(["jdupont", "KEY_REVOKED", id]);
   });
 });

@@ -119,6 +119,12 @@ test("un admin voit toutes les clés émises et révoque celle d'un salarié (ti
   await expect(admin.getByRole("status")).toHaveText("Clé révoquée.");
   await expect(admin.getByRole("row", { name: new RegExp(`${salarie.uid}-r-d-essai-gestion-.*Révoquée`) })).toBeVisible();
   await expect.poll(() => appel(request, cle), { timeout: 15_000, intervals: [1_000] }).toBe(401);
+  // L'archive des clés se lit page par page ; une page hors limites mène à la dernière.
+  const pagination = admin.getByRole("region", { name: "Archive : clés révoquées ou expirées" }).getByRole("navigation", { name: "Pages de l'archive des clés" });
+  await expect(pagination).toContainText(/^Page 1 sur \d+ \(\d+ clés? archivées?\)/);
+  const pages = Number(/sur (\d+)/.exec((await pagination.textContent()) ?? "")?.[1]);
+  await admin.goto("/gestion/cles?page=999");
+  await expect(pagination).toContainText(`Page ${pages} sur ${pages}`);
 
   await page.goto("/cles");
   await expect(page.getByRole("article")).toContainText("Révoquée");

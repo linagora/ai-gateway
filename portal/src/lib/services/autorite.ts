@@ -20,8 +20,12 @@ export async function requireGestion(db: Db, actor: SessionUser): Promise<string
   return equipes;
 }
 
-/** Filtre des demandes et des clés sur les équipes gérées (aucun pour un admin). */
-export function dansEquipes(equipes: string[] | null): { teamId?: { in: string[] } } {
+/**
+ * Filtre des demandes et des clés sur les équipes gérées (aucun pour un admin), restreint à une équipe quand elle est
+ * demandée : une équipe hors de l'autorité de l'acteur n'y retient rien.
+ */
+export function dansEquipes(equipes: string[] | null, teamId?: string): { teamId?: string | { in: string[] } } {
+  if (teamId !== undefined) return equipes === null || equipes.includes(teamId) ? { teamId } : { teamId: { in: [] } };
   return equipes === null ? {} : { teamId: { in: equipes } };
 }
 

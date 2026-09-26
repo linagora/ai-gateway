@@ -473,6 +473,8 @@
     },
     "cles": {
       "titre": "API keys",
+      "filtreEquipe": "Keys of the team {equipe}",
+      "toutesLesCles": "All keys",
       "aucune": "No key has been picked up yet.",
       "colonnes": {
         "titulaire": "Holder",
@@ -503,7 +505,11 @@
         "aucune": "No revoked or expired key.",
         "colonnes": {
           "emise": "Issued on"
-        }
+        },
+        "pagination": "Key archive pages",
+        "position": "Page {page} of {pages} ({total, plural, one {# archived key} other {# archived keys}})",
+        "plusRecentes": "More recent keys",
+        "plusAnciennes": "Older keys"
       }
     },
     "outils": {
@@ -537,6 +543,7 @@
         "budget": "Budget",
         "responsables": "Managers"
       },
+      "voirCles": "{nombre, plural, =0 {See the team's keys} one {See the team's active key} other {See the team's # active keys}}",
       "toutes": "All teams",
       "resume": "Team summary",
       "nom": "Team name",

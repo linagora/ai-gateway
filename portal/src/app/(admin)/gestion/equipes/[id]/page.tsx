@@ -47,7 +47,11 @@ export default async function EquipePage(props: PageProps<"/gestion/equipes/[id]
         <dt>{t("colonnes.membres")}</dt>
         <dd>{equipe.memberCount}</dd>
         <dt>{t("colonnes.cles")}</dt>
-        <dd>{equipe.activeKeyCount}</dd>
+        <dd>
+          <Link href={`/gestion/cles?equipe=${encodeURIComponent(equipe.teamId)}`} aria-label={t("voirCles", { nombre: equipe.activeKeyCount })}>
+            {equipe.activeKeyCount}
+          </Link>
+        </dd>
       </dl>
       {estAdmin && (
         <form action={renommerEquipeAction} className="mt-6 flex flex-wrap items-end gap-3">

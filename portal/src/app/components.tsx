@@ -1,3 +1,4 @@
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import { DUREES_VALIDITE, optionsDuree } from "@/lib/durees";
@@ -161,4 +162,37 @@ export async function equipesProposees(user: SessionUser, teams: { teamId: strin
     const autres = (valideurs.get(teamId) ?? []).filter((uid) => uid !== user.uid);
     return { teamId, teamAlias, valideurs: autres.length > 0 ? t("valideePar", { valideurs: autres.join(", ") }) : t("valideeParAdmins") };
   });
+}
+
+/**
+ * Pagination d'une archive de la gestion : sa position et, avec des pictogrammes Lucide, les liens vers les pages
+ * voisines. `lien` donne l'adresse d'une page ; les libellés sont ceux de l'archive (demandes ou clés).
+ */
+export function PaginationArchive({
+  archive,
+  lien,
+  libelles,
+}: {
+  archive: { page: number; pages: number; total: number };
+  lien: (page: number) => string;
+  libelles: { pagination: string; position: string; plusRecentes: string; plusAnciennes: string };
+}) {
+  if (archive.total === 0) return null;
+  return (
+    <nav aria-label={libelles.pagination} className="mt-4 flex flex-wrap items-center gap-4">
+      {archive.page > 1 && (
+        <Link href={lien(archive.page - 1)} className="inline-flex items-center gap-1">
+          <ArrowLeft aria-hidden="true" className="size-4" />
+          {libelles.plusRecentes}
+        </Link>
+      )}
+      <span>{libelles.position}</span>
+      {archive.page < archive.pages && (
+        <Link href={lien(archive.page + 1)} className="inline-flex items-center gap-1">
+          {libelles.plusAnciennes}
+          <ArrowRight aria-hidden="true" className="size-4" />
+        </Link>
+      )}
+    </nav>
+  );
 }
