@@ -236,6 +236,7 @@ model Subscription {
   expiresAt        DateTime
   status           SubscriptionStatus @default(ACTIF)
   /// Demande de résiliation (statut « à résilier ») : origine, auteur (uid), date et motif ; gardée après la résiliation.
+  /// « termination » nomme la résiliation dans le code : « cancel » y désigne déjà l'annulation d'une demande.
   terminationOrigin      TerminationOrigin?
   terminationRequestedBy String?
   terminationRequestedAt DateTime?
