@@ -384,6 +384,10 @@ async function changeBlocking(deps: KeyDeps, actor: SessionUser, requestId: stri
   // Un salarié sans rôle ne bloque rien, pas même sa propre clé ; hors de son autorité, la clé est introuvable.
   await requireGestion(deps.db, actor);
   const request = await activeKeyRequest(deps.db, requestId, (r) => aAutorite(deps.db, actor, r.teamId));
+  // Quatre yeux : un responsable ne bloque ni ne débloque sa propre clé, sans quoi il lèverait le blocage d'un admin.
+  if (!actor.isAdmin && request.requesterUid === actor.uid) {
+    throw new PortalError("quatre_yeux", "Un responsable ne bloque ni ne débloque sa propre clé.", { cas: "cle" });
+  }
   try {
     await sens.appel(deps.litellm, request.keyTokenId);
   } catch {

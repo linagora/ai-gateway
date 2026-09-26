@@ -136,19 +136,31 @@ export async function createTeamJoinRequest(deps: RequestDeps, user: SessionUser
   return { id: created.id };
 }
 
-/** F-24 : le demandeur annule sa demande. Pour un autre utilisateur, la demande n'existe pas. */
+/**
+ * F-24 : le demandeur annule sa demande soumise ou à compléter. Une demande approuvée ne s'annule qu'à la sortie de son
+ * équipe (F-54). Pour un autre utilisateur, la demande n'existe pas.
+ */
 export async function cancelRequest(deps: RequestDeps, user: SessionUser, id: string): Promise<void> {
   const request = await deps.db.accessRequest.findUnique({ where: { id } });
   if (!request || request.requesterUid !== user.uid) throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
+  if (request.status === "APPROUVEE") throw new PortalError("transition_interdite", "Cette demande a déjà été traitée.", { cas: "traitee" });
   await transitionRequest(deps.db, request, "ANNULEE");
 }
 
 /**
- * F-54 : sortie d'une équipe. Annule les demandes en cours d'un membre dans cette équipe (soumises, à compléter,
- * approuvées sans clé retirée), pour qu'il ne puisse plus y obtenir de clé ; rend leur nombre.
+ * Demandes en cours dans une équipe (F-54, #38) : soumises ou à compléter, et demandes de clé approuvées dont la clé
+ * n'est pas retirée. Une demande d'accès approuvée est close : le salarié est entré dans l'équipe.
+ */
+export const DEMANDES_EN_COURS: Prisma.AccessRequestWhereInput = {
+  OR: [{ status: { in: ["SOUMISE", "A_COMPLETER"] } }, { kind: "CLE", status: "APPROUVEE" }],
+};
+
+/**
+ * F-54 : sortie d'une équipe. Annule les demandes en cours d'un membre dans cette équipe, pour qu'il ne puisse plus y
+ * obtenir de clé ; rend leur nombre.
  */
 export async function cancelMemberRequests(db: Db, teamId: string, uid: string): Promise<number> {
-  const enCours = await db.accessRequest.findMany({ where: { teamId, requesterUid: uid, status: { in: ["SOUMISE", "A_COMPLETER", "APPROUVEE"] } } });
+  const enCours = await db.accessRequest.findMany({ where: { teamId, requesterUid: uid, ...DEMANDES_EN_COURS } });
   for (const demande of enCours) await transitionRequest(db, demande, "ANNULEE");
   return enCours.length;
 }

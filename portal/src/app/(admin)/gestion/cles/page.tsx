@@ -100,12 +100,15 @@ export default async function GestionClesPage(props: PageProps<"/gestion/cles">)
                     {k.gatewayState?.blocked && ` · ${cles("bloquee")}`}
                   </td>
                   <td>
-                    <form action={k.gatewayState?.blocked ? debloquerCleAction : bloquerCleAction}>
-                      <input type="hidden" name="id" value={k.requestId} />
-                      <button type="submit" className="mt-0 border-neutral-400 bg-white text-neutral-800 hover:bg-neutral-100">
-                        {k.gatewayState?.blocked ? t("debloquer") : t("bloquer")}
-                      </button>
-                    </form>
+                    {/* Quatre yeux : un responsable ne bloque ni ne débloque sa propre clé. */}
+                    {(admin.isAdmin || k.holderUid !== admin.uid) && (
+                      <form action={k.gatewayState?.blocked ? debloquerCleAction : bloquerCleAction}>
+                        <input type="hidden" name="id" value={k.requestId} />
+                        <button type="submit" className="mt-0 border-neutral-400 bg-white text-neutral-800 hover:bg-neutral-100">
+                          {k.gatewayState?.blocked ? t("debloquer") : t("bloquer")}
+                        </button>
+                      </form>
+                    )}
                     <details>
                       <summary className="cursor-pointer">{t("revoquer")}</summary>
                       <p className="text-sm">{t("revocationAvertissement")}</p>

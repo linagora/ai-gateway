@@ -13,7 +13,7 @@ for (const [navigateur, textes] of [
     await page.goto("/demandes");
     await expect(page).toHaveURL(/\/connexion\?callbackUrl=/);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(textes.titre);
-    const logo = page.getByRole("banner").getByRole("img", { name: "Linagora" });
+    const logo = page.getByRole("banner").getByRole("img", { name: "LINAGORA", exact: true });
     await expect(logo).toBeVisible();
     expect(await logo.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
     await expect(page.getByRole("navigation")).toHaveCount(0);

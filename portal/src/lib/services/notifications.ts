@@ -39,7 +39,7 @@ function bilingue(contenu: (t: Traducteur) => Contenu, lien: string): Omit<Messa
   });
   return {
     subject: `${PREFIXE_OBJET} ${francais.sujet} / ${anglais.sujet}`,
-    text: [francais.corps, "* * *", anglais.corps, "Portail IA Linagora / Linagora AI Portal"].join("\n\n"),
+    text: [francais.corps, "* * *", anglais.corps, "Portail IA LINAGORA / LINAGORA AI Portal"].join("\n\n"),
   };
 }
 

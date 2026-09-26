@@ -1,6 +1,6 @@
 {
   "metadonnees": {
-    "titre": "Portail IA Linagora",
+    "titre": "Portail IA LINAGORA",
     "description": "Catalogue des modèles d'IA et demandes de clés d'API"
   },
   "entete": {
@@ -19,7 +19,7 @@
   },
   "accueil": {
     "bonjour": "Bonjour {nom}",
-    "presentation": "Ce portail donne accès aux modèles d'IA de Linagora par une API compatible OpenAI. Chaque clé d'API est validée par un administrateur et limitée aux modèles compatibles avec le niveau de confidentialité de vos données.",
+    "presentation": "Ce portail donne accès aux modèles d'IA de LINAGORA par une API compatible OpenAI. Chaque clé d'API est validée par un administrateur et limitée aux modèles compatibles avec le niveau de confidentialité de vos données.",
     "catalogue": "Consulter le catalogue des modèles",
     "demander": "Demander une clé d'API",
     "suivre": "Suivre mes demandes",
@@ -31,6 +31,12 @@
       "N2": "N2 Interne",
       "N3": "N3 Confidentiel",
       "EXP": "Expérimental (bêta)"
+    },
+    "classifications": {
+      "NC": "Classification NC · Public",
+      "C1": "Classification C1 · Interne",
+      "C2": "Classification C2 · Restreint",
+      "C3": "Classification C3 · Secret"
     },
     "zones": {
       "UE": "UE",
@@ -121,7 +127,7 @@
       "membre_existant": "{uid} est déjà membre de l'équipe {equipe}.",
       "equipe_non_vide": "Cette équipe a encore des clés actives ({cles}) ou des demandes en cours ({demandes}) : révoquez ses clés et traitez ses demandes avant de la supprimer.",
       "responsable_existant": "{uid} est déjà responsable de l'équipe {equipe}.",
-      "quatre_yeux": "Vous ne pouvez pas décider de votre propre demande : un autre responsable de l'équipe ou un administrateur s'en chargera.",
+      "quatre_yeux": "{cas, select, cle {Vous ne pouvez pas bloquer ni débloquer votre propre clé : un autre responsable de l'équipe ou un administrateur s'en chargera.} other {Vous ne pouvez pas décider de votre propre demande : un autre responsable de l'équipe ou un administrateur s'en chargera.}}",
       "budget_equipe_invalide": "Budget d'équipe invalide : saisissez un montant positif ou nul (0 : sans limite) et, pour un montant positif, une période au format 30d, 12h…"
     },
     "controles": {
@@ -209,28 +215,28 @@
     "aucunModele": "Aucun modèle n'est encore ouvert à ce niveau. Pour en demander un, écrivez aux administrateurs du portail.",
     "niveaux": {
       "N1": {
-        "definition": "Informations publiques ou destinées à l'être.",
+        "definition": "Informations publiques (NC) ou destinées à tous les salariés (C1).",
         "confier": [
-          "Code open source et documentation publique",
-          "Contenus déjà publiés : site, articles, communiqués",
-          "Veille et recherche sur des sources publiques"
+          "Code open source, documentation et contenus publiés",
+          "Veille et recherche sur des sources publiques",
+          "Notes et documents internes destinés à tous les salariés (C1)"
         ],
         "jamais": [
-          "Documents internes non publiés (niveau N2)",
-          "Données clients ou personnelles (niveau N3)"
+          "Informations à diffusion restreinte (C2, niveau N2)",
+          "Données clients ou personnelles (C3, niveau N3)"
         ],
         "garanties": "Exécution en Union européenne ou hors UE selon le modèle : la zone de chaque modèle est indiquée."
       },
       "N2": {
-        "definition": "Informations internes non publiques, sans données personnelles sensibles.",
+        "definition": "Informations internes à diffusion restreinte (C2), sans données personnelles sensibles.",
         "confier": [
-          "Code et documents internes",
+          "Code et documents de projet non publiés",
           "Spécifications et comptes rendus de réunion",
           "Propositions commerciales non nominatives"
         ],
         "jamais": [
-          "Données clients ou personnelles (niveau N3)",
-          "Contrats, secrets et données sous NDA (niveau N3)"
+          "Données clients ou personnelles (C3, niveau N3)",
+          "Contrats, secrets et données sous NDA (C3, niveau N3)"
         ],
         "garanties": "Hébergeurs engagés à ne pas conserver les données ni à les utiliser pour l'entraînement, en Union européenne de préférence."
       },
@@ -242,10 +248,10 @@
           "Données sous NDA ou du secteur public"
         ],
         "jamais": [
-          "Informations classifiées (Diffusion Restreinte et au-delà)",
+          "Informations classifiées de l'État (Diffusion Restreinte et au-delà)",
           "Données qu'un contrat interdit de confier à un tiers"
         ],
-        "garanties": "Modèles hébergés en France chez OVHcloud, sous contrat de sous-traitance ; à terme, chez Linagora ou un hébergeur souverain."
+        "garanties": "Modèles hébergés en France chez OVHcloud, sous contrat de sous-traitance ; à terme, chez LINAGORA ou un hébergeur souverain."
       },
       "EXP": {
         "definition": "Modèles récents en bêta, à essayer avec des données publiques uniquement.",
@@ -367,7 +373,7 @@
   },
   "connexion": {
     "titre": "Connexion au Portail IA",
-    "explication": "Le portail utilise votre compte Linagora : connectez-vous avec le SSO de l'entreprise.",
+    "explication": "Le portail utilise votre compte LINAGORA : connectez-vous avec le SSO de l'entreprise.",
     "bouton": "Se connecter avec LemonLDAP::NG",
     "echec": "La connexion a échoué. Réessayez ; si le problème persiste, contactez un administrateur du portail."
   },

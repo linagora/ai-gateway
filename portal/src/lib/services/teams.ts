@@ -8,7 +8,7 @@ import { recordAudit } from "./audit";
 import { managerEmails, requireAutorite, requireGestion } from "./autorite";
 import { revokeMemberKeys } from "./keys";
 import { type NotificationDeps, notifyManagerDesignated, notifyMemberAdded, notifyMemberRemoved, notifyTeamChange } from "./notifications";
-import { cancelMemberRequests } from "./requests";
+import { cancelMemberRequests, DEMANDES_EN_COURS } from "./requests";
 
 /** Dépendances du service des équipes (F-53) : LiteLLM, source de vérité des équipes, et la base du portail. */
 export interface TeamDeps extends NotificationDeps {
@@ -173,14 +173,14 @@ export async function removeTeamMember(deps: TeamDeps, actor: SessionUser, input
 
 /**
  * F-53 : supprime une équipe. LiteLLM supprimant aussi ses clés, la suppression est refusée tant que l'équipe a des clés
- * actives ou des demandes en cours (soumises, à compléter, approuvées sans clé retirée) ; l'historique des demandes reste.
+ * actives ou des demandes en cours (DEMANDES_EN_COURS) ; l'historique des demandes reste.
  */
 export async function deleteTeam(deps: TeamDeps, actor: SessionUser, teamId: string): Promise<void> {
   requireAdmin(actor);
   const team = await existingTeam(deps, teamId);
   const [cles, demandes] = await Promise.all([
     deps.db.accessRequest.count({ where: { teamId: team.teamId, kind: "CLE", status: "CLE_EMISE" } }),
-    deps.db.accessRequest.count({ where: { teamId: team.teamId, status: { in: ["SOUMISE", "A_COMPLETER", "APPROUVEE"] } } }),
+    deps.db.accessRequest.count({ where: { teamId: team.teamId, ...DEMANDES_EN_COURS } }),
   ]);
   if (cles + demandes > 0) {
     throw new PortalError("equipe_non_vide", `L'équipe ${team.teamAlias} a encore des clés ou des demandes en cours.`, { cles: String(cles), demandes: String(demandes) });

@@ -1,6 +1,6 @@
 {
   "metadonnees": {
-    "titre": "Linagora AI Portal",
+    "titre": "LINAGORA AI Portal",
     "description": "AI model catalog and API key requests"
   },
   "entete": {
@@ -19,7 +19,7 @@
   },
   "accueil": {
     "bonjour": "Hello {nom}",
-    "presentation": "This portal gives access to Linagora's AI models through an OpenAI-compatible API. Each API key is approved by an administrator and limited to the models compatible with the confidentiality level of your data.",
+    "presentation": "This portal gives access to LINAGORA's AI models through an OpenAI-compatible API. Each API key is approved by an administrator and limited to the models compatible with the confidentiality level of your data.",
     "catalogue": "Browse the model catalog",
     "demander": "Request an API key",
     "suivre": "Track my requests",
@@ -31,6 +31,12 @@
       "N2": "N2 Internal",
       "N3": "N3 Confidential",
       "EXP": "Experimental (beta)"
+    },
+    "classifications": {
+      "NC": "Classification NC · Public",
+      "C1": "Classification C1 · Internal",
+      "C2": "Classification C2 · Restricted",
+      "C3": "Classification C3 · Secret"
     },
     "zones": {
       "UE": "EU",
@@ -121,7 +127,7 @@
       "membre_existant": "{uid} is already a member of the team {equipe}.",
       "equipe_non_vide": "This team still has active keys ({cles}) or pending requests ({demandes}): revoke its keys and process its requests before deleting it.",
       "responsable_existant": "{uid} is already a manager of the team {equipe}.",
-      "quatre_yeux": "You cannot decide on your own request: another manager of the team or an administrator will handle it.",
+      "quatre_yeux": "{cas, select, cle {You cannot block or unblock your own key: another manager of the team or an administrator will handle it.} other {You cannot decide on your own request: another manager of the team or an administrator will handle it.}}",
       "budget_equipe_invalide": "Invalid team budget: enter an amount of zero or more (0: no limit) and, for a positive amount, a period such as 30d, 12h…"
     },
     "controles": {
@@ -209,28 +215,28 @@
     "aucunModele": "No model is open at this level yet. To request one, write to the portal administrators.",
     "niveaux": {
       "N1": {
-        "definition": "Information that is public or intended to be.",
+        "definition": "Public information (NC) or information intended for all employees (C1).",
         "confier": [
-          "Open source code and public documentation",
-          "Content already published: website, articles, press releases",
-          "Monitoring and research on public sources"
+          "Open source code, documentation and published content",
+          "Monitoring and research on public sources",
+          "Internal notes and documents intended for all employees (C1)"
         ],
         "jamais": [
-          "Unpublished internal documents (level N2)",
-          "Customer or personal data (level N3)"
+          "Restricted information (C2, level N2)",
+          "Customer or personal data (C3, level N3)"
         ],
         "garanties": "Executed in the European Union or outside the EU depending on the model: each model shows its execution region."
       },
       "N2": {
-        "definition": "Non-public internal information, without sensitive personal data.",
+        "definition": "Restricted internal information (C2), without sensitive personal data.",
         "confier": [
-          "Internal code and documents",
+          "Unpublished code and project documents",
           "Specifications and meeting minutes",
           "Non-nominative commercial proposals"
         ],
         "jamais": [
-          "Customer or personal data (level N3)",
-          "Contracts, secrets and data under NDA (level N3)"
+          "Customer or personal data (C3, level N3)",
+          "Contracts, secrets and data under NDA (C3, level N3)"
         ],
         "garanties": "Hosts committed to neither retaining the data nor using it for training, preferably in the European Union."
       },
@@ -242,10 +248,10 @@
           "Data under NDA or from the public sector"
         ],
         "jamais": [
-          "Classified information (Restricted and above)",
+          "Government classified information (Diffusion Restreinte and above)",
           "Data that a contract forbids entrusting to a third party"
         ],
-        "garanties": "Models hosted in France by OVHcloud, under a data processing agreement; eventually by Linagora or a sovereign host."
+        "garanties": "Models hosted in France by OVHcloud, under a data processing agreement; eventually by LINAGORA or a sovereign host."
       },
       "EXP": {
         "definition": "Recent models in beta, to try with public data only.",
@@ -367,7 +373,7 @@
   },
   "connexion": {
     "titre": "Sign in to the AI Portal",
-    "explication": "The portal uses your Linagora account: sign in with the company SSO.",
+    "explication": "The portal uses your LINAGORA account: sign in with the company SSO.",
     "bouton": "Sign in with LemonLDAP::NG",
     "echec": "Sign-in failed. Try again; if the problem persists, contact a portal administrator."
   },
