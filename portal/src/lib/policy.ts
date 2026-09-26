@@ -58,7 +58,7 @@ export interface KeyRequestDraft {
 
 export type PolicyCheckId = "membre_equipe" | "modeles_presents" | "modeles_equipe" | "niveau_modeles" | "modeles_visibles";
 
-/** Un contrôle, affiché ✔/✘ sur la fiche de validation ; `offending` liste les éléments en cause. */
+/** Un contrôle, affiché réussi ou en échec sur la fiche de validation ; `offending` liste les éléments en cause. */
 export interface PolicyCheck {
   id: PolicyCheckId;
   ok: boolean;

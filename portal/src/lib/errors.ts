@@ -38,7 +38,7 @@ export class PortalError extends Error {
   }
 }
 
-/** Règle 3 : la demande ne passe pas les contrôles ; `failedChecks` liste les contrôles ✘. */
+/** Règle 3 : la demande ne passe pas les contrôles ; `failedChecks` liste les contrôles en échec. */
 export class PolicyViolationError extends PortalError {
   constructor(readonly failedChecks: PolicyCheck[]) {
     super("controles_en_echec", "La demande ne respecte pas la politique d'accès aux modèles.");
