@@ -6,8 +6,14 @@ import { PortalError } from "@/lib/errors";
 import type { LiteLLMClient } from "@/lib/litellm/client";
 import { recordAudit } from "./audit";
 import { managerEmails, requireAutorite } from "./autorite";
-import { pickupDeadline, readPickupDays, SYSTEME } from "./delais";
-import { type NotificationDeps, notifyTeamChange, notifyTerminationDeclaredByAdmin, notifyTerminationRequested } from "./notifications";
+import { JOUR, pickupDeadline, readPickupDays, SYSTEME } from "./delais";
+import {
+  type NotificationDeps,
+  notifyTeamChange,
+  notifyTerminationDeclaredByAdmin,
+  notifyTerminationRequested,
+  notifyUndeclaredTermination,
+} from "./notifications";
 import { libelleOffre } from "./offers";
 import { enregistrerPrelevements, jourUtc } from "./prelevements";
 
@@ -230,4 +236,30 @@ export async function subscriptionsToReattach(db: Db, teamId: string, memberUids
     orderBy: [{ terminationRequestedAt: "asc" }, { id: "asc" }],
   });
   return abonnements.map((a) => ({ id: a.id, holderUid: a.holderUid, offer: libelleOffre(a.offer), teamAlias: a.teamAlias, requestedAt: a.terminationRequestedAt }));
+}
+
+/**
+ * Ticket #58, tâche quotidienne : une résiliation demandée et toujours pas déclarée au terme du délai de retrait est
+ * signalée, une seule fois, aux admins et aux responsables de l'équipe de l'abonnement (hors son titulaire). Sans délai
+ * configuré, rien n'est signalé. Rend le nombre d'alertes.
+ */
+export async function alertUndeclaredTerminations(deps: TerminationDeps, maintenant: Date): Promise<number> {
+  const delai = await readPickupDays(deps.db);
+  if (delai === null) return 0;
+  const enRetard = await deps.db.subscription.findMany({
+    where: { status: "A_RESILIER", terminationAlertSentAt: null, terminationRequestedAt: { lte: new Date(maintenant.getTime() - delai * JOUR) } },
+    include: { offer: true },
+  });
+  let alertes = 0;
+  for (const abonnement of enRetard) {
+    // Écriture conditionnelle, comme pour les rappels : deux tâches simultanées n'alertent pas deux fois.
+    const { count } = await deps.db.subscription.updateMany({
+      where: { id: abonnement.id, status: "A_RESILIER", terminationAlertSentAt: null },
+      data: { terminationAlertSentAt: maintenant },
+    });
+    if (count === 0) continue;
+    alertes++;
+    await notifyUndeclaredTermination(deps, abonnement, abonnement.offer, await managerEmails(deps.db, abonnement.teamId, [abonnement.holderUid]));
+  }
+  return alertes;
 }

@@ -2,26 +2,20 @@ import type { Db } from "@/lib/db";
 import type { LiteLLMClient, LiteLLMTeam } from "@/lib/litellm/client";
 import { recordAudit } from "./audit";
 import { managerEmails } from "./autorite";
-import { calendarDaysUntil, JOUR, pickupDeadline, readPickupDays, SYSTEME } from "./delais";
+import { calendarDaysUntil, horizonDeRappel, JOUR, pickupDeadline, RAPPELS_EXPIRATION, rappelsDus, readPickupDays, SYSTEME } from "./delais";
 import {
   type NotificationDeps,
   notifyDeclarationReminder,
   notifyExpiryReminder,
   notifyPickupReminder,
-  notifySubscriptionExpiryReminder,
   notifyTeamBudgetAlert,
-  notifyUndeclaredTermination,
 } from "./notifications";
 import { enregistrerPrelevementsEchus } from "./prelevements";
-import { requestTerminationsAtExpiry } from "./resiliations";
+import { remindSubscriptionExpiries } from "./renouvellements";
+import { alertUndeclaredTerminations, requestTerminationsAtExpiry } from "./resiliations";
 
-/**
- * Rappels, en jours calendaires à Paris : trois jours avant l'échéance de retrait ; un mois, sept jours et la veille
- * de l'expiration d'une clé (ticket #27) ou de l'échéance d'un abonnement (ticket #59), pour les seuls délais plus
- * courts que leur durée de validité.
- */
+/** Rappel de retrait, en jours calendaires à Paris : trois jours avant l'échéance de retrait. */
 const RAPPEL_RETRAIT = 3;
-const RAPPELS_EXPIRATION = [30, 7, 1];
 
 /** F-54 : seuils d'alerte du budget d'équipe, en pourcentage du budget, du plus bas au plus haut. */
 const SEUILS_BUDGET = [80, 100];
@@ -88,8 +82,6 @@ export interface DailyTaskReport {
 export async function runDailyTask(deps: DailyTaskDeps): Promise<DailyTaskReport> {
   const maintenant = deps.now?.() ?? new Date();
   const expirations = await markExpired(deps.db, maintenant);
-  // Présélection large (deux jours de marge, pour l'heure du jour et les changements d'heure), puis décompte au calendrier.
-  const horizon = (jours: number) => new Date(maintenant.getTime() + (jours + 2) * JOUR);
   const delai = await readPickupDays(deps.db);
   let rappelsRetrait = 0;
   let rappelsDeclaration = 0;
@@ -101,7 +93,7 @@ export async function runDailyTask(deps: DailyTaskDeps): Promise<DailyTaskReport
         kind: { in: ["CLE", "ABONNEMENT"] },
         status: "APPROUVEE",
         pickupReminderSentAt: null,
-        decidedAt: { lte: new Date(horizon(RAPPEL_RETRAIT).getTime() - delai * JOUR) },
+        decidedAt: { lte: new Date(horizonDeRappel(maintenant, RAPPEL_RETRAIT).getTime() - delai * JOUR) },
       },
       include: { offer: true },
     });
@@ -120,15 +112,12 @@ export async function runDailyTask(deps: DailyTaskDeps): Promise<DailyTaskReport
     }
   }
   const aExpirer = await deps.db.accessRequest.findMany({
-    where: { kind: "CLE", status: "CLE_EMISE", keyExpiresAt: { gt: maintenant, lte: horizon(Math.max(...RAPPELS_EXPIRATION)) } },
+    where: { kind: "CLE", status: "CLE_EMISE", keyExpiresAt: { gt: maintenant, lte: horizonDeRappel(maintenant, Math.max(...RAPPELS_EXPIRATION)) } },
   });
   for (const r of aExpirer) {
     if (!r.keyExpiresAt || !r.keyAlias) continue;
     const jours = calendarDaysUntil(maintenant, r.keyExpiresAt);
-    // Rappels dus : délai atteint, plus court que la durée de la clé, et plus proche de l'échéance que le dernier envoyé.
-    const dus = RAPPELS_EXPIRATION.filter(
-      (delai) => jours <= delai && delai < (r.approvedDays ?? Infinity) && (r.expiryReminderLead === null || delai < r.expiryReminderLead),
-    );
+    const dus = rappelsDus(jours, r.approvedDays ?? Infinity, r.expiryReminderLead);
     if (dus.length === 0) continue;
     const { count } = await deps.db.accessRequest.updateMany({
       where: { id: r.id, expiryReminderLead: r.expiryReminderLead },
@@ -138,10 +127,10 @@ export async function runDailyTask(deps: DailyTaskDeps): Promise<DailyTaskReport
     rappelsExpiration++;
     await notifyExpiryReminder(deps, { ...r, keyAlias: r.keyAlias, keyExpiresAt: r.keyExpiresAt }, jours);
   }
-  const rappelsEcheance = await rappelerEcheances(deps, maintenant, horizon(Math.max(...RAPPELS_EXPIRATION)));
+  const rappelsEcheance = await remindSubscriptionExpiries(deps, maintenant);
   const prelevements = await enregistrerPrelevementsEchus(deps.db, maintenant);
   const demandesResiliation = await requestTerminationsAtExpiry(deps, maintenant);
-  const alertesResiliation = delai !== null ? await alerterResiliationsNonDeclarees(deps, maintenant, delai) : 0;
+  const alertesResiliation = await alertUndeclaredTerminations(deps, maintenant);
   return {
     rappelsRetrait,
     rappelsDeclaration,
@@ -153,54 +142,6 @@ export async function runDailyTask(deps: DailyTaskDeps): Promise<DailyTaskReport
     alertesResiliation,
     alertesBudget: await alerterBudgets(deps, maintenant),
   };
-}
-
-/**
- * Ticket #59 : rappels d'échéance des abonnements actifs, au titulaire, un mois, sept jours et la veille, chacun une
- * seule fois et seulement s'il est plus court que la durée de l'abonnement (de sa souscription à son échéance). Rend le
- * nombre de rappels envoyés.
- */
-async function rappelerEcheances(deps: DailyTaskDeps, maintenant: Date, horizon: Date): Promise<number> {
-  const abonnements = await deps.db.subscription.findMany({ where: { status: "ACTIF", expiresAt: { gt: maintenant, lte: horizon } }, include: { offer: true } });
-  let rappels = 0;
-  for (const a of abonnements) {
-    const jours = calendarDaysUntil(maintenant, a.expiresAt);
-    const duree = (a.expiresAt.getTime() - a.subscribedAt.getTime()) / JOUR;
-    const dus = RAPPELS_EXPIRATION.filter((delai) => jours <= delai && delai < duree && (a.expiryReminderLead === null || delai < a.expiryReminderLead));
-    if (dus.length === 0) continue;
-    // Écriture conditionnelle : deux tâches simultanées n'envoient pas deux fois le même rappel.
-    const { count } = await deps.db.subscription.updateMany({
-      where: { id: a.id, expiryReminderLead: a.expiryReminderLead },
-      data: { expiryReminderLead: Math.min(...dus), expiryReminderSentAt: maintenant },
-    });
-    if (count === 0) continue;
-    rappels++;
-    await notifySubscriptionExpiryReminder(deps, a, a.offer, jours);
-  }
-  return rappels;
-}
-
-/**
- * Ticket #58 : une résiliation demandée et toujours pas déclarée au terme du délai de retrait est signalée, une seule
- * fois, aux admins et aux responsables de l'équipe de l'abonnement (hors son titulaire). Rend le nombre d'alertes.
- */
-async function alerterResiliationsNonDeclarees(deps: DailyTaskDeps, maintenant: Date, delai: number): Promise<number> {
-  const enRetard = await deps.db.subscription.findMany({
-    where: { status: "A_RESILIER", terminationAlertSentAt: null, terminationRequestedAt: { lte: new Date(maintenant.getTime() - delai * JOUR) } },
-    include: { offer: true },
-  });
-  let alertes = 0;
-  for (const abonnement of enRetard) {
-    // Écriture conditionnelle, comme pour les rappels : deux tâches simultanées n'alertent pas deux fois.
-    const { count } = await deps.db.subscription.updateMany({
-      where: { id: abonnement.id, status: "A_RESILIER", terminationAlertSentAt: null },
-      data: { terminationAlertSentAt: maintenant },
-    });
-    if (count === 0) continue;
-    alertes++;
-    await notifyUndeclaredTermination(deps, abonnement, abonnement.offer, await managerEmails(deps.db, abonnement.teamId, [abonnement.holderUid]));
-  }
-  return alertes;
 }
 
 /**

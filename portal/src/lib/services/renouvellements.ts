@@ -8,8 +8,8 @@ import type { Langue } from "@/lib/langue";
 import type { LiteLLMClient } from "@/lib/litellm/client";
 import { recordAudit } from "./audit";
 import { managerEmails } from "./autorite";
-import { JOUR } from "./delais";
-import { type NotificationDeps, notifyNewRequest } from "./notifications";
+import { calendarDaysUntil, horizonDeRappel, JOUR, RAPPELS_EXPIRATION, rappelsDus } from "./delais";
+import { type NotificationDeps, notifyNewRequest, notifySubscriptionExpiryReminder } from "./notifications";
 import { type CatalogOffer, libelleOffre, vueCatalogue } from "./offers";
 import { SANS_DEMANDE_DE_RESILIATION } from "./resiliations";
 
@@ -221,4 +221,31 @@ export async function reporterEcheance(db: Db, abonnement: Subscription, jours: 
     data: { expiresAt: echeance, expiryReminderLead: null, expiryReminderSentAt: null, ...(levee ? SANS_DEMANDE_DE_RESILIATION : {}) },
   });
   return echeance;
+}
+
+/**
+ * Ticket #59, tâche quotidienne : rappels d'échéance des abonnements actifs, au titulaire, un mois, sept jours et la
+ * veille, chacun une seule fois et seulement s'il est plus court que la durée de l'abonnement (de sa souscription à son
+ * échéance). Rend le nombre de rappels envoyés.
+ */
+export async function remindSubscriptionExpiries(deps: RenewalDeps, maintenant: Date): Promise<number> {
+  const abonnements = await deps.db.subscription.findMany({
+    where: { status: "ACTIF", expiresAt: { gt: maintenant, lte: horizonDeRappel(maintenant, Math.max(...RAPPELS_EXPIRATION)) } },
+    include: { offer: true },
+  });
+  let rappels = 0;
+  for (const a of abonnements) {
+    const jours = calendarDaysUntil(maintenant, a.expiresAt);
+    const dus = rappelsDus(jours, (a.expiresAt.getTime() - a.subscribedAt.getTime()) / JOUR, a.expiryReminderLead);
+    if (dus.length === 0) continue;
+    // Écriture conditionnelle : deux tâches simultanées n'envoient pas deux fois le même rappel.
+    const { count } = await deps.db.subscription.updateMany({
+      where: { id: a.id, expiryReminderLead: a.expiryReminderLead },
+      data: { expiryReminderLead: Math.min(...dus), expiryReminderSentAt: maintenant },
+    });
+    if (count === 0) continue;
+    rappels++;
+    await notifySubscriptionExpiryReminder(deps, a, a.offer, jours);
+  }
+  return rappels;
 }
