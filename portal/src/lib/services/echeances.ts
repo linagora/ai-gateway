@@ -2,43 +2,23 @@ import type { Db } from "@/lib/db";
 import type { LiteLLMClient, LiteLLMTeam } from "@/lib/litellm/client";
 import { recordAudit } from "./audit";
 import { managerEmails } from "./autorite";
-import { type NotificationDeps, notifyExpiryReminder, notifyPickupReminder, notifyTeamBudgetAlert } from "./notifications";
-import { readSettings } from "./settings";
+import { calendarDaysUntil, horizonDeRappel, JOUR, pickupDeadline, RAPPELS_EXPIRATION, rappelsDus, readPickupDays, SYSTEME } from "./delais";
+import {
+  type NotificationDeps,
+  notifyDeclarationReminder,
+  notifyExpiryReminder,
+  notifyPickupReminder,
+  notifyTeamBudgetAlert,
+} from "./notifications";
+import { enregistrerPrelevementsEchus } from "./prelevements";
+import { remindSubscriptionExpiries } from "./renouvellements";
+import { alertUndeclaredTerminations, requestTerminationsAtExpiry } from "./resiliations";
 
-export const JOUR = 86_400_000;
-
-/** Auteur des expirations au journal d'audit : ni le titulaire ni un admin. */
-export const SYSTEME = "systeme";
-
-/**
- * Rappels, en jours calendaires à Paris : trois jours avant l'échéance de retrait ; un mois, sept jours et la veille
- * de l'expiration d'une clé (ticket #27), pour les seuls délais plus courts que la durée de validité de la clé.
- */
+/** Rappel de retrait, en jours calendaires à Paris : trois jours avant l'échéance de retrait. */
 const RAPPEL_RETRAIT = 3;
-const RAPPELS_EXPIRATION = [30, 7, 1];
 
 /** F-54 : seuils d'alerte du budget d'équipe, en pourcentage du budget, du plus bas au plus haut. */
 const SEUILS_BUDGET = [80, 100];
-
-/** Délai de retrait configuré, en jours ; null si aucun n'est configuré (les demandes approuvées n'expirent pas). */
-export async function readPickupDays(db: Db): Promise<number | null> {
-  const delai = (await readSettings(db)).pickup_days;
-  return delai ? Number(delai) : null;
-}
-
-/** Échéance de retrait : date d'approbation + délai de retrait. */
-export function pickupDeadline(decidedAt: Date, pickupDays: number): Date {
-  return new Date(decidedAt.getTime() + pickupDays * JOUR);
-}
-
-const JOUR_A_PARIS = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit" });
-
-/** Jours calendaires à Paris entre deux instants : 0 le jour même, 1 la veille, etc. */
-export function calendarDaysUntil(from: Date, to: Date): number {
-  // « en-CA » donne AAAA-MM-JJ, que Date.parse lit comme minuit UTC : l'écart est un nombre entier de jours.
-  const jour = (instant: Date) => Date.parse(JOUR_A_PARIS.format(instant));
-  return Math.round((jour(to) - jour(from)) / JOUR);
-}
 
 /**
  * Constat des échéances, fait à chaque lecture et par la tâche quotidienne : une demande approuvée non retirée
@@ -46,9 +26,10 @@ export function calendarDaysUntil(from: Date, to: Date): number {
  */
 export async function markExpired(db: Db, now: Date): Promise<{ demandesExpirees: number; clesExpirees: number }> {
   const delai = await readPickupDays(db);
+  // Une demande de clé approuvée non retirée, ou d'abonnement approuvée non déclarée (spécification #51), expire.
   const demandes =
     delai !== null
-      ? await db.accessRequest.findMany({ where: { kind: "CLE", status: "APPROUVEE", decidedAt: { lte: new Date(now.getTime() - delai * JOUR) } } })
+      ? await db.accessRequest.findMany({ where: { kind: { in: ["CLE", "ABONNEMENT"] }, status: "APPROUVEE", decidedAt: { lte: new Date(now.getTime() - delai * JOUR) } } })
       : [];
   const cles = await db.accessRequest.findMany({ where: { kind: "CLE", status: "CLE_EMISE", keyExpiresAt: { lte: now } } });
   let demandesExpirees = 0;
@@ -78,9 +59,14 @@ export interface DailyTaskDeps extends NotificationDeps {
 /** Compte rendu de la tâche quotidienne. */
 export interface DailyTaskReport {
   rappelsRetrait: number;
+  rappelsDeclaration: number;
   rappelsExpiration: number;
+  rappelsEcheance: number;
   demandesExpirees: number;
   clesExpirees: number;
+  prelevements: number;
+  demandesResiliation: number;
+  alertesResiliation: number;
   alertesBudget: number;
 }
 
@@ -88,40 +74,50 @@ export interface DailyTaskReport {
  * F-45 : tâche quotidienne, lancée chaque matin à 7 h (heure de Paris). Elle fait expirer ce qui est échu, puis
  * envoie une seule fois chacun les rappels, comptés en jours calendaires : le matin du troisième jour avant
  * l'échéance de retrait ; un mois, sept jours et un jour avant l'expiration d'une clé, selon sa durée. Après des
- * jours sans tâche, seul le rappel d'expiration le plus proche de l'échéance part. Elle finit par les alertes de
- * budget d'équipe (F-54).
+ * jours sans tâche, seul le rappel d'expiration le plus proche de l'échéance part ; de même pour l'échéance d'un
+ * abonnement. Elle compte ensuite les prélèvements échus des abonnements (spécification #51), rattrapage compris, fait
+ * une demande de résiliation des abonnements arrivés à échéance sans renouvellement, alerte une fois des résiliations
+ * demandées et non déclarées dans le délai de retrait, et finit par les alertes de budget d'équipe (F-54).
  */
 export async function runDailyTask(deps: DailyTaskDeps): Promise<DailyTaskReport> {
   const maintenant = deps.now?.() ?? new Date();
   const expirations = await markExpired(deps.db, maintenant);
-  // Présélection large (deux jours de marge, pour l'heure du jour et les changements d'heure), puis décompte au calendrier.
-  const horizon = (jours: number) => new Date(maintenant.getTime() + (jours + 2) * JOUR);
   const delai = await readPickupDays(deps.db);
   let rappelsRetrait = 0;
+  let rappelsDeclaration = 0;
   let rappelsExpiration = 0;
   if (delai !== null) {
-    const aRetirer = await deps.db.accessRequest.findMany({
-      where: { kind: "CLE", status: "APPROUVEE", pickupReminderSentAt: null, decidedAt: { lte: new Date(horizon(RAPPEL_RETRAIT).getTime() - delai * JOUR) } },
+    // Clé à retirer ou abonnement à déclarer (spécification #51) : même délai, même rappel trois jours avant.
+    const enAttente = await deps.db.accessRequest.findMany({
+      where: {
+        kind: { in: ["CLE", "ABONNEMENT"] },
+        status: "APPROUVEE",
+        pickupReminderSentAt: null,
+        decidedAt: { lte: new Date(horizonDeRappel(maintenant, RAPPEL_RETRAIT).getTime() - delai * JOUR) },
+      },
+      include: { offer: true },
     });
-    for (const r of aRetirer) {
-      const echeance = r.decidedAt && pickupDeadline(r.decidedAt, delai);
+    for (const r of enAttente) {
+      const echeance = pickupDeadline(r.decidedAt, delai);
       if (!echeance || calendarDaysUntil(maintenant, echeance) > RAPPEL_RETRAIT) continue;
       const { count } = await deps.db.accessRequest.updateMany({ where: { id: r.id, pickupReminderSentAt: null }, data: { pickupReminderSentAt: maintenant } });
       if (count === 0) continue;
-      rappelsRetrait++;
-      await notifyPickupReminder(deps, r, echeance);
+      if (r.kind === "ABONNEMENT" && r.offer) {
+        rappelsDeclaration++;
+        await notifyDeclarationReminder(deps, r, r.offer, echeance);
+      } else {
+        rappelsRetrait++;
+        await notifyPickupReminder(deps, r, echeance);
+      }
     }
   }
   const aExpirer = await deps.db.accessRequest.findMany({
-    where: { kind: "CLE", status: "CLE_EMISE", keyExpiresAt: { gt: maintenant, lte: horizon(Math.max(...RAPPELS_EXPIRATION)) } },
+    where: { kind: "CLE", status: "CLE_EMISE", keyExpiresAt: { gt: maintenant, lte: horizonDeRappel(maintenant, Math.max(...RAPPELS_EXPIRATION)) } },
   });
   for (const r of aExpirer) {
     if (!r.keyExpiresAt || !r.keyAlias) continue;
     const jours = calendarDaysUntil(maintenant, r.keyExpiresAt);
-    // Rappels dus : délai atteint, plus court que la durée de la clé, et plus proche de l'échéance que le dernier envoyé.
-    const dus = RAPPELS_EXPIRATION.filter(
-      (delai) => jours <= delai && delai < (r.approvedDays ?? Infinity) && (r.expiryReminderLead === null || delai < r.expiryReminderLead),
-    );
+    const dus = rappelsDus(jours, r.approvedDays ?? Infinity, r.expiryReminderLead);
     if (dus.length === 0) continue;
     const { count } = await deps.db.accessRequest.updateMany({
       where: { id: r.id, expiryReminderLead: r.expiryReminderLead },
@@ -131,7 +127,21 @@ export async function runDailyTask(deps: DailyTaskDeps): Promise<DailyTaskReport
     rappelsExpiration++;
     await notifyExpiryReminder(deps, { ...r, keyAlias: r.keyAlias, keyExpiresAt: r.keyExpiresAt }, jours);
   }
-  return { rappelsRetrait, rappelsExpiration, ...expirations, alertesBudget: await alerterBudgets(deps, maintenant) };
+  const rappelsEcheance = await remindSubscriptionExpiries(deps, maintenant);
+  const prelevements = await enregistrerPrelevementsEchus(deps.db, maintenant);
+  const demandesResiliation = await requestTerminationsAtExpiry(deps, maintenant);
+  const alertesResiliation = await alertUndeclaredTerminations(deps, maintenant);
+  return {
+    rappelsRetrait,
+    rappelsDeclaration,
+    rappelsExpiration,
+    rappelsEcheance,
+    ...expirations,
+    prelevements,
+    demandesResiliation,
+    alertesResiliation,
+    alertesBudget: await alerterBudgets(deps, maintenant),
+  };
 }
 
 /**

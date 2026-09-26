@@ -5,5 +5,5 @@ import { TEST_DATABASE_URL } from "./config";
 export const testDb = createDb(TEST_DATABASE_URL);
 
 export async function resetDb(): Promise<void> {
-  await testDb.$executeRawUnsafe('TRUNCATE "AccessRequest", "CatalogEntry", "Setting", "AuditLog", "TeamManager", "TeamBudgetAlert" RESTART IDENTITY');
+  await testDb.$executeRawUnsafe('TRUNCATE "SubscriptionCharge", "Subscription", "AccessRequest", "CatalogEntry", "Setting", "AuditLog", "TeamManager", "TeamBudgetAlert", "SubscriptionOffer" RESTART IDENTITY');
 }

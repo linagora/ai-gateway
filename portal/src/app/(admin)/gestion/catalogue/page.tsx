@@ -1,19 +1,30 @@
+import { ArrowDown } from "lucide-react";
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { DATA_LEVELS } from "@/lib/policy";
 import { listCatalogForAdmin } from "@/lib/services/catalog";
+import { type AdminOffer, libelleOffre, listOffersForAdmin } from "@/lib/services/offers";
 import { getDeps, requireAdminPage } from "@/lib/session";
 import { USE_CASES } from "@/lib/use-cases";
-import { saveCatalogEntryAction } from "../../../actions";
+import { enregistrerOffreAction, saveCatalogEntryAction } from "../../../actions";
 import { ExplicationObligatoires, formats, Notice } from "../../../components";
 import { Obligatoire } from "../../../obligatoire";
 import { AdminNav } from "../admin-nav";
 
-/** F-50, ticket #6 : fiche de chaque modèle (textes en deux langues, cas d'usage, recommandations) et faits techniques. */
+/**
+ * F-50, ticket #6 : fiche de chaque modèle (textes en deux langues, cas d'usage, recommandations) et faits techniques ;
+ * puis les offres d'abonnement (spécification #51, ticket #53).
+ */
 export default async function AdminCataloguePage(props: PageProps<"/gestion/catalogue">) {
   const admin = await requireAdminPage();
-  const [{ euros, nombre }, t, domaine] = await Promise.all([formats(), getTranslations("gestionCatalogue"), getTranslations("domaine")]);
+  const [{ euros, nombre }, t, o, domaine] = await Promise.all([
+    formats(),
+    getTranslations("gestionCatalogue"),
+    getTranslations("gestionCatalogue.offres"),
+    getTranslations("domaine"),
+  ]);
   const searchParams = await props.searchParams;
-  const models = await listCatalogForAdmin(getDeps(), admin);
+  const [models, offres] = await Promise.all([listCatalogForAdmin(getDeps(), admin), listOffersForAdmin(getDeps(), admin)]);
 
   const textes: [champ: string, libelle: string, lignes: number, obligatoire: boolean][] = [
     ["displayName", "nom", 0, true],
@@ -27,7 +38,13 @@ export default async function AdminCataloguePage(props: PageProps<"/gestion/cata
       <AdminNav />
       <h1>{t("titre")}</h1>
       <p className="text-sm text-neutral-600">{t("introduction")}</p>
-      {models.length > 0 && <ExplicationObligatoires />}
+      <p className="text-sm">
+        <Link href="#offres" className="inline-flex items-center gap-1">
+          <ArrowDown aria-hidden="true" className="size-4" />
+          {o("titre")}
+        </Link>
+      </p>
+      <ExplicationObligatoires />
       <Notice searchParams={searchParams} />
       {models.map((m) => (
         <section key={m.modelName} className="mt-6 border-t pt-4">
@@ -107,6 +124,77 @@ export default async function AdminCataloguePage(props: PageProps<"/gestion/cata
         </section>
       ))}
       {models.length === 0 && <p>{t("aucunModele")}</p>}
+
+      <section aria-labelledby="offres" className="mt-10 border-t pt-4">
+        <h2 id="offres">{o("titre")}</h2>
+        <p className="text-sm text-neutral-600">{o("introduction")}</p>
+        {offres.length === 0 && <p>{o("aucune")}</p>}
+        {offres.map((offre) => (
+          <article key={offre.id} aria-labelledby={`offre-${offre.id}`} className="mt-4 border-t pt-3">
+            <h3 id={`offre-${offre.id}`} className="mt-0">
+              {libelleOffre(offre)}
+              {!offre.visible && <span className="ml-2 text-sm font-normal text-neutral-500">({o("masquee")})</span>}
+            </h3>
+            <FormulaireOffre offre={offre} />
+          </article>
+        ))}
+        <h3 className="mt-6">{o("nouvelle")}</h3>
+        <FormulaireOffre />
+      </section>
     </>
+  );
+}
+
+/** Formulaire d'une offre d'abonnement : modification d'une offre existante, ou création sans `offre`. */
+async function FormulaireOffre({ offre }: { offre?: AdminOffer }) {
+  const [o, domaine] = await Promise.all([getTranslations("gestionCatalogue.offres"), getTranslations("domaine")]);
+  return (
+    <form action={enregistrerOffreAction} aria-label={offre ? libelleOffre(offre) : o("nouvelle")}>
+      {offre && <input type="hidden" name="id" value={offre.id} />}
+      <div className="grid gap-x-6 md:grid-cols-2">
+        <label>
+          {o("fournisseur")}
+          <Obligatoire />
+          <input name="supplier" required defaultValue={offre?.supplier} />
+        </label>
+        <label>
+          {o("nom")}
+          <Obligatoire />
+          <input name="name" required defaultValue={offre?.name} />
+        </label>
+        <label>
+          {o("prix")}
+          <Obligatoire />
+          <input name="monthlyPriceEur" type="number" min="0.01" step="0.01" required defaultValue={offre?.monthlyPriceEur} />
+        </label>
+        <label>
+          {o("niveau")}
+          <select name="dataLevel" defaultValue={offre?.dataLevel ?? "N1"}>
+            {DATA_LEVELS.map((l) => (
+              <option key={l} value={l}>
+                {domaine(`niveauxOffre.${l}`)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {o("reglesFr")}
+          <Obligatoire />
+          <textarea name="rulesFr" required rows={2} defaultValue={offre?.rulesFr} />
+        </label>
+        <label>
+          {o("reglesEn")}
+          <textarea name="rulesEn" rows={2} defaultValue={offre?.rulesEn ?? ""} />
+        </label>
+        <label>
+          {o("lien")}
+          <input name="url" type="url" defaultValue={offre?.url ?? ""} />
+        </label>
+      </div>
+      <label className="font-normal">
+        <input type="checkbox" name="visible" defaultChecked={offre?.visible ?? true} /> {o("visible")}
+      </label>
+      <button type="submit">{offre ? o("enregistrer") : o("creer")}</button>
+    </form>
   );
 }

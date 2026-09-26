@@ -9,7 +9,8 @@ import type { LimiteDeDebit } from "@/lib/limite-de-debit";
 import { type Page, tranche } from "@/lib/pagination";
 import { recordAudit } from "./audit";
 import { aAutorite, dansEquipes, managerEmails, requireGestion } from "./autorite";
-import { markExpired, pickupDeadline, readPickupDays } from "./echeances";
+import { pickupDeadline, readPickupDays } from "./delais";
+import { markExpired } from "./echeances";
 import { type NotificationDeps, notifyAdminKeyAction, notifyTeamChange } from "./notifications";
 import { ownKeyToRenew, transitionRequest } from "./requests";
 
@@ -89,7 +90,7 @@ export async function listMyKeys(deps: KeyDeps, user: SessionUser): Promise<MyKe
         dataLevel: r.dataLevel as DataLevel,
         models: r.approvedModels,
         project: r.project,
-        pickupDeadline: delai !== null && r.decidedAt ? pickupDeadline(r.decidedAt, delai) : null,
+        pickupDeadline: pickupDeadline(r.decidedAt, delai),
       })),
     keys: emises
       .map((k) => ({ ...k, examples: callExamples(k.models, typesApi) }))
@@ -268,7 +269,7 @@ export async function listKeysToPickUp(deps: KeyDeps, actor: SessionUser, teamId
     models: r.approvedModels,
     approvedAt: r.decidedAt,
     approvedBy: r.decidedBy,
-    pickupDeadline: delai !== null && r.decidedAt ? pickupDeadline(r.decidedAt, delai) : null,
+    pickupDeadline: pickupDeadline(r.decidedAt, delai),
   }));
 }
 

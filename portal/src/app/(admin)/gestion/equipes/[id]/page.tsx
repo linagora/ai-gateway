@@ -11,6 +11,7 @@ import {
   designerResponsableAction,
   faireSortirMembreAction,
   fixerBudgetEquipeAction,
+  rattacherAbonnementAction,
   renommerEquipeAction,
   retirerResponsableAction,
   supprimerEquipeAction,
@@ -20,13 +21,14 @@ import { AdminNav } from "../../admin-nav";
 
 /**
  * F-53 et F-54 : page d'une équipe : son résumé, son renommage, son budget, ses responsables et ses membres
- * (ajout direct, sortie d'une équipe), et sa suppression. Un responsable d'équipe la consulte et peut en faire sortir
- * un membre ; le reste est réservé aux admins.
+ * (ajout direct, sortie d'une équipe), les abonnements de ses membres à rattacher (ticket #58), et sa suppression. Un
+ * responsable d'équipe la consulte, peut en faire sortir un membre et y rattacher un abonnement ; le reste est réservé
+ * aux admins.
  */
 export default async function EquipePage(props: PageProps<"/gestion/equipes/[id]">) {
   const acteur = await requireGestionPage();
   const estAdmin = acteur.isAdmin;
-  const [{ id }, t, searchParams, { date }] = await Promise.all([props.params, getTranslations("gestion.equipes"), props.searchParams, formats()]);
+  const [{ id }, t, searchParams, { date, euros, jour }] = await Promise.all([props.params, getTranslations("gestion.equipes"), props.searchParams, formats()]);
   const equipe = await getTeamPage(getDeps(), acteur, decodeURIComponent(id)).catch((e: unknown) => {
     if (e instanceof PortalError && e.code === "introuvable") notFound();
     throw e;
@@ -50,6 +52,12 @@ export default async function EquipePage(props: PageProps<"/gestion/equipes/[id]
         <dd>
           <Link href={`/gestion/cles?equipe=${encodeURIComponent(equipe.teamId)}`} aria-label={t("voirCles", { nombre: equipe.activeKeyCount })}>
             {equipe.activeKeyCount}
+          </Link>
+        </dd>
+        <dt>{t("abonnements")}</dt>
+        <dd>
+          <Link href={`/gestion/abonnements?equipe=${encodeURIComponent(equipe.teamId)}`}>
+            {t("resumeAbonnements", { nombre: equipe.subscriptions.count, total: euros(equipe.subscriptions.monthlyTotalEur) })}
           </Link>
         </dd>
       </dl>
@@ -195,6 +203,41 @@ export default async function EquipePage(props: PageProps<"/gestion/equipes/[id]
           </form>
         )}
       </section>
+
+      {equipe.subscriptionsToReattach.length > 0 && (
+        <section aria-labelledby="a-rattacher" className="mt-8">
+          <h2 id="a-rattacher">{t("aRattacher.titre")}</h2>
+          <p className="text-sm text-neutral-600">{t("aRattacher.introduction")}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>{t("aRattacher.colonnes.titulaire")}</th>
+                <th>{t("aRattacher.colonnes.offre")}</th>
+                <th>{t("aRattacher.colonnes.ancienneEquipe")}</th>
+                <th>{t("aRattacher.colonnes.depuis")}</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {equipe.subscriptionsToReattach.map((a) => (
+                <tr key={a.id}>
+                  <td>{a.holderUid}</td>
+                  <td>{a.offer}</td>
+                  <td>{a.teamAlias}</td>
+                  <td>{a.requestedAt ? jour(a.requestedAt) : ""}</td>
+                  <td>
+                    <form action={rattacherAbonnementAction} aria-label={t("aRattacher.formulaire", { offre: a.offer, titulaire: a.holderUid })}>
+                      <input type="hidden" name="id" value={equipe.teamId} />
+                      <input type="hidden" name="subscriptionId" value={a.id} />
+                      <button type="submit">{t("aRattacher.rattacher")}</button>
+                    </form>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
 
       {estAdmin && (
         <section aria-labelledby="suppression" className="mt-10">

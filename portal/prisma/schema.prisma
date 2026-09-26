@@ -26,11 +26,16 @@ enum RequestStatus {
   CLE_EMISE
   EXPIREE
   REVOQUEE
+  /// Demande d'abonnement dont l'abonnement est déclaré (spécification #51).
+  DECLAREE
+  /// Renouvellement d'abonnement approuvé : l'échéance de l'abonnement est reportée, sans nouvelle déclaration.
+  RENOUVELEE
 }
 
 enum RequestKind {
   CLE
   ADHESION_EQUIPE
+  ABONNEMENT
 }
 
 enum KeyType {
@@ -121,6 +126,14 @@ model AccessRequest {
 
   @@index([requesterUid])
   @@index([status])
+  /// Demande d'abonnement (spécification #51) : l'offre demandée, puis l'abonnement déclaré.
+  offerId         String?
+  offer           SubscriptionOffer? @relation(fields: [offerId], references: [id])
+  subscription    Subscription?
+  /// abonnement dont cette demande renouvelle l'échéance (ticket #59)
+  renewsSubscriptionId   String?
+  /// abonnement que cette demande remplace par une autre offre du même fournisseur (changement d'offre, ticket #59)
+  replacesSubscriptionId String?
 }
 
 /// Valeurs par défaut configurables (F-51) : default_budget, default_budget_duration, default_days,
@@ -165,4 +178,96 @@ model TeamBudgetAlert {
   budget  Decimal
   level   Int
   sentAt  DateTime
+}
+
+/// Offre d'abonnement (spécification #51) : produit payant d'un fournisseur, à souscrire individuellement, présenté au
+/// catalogue avec son prix mensuel TTC et son niveau maximal. Tenue par le portail : LiteLLM n'en sait rien.
+model SubscriptionOffer {
+  id              String    @id @default(cuid())
+  supplier        String
+  name            String
+  monthlyPriceEur Decimal
+  dataLevel       DataLevel
+  rulesFr         String
+  rulesEn         String?
+  url             String?
+  visible         Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  updatedBy       String
+  requests        AccessRequest[]
+  subscriptions   Subscription[]
+}
+
+/// Statut d'un abonnement : actif, à résilier (demande de résiliation en cours) ou résilié.
+enum SubscriptionStatus {
+  ACTIF
+  A_RESILIER
+  RESILIE
+}
+
+/// Origine d'une demande de résiliation : un responsable de l'équipe, un admin, la sortie de l'équipe, l'échéance d'un
+/// abonnement non renouvelé, ou le refus de son renouvellement.
+enum TerminationOrigin {
+  RESPONSABLE
+  ADMIN
+  SORTIE
+  ECHEANCE
+  RENOUVELLEMENT_REFUSE
+}
+
+/// Abonnement (spécification #51) : offre souscrite par un salarié lui-même, après la validation de sa demande, puis
+/// déclarée dans le portail ; il est rattaché à l'une de ses équipes. L'échéance est celle de son autorisation.
+model Subscription {
+  id               String             @id @default(cuid())
+  requestId        String             @unique
+  request          AccessRequest      @relation(fields: [requestId], references: [id])
+  offerId          String
+  offer            SubscriptionOffer  @relation(fields: [offerId], references: [id])
+  holderUid        String
+  holderEmail      String
+  holderName       String?
+  teamId           String
+  teamAlias        String
+  /// Adresse du compte chez le fournisseur, éventuellement hors de LINAGORA.
+  accountEmail     String
+  subscribedAt     DateTime
+  monthlyAmountEur Decimal
+  expiresAt        DateTime
+  status           SubscriptionStatus @default(ACTIF)
+  /// Demande de résiliation (statut « à résilier ») : origine, auteur (uid), date et motif ; gardée après la résiliation.
+  /// « termination » nomme la résiliation dans le code : « cancel » y désigne déjà l'annulation d'une demande.
+  terminationOrigin      TerminationOrigin?
+  terminationRequestedBy String?
+  terminationRequestedAt DateTime?
+  terminationReason      String?
+  /// Alerte unique aux responsables et aux admins : résiliation demandée, non déclarée dans le délai de retrait.
+  terminationAlertSentAt DateTime?
+  /// Date de résiliation (statut « résilié ») : aucun prélèvement à partir de ce jour.
+  terminatedOn     DateTime?
+  /// dernier rappel d'échéance envoyé (ticket #59) : date d'envoi et délai annoncé, en jours (30, 7 ou 1)
+  expiryReminderSentAt DateTime?
+  expiryReminderLead   Int?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  charges          SubscriptionCharge[]
+
+  @@index([holderUid])
+  @@index([teamId])
+}
+
+/// Prélèvement (spécification #51) : montant mensuel d'un abonnement compté à une date anniversaire de sa souscription,
+/// avec le montant alors en vigueur, imputé à l'équipe de l'abonnement à cette date. Un seul par abonnement et par date.
+model SubscriptionCharge {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  chargedOn      DateTime
+  amountEur      Decimal
+  teamId         String
+  teamAlias      String
+  createdAt      DateTime     @default(now())
+
+  @@unique([subscriptionId, chargedOn])
+  @@index([teamId])
 }

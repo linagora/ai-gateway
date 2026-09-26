@@ -37,7 +37,7 @@ export default async function PendingRequestsPage(props: PageProps<"/gestion/dem
               <td>{domaine(`typesDemande.${r.kind}`)}</td>
               <td>{r.teamAlias}</td>
               <td>{r.dataLevel ? domaine(`niveaux.${r.dataLevel}`) : ""}</td>
-              <td>{r.models.join(", ")}</td>
+              <td>{r.offer ?? r.models.join(", ")}</td>
               <td>{r.project ?? ""}</td>
               <td>
                 <Link href={`/gestion/demandes/${r.id}`}>{t("examiner")}</Link>

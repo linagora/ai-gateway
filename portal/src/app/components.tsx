@@ -149,6 +149,8 @@ export async function formats() {
     euros: (valeur: number) => format.number(valeur, { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 4 }),
     nombre: (valeur: number) => format.number(valeur),
     date: (valeur: Date) => format.dateTime(valeur, { dateStyle: "short", timeStyle: "short" }),
+    /** Jour seul (souscription, échéance d'un abonnement), en toutes lettres. */
+    jour: (valeur: Date) => format.dateTime(valeur, { dateStyle: "long" }),
   };
 }
 

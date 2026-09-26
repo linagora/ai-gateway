@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { ADMIN, ajouterAEquipe, appel, connecter, courriels, demanderEtApprouver, echapper, enrichirModele, retirerCle } from "./outils";
+import { ADMIN, ajouterAEquipe, ajouterMembre, appel, connecter, courriels, demanderEtApprouver, designer, echapper, enrichirModele, faireSortir, nouvelleEquipe, retirerCle, supprimerEquipe } from "./outils";
 
 /* Gestion des équipes par les admins et responsables d'équipe (spécification #35). Admins à notifier : admins-e2e@example.org (.env). */
 const suffixe = Date.now().toString(36);
@@ -21,45 +21,6 @@ async function deposerDemande(page: Page, equipe: string, motif: string): Promis
   await page.getByLabel(/Je m'engage/).check();
   await page.getByRole("button", { name: "Envoyer la demande" }).click();
   await expect(page.getByRole("status")).toHaveText("Demande envoyée aux administrateurs.");
-}
-
-/** Sur la page d'une équipe, l'admin fait sortir un membre, avec confirmation. */
-async function faireSortir(admin: Page, uid: string): Promise<void> {
-  const ligne = admin.getByRole("region", { name: "Membres" }).getByRole("row", { name: new RegExp(uid) });
-  await ligne.getByText("Faire sortir de l'équipe").click();
-  await ligne.getByRole("button", { name: "Confirmer la sortie" }).click();
-  await expect(admin.getByRole("status")).toHaveText("Le membre est sorti de l'équipe : ses clés de l'équipe sont révoquées.");
-}
-
-/** Sur la page d'une équipe, l'admin ajoute directement un salarié déjà connecté. */
-async function ajouterMembre(admin: Page, uid: string): Promise<void> {
-  await admin.getByLabel("Uid du salarié").fill(uid);
-  await admin.getByRole("button", { name: "Ajouter à l'équipe" }).click();
-  await expect(admin.getByRole("status")).toHaveText("Membre ajouté.");
-}
-
-/** Sur la page d'une équipe, l'admin désigne un responsable parmi les salariés déjà connectés. */
-async function designer(admin: Page, uid: string): Promise<void> {
-  await admin.getByLabel("Uid du responsable").fill(uid);
-  await admin.getByRole("button", { name: "Désigner responsable" }).click();
-  await expect(admin.getByRole("status")).toHaveText("Responsable désigné.");
-}
-
-/** Sur la page d'une équipe, l'admin demande sa suppression, avec confirmation. */
-async function supprimerEquipe(admin: Page): Promise<void> {
-  const zone = admin.getByRole("region", { name: "Suppression de l'équipe" });
-  await zone.getByText("Supprimer l'équipe").click();
-  await zone.getByRole("button", { name: "Confirmer la suppression" }).click();
-}
-
-/** Un admin crée une équipe au nom unique et ouvre sa page. */
-async function nouvelleEquipe(admin: Page, nom: string): Promise<void> {
-  await admin.goto("/gestion/equipes");
-  await admin.getByLabel("Nom de la nouvelle équipe").fill(nom);
-  await admin.getByRole("button", { name: "Créer l'équipe" }).click();
-  await expect(admin.getByRole("status")).toHaveText("Équipe créée.");
-  await admin.getByRole("link", { name: nom, exact: true }).click();
-  await expect(admin.getByRole("heading", { level: 1 })).toHaveText(nom);
 }
 
 test("un admin crée puis renomme une équipe ; un nom déjà pris est refusé ; les salariés peuvent la rejoindre (ticket #36)", async ({ browser }) => {
@@ -168,7 +129,7 @@ test("une équipe qui a une demande en cours ne peut pas être supprimée ; vide
   await admin.reload();
   await supprimerEquipe(admin);
   await expect(admin.getByRole("main").getByRole("alert")).toHaveText(
-    "Cette équipe a encore des clés actives (0) ou des demandes en cours (1) : révoquez ses clés, y compris celles créées depuis la console de LiteLLM, et traitez ses demandes avant de la supprimer.",
+    "Cette équipe a encore des clés actives (0), des demandes en cours (1) ou des abonnements non résiliés (0) : révoquez ses clés, y compris celles créées depuis la console de LiteLLM, traitez ses demandes, et faites résilier ou rattacher à une autre équipe ses abonnements avant de la supprimer.",
   );
 
   // Après la sortie du membre (sa demande est annulée), l'équipe se supprime.
@@ -266,7 +227,7 @@ test("un responsable voit, dans une gestion limitée à son équipe, ses demande
   // Le responsable : lien « Gestion » avec la pastille de son équipe, onglets limités.
   await pageResponsable.goto("/");
   await pageResponsable.getByRole("link", { name: "Gestion (1 demande à valider)" }).click();
-  await expect(pageResponsable.getByRole("navigation", { name: "Administration" }).getByRole("link")).toHaveText([/^Demandes/, /^Clés/, "Équipes"]);
+  await expect(pageResponsable.getByRole("navigation", { name: "Administration" }).getByRole("link")).toHaveText([/^Demandes/, /^Clés/, /^Abonnements/, "Équipes"]);
   await expect(pageResponsable.getByRole("table").first()).toContainText(membre.uid);
   await expect(pageResponsable.getByRole("main")).not.toContainText(etranger.uid);
   await pageResponsable.getByRole("row", { name: new RegExp(membre.uid) }).getByRole("link", { name: "Examiner" }).click();
@@ -375,7 +336,7 @@ test("un responsable bloque, débloque et révoque la clé d'un membre de son é
   // Tant qu'elle a une clé active, l'équipe ne peut pas être supprimée : LiteLLM supprimerait la clé avec elle.
   await supprimerEquipe(admin);
   await expect(admin.getByRole("main").getByRole("alert")).toHaveText(
-    "Cette équipe a encore des clés actives (1) ou des demandes en cours (0) : révoquez ses clés, y compris celles créées depuis la console de LiteLLM, et traitez ses demandes avant de la supprimer.",
+    "Cette équipe a encore des clés actives (1), des demandes en cours (0) ou des abonnements non résiliés (0) : révoquez ses clés, y compris celles créées depuis la console de LiteLLM, traitez ses demandes, et faites résilier ou rattacher à une autre équipe ses abonnements avant de la supprimer.",
   );
   // Le nombre de clés actives mène à la gestion des clés, limitée à l'équipe.
   await admin.getByRole("link", { name: "Voir la clé active de l'équipe" }).click();

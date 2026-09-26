@@ -141,3 +141,44 @@ export async function retirerCle(page: Page): Promise<string> {
   await expect(panneau).toHaveCount(0);
   return cle;
 }
+
+// --- Équipes : parcours de la gestion par un admin ou un responsable ---
+
+/** Sur la page d'une équipe, l'admin fait sortir un membre, avec confirmation. */
+export async function faireSortir(admin: Page, uid: string): Promise<void> {
+  const ligne = admin.getByRole("region", { name: "Membres" }).getByRole("row", { name: new RegExp(uid) });
+  await ligne.getByText("Faire sortir de l'équipe").click();
+  await ligne.getByRole("button", { name: "Confirmer la sortie" }).click();
+  await expect(admin.getByRole("status")).toHaveText("Le membre est sorti de l'équipe : ses clés de l'équipe sont révoquées.");
+}
+
+/** Sur la page d'une équipe, l'admin ajoute directement un salarié déjà connecté. */
+export async function ajouterMembre(admin: Page, uid: string): Promise<void> {
+  await admin.getByLabel("Uid du salarié").fill(uid);
+  await admin.getByRole("button", { name: "Ajouter à l'équipe" }).click();
+  await expect(admin.getByRole("status")).toHaveText("Membre ajouté.");
+}
+
+/** Sur la page d'une équipe, l'admin désigne un responsable parmi les salariés déjà connectés. */
+export async function designer(admin: Page, uid: string): Promise<void> {
+  await admin.getByLabel("Uid du responsable").fill(uid);
+  await admin.getByRole("button", { name: "Désigner responsable" }).click();
+  await expect(admin.getByRole("status")).toHaveText("Responsable désigné.");
+}
+
+/** Sur la page d'une équipe, l'admin demande sa suppression, avec confirmation. */
+export async function supprimerEquipe(admin: Page): Promise<void> {
+  const zone = admin.getByRole("region", { name: "Suppression de l'équipe" });
+  await zone.getByText("Supprimer l'équipe").click();
+  await zone.getByRole("button", { name: "Confirmer la suppression" }).click();
+}
+
+/** Un admin crée une équipe au nom unique et ouvre sa page. */
+export async function nouvelleEquipe(admin: Page, nom: string): Promise<void> {
+  await admin.goto("/gestion/equipes");
+  await admin.getByLabel("Nom de la nouvelle équipe").fill(nom);
+  await admin.getByRole("button", { name: "Créer l'équipe" }).click();
+  await expect(admin.getByRole("status")).toHaveText("Équipe créée.");
+  await admin.getByRole("link", { name: nom, exact: true }).click();
+  await expect(admin.getByRole("heading", { level: 1 })).toHaveText(nom);
+}

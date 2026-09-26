@@ -1,9 +1,11 @@
 import { createTranslator } from "next-intl";
-import type { AccessRequest } from "@/generated/prisma/client";
+import type { AccessRequest, Subscription, SubscriptionOffer } from "@/generated/prisma/client";
 import type { Mailer, Message } from "@/lib/courriel";
 import { DUREES_VALIDITE, joursDePeriode } from "@/lib/durees";
+import type { Langue } from "@/lib/langue";
 import en from "../../../messages/en.json";
 import fr from "../../../messages/fr.json";
+import { libelleOffre } from "./offers";
 
 /** Dépendances des notifications : sans expéditeur, rien n'est envoyé et rien n'est bloqué. */
 export interface NotificationDeps {
@@ -28,13 +30,17 @@ interface Contenu {
   paragraphes: string[];
 }
 
+/** Langue de chaque traducteur, dans l'ordre des courriels : le français, puis l'anglais. */
+const LANGUES_DES_COURRIELS: readonly Langue[] = ["fr", "en"];
+
 /**
  * Courriel bilingue : le même contenu en français puis en anglais, chacun suivi du lien. Le contenu de chaque
- * langue est calculé par `contenu`, qui reçoit le traducteur de cette langue (textes des dictionnaires).
+ * langue est calculé par `contenu`, qui reçoit le traducteur de cette langue (textes des dictionnaires) et la langue,
+ * pour les textes saisis dans les deux langues (règles d'une offre).
  */
-function bilingue(contenu: (t: Traducteur) => Contenu, lien: string): Omit<Message, "to"> {
-  const [francais, anglais] = TRADUCTEURS.map((t) => {
-    const { sujet, paragraphes } = contenu(t);
+function bilingue(contenu: (t: Traducteur, langue: Langue) => Contenu, lien: string): Omit<Message, "to"> {
+  const [francais, anglais] = TRADUCTEURS.map((t, i) => {
+    const { sujet, paragraphes } = contenu(t, LANGUES_DES_COURRIELS[i]);
     return { sujet, corps: [...paragraphes, t("courriels.lien", { url: lien })].join("\n\n") };
   });
   return {
@@ -61,6 +67,9 @@ const lienVers = (deps: NotificationDeps, chemin: string) => `${(deps.portalUrl 
 /** Nom du demandeur ; les demandes antérieures à son enregistrement n'ont que son identifiant. */
 const nom = (r: AccessRequest) => r.requesterName || r.requesterUid;
 
+/** Titulaire d'un abonnement, tel que le salue un courriel ; sans nom enregistré, son identifiant. */
+const titulaire = (a: Pick<Subscription, "holderUid" | "holderName">) => a.holderName || a.holderUid;
+
 /** Nom d'une durée de validité : « 3 mois », « N'expire jamais », ou « 60 jours » hors de la liste proposée. */
 function duree(t: Traducteur, jours: number): string {
   const proposee = DUREES_VALIDITE.find((d) => d === jours);
@@ -74,19 +83,49 @@ function periode(t: Traducteur, budgetDuration: string): string {
 }
 
 /** Libellés des lignes d'un récapitulatif (dictionnaires, espace « courriels.recap »). */
-type Libelle = "equipe" | "niveau" | "modeles" | "modelesAccordes" | "projet" | "motif" | "dureeSouhaitee" | "budget" | "validite" | "expiration";
+type Libelle =
+  | "equipe"
+  | "niveau"
+  | "modeles"
+  | "modelesAccordes"
+  | "projet"
+  | "motif"
+  | "dureeSouhaitee"
+  | "budget"
+  | "validite"
+  | "expiration"
+  | "offre"
+  | "prixMensuel"
+  | "niveauMaximal";
+
+/** Demande, avec l'offre demandée quand c'est une demande d'abonnement (spécification #51). */
+type DemandeAvecOffre = AccessRequest & { offer?: Pick<SubscriptionOffer, "supplier" | "name" | "monthlyPriceEur" | "dataLevel"> | null };
 
 /** Lignes « - Libellé : valeur » d'un récapitulatif ; les valeurs absentes sont omises. */
 function lignes(t: Traducteur, champs: [libelle: Libelle, valeur: string | null | undefined][]): string[] {
   return champs.flatMap(([libelle, valeur]) => (valeur ? [t("courriels.recap.ligne", { libelle: t(`courriels.recap.${libelle}`), valeur })] : []));
 }
 
-/** Ce que le salarié a demandé : équipe, niveau, modèles, projet, motif et durée souhaitée. */
-function recapDemande(t: Traducteur, r: AccessRequest): string[] {
+/** Ce que le salarié a demandé : équipe, niveau, modèles, projet, motif et durée souhaitée ; pour un abonnement, l'offre. */
+function recapDemande(t: Traducteur, r: DemandeAvecOffre): string[] {
+  if (r.kind === "ABONNEMENT" && r.offer) return recapAbonnement(t, r, r.offer);
   return lignes(t, [
     ["equipe", r.teamAlias],
     ["niveau", r.dataLevel && t(`domaine.niveaux.${r.dataLevel}`)],
     ["modeles", r.models.join(", ")],
+    ["projet", r.project],
+    ["motif", r.justification],
+    ["dureeSouhaitee", r.requestedDays !== null ? duree(t, r.requestedDays) : null],
+  ]);
+}
+
+/** Demande d'abonnement : équipe, offre et son prix mensuel TTC, niveau maximal, projet, motif et durée souhaitée. */
+function recapAbonnement(t: Traducteur, r: AccessRequest, offre: NonNullable<DemandeAvecOffre["offer"]>): string[] {
+  return lignes(t, [
+    ["equipe", r.teamAlias],
+    ["offre", libelleOffre(offre)],
+    ["prixMensuel", t("courriels.recap.prixMensuelValeur", { montant: offre.monthlyPriceEur.toNumber() })],
+    ["niveauMaximal", t(`domaine.niveauxOffre.${offre.dataLevel}`)],
     ["projet", r.project],
     ["motif", r.justification],
     ["dureeSouhaitee", r.requestedDays !== null ? duree(t, r.requestedDays) : null],
@@ -123,7 +162,7 @@ const avecRecap = (introduction: string, recap: string[]) => [introduction, ...r
  * F-30 : chaque nouvelle demande est notifiée aux admins et aux responsables de l'équipe désignés par le service (hors
  * le demandeur) : qui la dépose, ce qu'elle demande, et le lien vers sa fiche.
  */
-export async function notifyNewRequest(deps: NotificationDeps, demande: AccessRequest, responsables: string[] = []): Promise<void> {
+export async function notifyNewRequest(deps: NotificationDeps, demande: DemandeAvecOffre, responsables: string[] = []): Promise<void> {
   const qui = { nom: nom(demande), email: demande.requesterEmail };
   const message = bilingue(
     (t) =>
@@ -132,7 +171,12 @@ export async function notifyNewRequest(deps: NotificationDeps, demande: AccessRe
             sujet: t("courriels.nouvelleDemandeCle.sujet", qui),
             paragraphes: [t("courriels.bonjourAdmins"), avecRecap(t("courriels.nouvelleDemandeCle.corps", qui), recapDemande(t, demande)), t("courriels.examiner")],
           }
-        : {
+        : demande.kind === "ABONNEMENT"
+          ? {
+              sujet: t("courriels.nouvelleDemandeAbonnement.sujet", qui),
+              paragraphes: [t("courriels.bonjourAdmins"), avecRecap(t("courriels.nouvelleDemandeAbonnement.corps", qui), recapDemande(t, demande)), t("courriels.examiner")],
+            }
+          : {
             sujet: t("courriels.nouvelleDemandeAdhesion.sujet", qui),
             paragraphes: [
               t("courriels.bonjourAdmins"),
@@ -161,8 +205,82 @@ export async function notifyKeyApproved(deps: NotificationDeps, demande: AccessR
   await envoyer(deps, [demande.requesterEmail], message);
 }
 
+/**
+ * Spécification #51 : demande d'abonnement approuvée. Le demandeur apprend comment souscrire (de préférence avec son
+ * adresse professionnelle, entraînement sur ses données désactivé), les règles d'usage de l'offre, et quand déclarer
+ * l'abonnement dans « Mes abonnements ».
+ */
+export async function notifySubscriptionApproved(
+  deps: NotificationDeps,
+  demande: AccessRequest,
+  offre: SubscriptionOffer,
+  echeance: Date | null,
+  /** Changement d'offre (ticket #59) : l'offre de l'abonnement remplacé, « Anthropic · Claude Max 5x ». */
+  remplace: string | null = null,
+): Promise<void> {
+  const message = bilingue(
+    (t, langue) => ({
+      sujet: t("courriels.abonnementApprouve.sujet"),
+      paragraphes: [
+        t("courriels.bonjour", { nom: nom(demande) }),
+        avecRecap(
+          t("courriels.abonnementApprouve.corps", { equipe: demande.teamAlias }),
+          lignes(t, [
+            ["offre", libelleOffre(offre)],
+            ["prixMensuel", t("courriels.recap.prixMensuelValeur", { montant: offre.monthlyPriceEur.toNumber() })],
+            ["niveauMaximal", t(`domaine.niveauxOffre.${offre.dataLevel}`)],
+            ["validite", demande.approvedDays !== null ? duree(t, demande.approvedDays) : null],
+          ]),
+        ),
+        t("courriels.abonnementApprouve.souscrire", { fournisseur: offre.supplier }),
+        t("courriels.abonnementApprouve.regles", { regles: langue === "en" ? (offre.rulesEn ?? offre.rulesFr) : offre.rulesFr }),
+        echeance ? t("courriels.abonnementApprouve.declarer", { date: echeance }) : t("courriels.abonnementApprouve.declarerSansEcheance"),
+        ...(remplace ? [t("courriels.abonnementApprouve.remplace", { offre: remplace })] : []),
+      ],
+    }),
+    lienVers(deps, "/abonnements"),
+  );
+  await envoyer(deps, [demande.requesterEmail], message);
+}
+
+/** Ticket #59 : renouvellement approuvé ; l'échéance de l'abonnement est reportée, sans rien d'autre à faire. */
+export async function notifyRenewalApproved(
+  deps: NotificationDeps,
+  demande: AccessRequest,
+  offre: Pick<SubscriptionOffer, "supplier" | "name">,
+  echeance: Date,
+): Promise<void> {
+  const valeurs = { offre: libelleOffre(offre), equipe: demande.teamAlias, date: echeance };
+  const message = bilingue(
+    (t) => ({
+      sujet: t("courriels.renouvellementApprouve.sujet"),
+      paragraphes: [t("courriels.bonjour", { nom: nom(demande) }), t("courriels.renouvellementApprouve.corps", valeurs)],
+    }),
+    lienVers(deps, "/abonnements"),
+  );
+  await envoyer(deps, [demande.requesterEmail], message);
+}
+
+/** Ticket #59 : rappel d'échéance d'un abonnement, un mois, sept jours et la veille ; son renouvellement se demande dans « Mes abonnements ». */
+export async function notifySubscriptionExpiryReminder(
+  deps: NotificationDeps,
+  abonnement: Pick<Subscription, "holderUid" | "holderName" | "holderEmail" | "teamAlias" | "expiresAt">,
+  offre: Pick<SubscriptionOffer, "supplier" | "name">,
+  jours: number,
+): Promise<void> {
+  const valeurs = { offre: libelleOffre(offre), equipe: abonnement.teamAlias, date: abonnement.expiresAt, jours, fournisseur: offre.supplier };
+  const message = bilingue(
+    (t) => ({
+      sujet: t("courriels.rappelEcheance.sujet", valeurs),
+      paragraphes: [t("courriels.bonjour", { nom: titulaire(abonnement) }), t("courriels.rappelEcheance.corps", valeurs), t("courriels.rappelEcheance.suite", valeurs)],
+    }),
+    lienVers(deps, "/abonnements"),
+  );
+  await envoyer(deps, [abonnement.holderEmail], message);
+}
+
 /** Demande refusée, avec le motif du refus et le rappel de la demande. */
-export async function notifyRefused(deps: NotificationDeps, demande: AccessRequest, motif: string): Promise<void> {
+export async function notifyRefused(deps: NotificationDeps, demande: DemandeAvecOffre, motif: string): Promise<void> {
   const message = bilingue(
     (t) => ({
       sujet: t("courriels.demandeRefusee.sujet"),
@@ -180,7 +298,7 @@ export async function notifyRefused(deps: NotificationDeps, demande: AccessReque
 }
 
 /** Complément demandé, avec le commentaire de l'admin et le rappel de la demande. */
-export async function notifyCompletionRequested(deps: NotificationDeps, demande: AccessRequest, commentaire: string | null): Promise<void> {
+export async function notifyCompletionRequested(deps: NotificationDeps, demande: DemandeAvecOffre, commentaire: string | null): Promise<void> {
   const message = bilingue(
     (t) => ({
       sujet: t("courriels.complementDemande.sujet"),
@@ -223,6 +341,89 @@ export async function notifyPickupReminder(deps: NotificationDeps, demande: Acce
     lienVers(deps, "/cles"),
   );
   await envoyer(deps, [demande.requesterEmail], message);
+}
+
+/** Spécification #51 : rappel trois jours avant l'échéance de déclaration d'un abonnement approuvé. */
+export async function notifyDeclarationReminder(deps: NotificationDeps, demande: AccessRequest, offre: SubscriptionOffer, echeance: Date): Promise<void> {
+  const message = bilingue(
+    (t) => ({
+      sujet: t("courriels.rappelDeclaration.sujet"),
+      paragraphes: [
+        t("courriels.bonjour", { nom: nom(demande) }),
+        t("courriels.rappelDeclaration.corps", { offre: libelleOffre(offre), equipe: demande.teamAlias, date: echeance }),
+      ],
+    }),
+    lienVers(deps, "/abonnements"),
+  );
+  await envoyer(deps, [demande.requesterEmail], message);
+}
+
+/**
+ * Ticket #58 : demande de résiliation, quelle qu'en soit l'origine (responsable, admin, sortie de l'équipe), annoncée au
+ * titulaire avec le motif éventuel et l'échéance de la déclaration de la résiliation.
+ */
+export async function notifyTerminationRequested(
+  deps: NotificationDeps,
+  abonnement: Pick<Subscription, "holderUid" | "holderName" | "holderEmail" | "teamAlias" | "terminationOrigin" | "terminationReason">,
+  offre: Pick<SubscriptionOffer, "supplier" | "name">,
+  echeance: Date | null,
+): Promise<void> {
+  const valeurs = { origine: abonnement.terminationOrigin ?? "ADMIN", offre: libelleOffre(offre), equipe: abonnement.teamAlias };
+  const message = bilingue(
+    (t) => ({
+      sujet: t("courriels.demandeResiliation.sujet", valeurs),
+      paragraphes: [
+        t("courriels.bonjour", { nom: titulaire(abonnement) }),
+        t("courriels.demandeResiliation.corps", valeurs),
+        ...(abonnement.terminationReason ? [t("courriels.demandeResiliation.motif", { motif: abonnement.terminationReason })] : []),
+        echeance
+          ? t("courriels.demandeResiliation.suite", { fournisseur: offre.supplier, date: echeance })
+          : t("courriels.demandeResiliation.suiteSansEcheance", { fournisseur: offre.supplier }),
+      ],
+    }),
+    lienVers(deps, "/abonnements"),
+  );
+  await envoyer(deps, [abonnement.holderEmail], message);
+}
+
+/** Ticket #58 : un admin a déclaré la résiliation à la place du titulaire, qui en est prévenu à l'adresse donnée. */
+export async function notifyTerminationDeclaredByAdmin(
+  deps: NotificationDeps,
+  abonnement: Pick<Subscription, "holderUid" | "holderName" | "teamAlias">,
+  offre: Pick<SubscriptionOffer, "supplier" | "name">,
+  date: Date,
+  email: string,
+): Promise<void> {
+  const valeurs = { offre: libelleOffre(offre), equipe: abonnement.teamAlias, date, fournisseur: offre.supplier };
+  const message = bilingue(
+    (t) => ({
+      sujet: t("courriels.resiliationParAdmin.sujet", valeurs),
+      paragraphes: [t("courriels.bonjour", { nom: titulaire(abonnement) }), t("courriels.resiliationParAdmin.corps", valeurs)],
+    }),
+    lienVers(deps, "/abonnements"),
+  );
+  await envoyer(deps, [email], message);
+}
+
+/**
+ * Ticket #58 : résiliation demandée, non déclarée dans le délai de retrait ; l'alerte, envoyée une seule fois par la
+ * tâche quotidienne, va aux admins et aux responsables de l'équipe désignés par elle.
+ */
+export async function notifyUndeclaredTermination(
+  deps: NotificationDeps,
+  abonnement: Pick<Subscription, "holderUid" | "teamId" | "teamAlias" | "terminationRequestedAt">,
+  offre: Pick<SubscriptionOffer, "supplier" | "name">,
+  responsables: string[],
+): Promise<void> {
+  const valeurs = { offre: libelleOffre(offre), titulaire: abonnement.holderUid, equipe: abonnement.teamAlias, date: abonnement.terminationRequestedAt ?? new Date(0) };
+  const message = bilingue(
+    (t) => ({
+      sujet: t("courriels.alerteResiliation.sujet", valeurs),
+      paragraphes: [t("courriels.bonjourAdmins"), t("courriels.alerteResiliation.corps", valeurs)],
+    }),
+    lienVers(deps, `/gestion/abonnements?equipe=${encodeURIComponent(abonnement.teamId)}`),
+  );
+  await envoyer(deps, adminsEtResponsables(deps, responsables), message);
 }
 
 /** Rappel d'expiration (un mois, sept jours ou la veille) : son renouvellement se demande dans « Mes clés ». */
@@ -274,14 +475,15 @@ export type TeamChange =
   | { type: "responsableDesigne"; responsable: string }
   | { type: "responsableRetire"; responsable: string }
   | { type: "budget"; plafond: { montant: number; periode: string } | null }
-  | { type: "decision"; decision: "approuvee" | "refusee" | "complement" | "adhesion"; demandeur: string; demandeId: string }
-  | { type: "cle"; action: "revocation" | "blocage" | "deblocage"; alias: string; titulaire: string };
+  | { type: "decision"; decision: "approuvee" | "refusee" | "complement" | "adhesion" | "abonnement"; demandeur: string; demandeId: string }
+  | { type: "cle"; action: "revocation" | "blocage" | "deblocage"; alias: string; titulaire: string }
+  | { type: "resiliationDemandee"; titulaire: string; offre: string };
 
 /**
  * F-53 et F-54 : un changement dans une équipe est annoncé aux admins et aux responsables de l'équipe que le service
  * désigne (tous sauf l'auteur), avec son auteur et le lien vers la page de l'équipe. Les admins ne sont prévenus que des
- * décisions des responsables (récit 35) : la décision d'un admin sur une demande ou une clé ne va qu'aux responsables de
- * l'équipe (récit 36).
+ * décisions des responsables (récit 35) : la décision d'un admin sur une demande, une clé ou un abonnement (demande de
+ * résiliation) ne va qu'aux responsables de l'équipe (récit 36).
  */
 export async function notifyTeamChange(
   deps: NotificationDeps,
@@ -296,6 +498,7 @@ export async function notifyTeamChange(
     ...("responsable" in changement ? { responsable: changement.responsable } : {}),
     ...(changement.type === "decision" ? { decision: changement.decision, demandeur: changement.demandeur } : {}),
     ...(changement.type === "cle" ? { action: changement.action, alias: changement.alias, titulaire: changement.titulaire } : {}),
+    ...(changement.type === "resiliationDemandee" ? { titulaire: changement.titulaire, offre: changement.offre } : {}),
     ...(changement.type === "budget" ? { plafond: changement.plafond ? "oui" : "non", budget: budgetEquipe(t, changement.plafond) } : {}),
   });
   const message = bilingue(
@@ -312,10 +515,12 @@ export async function notifyTeamChange(
           ? `/gestion/demandes/${changement.demandeId}`
           : changement.type === "cle"
             ? "/gestion/cles"
-            : `/gestion/equipes/${changement.teamId}`,
+            : changement.type === "resiliationDemandee"
+              ? `/gestion/abonnements?equipe=${encodeURIComponent(changement.teamId)}`
+              : `/gestion/equipes/${changement.teamId}`,
     ),
   );
-  const decisionDUnAdmin = (changement.type === "decision" || changement.type === "cle") && changement.auteur.isAdmin;
+  const decisionDUnAdmin = (changement.type === "decision" || changement.type === "cle" || changement.type === "resiliationDemandee") && changement.auteur.isAdmin;
   await envoyer(deps, adminsEtResponsables(deps, responsables, !decisionDUnAdmin), message);
 }
 

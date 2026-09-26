@@ -66,7 +66,7 @@ describe("file de validation (F-30)", () => {
     await approveKeyRequest(deps, admin, approuvee.id, parametres);
     const refusee = await createKeyRequest(deps, collegue, { ...demande, project: "essai" });
     await refuseRequest(deps, admin, refusee.id, "Hors périmètre");
-    expect(await countAdminPending(deps, admin)).toEqual({ demandes: 1, clesARetirer: 1 });
+    expect(await countAdminPending(deps, admin)).toEqual({ demandes: 1, clesARetirer: 1, abonnementsADeclarer: 0 });
   });
 
   test("l'archive donne les demandes déjà traitées, la plus récente d'abord, avec la décision", async () => {

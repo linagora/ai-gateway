@@ -10,9 +10,11 @@ from sqlalchemy import text
 from superset.app import create_app
 
 VIEWS = ["v_requests", "v_daily_user", "v_daily_team", "v_keys", "v_teams", "v_users", "v_models", "v_check_pricing_eur",
-         "v_usage_daily", "v_team_budget", "v_activity", "v_key_status"]
+         "v_usage_daily", "v_team_budget", "v_activity", "v_key_status",
+         # Abonnements (postgres/reporting_abonnements.sql, après scripts/installer-lien-portail.sh)
+         "v_subscriptions", "v_team_subscriptions", "v_team_monthly_cost", "v_user_monthly_cost"]
 # Seules vues ouvertes aux lecteurs du reporting : agrégées, sans donnée par personne ni par clé.
-READER_VIEWS = ["v_usage_daily", "v_team_budget", "v_activity"]
+READER_VIEWS = ["v_usage_daily", "v_team_budget", "v_activity", "v_team_subscriptions", "v_team_monthly_cost"]
 
 app = create_app()
 with app.app_context():

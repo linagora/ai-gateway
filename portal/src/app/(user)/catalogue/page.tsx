@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { levelSegment } from "@/lib/level-routes";
 import { levelOverview } from "@/lib/services/catalog";
+import { listOffers } from "@/lib/services/offers";
 import { getDeps, requireUser } from "@/lib/session";
 import { formats, Notice } from "../../components";
 import { BORDURES_GAUCHES_NIVEAUX } from "./couleurs";
@@ -23,11 +24,12 @@ const PUCE = "mt-0.5 size-3.5 shrink-0";
  */
 export default async function CataloguePage(props: PageProps<"/catalogue">) {
   await requireUser();
-  const [{ euros }, t, domaine, niveaux, searchParams] = await Promise.all([
+  const [{ euros }, t, domaine, niveaux, offres, searchParams] = await Promise.all([
     formats(),
     getTranslations("catalogue"),
     getTranslations("domaine"),
     levelOverview(getDeps()),
+    listOffers(getDeps()),
     props.searchParams,
   ]);
 
@@ -98,6 +100,23 @@ export default async function CataloguePage(props: PageProps<"/catalogue">) {
           </section>
         ))}
       </div>
+      {/* Spécification #51 : les abonnements, à part des niveaux, dès qu'une offre est proposée. */}
+      {offres.length > 0 && (
+        <section aria-labelledby="abonnements" className="mt-6 rounded-lg border border-neutral-200 bg-white p-4 shadow-sm 2xl:-mx-16">
+          <h2 id="abonnements" className="mt-0 mb-1 text-lg">
+            {t("abonnements.entree.titre")}
+          </h2>
+          <p className={`${TEXTE} text-neutral-600`}>{t("abonnements.entree.texte")}</p>
+          <p className="mt-3">
+            <Link
+              href="/catalogue/abonnements"
+              className="inline-block rounded bg-linagora px-3 py-1.5 text-sm font-medium text-white no-underline hover:bg-linagora-fonce"
+            >
+              {t("abonnements.entree.lien")}
+            </Link>
+          </p>
+        </section>
+      )}
     </>
   );
 }

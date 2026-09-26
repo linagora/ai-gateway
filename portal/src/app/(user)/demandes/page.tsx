@@ -39,12 +39,14 @@ export default async function MyRequestsPage(props: PageProps<"/demandes">) {
               <td>{domaine(`typesDemande.${r.kind}`)}</td>
               <td>{r.teamAlias}</td>
               <td>{r.dataLevel ? domaine(`niveaux.${r.dataLevel}`) : ""}</td>
-              <td>{r.models.join(", ")}</td>
+              <td>{r.offer ?? r.models.join(", ")}</td>
               <td>{domaine(`statuts.${r.status}`)}</td>
               <td>{r.decisionComment ?? ""}</td>
               <td>
                 {r.status === "A_COMPLETER" && r.kind === "CLE" && <Link href={`/demandes/nouvelle?completer=${r.id}`}>{t("completer")}</Link>}
+                {r.status === "A_COMPLETER" && r.kind === "ABONNEMENT" && <Link href={`/demandes/abonnement?completer=${r.id}`}>{t("completer")}</Link>}
                 {r.status === "APPROUVEE" && r.kind === "CLE" && <Link href="/cles">{t("retirer")}</Link>}
+                {r.status === "APPROUVEE" && r.kind === "ABONNEMENT" && <Link href="/abonnements">{t("declarer")}</Link>}
                 {(r.status === "SOUMISE" || r.status === "A_COMPLETER") && (
                   <form action={cancelRequestAction}>
                     <input type="hidden" name="id" value={r.id} />

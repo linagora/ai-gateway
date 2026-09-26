@@ -51,6 +51,7 @@ test("l'onglet « Outils » mène, dans un nouvel onglet, aux fonctions réserv�
   for (const [nom, adresse] of [
     ["Tableau de bord « Consommation »", "/stats/superset/dashboard/consommation/"],
     ["Tableau de bord « Pilotage »", "/stats/superset/dashboard/pilotage/"],
+    ["Tableau de bord « Par salarié »", "/stats/superset/dashboard/par-salarie/"],
     ["Accueil de Superset", "/stats/"],
     ["Console LiteLLM", "/admin/ui/"],
     ["Schéma OpenAPI de l'API d'administration", "/admin/openapi.json"],

@@ -13,7 +13,9 @@
     "gestion": "Administration",
     "deconnexion": "Sign out",
     "mesCles": "My keys",
+    "mesAbonnements": "My subscriptions",
     "aRetirer": "{nombre, plural, one {# key to pick up} other {# keys to pick up}}",
+    "aDeclarer": "{nombre, plural, one {# subscription to declare} other {# subscriptions to declare}}",
     "aCompleter": "{nombre, plural, one {# request to complete} other {# requests to complete}}",
     "aValider": "{nombre, plural, one {# request to review} other {# requests to review}}"
   },
@@ -31,6 +33,12 @@
       "N2": "N2 Internal",
       "N3": "N3 Confidential",
       "EXP": "Experimental (beta)"
+    },
+    "niveauxOffre": {
+      "N1": "N1 Public",
+      "N2": "N2 Internal",
+      "N3": "N3 Confidential",
+      "EXP": "Public data only"
     },
     "classifications": {
       "NC": "Classification NC · Public",
@@ -62,11 +70,19 @@
       "ANNULEE": "Cancelled",
       "CLE_EMISE": "Key issued",
       "EXPIREE": "Expired",
-      "REVOQUEE": "Revoked"
+      "REVOQUEE": "Revoked",
+      "DECLAREE": "Declared",
+      "RENOUVELEE": "Expiry extended"
+    },
+    "statutsAbonnement": {
+      "ACTIF": "Active",
+      "A_RESILIER": "To cancel",
+      "RESILIE": "Cancelled"
     },
     "typesDemande": {
       "CLE": "API key",
-      "ADHESION_EQUIPE": "Team access"
+      "ADHESION_EQUIPE": "Team access",
+      "ABONNEMENT": "Subscription"
     },
     "durees": {
       "1": "24 hours",
@@ -103,20 +119,27 @@
       "membreSorti": "The member has left the team: their keys of the team are revoked.",
       "equipeSupprimee": "Team deleted.",
       "responsableDesigne": "Manager designated.",
-      "responsableRetire": "Manager role removed."
+      "responsableRetire": "Manager role removed.",
+      "offreEnregistree": "Offer saved.",
+      "abonnementDeclare": "Subscription declared.",
+      "montantCorrige": "Amount corrected: it applies from the next charge.",
+      "resiliationDeclaree": "Cancellation declared.",
+      "resiliationDemandee": "Cancellation request sent to the holder.",
+      "abonnementRattache": "Subscription attached to the team."
     },
     "erreurs": {
       "controles_en_echec": "The request does not comply with the model access policy. Failed checks: {controles}.",
       "deja_membre": "You are already a member of the {equipe} team.",
-      "demande_en_cours": "You already have a pending access request for the {equipe} team.",
+      "demande_en_cours": "{cas, select, abonnement {A renewal or plan change request is already pending for this subscription.} other {You already have a pending access request for the {equipe} team.}}",
+      "renouvellement_trop_tot": "Renewal can be requested at the earliest one month before the subscription expires.",
       "engagement_requis": "Commit to not submitting data above the declared level.",
       "interdit": "Administrators only.",
-      "introuvable": "{objet, select, modele {Model {modele} is not declared in the gateway.} equipe {Team not found.} demande_adhesion {Access request not found.} demande_cle {Key request not found.} membre {Member not found in this team.} responsable {Manager not found in this team.} other {Request not found.}}",
+      "introuvable": "{objet, select, modele {Model {modele} is not declared in the gateway.} equipe {Team not found.} demande_adhesion {Access request not found.} demande_cle {Key request not found.} membre {Member not found in this team.} responsable {Manager not found in this team.} offre {Subscription offer not found.} demande_abonnement {Subscription request not found.} abonnement {Subscription not found.} other {Request not found.}}",
       "motif_obligatoire": "A reason is required.",
       "parametre_manquant": "Budget, budget period and validity are required: enter them or configure default values.",
       "recommandation_hors_cas_usage": "A recommendation can only apply to a checked use case.",
       "tarif_eur_manquant": "Model {modele} has no price in euros: it cannot be made visible.",
-      "transition_interdite": "{cas, select, modifiee {The request was modified in the meantime; reload the page.} traitee {This request has already been processed.} expiree {This key has expired: request its renewal.} bloquee {This key has been blocked by an administrator.} other {This action is not possible in the current status of the request.}}",
+      "transition_interdite": "{cas, select, modifiee {The request was modified in the meantime; reload the page.} traitee {This request has already been processed.} expiree {This key has expired: request its renewal.} bloquee {This key has been blocked by an administrator.} declaration_expiree {The declaration deadline has passed: this subscription request has expired. Submit a new request.} abonnement {This action is not possible in the current status of the subscription; reload the page.} other {This action is not possible in the current status of the request.}}",
       "saisie_invalide": "Invalid input: check the fields {champs}.",
       "inconnue": "An error occurred.",
       "passerelle_indisponible": "The gateway is not responding: try again in a few moments.",
@@ -125,10 +148,13 @@
       "nom_equipe_pris": "The name {nom} is already used by another team.",
       "salarie_inconnu": "No employee has signed in to the portal yet with the identifier {uid}.",
       "membre_existant": "{uid} is already a member of the team {equipe}.",
-      "equipe_non_vide": "This team still has active keys ({cles}) or pending requests ({demandes}): revoke its keys, including those created from the LiteLLM console, and process its requests before deleting it.",
+      "equipe_non_vide": "This team still has active keys ({cles}), pending requests ({demandes}) or subscriptions not cancelled ({abonnements}): revoke its keys, including those created from the LiteLLM console, process its requests, and have its subscriptions cancelled or attached to another team before deleting it.",
       "responsable_existant": "{uid} is already a manager of the team {equipe}.",
       "quatre_yeux": "{cas, select, cle {You cannot block or unblock your own key: another manager of the team or an administrator will handle it.} other {You cannot decide on your own request: another manager of the team or an administrator will handle it.}}",
-      "budget_equipe_invalide": "Invalid team budget: enter an amount of zero or more (0: no limit) and, for a positive amount, a period such as 30d, 12h…"
+      "budget_equipe_invalide": "Invalid team budget: enter an amount of zero or more (0: no limit) and, for a positive amount, a period such as 30d, 12h…",
+      "non_membre": "{cas, select, titulaire {{uid} is not a member of the {equipe} team: their subscription cannot be attached to it.} other {You are not a member of the {equipe} team.}}",
+      "date_future": "{objet, select, resiliation {The cancellation date cannot be in the future.} other {The subscription date cannot be in the future.}}",
+      "date_avant_souscription": "The cancellation date cannot be before the subscription date."
     },
     "controles": {
       "membre_equipe": "The requester is a member of the team",
@@ -200,7 +226,24 @@
     "niveau": "Maximum level",
     "visible": "Visible to employees",
     "enregistrer": "Save",
-    "aucunModele": "No model is declared in the gateway."
+    "aucunModele": "No model is declared in the gateway.",
+    "offres": {
+      "titre": "Subscription offers",
+      "introduction": "Offers that employees can request for their team, then take out themselves with the supplier. A hidden offer is no longer offered, without being deleted.",
+      "aucune": "No offer yet.",
+      "fournisseur": "Supplier",
+      "nom": "Offer name",
+      "prix": "Monthly price incl. VAT (€)",
+      "niveau": "Maximum level",
+      "reglesFr": "Usage rules (French)",
+      "reglesEn": "Usage rules (English)",
+      "lien": "Link to the offer (https)",
+      "visible": "Visible in the catalog",
+      "masquee": "hidden",
+      "enregistrer": "Save the offer",
+      "nouvelle": "New offer",
+      "creer": "Create the offer"
+    }
   },
   "catalogue": {
     "titre": "Model catalog",
@@ -266,6 +309,21 @@
         ],
         "garanties": "Beta service without guarantee: a model may change or be withdrawn without notice. Dedicated key, limited to experimental models."
       }
+    },
+    "abonnements": {
+      "entree": {
+        "titre": "Subscriptions",
+        "texte": "Individual subscriptions with AI suppliers (ChatGPT, Claude, Kimi…), requested for your team, then taken out by yourself.",
+        "lien": "See the offers"
+      },
+      "titre": "Subscriptions",
+      "introduction": "These offers are taken out individually with their supplier. Request one for your team: once your request is approved, you subscribe yourself, then declare the subscription in the portal.",
+      "aucune": "No subscription offer yet.",
+      "prix": "{prix} incl. VAT per month",
+      "niveau": "Maximum data level: {niveau}",
+      "regles": "Usage rules",
+      "lienFournisseur": "See the offer at {fournisseur}",
+      "demander": "Request this subscription"
     }
   },
   "niveau": {
@@ -342,7 +400,8 @@
     "completer": "Complete",
     "annuler": "Cancel",
     "aucune": "No request yet.",
-    "retirer": "Pick up my key"
+    "retirer": "Pick up my key",
+    "declarer": "Declare"
   },
   "nouvelleDemande": {
     "titre": "Request an API key",
@@ -389,10 +448,12 @@
       "catalogue": "Catalog",
       "parametres": "Default values",
       "cles": "Keys",
+      "abonnements": "Subscriptions",
       "equipes": "Teams",
       "aValider": "{nombre, plural, one {# request to review} other {# requests to review}}",
       "aRetirer": "{nombre, plural, one {# key to pick up} other {# keys to pick up}}",
-      "outils": "Tools"
+      "outils": "Tools",
+      "aDeclarer": "{nombre, plural, one {# subscription to declare} other {# subscriptions to declare}}"
     },
     "file": {
       "titre": "Requests awaiting validation",
@@ -455,8 +516,20 @@
       "equipeAffectation": "Assigned team",
       "aideEquipe": "If the requester is not a member of the chosen team, approval adds them to it.",
       "renouvellement": "Renewal of the key {alias}.",
+      "renouvellementAbonnement": "Renewal of the subscription {offre}, which expires on {echeance}: once approved, it extends this expiry by the granted validity period, without a new declaration.",
+      "changementOffre": "Plan change: this subscription replaces the subscription {offre}, cancelled when the new offer is declared.",
       "depenseOrigine": "Spend of this key: {depense}.",
-      "propreDemande": "You cannot decide on your own request: another manager of the team or an administrator will handle it."
+      "propreDemande": "You cannot decide on your own request: another manager of the team or an administrator will handle it.",
+      "approuverAbonnement": "Approve (subscription validity period)",
+      "offre": "Offer",
+      "prixMensuel": "Monthly price",
+      "niveauMaximal": "Maximum level",
+      "dureeSouhaitee": "Requested duration",
+      "validiteAccordee": "Granted validity period",
+      "abonnementsEnCours": "Requester's current subscriptions",
+      "aucunAbonnement": "No current subscription.",
+      "depuis": "since {date}",
+      "parMois": "{montant} per month"
     },
     "parametres": {
       "titre": "Default key values",
@@ -518,9 +591,10 @@
       "nouvelOnglet": "new tab",
       "reporting": {
         "titre": "Reporting (Superset)",
-        "description": "Dashboards of the gateway's usage: costs, requests and tokens by team, model and level. The “Pilotage” (steering) dashboard is for admins only; reporting readers see “Consommation” (usage).",
+        "description": "Dashboards of the gateway's usage: costs, requests and tokens by team, model and level. The “Pilotage” (steering) and “Par salarié” (per employee) dashboards are for admins only; reporting readers see “Consommation” (usage).",
         "consommation": "“Consommation” dashboard (usage)",
         "pilotage": "“Pilotage” dashboard (steering)",
+        "parSalarie": "“Par salarié” dashboard (per employee)",
         "accueil": "Superset home"
       },
       "passerelle": {
@@ -566,7 +640,7 @@
       "ajouter": "Add to the team",
       "colonneMembre": "Member",
       "faireSortir": "Remove from the team",
-      "avertissementSortie": "Their keys of this team will be revoked and their pending requests in the team cancelled.",
+      "avertissementSortie": "Their keys of this team will be revoked and their pending requests in the team cancelled; their subscriptions attached to the team will be to cancel, unless they are attached to another of their teams.",
       "confirmerSortie": "Confirm removal",
       "suppression": {
         "titre": "Team deletion",
@@ -581,7 +655,78 @@
       "retirerRole": "Remove the manager role",
       "colonneResponsable": "Manager",
       "colonneAdresse": "Address",
-      "aucun": "None"
+      "aucun": "None",
+      "abonnements": "Subscriptions",
+      "resumeAbonnements": "{nombre, plural, =0 {No subscription} one {# active subscription, {total} incl. VAT per month} other {# active subscriptions, {total} incl. VAT per month}}",
+      "aRattacher": {
+        "titre": "Subscriptions to attach",
+        "introduction": "These members left another team, to which their subscription was attached: it is to be cancelled. Attached to this team, it stays active and its next charges are attributed to it.",
+        "colonnes": {
+          "titulaire": "Holder",
+          "offre": "Offer",
+          "ancienneEquipe": "Former team",
+          "depuis": "To cancel since"
+        },
+        "formulaire": "Attach to this team: {offre} of {titulaire}",
+        "rattacher": "Attach to this team"
+      }
+    },
+    "abonnements": {
+      "titre": "Subscriptions",
+      "filtreEquipe": "Subscriptions of the team {equipe}",
+      "tous": "All subscriptions",
+      "aDeclarer": {
+        "titre": "Approved subscriptions, to be declared by the employee",
+        "approuve": "Approved on",
+        "avant": "To declare before"
+      },
+      "actifs": {
+        "titre": "Active subscriptions",
+        "aucun": "No active subscription."
+      },
+      "archive": {
+        "titre": "Archive: cancelled subscriptions",
+        "aucune": "No cancelled subscription.",
+        "pagination": "Subscription archive pages",
+        "position": "Page {page} of {pages} ({total, plural, one {# cancelled subscription} other {# cancelled subscriptions}})",
+        "plusRecentes": "More recent subscriptions",
+        "plusAnciennes": "Older subscriptions"
+      },
+      "colonnes": {
+        "titulaire": "Holder",
+        "equipe": "Team",
+        "offre": "Offer",
+        "compte": "Account",
+        "souscrit": "Subscribed on",
+        "montant": "Monthly amount",
+        "echeance": "Expiry",
+        "statut": "Status",
+        "prelevements": "Charges",
+        "actions": "Actions"
+      },
+      "horsLinagora": "address outside LINAGORA",
+      "resilieLe": "Cancelled on {date}",
+      "demande": {
+        "origine": "{origine, select, SORTIE {after leaving the team, on {date}} other {requested by {auteur} on {date}}}",
+        "motif": "Reason: {motif}"
+      },
+      "resiliation": {
+        "demander": "Request the cancellation",
+        "formulaireDemande": "Request the cancellation: {offre} of {titulaire}",
+        "motif": "Reason",
+        "aideDemande": "The holder is notified by email, with the reason: they cancel the subscription with the supplier, then declare the cancellation.",
+        "envoyer": "Send the cancellation request",
+        "declarer": "Declare the cancellation",
+        "formulaireDeclaration": "Declare the cancellation: {offre} of {titulaire}",
+        "date": "Cancellation date",
+        "aideDeclaration": "On behalf of the holder (departure from the company, oversight): the cancellation is recorded in your name, and the holder is notified.",
+        "enregistrer": "Declare the cancellation on their behalf"
+      },
+      "prelevements": {
+        "aucun": "None",
+        "resume": "{nombre, plural, one {# charge} other {# charges}}, {total} in total",
+        "ligne": "{date}: {montant}, team {equipe}"
+      }
     }
   },
   "introuvable": {
@@ -681,6 +826,10 @@
       "budgetValeur": "{montant, number, ::currency/EUR} every {periode}",
       "validite": "Validity",
       "expiration": "Expires",
+      "offre": "Offer",
+      "prixMensuel": "Monthly price",
+      "prixMensuelValeur": "{montant, number, ::currency/EUR} incl. VAT",
+      "niveauMaximal": "Maximum level",
       "date": "{date, date, long}"
     },
     "nouvelleDemandeCle": {
@@ -691,21 +840,43 @@
       "sujet": "New team access request from {nom}",
       "corps": "{nom} ({email}) asks to join the {equipe} team:"
     },
+    "nouvelleDemandeAbonnement": {
+      "sujet": "New subscription request from {nom}",
+      "corps": "{nom} ({email}) requests a subscription:"
+    },
     "demandeApprouvee": {
       "sujet": "Your key request is approved",
       "corps": "Your API key request for the {equipe} team is approved. Your key's parameters:",
       "retrait": "Pick up your key before {date, date, long} in “My keys”: it will be shown only once.",
       "retraitSansEcheance": "Pick up your key in “My keys”: it will be shown only once."
     },
+    "abonnementApprouve": {
+      "sujet": "Your subscription request is approved",
+      "corps": "Your subscription request for the {equipe} team is approved:",
+      "souscrire": "Take it out yourself with {fournisseur}, preferably with your work address, and turn off the use of your data for model training.",
+      "regles": "Usage rules: {regles}",
+      "declarer": "Then declare the subscription in “My subscriptions” before {date, date, long}.",
+      "declarerSansEcheance": "Then declare the subscription in “My subscriptions”.",
+      "remplace": "This subscription replaces your subscription {offre}: when you declare it, the replaced subscription will be cancelled as of the declared subscription date."
+    },
+    "renouvellementApprouve": {
+      "sujet": "Your renewal request is approved",
+      "corps": "The expiry of your subscription {offre}, attached to the {equipe} team, is extended to {date, date, long}: nothing else to do."
+    },
+    "rappelEcheance": {
+      "sujet": "Expiry of your subscription {offre}",
+      "corps": "Your subscription {offre}, attached to the {equipe} team, expires on {date, date, long}, {jours, plural, one {tomorrow} other {in # days}}.",
+      "suite": "Request its renewal in “My subscriptions”; otherwise, cancel it with {fournisseur}, then declare the cancellation."
+    },
     "demandeRefusee": {
       "sujet": "Your request is refused",
-      "corps": "{type, select, CLE {Your API key request for the {equipe} team is refused.} other {Your request to join the {equipe} team is refused.}}",
+      "corps": "{type, select, CLE {Your API key request for the {equipe} team is refused.} ABONNEMENT {Your subscription request for the {equipe} team is refused.} other {Your request to join the {equipe} team is refused.}}",
       "motif": "Reason for refusal: {motif}",
       "suite": "You can submit a new request from the portal."
     },
     "complementDemande": {
       "sujet": "Your request needs more information",
-      "corps": "{type, select, CLE {An administrator asks for more information about your API key request for the {equipe} team.} other {An administrator asks for more information about your request to join the {equipe} team.}}",
+      "corps": "{type, select, CLE {An administrator asks for more information about your API key request for the {equipe} team.} ABONNEMENT {An administrator asks for more information about your subscription request for the {equipe} team.} other {An administrator asks for more information about your request to join the {equipe} team.}}",
       "commentaire": "Administrator's comment: {commentaire}",
       "suite": "Complete it in “My requests”."
     },
@@ -717,6 +888,25 @@
     "rappelRetrait": {
       "sujet": "Reminder: your key is waiting to be picked up",
       "corps": "Your API key for the {equipe} team is waiting for you. Pick it up before {date, date, long} in “My keys”: after that, the request expires."
+    },
+    "rappelDeclaration": {
+      "sujet": "Reminder: your subscription is to be declared",
+      "corps": "Your subscription request {offre} for the {equipe} team is approved: declare the subscription in “My subscriptions” before {date, date, long}, or it will expire."
+    },
+    "demandeResiliation": {
+      "sujet": "Cancellation request for your subscription {offre}",
+      "corps": "{origine, select, SORTIE {Since you left the {equipe} team, your subscription {offre}, which was attached to it, is to be cancelled, unless an admin or a manager of another of your teams attaches it to that team.} ECHEANCE {Your subscription {offre}, attached to the {equipe} team, has expired without being renewed: it is to be cancelled.} RENOUVELLEMENT_REFUSE {The renewal of your subscription {offre}, attached to the {equipe} team, is refused: it is to be cancelled.} RESPONSABLE {A manager of your team requests the cancellation of your subscription {offre}, attached to the {equipe} team.} other {An administrator requests the cancellation of your subscription {offre}, attached to the {equipe} team.}}",
+      "motif": "Reason: {motif}",
+      "suite": "Cancel it with {fournisseur}, then declare the cancellation in “My subscriptions” before {date, date, long}.",
+      "suiteSansEcheance": "Cancel it with {fournisseur}, then declare the cancellation in “My subscriptions”."
+    },
+    "resiliationParAdmin": {
+      "sujet": "Cancellation of your subscription {offre}",
+      "corps": "An administrator declared the cancellation of your subscription {offre}, attached to the {equipe} team, as of {date, date, long}: no charge is counted for it from that date. If not done already, cancel it with {fournisseur}."
+    },
+    "alerteResiliation": {
+      "sujet": "Undeclared cancellation: {offre} of {titulaire}",
+      "corps": "The cancellation of the subscription {offre} of {titulaire}, attached to the {equipe} team, was requested on {date, date, long}; it is still not declared. Remind the holder; an administrator can also declare it on their behalf."
     },
     "rappelExpiration": {
       "sujet": "Reminder: your key {alias} expires soon",
@@ -772,11 +962,15 @@
       },
       "decision": {
         "sujet": "Request processed in the team {equipe}: {demandeur}",
-        "corps": "{auteur} {decision, select, approuvee {approved the API key request of {demandeur}} refusee {refused the request of {demandeur}} complement {asked {demandeur} to complete their request} adhesion {accepted the access request of {demandeur}} other {processed the request of {demandeur}}}."
+        "corps": "{auteur} {decision, select, approuvee {approved the API key request of {demandeur}} refusee {refused the request of {demandeur}} complement {asked {demandeur} to complete their request} adhesion {accepted the access request of {demandeur}} abonnement {approved the subscription request of {demandeur}} other {processed the request of {demandeur}}}."
       },
       "cle": {
         "sujet": "Action on a key of the team {equipe}: {alias}",
         "corps": "{auteur} {action, select, revocation {revoked} blocage {blocked} other {unblocked}} the key {alias} of {titulaire}."
+      },
+      "resiliationDemandee": {
+        "sujet": "Cancellation requested in the team {equipe}: {titulaire}",
+        "corps": "{auteur} requested the cancellation of the subscription {offre} of {titulaire}."
       }
     },
     "alerteBudget": {
@@ -802,5 +996,79 @@
   "validation": {
     "valideePar": "Your request will be approved by: {valideurs}.",
     "valideeParAdmins": "Your request will be approved by the administrators."
+  },
+  "demandeAbonnement": {
+    "titre": "Request a subscription",
+    "titreCompleter": "Complete your subscription request",
+    "offreDemandee": "Requested offer: {offre}",
+    "engagement": "I commit not to entrust this subscription with any data above: {niveau}.",
+    "offreIntrouvable": "This offer is no longer available.",
+    "voirOffres": "See the offers",
+    "completerRenouvellement": "Renewal of your subscription attached to the {equipe} team: the offer and the team remain those of the subscription.",
+    "completerChangement": "Plan change of your subscription attached to the {equipe} team: the team remains that of the subscription.",
+    "titreRenouveler": "Renew a subscription",
+    "renouvellementImpossible": "This subscription cannot be renewed now: the renewal of a subscription that is not cancelled can be requested from one month before its expiry.",
+    "retourAbonnements": "Back to “My subscriptions”",
+    "abonnementRenouvele": "Renewed subscription: {offre}",
+    "equipeEtEcheance": "Attached to the {equipe} team, expires on {date}.",
+    "aideRenouvellement": "Once approved, the renewal extends the expiry by the granted period, from the current expiry, without a new declaration; if refused, it counts as a cancellation request for the subscription.",
+    "envoyerRenouvellement": "Request the renewal",
+    "titreChanger": "Change plan",
+    "abonnementIntrouvable": "This subscription cannot be found or is cancelled.",
+    "aucuneAutreOffre": "No other offer from the supplier of your subscription {offre} is available.",
+    "abonnementRemplace": "Replaced subscription: {offre}, attached to the {equipe} team.",
+    "nouvelleOffre": "New offer",
+    "choixOffre": "{offre}: {prix} incl. VAT per month, {niveau}",
+    "aideChangement": "Once the request is approved, take out the new offer with the supplier, then declare it in “My subscriptions”: the replaced subscription will be cancelled as of the declared subscription date.",
+    "engagementOffreChoisie": "I commit not to entrust this subscription with any data above the maximum level of the chosen offer.",
+    "envoyerChangement": "Request the plan change"
+  },
+  "mesAbonnements": {
+    "titre": "My subscriptions",
+    "introduction": "Your individual subscriptions to AI suppliers' offers. Once the subscription is taken out with the supplier, declare your approved request here.",
+    "voirOffres": "See the subscription offers",
+    "aDeclarer": {
+      "titre": "To declare",
+      "validite": "Validity period: {duree}",
+      "echeance": "To declare before {date}",
+      "date": "Subscription date",
+      "montant": "Monthly amount charged (€ incl. VAT)",
+      "adresse": "Account address at the supplier",
+      "declarer": "Declare the subscription"
+    },
+    "abonnements": "Declared subscriptions",
+    "aucun": "No subscription declared.",
+    "colonnes": {
+      "offre": "Offer",
+      "equipe": "Team",
+      "compte": "Account",
+      "souscrit": "Subscribed on",
+      "montant": "Monthly amount",
+      "echeance": "Expiry",
+      "statut": "Status",
+      "actions": "Actions"
+    },
+    "horsLinagora": "address outside LINAGORA",
+    "resilieLe": "Cancelled on {date}",
+    "resiliationDemandee": "Cancellation requested on {date}",
+    "motif": "Reason: {motif}",
+    "renouveler": "Request the renewal",
+    "changerOffre": "Change plan",
+    "renouvellementDemande": "Renewal requested",
+    "changementDemande": "Plan change requested",
+    "resiliation": {
+      "ouvrir": "Declare the cancellation",
+      "formulaire": "Declare the cancellation: {offre}",
+      "date": "Cancellation date",
+      "aide": "First cancel the subscription with {fournisseur}, then declare its date here: no charge counts from that day.",
+      "declarer": "Confirm the cancellation"
+    },
+    "correction": {
+      "ouvrir": "Correct the amount",
+      "formulaire": "Correct the amount: {offre}",
+      "montant": "Actual monthly amount (€ incl. VAT)",
+      "aide": "Price increase, exchange rate: the correction applies from the next charge.",
+      "enregistrer": "Save the amount"
+    }
   }
 }

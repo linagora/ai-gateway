@@ -148,6 +148,11 @@ Mot de passe de la console : `ssh -t ia-host '/opt/linagora-ia/scripts/set-env-v
    ssh ia-host 'cd /opt/linagora-ia && docker compose exec -T postgres psql -U litellm -d litellm -v ON_ERROR_STOP=1 -f - < postgres/reporting_views.sql'
    ```
    Contrôle : `docker compose exec -T postgres psql -U reporting_ro -d litellm -c "select count(*) from v_requests"` fonctionne, et `select count(*) from public.\"LiteLLM_SpendLogs\"` est **refusé** (« permission denied » ; préciser le schéma `public`, sinon l'erreur est « does not exist » car le `search_path` de `reporting_ro` se limite à `reporting`).
+   Abonnements (ADR 0002), une fois les migrations du portail appliquées : lien entre bases, idempotent, à relancer après une migration du portail qui touche ses vues de reporting :
+   ```bash
+   ssh ia-host 'cd /opt/linagora-ia && sudo scripts/installer-lien-portail.sh'
+   ```
+   Le script génère `PORTAL_REPORTING_RO_PASSWORD` dans le `.env` s'il manque (jamais affiché), crée le rôle `portal_reporting_ro` (lecture seule du schéma `reporting` de la base `portal`), les vues du portail (`postgres/portal_reporting_views.sql`), le serveur `postgres_fdw` « portail » (connexion TCP au service `postgres`, authentifiée par mot de passe ; la correspondance d'utilisateur de `litellm` porte ce mot de passe, qui figure donc dans les sauvegardes de la base `litellm`), puis les tables étrangères (schéma `portail`, que `reporting_ro` ne lit pas) et les vues des abonnements du schéma `reporting` (`postgres/reporting_abonnements.sql`). Il finit par ses contrôles : lectures des vues, refus des tables étrangères, des tables brutes du portail et de l'écriture.
 2. Superset :
    ```bash
    ssh ia-host 'cd /opt/linagora-ia && docker compose build superset && \
@@ -162,8 +167,10 @@ Mot de passe de la console : `ssh -t ia-host '/opt/linagora-ia/scripts/set-env-v
    ```
    - **Consommation** (admins et lecteurs du reporting) : indicateurs comparés à la période précédente (coût, requêtes, jetons), taux de réussite, équipes et clés actives, vue d'ensemble par jour, modèles, fournisseurs et hébergements, consommation et budget par équipe, niveaux déclarés des clés.
    - **Pilotage** (admins) : plus gros consommateurs, clés les plus utilisées, clés à 80 % de leur budget ou plus, clés sans utilisation depuis 30 jours, qualité de service (taux d'erreur, latences moyenne et p95) par modèle et par fournisseur, contrôle devise (doit rester à 0).
+   - **Par salarié** (admins) : pour le salarié choisi dans le filtre obligatoire « Salarié (uid) », dépense de la passerelle comparée à la période précédente, par jour, par modèle, par niveau déclaré et par clé, et ses clés (statut, part du budget consommée, expiration) ; ses abonnements (offre, montant, dates, statut, adresse hors LINAGORA) et son coût mensuel sur douze mois. Suivi nominatif : les salariés en ont été informés.
+   - **Abonnements** dans « Consommation » : abonnements en cours par équipe, fournisseur et offre, avec leur coût mensuel ; coût mensuel sur douze mois et coût du mois en cours par équipe. La passerelle est en € HT (tarifs des fournisseurs), les abonnements en € TTC (prélèvements déclarés).
    - Période par défaut : les 30 derniers jours, aujourd'hui compris ; filtres Équipe et Niveau sur « Consommation ».
-   - Le rôle « Lecteur reporting » n'accède qu'aux vues agrégées (`v_usage_daily`, `v_team_budget`, `v_activity`) ; l'accès aux tableaux est réglé par rôle (`DASHBOARD_RBAC`). L'indicateur comparé à la période précédente (`pop_kpi`) exige `CHART_PLUGINS_EXPERIMENTAL`.
+   - Le rôle « Lecteur reporting » n'accède qu'aux vues agrégées (`v_usage_daily`, `v_team_budget`, `v_activity`, `v_team_subscriptions`, `v_team_monthly_cost`) ; l'accès aux tableaux est réglé par rôle (`DASHBOARD_RBAC`). L'indicateur comparé à la période précédente (`pop_kpi`) exige `CHART_PLUGINS_EXPERIMENTAL`.
    Autres lecteurs : ajouter leur uid à `PORTAL_REPORTING_UIDS` dans le `.env`, puis `docker compose --profile portal up -d portal`. Leur compte Superset est créé à la première visite, avec le rôle « Lecteur reporting » (créé par `superset/init-reporting.py`).
 3. Sauvegardes :
    ```bash
@@ -217,7 +224,7 @@ ssh ia-host 'sudo /opt/linagora-ia/scripts/installer-tache-quotidienne.sh && \
 1. Lire les notes de version (changements de schéma, ruptures d'API).
 2. `backup.sh`, puis vérification cosign du nouveau tag (phase 4).
 3. Mettre à jour `LITELLM_IMAGE`, `docker compose up -d litellm`, contrôler les logs de migration Prisma.
-4. Rejouer `reporting_views.sql` et vérifier les colonnes utilisées.
+4. Rejouer `reporting_views.sql` et vérifier les colonnes utilisées ; puis `scripts/installer-lien-portail.sh`, qui recrée les vues des abonnements.
 5. Contrôles de la phase 5.
 
 ## Dépannage rapide

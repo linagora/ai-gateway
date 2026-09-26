@@ -34,6 +34,7 @@ export default async function OutilsPage() {
         <ul className="mt-2 space-y-1">
           {lien("/stats/superset/dashboard/consommation/", t("reporting.consommation"))}
           {lien("/stats/superset/dashboard/pilotage/", t("reporting.pilotage"))}
+          {lien("/stats/superset/dashboard/par-salarie/", t("reporting.parSalarie"))}
           {lien("/stats/", t("reporting.accueil"))}
         </ul>
       </section>

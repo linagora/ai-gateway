@@ -13,7 +13,9 @@
     "gestion": "Gestion",
     "deconnexion": "Se déconnecter",
     "mesCles": "Mes clés",
+    "mesAbonnements": "Mes abonnements",
     "aRetirer": "{nombre, plural, one {# clé à retirer} other {# clés à retirer}}",
+    "aDeclarer": "{nombre, plural, one {# abonnement à déclarer} other {# abonnements à déclarer}}",
     "aCompleter": "{nombre, plural, one {# demande à compléter} other {# demandes à compléter}}",
     "aValider": "{nombre, plural, one {# demande à valider} other {# demandes à valider}}"
   },
@@ -31,6 +33,12 @@
       "N2": "N2 Interne",
       "N3": "N3 Confidentiel",
       "EXP": "Expérimental (bêta)"
+    },
+    "niveauxOffre": {
+      "N1": "N1 Public",
+      "N2": "N2 Interne",
+      "N3": "N3 Confidentiel",
+      "EXP": "Données publiques uniquement"
     },
     "classifications": {
       "NC": "Classification NC · Public",
@@ -62,11 +70,19 @@
       "ANNULEE": "Annulée",
       "CLE_EMISE": "Clé émise",
       "EXPIREE": "Expirée",
-      "REVOQUEE": "Révoquée"
+      "REVOQUEE": "Révoquée",
+      "DECLAREE": "Déclarée",
+      "RENOUVELEE": "Échéance reportée"
+    },
+    "statutsAbonnement": {
+      "ACTIF": "Actif",
+      "A_RESILIER": "À résilier",
+      "RESILIE": "Résilié"
     },
     "typesDemande": {
       "CLE": "Clé d'API",
-      "ADHESION_EQUIPE": "Accès à une équipe"
+      "ADHESION_EQUIPE": "Accès à une équipe",
+      "ABONNEMENT": "Abonnement"
     },
     "durees": {
       "1": "24 heures",
@@ -103,20 +119,27 @@
       "membreSorti": "Le membre est sorti de l'équipe : ses clés de l'équipe sont révoquées.",
       "equipeSupprimee": "Équipe supprimée.",
       "responsableDesigne": "Responsable désigné.",
-      "responsableRetire": "Rôle de responsable retiré."
+      "responsableRetire": "Rôle de responsable retiré.",
+      "offreEnregistree": "Offre enregistrée.",
+      "abonnementDeclare": "Abonnement déclaré.",
+      "montantCorrige": "Montant corrigé : il vaut à partir du prochain prélèvement.",
+      "resiliationDeclaree": "Résiliation déclarée.",
+      "resiliationDemandee": "Demande de résiliation envoyée au titulaire.",
+      "abonnementRattache": "Abonnement rattaché à l'équipe."
     },
     "erreurs": {
       "controles_en_echec": "La demande ne respecte pas la politique d'accès aux modèles. Contrôles en échec : {controles}.",
       "deja_membre": "Vous êtes déjà membre de l'équipe {equipe}.",
-      "demande_en_cours": "Vous avez déjà une demande d'accès en cours pour l'équipe {equipe}.",
+      "demande_en_cours": "{cas, select, abonnement {Une demande de renouvellement ou de changement d'offre est déjà en cours pour cet abonnement.} other {Vous avez déjà une demande d'accès en cours pour l'équipe {equipe}.}}",
+      "renouvellement_trop_tot": "Le renouvellement se demande au plus tôt un mois avant l'échéance de l'abonnement.",
       "engagement_requis": "Engagez-vous à ne pas soumettre de données d'un niveau supérieur à celui déclaré.",
       "interdit": "Action réservée aux administrateurs.",
-      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} membre {Membre introuvable dans cette équipe.} responsable {Responsable introuvable dans cette équipe.} other {Demande introuvable.}}",
+      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} membre {Membre introuvable dans cette équipe.} responsable {Responsable introuvable dans cette équipe.} offre {Offre d'abonnement introuvable.} demande_abonnement {Demande d'abonnement introuvable.} abonnement {Abonnement introuvable.} other {Demande introuvable.}}",
       "motif_obligatoire": "Un motif est obligatoire.",
       "parametre_manquant": "Budget, période du budget et durée de validité sont obligatoires : saisissez-les ou configurez des valeurs par défaut.",
       "recommandation_hors_cas_usage": "Une recommandation ne peut porter que sur un cas d'usage coché.",
       "tarif_eur_manquant": "Le modèle {modele} n'a pas de tarif en euros : il ne peut pas être rendu visible.",
-      "transition_interdite": "{cas, select, modifiee {La demande a été modifiée entre-temps ; rechargez la page.} traitee {Cette demande a déjà été traitée.} expiree {Cette clé a expiré : demandez son renouvellement.} bloquee {Cette clé est bloquée par un administrateur.} other {Cette action n'est pas possible au statut actuel de la demande.}}",
+      "transition_interdite": "{cas, select, modifiee {La demande a été modifiée entre-temps ; rechargez la page.} traitee {Cette demande a déjà été traitée.} expiree {Cette clé a expiré : demandez son renouvellement.} bloquee {Cette clé est bloquée par un administrateur.} declaration_expiree {Le délai de déclaration est passé : cette demande d'abonnement a expiré. Faites une nouvelle demande.} abonnement {Cette action n'est pas possible au statut actuel de l'abonnement ; rechargez la page.} other {Cette action n'est pas possible au statut actuel de la demande.}}",
       "saisie_invalide": "Saisie invalide : vérifiez les champs {champs}.",
       "inconnue": "Une erreur est survenue.",
       "passerelle_indisponible": "La passerelle ne répond pas : réessayez dans quelques instants.",
@@ -125,10 +148,13 @@
       "nom_equipe_pris": "Le nom {nom} est déjà pris par une autre équipe.",
       "salarie_inconnu": "Aucun salarié ne s'est encore connecté au portail avec l'identifiant {uid}.",
       "membre_existant": "{uid} est déjà membre de l'équipe {equipe}.",
-      "equipe_non_vide": "Cette équipe a encore des clés actives ({cles}) ou des demandes en cours ({demandes}) : révoquez ses clés, y compris celles créées depuis la console de LiteLLM, et traitez ses demandes avant de la supprimer.",
+      "equipe_non_vide": "Cette équipe a encore des clés actives ({cles}), des demandes en cours ({demandes}) ou des abonnements non résiliés ({abonnements}) : révoquez ses clés, y compris celles créées depuis la console de LiteLLM, traitez ses demandes, et faites résilier ou rattacher à une autre équipe ses abonnements avant de la supprimer.",
       "responsable_existant": "{uid} est déjà responsable de l'équipe {equipe}.",
       "quatre_yeux": "{cas, select, cle {Vous ne pouvez pas bloquer ni débloquer votre propre clé : un autre responsable de l'équipe ou un administrateur s'en chargera.} other {Vous ne pouvez pas décider de votre propre demande : un autre responsable de l'équipe ou un administrateur s'en chargera.}}",
-      "budget_equipe_invalide": "Budget d'équipe invalide : saisissez un montant positif ou nul (0 : sans limite) et, pour un montant positif, une période au format 30d, 12h…"
+      "budget_equipe_invalide": "Budget d'équipe invalide : saisissez un montant positif ou nul (0 : sans limite) et, pour un montant positif, une période au format 30d, 12h…",
+      "non_membre": "{cas, select, titulaire {{uid} n'est pas membre de l'équipe {equipe} : son abonnement ne peut pas y être rattaché.} other {Vous n'êtes pas membre de l'équipe {equipe}.}}",
+      "date_future": "{objet, select, resiliation {La date de résiliation ne peut pas être dans le futur.} other {La date de souscription ne peut pas être dans le futur.}}",
+      "date_avant_souscription": "La date de résiliation ne peut pas précéder la date de souscription."
     },
     "controles": {
       "membre_equipe": "Le demandeur est membre de l'équipe",
@@ -200,7 +226,24 @@
     "niveau": "Niveau maximal",
     "visible": "Visible des salariés",
     "enregistrer": "Enregistrer",
-    "aucunModele": "Aucun modèle n'est déclaré dans la passerelle."
+    "aucunModele": "Aucun modèle n'est déclaré dans la passerelle.",
+    "offres": {
+      "titre": "Offres d'abonnement",
+      "introduction": "Offres que les salariés peuvent demander pour leur équipe, puis souscrire eux-mêmes chez le fournisseur. Une offre masquée n'est plus proposée, sans être supprimée.",
+      "aucune": "Aucune offre pour l'instant.",
+      "fournisseur": "Fournisseur",
+      "nom": "Nom de l'offre",
+      "prix": "Prix mensuel TTC (€)",
+      "niveau": "Niveau maximal",
+      "reglesFr": "Règles d'usage (français)",
+      "reglesEn": "Règles d'usage (anglais)",
+      "lien": "Lien vers l'offre (https)",
+      "visible": "Visible au catalogue",
+      "masquee": "masquée",
+      "enregistrer": "Enregistrer l'offre",
+      "nouvelle": "Nouvelle offre",
+      "creer": "Créer l'offre"
+    }
   },
   "catalogue": {
     "titre": "Catalogue des modèles",
@@ -266,6 +309,21 @@
         ],
         "garanties": "Service en bêta, sans garantie : un modèle peut changer ou être retiré sans préavis. Clé dédiée, limitée aux modèles expérimentaux."
       }
+    },
+    "abonnements": {
+      "entree": {
+        "titre": "Abonnements",
+        "texte": "Des abonnements individuels chez des fournisseurs d'IA (ChatGPT, Claude, Kimi…), à demander pour votre équipe, puis à souscrire vous-même.",
+        "lien": "Voir les offres"
+      },
+      "titre": "Abonnements",
+      "introduction": "Ces offres se souscrivent individuellement chez leur fournisseur. Demandez-en une pour votre équipe : une fois votre demande validée, vous souscrivez vous-même, puis vous déclarez l'abonnement dans le portail.",
+      "aucune": "Aucune offre d'abonnement pour l'instant.",
+      "prix": "{prix} TTC par mois",
+      "niveau": "Niveau maximal des données : {niveau}",
+      "regles": "Règles d'usage",
+      "lienFournisseur": "Voir l'offre chez {fournisseur}",
+      "demander": "Demander cet abonnement"
     }
   },
   "niveau": {
@@ -342,7 +400,8 @@
     "completer": "Compléter",
     "annuler": "Annuler",
     "aucune": "Aucune demande pour l'instant.",
-    "retirer": "Retirer ma clé"
+    "retirer": "Retirer ma clé",
+    "declarer": "Déclarer"
   },
   "nouvelleDemande": {
     "titre": "Demander une clé d'API",
@@ -389,10 +448,12 @@
       "catalogue": "Catalogue",
       "parametres": "Valeurs par défaut",
       "cles": "Clés",
+      "abonnements": "Abonnements",
       "equipes": "Équipes",
       "aValider": "{nombre, plural, one {# demande à valider} other {# demandes à valider}}",
       "aRetirer": "{nombre, plural, one {# clé à retirer} other {# clés à retirer}}",
-      "outils": "Outils"
+      "outils": "Outils",
+      "aDeclarer": "{nombre, plural, one {# abonnement à déclarer} other {# abonnements à déclarer}}"
     },
     "file": {
       "titre": "Demandes en attente de validation",
@@ -455,8 +516,20 @@
       "equipeAffectation": "Équipe d'affectation",
       "aideEquipe": "Si le demandeur n'est pas membre de l'équipe choisie, l'approbation l'y ajoute.",
       "renouvellement": "Renouvellement de la clé {alias}.",
+      "renouvellementAbonnement": "Renouvellement de l'abonnement {offre}, qui arrive à échéance le {echeance} : approuvé, il reporte cette échéance de la durée de validité accordée, sans nouvelle déclaration.",
+      "changementOffre": "Changement d'offre : cet abonnement remplace l'abonnement {offre}, résilié à la déclaration de la nouvelle offre.",
       "depenseOrigine": "Dépense de cette clé : {depense}.",
-      "propreDemande": "Vous ne pouvez pas décider de votre propre demande : un autre responsable de l'équipe ou un administrateur s'en chargera."
+      "propreDemande": "Vous ne pouvez pas décider de votre propre demande : un autre responsable de l'équipe ou un administrateur s'en chargera.",
+      "approuverAbonnement": "Approuver (durée de validité de l'abonnement)",
+      "offre": "Offre",
+      "prixMensuel": "Prix mensuel",
+      "niveauMaximal": "Niveau maximal",
+      "dureeSouhaitee": "Durée souhaitée",
+      "validiteAccordee": "Durée de validité accordée",
+      "abonnementsEnCours": "Abonnements en cours du demandeur",
+      "aucunAbonnement": "Aucun abonnement en cours.",
+      "depuis": "depuis le {date}",
+      "parMois": "{montant} par mois"
     },
     "parametres": {
       "titre": "Valeurs par défaut des clés",
@@ -518,9 +591,10 @@
       "nouvelOnglet": "nouvel onglet",
       "reporting": {
         "titre": "Reporting (Superset)",
-        "description": "Tableaux de bord de la consommation de la passerelle : coûts, requêtes et jetons par équipe, par modèle et par niveau. « Pilotage » est réservé aux admins ; les lecteurs du reporting voient « Consommation ».",
+        "description": "Tableaux de bord de la consommation de la passerelle : coûts, requêtes et jetons par équipe, par modèle et par niveau. « Pilotage » et « Par salarié » sont réservés aux admins ; les lecteurs du reporting voient « Consommation ».",
         "consommation": "Tableau de bord « Consommation »",
         "pilotage": "Tableau de bord « Pilotage »",
+        "parSalarie": "Tableau de bord « Par salarié »",
         "accueil": "Accueil de Superset"
       },
       "passerelle": {
@@ -566,7 +640,7 @@
       "ajouter": "Ajouter à l'équipe",
       "colonneMembre": "Membre",
       "faireSortir": "Faire sortir de l'équipe",
-      "avertissementSortie": "Ses clés de cette équipe seront révoquées et ses demandes en cours dans l'équipe annulées.",
+      "avertissementSortie": "Ses clés de cette équipe seront révoquées et ses demandes en cours dans l'équipe annulées ; ses abonnements rattachés à l'équipe seront à résilier, sauf s'ils sont rattachés à une autre de ses équipes.",
       "confirmerSortie": "Confirmer la sortie",
       "suppression": {
         "titre": "Suppression de l'équipe",
@@ -581,7 +655,78 @@
       "retirerRole": "Retirer le rôle de responsable",
       "colonneResponsable": "Responsable",
       "colonneAdresse": "Adresse",
-      "aucun": "Aucun"
+      "aucun": "Aucun",
+      "abonnements": "Abonnements",
+      "resumeAbonnements": "{nombre, plural, =0 {Aucun abonnement} one {# abonnement actif, {total} TTC par mois} other {# abonnements actifs, {total} TTC par mois}}",
+      "aRattacher": {
+        "titre": "Abonnements à rattacher",
+        "introduction": "Ces membres sont sortis d'une autre équipe, à laquelle leur abonnement était rattaché : il est à résilier. Rattaché à cette équipe, il reste actif et ses prochains prélèvements lui sont imputés.",
+        "colonnes": {
+          "titulaire": "Titulaire",
+          "offre": "Offre",
+          "ancienneEquipe": "Ancienne équipe",
+          "depuis": "À résilier depuis le"
+        },
+        "formulaire": "Rattacher à cette équipe : {offre} de {titulaire}",
+        "rattacher": "Rattacher à cette équipe"
+      }
+    },
+    "abonnements": {
+      "titre": "Abonnements",
+      "filtreEquipe": "Abonnements de l'équipe {equipe}",
+      "tous": "Tous les abonnements",
+      "aDeclarer": {
+        "titre": "Abonnements approuvés, à déclarer par le salarié",
+        "approuve": "Approuvé le",
+        "avant": "À déclarer avant le"
+      },
+      "actifs": {
+        "titre": "Abonnements actifs",
+        "aucun": "Aucun abonnement actif."
+      },
+      "archive": {
+        "titre": "Archive : abonnements résiliés",
+        "aucune": "Aucun abonnement résilié.",
+        "pagination": "Pages de l'archive des abonnements",
+        "position": "Page {page} sur {pages} ({total, plural, one {# abonnement résilié} other {# abonnements résiliés}})",
+        "plusRecentes": "Abonnements plus récents",
+        "plusAnciennes": "Abonnements plus anciens"
+      },
+      "colonnes": {
+        "titulaire": "Titulaire",
+        "equipe": "Équipe",
+        "offre": "Offre",
+        "compte": "Compte",
+        "souscrit": "Souscrit le",
+        "montant": "Montant mensuel",
+        "echeance": "Échéance",
+        "statut": "Statut",
+        "prelevements": "Prélèvements",
+        "actions": "Actions"
+      },
+      "horsLinagora": "adresse hors LINAGORA",
+      "resilieLe": "Résilié le {date}",
+      "demande": {
+        "origine": "{origine, select, SORTIE {après la sortie de l'équipe, le {date}} other {demandée par {auteur} le {date}}}",
+        "motif": "Motif : {motif}"
+      },
+      "resiliation": {
+        "demander": "Demander la résiliation",
+        "formulaireDemande": "Demander la résiliation : {offre} de {titulaire}",
+        "motif": "Motif",
+        "aideDemande": "Le titulaire en est prévenu par courriel, avec le motif : il résilie l'abonnement chez le fournisseur, puis déclare la résiliation.",
+        "envoyer": "Envoyer la demande de résiliation",
+        "declarer": "Déclarer la résiliation",
+        "formulaireDeclaration": "Déclarer la résiliation : {offre} de {titulaire}",
+        "date": "Date de résiliation",
+        "aideDeclaration": "À la place du titulaire (départ de l'entreprise, oubli) : la résiliation est inscrite à votre nom, et le titulaire en est prévenu.",
+        "enregistrer": "Déclarer la résiliation à sa place"
+      },
+      "prelevements": {
+        "aucun": "Aucun",
+        "resume": "{nombre, plural, one {# prélèvement} other {# prélèvements}}, {total} au total",
+        "ligne": "{date} : {montant}, équipe {equipe}"
+      }
     }
   },
   "introuvable": {
@@ -681,6 +826,10 @@
       "budgetValeur": "{montant, number, ::currency/EUR} par période de {periode}",
       "validite": "Durée de validité",
       "expiration": "Expiration",
+      "offre": "Offre",
+      "prixMensuel": "Prix mensuel",
+      "prixMensuelValeur": "{montant, number, ::currency/EUR} TTC",
+      "niveauMaximal": "Niveau maximal",
       "date": "{date, date, long}"
     },
     "nouvelleDemandeCle": {
@@ -691,21 +840,43 @@
       "sujet": "Nouvelle demande d'accès à une équipe de {nom}",
       "corps": "{nom} ({email}) demande à rejoindre l'équipe {equipe} :"
     },
+    "nouvelleDemandeAbonnement": {
+      "sujet": "Nouvelle demande d'abonnement de {nom}",
+      "corps": "{nom} ({email}) demande un abonnement :"
+    },
     "demandeApprouvee": {
       "sujet": "Votre demande de clé est approuvée",
       "corps": "Votre demande de clé d'API pour l'équipe {equipe} est approuvée. Paramètres de votre clé :",
       "retrait": "Retirez votre clé avant le {date, date, long} dans « Mes clés » : elle ne s'affichera qu'une seule fois.",
       "retraitSansEcheance": "Retirez votre clé dans « Mes clés » : elle ne s'affichera qu'une seule fois."
     },
+    "abonnementApprouve": {
+      "sujet": "Votre demande d'abonnement est approuvée",
+      "corps": "Votre demande d'abonnement pour l'équipe {equipe} est approuvée :",
+      "souscrire": "Souscrivez-le vous-même chez {fournisseur}, de préférence avec votre adresse professionnelle, et désactivez l'utilisation de vos données pour l'entraînement des modèles.",
+      "regles": "Règles d'usage : {regles}",
+      "declarer": "Déclarez ensuite l'abonnement dans « Mes abonnements » avant le {date, date, long}.",
+      "declarerSansEcheance": "Déclarez ensuite l'abonnement dans « Mes abonnements ».",
+      "remplace": "Cet abonnement remplace votre abonnement {offre} : à sa déclaration, l'abonnement remplacé sera résilié à la date de souscription déclarée."
+    },
+    "renouvellementApprouve": {
+      "sujet": "Votre demande de renouvellement est approuvée",
+      "corps": "L'échéance de votre abonnement {offre}, rattaché à l'équipe {equipe}, est reportée au {date, date, long} : rien d'autre à faire."
+    },
+    "rappelEcheance": {
+      "sujet": "Échéance de votre abonnement {offre}",
+      "corps": "Votre abonnement {offre}, rattaché à l'équipe {equipe}, arrive à échéance le {date, date, long}, {jours, plural, one {demain} other {dans # jours}}.",
+      "suite": "Demandez son renouvellement dans « Mes abonnements » ; sinon, résiliez-le chez {fournisseur}, puis déclarez la résiliation."
+    },
     "demandeRefusee": {
       "sujet": "Votre demande est refusée",
-      "corps": "{type, select, CLE {Votre demande de clé d'API pour l'équipe {equipe} est refusée.} other {Votre demande d'accès à l'équipe {equipe} est refusée.}}",
+      "corps": "{type, select, CLE {Votre demande de clé d'API pour l'équipe {equipe} est refusée.} ABONNEMENT {Votre demande d'abonnement pour l'équipe {equipe} est refusée.} other {Votre demande d'accès à l'équipe {equipe} est refusée.}}",
       "motif": "Motif du refus : {motif}",
       "suite": "Vous pouvez déposer une nouvelle demande depuis le portail."
     },
     "complementDemande": {
       "sujet": "Votre demande est à compléter",
-      "corps": "{type, select, CLE {Un administrateur demande un complément sur votre demande de clé d'API pour l'équipe {equipe}.} other {Un administrateur demande un complément sur votre demande d'accès à l'équipe {equipe}.}}",
+      "corps": "{type, select, CLE {Un administrateur demande un complément sur votre demande de clé d'API pour l'équipe {equipe}.} ABONNEMENT {Un administrateur demande un complément sur votre demande d'abonnement pour l'équipe {equipe}.} other {Un administrateur demande un complément sur votre demande d'accès à l'équipe {equipe}.}}",
       "commentaire": "Commentaire de l'administrateur : {commentaire}",
       "suite": "Complétez-la dans « Mes demandes »."
     },
@@ -717,6 +888,25 @@
     "rappelRetrait": {
       "sujet": "Rappel : votre clé est à retirer",
       "corps": "Votre clé d'API pour l'équipe {equipe} vous attend. Retirez-la avant le {date, date, long} dans « Mes clés » : passé ce délai, la demande expire."
+    },
+    "rappelDeclaration": {
+      "sujet": "Rappel : votre abonnement est à déclarer",
+      "corps": "Votre demande d'abonnement {offre} pour l'équipe {equipe} est approuvée : déclarez l'abonnement dans « Mes abonnements » avant le {date, date, long}, faute de quoi elle expirera."
+    },
+    "demandeResiliation": {
+      "sujet": "Demande de résiliation de votre abonnement {offre}",
+      "corps": "{origine, select, SORTIE {Après votre sortie de l'équipe {equipe}, votre abonnement {offre}, qui lui était rattaché, est à résilier, sauf si un admin ou un responsable d'une autre de vos équipes l'y rattache.} ECHEANCE {Votre abonnement {offre}, rattaché à l'équipe {equipe}, est arrivé à échéance sans être renouvelé : il est à résilier.} RENOUVELLEMENT_REFUSE {Le renouvellement de votre abonnement {offre}, rattaché à l'équipe {equipe}, est refusé : il est à résilier.} RESPONSABLE {Un responsable de votre équipe demande la résiliation de votre abonnement {offre}, rattaché à l'équipe {equipe}.} other {Un administrateur demande la résiliation de votre abonnement {offre}, rattaché à l'équipe {equipe}.}}",
+      "motif": "Motif : {motif}",
+      "suite": "Résiliez-le chez {fournisseur}, puis déclarez la résiliation dans « Mes abonnements » avant le {date, date, long}.",
+      "suiteSansEcheance": "Résiliez-le chez {fournisseur}, puis déclarez la résiliation dans « Mes abonnements »."
+    },
+    "resiliationParAdmin": {
+      "sujet": "Résiliation de votre abonnement {offre}",
+      "corps": "Un administrateur a déclaré la résiliation de votre abonnement {offre}, rattaché à l'équipe {equipe}, au {date, date, long} : aucun prélèvement ne lui est plus compté à partir de cette date. Si ce n'est déjà fait, résiliez-le chez {fournisseur}."
+    },
+    "alerteResiliation": {
+      "sujet": "Résiliation non déclarée : {offre} de {titulaire}",
+      "corps": "La résiliation de l'abonnement {offre} de {titulaire}, rattaché à l'équipe {equipe}, a été demandée le {date, date, long} ; elle n'est toujours pas déclarée. Relancez le titulaire ; un administrateur peut aussi la déclarer à sa place."
     },
     "rappelExpiration": {
       "sujet": "Rappel : votre clé {alias} expire bientôt",
@@ -772,11 +962,15 @@
       },
       "decision": {
         "sujet": "Demande traitée dans l'équipe {equipe} : {demandeur}",
-        "corps": "{auteur} a {decision, select, approuvee {approuvé la demande de clé d'API de {demandeur}} refusee {refusé la demande de {demandeur}} complement {demandé un complément à {demandeur} sur sa demande} adhesion {accepté la demande d'accès de {demandeur}} other {traité la demande de {demandeur}}}."
+        "corps": "{auteur} a {decision, select, approuvee {approuvé la demande de clé d'API de {demandeur}} refusee {refusé la demande de {demandeur}} complement {demandé un complément à {demandeur} sur sa demande} adhesion {accepté la demande d'accès de {demandeur}} abonnement {approuvé la demande d'abonnement de {demandeur}} other {traité la demande de {demandeur}}}."
       },
       "cle": {
         "sujet": "Action sur une clé de l'équipe {equipe} : {alias}",
         "corps": "{auteur} a {action, select, revocation {révoqué} blocage {bloqué} other {débloqué}} la clé {alias} de {titulaire}."
+      },
+      "resiliationDemandee": {
+        "sujet": "Résiliation demandée dans l'équipe {equipe} : {titulaire}",
+        "corps": "{auteur} a demandé la résiliation de l'abonnement {offre} de {titulaire}."
       }
     },
     "alerteBudget": {
@@ -802,5 +996,79 @@
   "validation": {
     "valideePar": "Votre demande sera validée par : {valideurs}.",
     "valideeParAdmins": "Votre demande sera validée par les administrateurs."
+  },
+  "demandeAbonnement": {
+    "titre": "Demander un abonnement",
+    "titreCompleter": "Compléter votre demande d'abonnement",
+    "offreDemandee": "Offre demandée : {offre}",
+    "engagement": "Je m'engage à ne confier à cet abonnement aucune donnée d'un niveau supérieur à : {niveau}.",
+    "offreIntrouvable": "Cette offre n'est plus proposée.",
+    "voirOffres": "Voir les offres",
+    "completerRenouvellement": "Renouvellement de votre abonnement rattaché à l'équipe {equipe} : l'offre et l'équipe restent celles de l'abonnement.",
+    "completerChangement": "Changement d'offre de votre abonnement rattaché à l'équipe {equipe} : l'équipe reste celle de l'abonnement.",
+    "titreRenouveler": "Renouveler un abonnement",
+    "renouvellementImpossible": "Cet abonnement ne peut pas être renouvelé maintenant : le renouvellement d'un abonnement non résilié se demande à partir d'un mois avant son échéance.",
+    "retourAbonnements": "Retour à « Mes abonnements »",
+    "abonnementRenouvele": "Abonnement renouvelé : {offre}",
+    "equipeEtEcheance": "Rattaché à l'équipe {equipe}, échéance le {date}.",
+    "aideRenouvellement": "Approuvé, le renouvellement reporte l'échéance de la durée accordée, à partir de l'échéance en cours, sans nouvelle déclaration ; refusé, il vaut demande de résiliation de l'abonnement.",
+    "envoyerRenouvellement": "Demander le renouvellement",
+    "titreChanger": "Changer d'offre",
+    "abonnementIntrouvable": "Cet abonnement est introuvable ou résilié.",
+    "aucuneAutreOffre": "Aucune autre offre du fournisseur de votre abonnement {offre} n'est proposée.",
+    "abonnementRemplace": "Abonnement remplacé : {offre}, rattaché à l'équipe {equipe}.",
+    "nouvelleOffre": "Nouvelle offre",
+    "choixOffre": "{offre} : {prix} TTC par mois, {niveau}",
+    "aideChangement": "Une fois la demande approuvée, souscrivez la nouvelle offre chez le fournisseur, puis déclarez-la dans « Mes abonnements » : l'abonnement remplacé sera résilié à la date de souscription déclarée.",
+    "engagementOffreChoisie": "Je m'engage à ne confier à cet abonnement aucune donnée d'un niveau supérieur au niveau maximal de l'offre choisie.",
+    "envoyerChangement": "Demander le changement d'offre"
+  },
+  "mesAbonnements": {
+    "titre": "Mes abonnements",
+    "introduction": "Vos abonnements individuels aux offres des fournisseurs d'IA. Une fois l'abonnement souscrit chez le fournisseur, déclarez ici votre demande approuvée.",
+    "voirOffres": "Voir les offres d'abonnement",
+    "aDeclarer": {
+      "titre": "À déclarer",
+      "validite": "Durée de validité : {duree}",
+      "echeance": "À déclarer avant le {date}",
+      "date": "Date de souscription",
+      "montant": "Montant mensuel prélevé (€ TTC)",
+      "adresse": "Adresse du compte chez le fournisseur",
+      "declarer": "Déclarer l'abonnement"
+    },
+    "abonnements": "Abonnements déclarés",
+    "aucun": "Aucun abonnement déclaré.",
+    "colonnes": {
+      "offre": "Offre",
+      "equipe": "Équipe",
+      "compte": "Compte",
+      "souscrit": "Souscrit le",
+      "montant": "Montant mensuel",
+      "echeance": "Échéance",
+      "statut": "Statut",
+      "actions": "Actions"
+    },
+    "horsLinagora": "adresse hors LINAGORA",
+    "resilieLe": "Résilié le {date}",
+    "resiliationDemandee": "Résiliation demandée le {date}",
+    "motif": "Motif : {motif}",
+    "renouveler": "Demander le renouvellement",
+    "changerOffre": "Changer d'offre",
+    "renouvellementDemande": "Renouvellement demandé",
+    "changementDemande": "Changement d'offre demandé",
+    "resiliation": {
+      "ouvrir": "Déclarer la résiliation",
+      "formulaire": "Déclarer la résiliation : {offre}",
+      "date": "Date de résiliation",
+      "aide": "Résiliez d'abord l'abonnement chez {fournisseur}, puis déclarez-en ici la date : aucun prélèvement ne compte à partir de ce jour.",
+      "declarer": "Confirmer la résiliation"
+    },
+    "correction": {
+      "ouvrir": "Corriger le montant",
+      "formulaire": "Corriger le montant : {offre}",
+      "montant": "Montant mensuel réel (€ TTC)",
+      "aide": "Hausse de prix, change : la correction vaut à partir du prochain prélèvement.",
+      "enregistrer": "Enregistrer le montant"
+    }
   }
 }

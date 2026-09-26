@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { PortalError } from "@/lib/errors";
 import type { Langue } from "@/lib/langue";
+import { DUREE_ABONNEMENT_PAR_DEFAUT, DUREES_ABONNEMENT } from "@/lib/durees";
 import { modelAcceptsLevel } from "@/lib/policy";
 import { getRequestReview } from "@/lib/services/admin-requests";
 import { equipesGerees } from "@/lib/services/autorite";
@@ -10,6 +11,7 @@ import { listCatalog } from "@/lib/services/catalog";
 import { readSettings } from "@/lib/services/settings";
 import { getDeps, requireGestionPage } from "@/lib/session";
 import {
+  approuverAbonnementAction,
   approveKeyRequestAction,
   approveTeamJoinRequestAction,
   refuseRequestAction,
@@ -22,7 +24,7 @@ import { AdminNav } from "../../admin-nav";
 /** F-31 / F-32 : fiche d'une demande, contrôles de politique réussis ou en échec, et décisions. */
 export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id]">) {
   const admin = await requireGestionPage();
-  const [{ date, euros }, t, domaine, avis, language] = await Promise.all([
+  const [{ date, euros, jour }, t, domaine, avis, language] = await Promise.all([
     formats(),
     getTranslations("gestion.fiche"),
     getTranslations("domaine"),
@@ -75,6 +77,14 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
           {review.renewal.spend !== null && ` ${t("depenseOrigine", { depense: euros(review.renewal.spend) })}`}
         </p>
       )}
+      {review.renewedSubscription && (
+        <p className="mb-4 rounded border border-neutral-300 bg-neutral-50 p-3">
+          {t("renouvellementAbonnement", { offre: review.renewedSubscription.offer, echeance: jour(review.renewedSubscription.expiresAt) })}
+        </p>
+      )}
+      {review.replacedSubscription && (
+        <p className="mb-4 rounded border border-neutral-300 bg-neutral-50 p-3">{t("changementOffre", { offre: review.replacedSubscription.offer })}</p>
+      )}
       <dl className="grid grid-cols-[12rem_1fr] gap-x-4 gap-y-1">
         <dt>{t("statut")}</dt>
         <dd>{domaine(`statuts.${review.status}`)}</dd>
@@ -103,6 +113,28 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
             </dd>
           </>
         )}
+        {review.kind === "ABONNEMENT" && review.subscriptionOffer && (
+          <>
+            <dt>{t("offre")}</dt>
+            <dd>
+              {review.subscriptionOffer.name} ({review.subscriptionOffer.supplier})
+            </dd>
+            <dt>{t("prixMensuel")}</dt>
+            <dd>{euros(review.subscriptionOffer.monthlyPriceEur)}</dd>
+            <dt>{t("niveauMaximal")}</dt>
+            <dd>{domaine(`niveauxOffre.${review.subscriptionOffer.dataLevel}`)}</dd>
+            <dt>{t("projet")}</dt>
+            <dd>{review.project ?? domaine("nonRenseigne")}</dd>
+            <dt>{t("dureeSouhaitee")}</dt>
+            <dd>{review.requestedDays !== null ? libelleDuree(domaine, review.requestedDays) : domaine("nonRenseigne")}</dd>
+            {review.approvedDays !== null && (
+              <>
+                <dt>{t("validiteAccordee")}</dt>
+                <dd>{libelleDuree(domaine, review.approvedDays)}</dd>
+              </>
+            )}
+          </>
+        )}
         <dt>{t("motif")}</dt>
         <dd>{review.justification}</dd>
         {review.decisionComment && (
@@ -112,6 +144,23 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
           </>
         )}
       </dl>
+
+      {review.kind === "ABONNEMENT" && (
+        <section aria-labelledby="abonnements-en-cours">
+          <h2 id="abonnements-en-cours">{t("abonnementsEnCours")}</h2>
+          {review.requesterSubscriptions.length === 0 ? (
+            <p>{t("aucunAbonnement")}</p>
+          ) : (
+            <ul>
+              {review.requesterSubscriptions.map((a, i) => (
+                <li key={i}>
+                  {a.offer} · {a.teamAlias} · {t("depuis", { date: jour(a.subscribedAt) })} · {t("parMois", { montant: euros(a.monthlyAmountEur) })}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       {review.kind === "CLE" && (
         <>
@@ -179,6 +228,26 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
             <label>
               {t("tpm")}
               <input name="tpmLimit" type="number" min="1" step="1" defaultValue={settings.default_tpm ?? ""} />
+            </label>
+            <button type="submit">{t("approuver")}</button>
+          </form>
+        </>
+      )}
+
+      {peutDecider && review.kind === "ABONNEMENT" && (
+        <>
+          <h2>{t("approuverAbonnement")}</h2>
+          <form action={approuverAbonnementAction}>
+            <input type="hidden" name="id" value={review.id} />
+            <label>
+              {t("validite")}
+              <select name="days" defaultValue={review.requestedDays ?? DUREE_ABONNEMENT_PAR_DEFAUT}>
+                {DUREES_ABONNEMENT.map((jours) => (
+                  <option key={jours} value={jours}>
+                    {libelleDuree(domaine, jours)}
+                  </option>
+                ))}
+              </select>
             </label>
             <button type="submit">{t("approuver")}</button>
           </form>

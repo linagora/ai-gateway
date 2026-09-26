@@ -11,11 +11,16 @@ import type { DataLevel } from "@/lib/policy";
 import type { UseCase } from "@/lib/use-cases";
 import {
   approveKeyRequest,
+  approveSubscriptionRequest,
   approveTeamJoinRequest,
   refuseRequest,
   requestCompletion,
 } from "@/lib/services/admin-requests";
 import { saveCatalogEntry } from "@/lib/services/catalog";
+import { saveOffer } from "@/lib/services/offers";
+import { requestOfferChange, requestRenewal } from "@/lib/services/renouvellements";
+import { declareTermination, reattachSubscription, requestTermination } from "@/lib/services/resiliations";
+import { completeSubscriptionRequest, correctSubscriptionAmount, createSubscriptionRequest, declareSubscription } from "@/lib/services/subscriptions";
 import { blockKey, pickUpKey, replaceKey, revokeKey, unblockKey } from "@/lib/services/keys";
 import { cancelRequest, completeRequest, createKeyRequest, createTeamJoinRequest } from "@/lib/services/requests";
 import { saveSettings } from "@/lib/services/settings";
@@ -70,6 +75,126 @@ export async function createKeyRequestAction(formData: FormData): Promise<void> 
   );
 }
 
+/** Spécification #51, ticket #54 : demande d'abonnement, ou complément d'une demande renvoyée. */
+export async function demanderAbonnementAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const completing = text(formData, "requestId");
+  const input = {
+    offerId: text(formData, "offerId"),
+    teamId: text(formData, "teamId"),
+    justification: text(formData, "justification"),
+    project: optionalText(formData, "project"),
+    requestedDays: optionalNumber(formData, "requestedDays") ?? Number.NaN,
+    commitment: formData.get("commitment") === "on",
+  };
+  const formulaire = `/demandes/abonnement?${completing ? `completer=${encodeURIComponent(completing)}` : `offre=${encodeURIComponent(input.offerId)}`}`;
+  await run(
+    formulaire,
+    async () => {
+      if (completing) await completeSubscriptionRequest(getDeps(), user, completing, input);
+      else await createSubscriptionRequest(getDeps(), user, input);
+    },
+    { path: "/demandes", message: completing ? "demandeResoumise" : "demandeEnvoyee" },
+  );
+}
+
+/** Champs d'un renouvellement ou d'un changement d'offre : motif, projet, durée souhaitée et engagement. */
+function demandeSurAbonnementDuFormulaire(formData: FormData) {
+  return {
+    justification: text(formData, "justification"),
+    project: optionalText(formData, "project"),
+    requestedDays: optionalNumber(formData, "requestedDays") ?? Number.NaN,
+    commitment: formData.get("commitment") === "on",
+  };
+}
+
+/** Ticket #59 : le titulaire demande le renouvellement d'un abonnement, dès un mois avant son échéance. */
+export async function demanderRenouvellementAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const abonnement = text(formData, "subscriptionId");
+  await run(`/demandes/abonnement?renouveler=${encodeURIComponent(abonnement)}`, () => requestRenewal(getDeps(), user, abonnement, demandeSurAbonnementDuFormulaire(formData)), {
+    path: "/demandes",
+    message: "demandeEnvoyee",
+  });
+}
+
+/** Ticket #59 : le titulaire demande à passer un abonnement à une autre offre du même fournisseur. */
+export async function demanderChangementOffreAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const abonnement = text(formData, "subscriptionId");
+  await run(
+    `/demandes/abonnement?changer=${encodeURIComponent(abonnement)}`,
+    () => requestOfferChange(getDeps(), user, abonnement, { ...demandeSurAbonnementDuFormulaire(formData), offerId: text(formData, "offerId") }),
+    { path: "/demandes", message: "demandeEnvoyee" },
+  );
+}
+
+/** Spécification #51, ticket #55 : le titulaire déclare l'abonnement approuvé qu'il a souscrit. */
+export async function declarerAbonnementAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  await run(
+    "/abonnements",
+    () =>
+      declareSubscription(getDeps(), user, text(formData, "requestId"), {
+        subscribedAt: text(formData, "subscribedAt"),
+        monthlyAmountEur: optionalNumber(formData, "monthlyAmountEur") ?? Number.NaN,
+        accountEmail: text(formData, "accountEmail"),
+      }),
+    { path: "/abonnements", message: "abonnementDeclare" },
+  );
+}
+
+/** Ticket #57 : le titulaire corrige le montant mensuel de son abonnement, depuis « Mes abonnements ». */
+export async function corrigerMontantAbonnementAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  await run(
+    "/abonnements",
+    () => correctSubscriptionAmount(getDeps(), user, text(formData, "subscriptionId"), { monthlyAmountEur: optionalNumber(formData, "monthlyAmountEur") ?? Number.NaN }),
+    { path: "/abonnements", message: "montantCorrige" },
+  );
+}
+
+/** Ticket #58 : le titulaire déclare la résiliation de son abonnement depuis « Mes abonnements ». */
+export async function declarerResiliationAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  await run(
+    "/abonnements",
+    () => declareTermination(getDeps(), user, text(formData, "subscriptionId"), { terminatedOn: text(formData, "terminatedOn") }),
+    { path: "/abonnements", message: "resiliationDeclaree" },
+  );
+}
+
+/** Ticket #58 : un admin déclare la résiliation à la place du titulaire, depuis l'onglet « Abonnements » de la gestion. */
+export async function declarerResiliationGestionAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const page = pageAbonnements(formData);
+  await run(
+    page,
+    () => declareTermination(getDeps(), user, text(formData, "subscriptionId"), { terminatedOn: text(formData, "terminatedOn") }),
+    { path: page, message: "resiliationDeclaree" },
+  );
+}
+
+/** Ticket #58 : un responsable de l'équipe ou un admin demande la résiliation d'un abonnement, avec un motif. */
+export async function demanderResiliationAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const page = pageAbonnements(formData);
+  await run(page, () => requestTermination(getDeps(), user, text(formData, "subscriptionId"), { reason: text(formData, "reason") }), {
+    path: page,
+    message: "resiliationDemandee",
+  });
+}
+
+/** Ticket #58 : rattachement d'un abonnement à l'équipe dont la page est ouverte. */
+export async function rattacherAbonnementAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const page = pageEquipe(formData);
+  await run(page, () => reattachSubscription(getDeps(), user, text(formData, "subscriptionId"), { teamId: text(formData, "id") }), {
+    path: page,
+    message: "abonnementRattache",
+  });
+}
+
 export async function createTeamJoinRequestAction(formData: FormData): Promise<void> {
   const user = await requireUser();
   await run(
@@ -109,6 +234,27 @@ export async function saveCatalogEntryAction(formData: FormData): Promise<void> 
   );
 }
 
+/** Spécification #51, ticket #53 : création ou modification d'une offre d'abonnement par un admin. */
+export async function enregistrerOffreAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  await run(
+    "/gestion/catalogue",
+    () =>
+      saveOffer(getDeps(), user, {
+        id: optionalText(formData, "id") ?? undefined,
+        supplier: text(formData, "supplier"),
+        name: text(formData, "name"),
+        monthlyPriceEur: optionalNumber(formData, "monthlyPriceEur") ?? Number.NaN,
+        dataLevel: text(formData, "dataLevel") as DataLevel,
+        rulesFr: text(formData, "rulesFr"),
+        rulesEn: optionalText(formData, "rulesEn"),
+        url: optionalText(formData, "url"),
+        visible: formData.get("visible") === "on",
+      }),
+    { path: "/gestion/catalogue", message: "offreEnregistree" },
+  );
+}
+
 export async function approveKeyRequestAction(formData: FormData): Promise<void> {
   const user = await requireUser();
   const id = text(formData, "id");
@@ -126,6 +272,16 @@ export async function approveKeyRequestAction(formData: FormData): Promise<void>
       }),
     { path: "/gestion/demandes", message: "demandeApprouvee" },
   );
+}
+
+/** Spécification #51, ticket #54 : approbation d'une demande d'abonnement, avec sa durée de validité. */
+export async function approuverAbonnementAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const id = text(formData, "id");
+  await run(`/gestion/demandes/${id}`, () => approveSubscriptionRequest(getDeps(), user, id, { days: optionalNumber(formData, "days") ?? Number.NaN }), {
+    path: "/gestion/demandes",
+    message: "demandeApprouvee",
+  });
 }
 
 export async function approveTeamJoinRequestAction(formData: FormData): Promise<void> {
@@ -287,6 +443,12 @@ type CleSucces =
   | "adhesionEnvoyee"
   | "demandeAnnulee"
   | "catalogueMisAJour"
+  | "offreEnregistree"
+  | "abonnementDeclare"
+  | "montantCorrige"
+  | "resiliationDeclaree"
+  | "resiliationDemandee"
+  | "abonnementRattache"
   | "demandeApprouvee"
   | "adhesionApprouvee"
   | "demandeRefusee"
@@ -313,9 +475,10 @@ async function run(errorPath: string, action: () => Promise<unknown>, success: {
     erreur = describeError(e);
   }
   // redirect() lève une exception de navigation : il doit rester hors du try/catch.
-  if (erreur) redirect(`${errorPath}?${erreur}`);
-  revalidatePath(success.path);
-  redirect(`${success.path}?ok=${success.message}`);
+  if (erreur) redirect(`${errorPath}${errorPath.includes("?") ? "&" : "?"}${erreur}`);
+  // Une page filtrée (?equipe=) garde son filtre ; la revalidation porte sur son chemin seul.
+  revalidatePath(success.path.split("?")[0]);
+  redirect(`${success.path}${success.path.includes("?") ? "&" : "?"}ok=${success.message}`);
 }
 
 /** Erreur → paramètres d'adresse : code, paramètres (JSON) et, pour la politique, contrôles en échec. */
@@ -347,6 +510,12 @@ function keyRequestFromForm(formData: FormData) {
 /** Page de l'équipe visée par un formulaire de la gestion des équipes (champ « id »). */
 function pageEquipe(formData: FormData): string {
   return `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+}
+
+/** Onglet « Abonnements » de la gestion, filtré sur l'équipe du formulaire quand il l'était. */
+function pageAbonnements(formData: FormData): string {
+  const equipe = text(formData, "equipe");
+  return equipe ? `/gestion/abonnements?equipe=${encodeURIComponent(equipe)}` : "/gestion/abonnements";
 }
 
 function text(formData: FormData, name: string): string {
