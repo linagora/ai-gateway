@@ -185,6 +185,17 @@ describe("le responsable gère les clés et les membres de ses équipes (ticket 
     expect((await listAudit(testDb)).map((e) => [e.actorUid, e.action])).toEqual(expect.arrayContaining([["lbernard", "KEY_BLOCKED"], ["lbernard", "KEY_UNBLOCKED"], ["lbernard", "KEY_REVOKED"]]));
   });
 
+  test("il ne bloque ni ne débloque sa propre clé : il ne lève pas un blocage décidé par un admin ; un autre responsable le peut", async () => {
+    const sienne = await cleEmise("lbernard", "equipe-rd", "R&D");
+    await blockKey(deps, admin, sienne.id);
+    await expect(unblockKey(deps, responsable, sienne.id)).rejects.toMatchObject({ code: "quatre_yeux", params: { cas: "cle" } });
+    await expect(blockKey(deps, responsable, sienne.id)).rejects.toMatchObject({ code: "quatre_yeux", params: { cas: "cle" } });
+    expect(litellm.keys.get(sienne.keyTokenId!)?.blocked).toBe(true);
+    await testDb.teamManager.create({ data: { teamId: "equipe-rd", uid: "pmartin", email: "pmartin@linagora.com", designatedBy: "jdupont" } });
+    await unblockKey(deps, membre, sienne.id);
+    expect(litellm.keys.get(sienne.keyTokenId!)?.blocked).toBe(false);
+  });
+
   test("une clé d'une autre équipe lui reste introuvable", async () => {
     const cle = await cleEmise("jdupont", "equipe-data", "Data");
     await expect(blockKey(deps, responsable, cle.id)).rejects.toMatchObject({ code: "introuvable" });

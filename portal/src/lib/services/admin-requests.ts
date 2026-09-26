@@ -319,7 +319,7 @@ async function teamForApproval(
 async function requireDecision(deps: AdminDeps, actor: SessionUser, request: { teamId: string; requesterUid: string }, objet: string): Promise<void> {
   await requireAutorite(deps.db, actor, request.teamId, objet);
   if (!actor.isAdmin && request.requesterUid === actor.uid) {
-    throw new PortalError("quatre_yeux", "Un responsable ne décide pas de sa propre demande.");
+    throw new PortalError("quatre_yeux", "Un responsable ne décide pas de sa propre demande.", { cas: "demande" });
   }
 }
 

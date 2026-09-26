@@ -126,7 +126,7 @@
       "membre_existant": "{uid} is already a member of the team {equipe}.",
       "equipe_non_vide": "This team still has active keys ({cles}) or pending requests ({demandes}): revoke its keys and process its requests before deleting it.",
       "responsable_existant": "{uid} is already a manager of the team {equipe}.",
-      "quatre_yeux": "You cannot decide on your own request: another manager of the team or an administrator will handle it."
+      "quatre_yeux": "{cas, select, cle {You cannot block or unblock your own key: another manager of the team or an administrator will handle it.} other {You cannot decide on your own request: another manager of the team or an administrator will handle it.}}"
     },
     "controles": {
       "membre_equipe": "The requester is a member of the team",
