@@ -1,3 +1,4 @@
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -35,8 +36,8 @@ export default async function EquipePage(props: PageProps<"/gestion/equipes/[id]
     <>
       <AdminNav />
       <p>
-        <Link href="/gestion/equipes">
-          <span aria-hidden="true">← </span>
+        <Link href="/gestion/equipes" className="inline-flex items-center gap-1">
+          <ArrowLeft aria-hidden="true" className="size-4" />
           {t("toutes")}
         </Link>
       </p>

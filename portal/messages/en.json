@@ -431,6 +431,8 @@
       "motif": "Reason",
       "dernierCommentaire": "Last comment",
       "controles": "Policy checks (current state)",
+      "controleReussi": "Check passed",
+      "controleEchoue": "Check failed",
       "approuverCle": "Approve (key parameters)",
       "modelesAccordes": "Granted models",
       "budget": "Budget (€)",
