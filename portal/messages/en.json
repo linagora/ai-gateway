@@ -13,7 +13,9 @@
     "gestion": "Administration",
     "deconnexion": "Sign out",
     "mesCles": "My keys",
+    "mesAbonnements": "My subscriptions",
     "aRetirer": "{nombre, plural, one {# key to pick up} other {# keys to pick up}}",
+    "aDeclarer": "{nombre, plural, one {# subscription to declare} other {# subscriptions to declare}}",
     "aCompleter": "{nombre, plural, one {# request to complete} other {# requests to complete}}",
     "aValider": "{nombre, plural, one {# request to review} other {# requests to review}}"
   },
@@ -68,7 +70,13 @@
       "ANNULEE": "Cancelled",
       "CLE_EMISE": "Key issued",
       "EXPIREE": "Expired",
-      "REVOQUEE": "Revoked"
+      "REVOQUEE": "Revoked",
+      "DECLAREE": "Declared"
+    },
+    "statutsAbonnement": {
+      "ACTIF": "Active",
+      "A_RESILIER": "To cancel",
+      "RESILIE": "Cancelled"
     },
     "typesDemande": {
       "CLE": "API key",
@@ -111,7 +119,8 @@
       "equipeSupprimee": "Team deleted.",
       "responsableDesigne": "Manager designated.",
       "responsableRetire": "Manager role removed.",
-      "offreEnregistree": "Offer saved."
+      "offreEnregistree": "Offer saved.",
+      "abonnementDeclare": "Subscription declared."
     },
     "erreurs": {
       "controles_en_echec": "The request does not comply with the model access policy. Failed checks: {controles}.",
@@ -137,7 +146,8 @@
       "responsable_existant": "{uid} is already a manager of the team {equipe}.",
       "quatre_yeux": "{cas, select, cle {You cannot block or unblock your own key: another manager of the team or an administrator will handle it.} other {You cannot decide on your own request: another manager of the team or an administrator will handle it.}}",
       "budget_equipe_invalide": "Invalid team budget: enter an amount of zero or more (0: no limit) and, for a positive amount, a period such as 30d, 12h…",
-      "non_membre": "You are not a member of the {equipe} team."
+      "non_membre": "You are not a member of the {equipe} team.",
+      "date_future": "The subscription date cannot be in the future."
     },
     "controles": {
       "membre_equipe": "The requester is a member of the team",
@@ -383,7 +393,8 @@
     "completer": "Complete",
     "annuler": "Cancel",
     "aucune": "No request yet.",
-    "retirer": "Pick up my key"
+    "retirer": "Pick up my key",
+    "declarer": "Declare"
   },
   "nouvelleDemande": {
     "titre": "Request an API key",
@@ -503,7 +514,11 @@
       "prixMensuel": "Monthly price",
       "niveauMaximal": "Maximum level",
       "dureeSouhaitee": "Requested duration",
-      "validiteAccordee": "Granted validity period"
+      "validiteAccordee": "Granted validity period",
+      "abonnementsEnCours": "Requester's current subscriptions",
+      "aucunAbonnement": "No current subscription.",
+      "depuis": "since {date}",
+      "parMois": "{montant} per month"
     },
     "parametres": {
       "titre": "Default key values",
@@ -781,6 +796,10 @@
       "sujet": "Reminder: your key is waiting to be picked up",
       "corps": "Your API key for the {equipe} team is waiting for you. Pick it up before {date, date, long} in “My keys”: after that, the request expires."
     },
+    "rappelDeclaration": {
+      "sujet": "Reminder: your subscription is to be declared",
+      "corps": "Your subscription request {offre} for the {equipe} team is approved: declare the subscription in “My subscriptions” before {date, date, long}, or it will expire."
+    },
     "rappelExpiration": {
       "sujet": "Reminder: your key {alias} expires soon",
       "corps": "Your API key {alias} expires {delai}, on {date, date, long}.",
@@ -873,5 +892,31 @@
     "engagement": "I commit not to entrust this subscription with any data above: {niveau}.",
     "offreIntrouvable": "This offer is no longer available.",
     "voirOffres": "See the offers"
+  },
+  "mesAbonnements": {
+    "titre": "My subscriptions",
+    "introduction": "Your individual subscriptions to AI suppliers' offers. Once the subscription is taken out with the supplier, declare your approved request here.",
+    "voirOffres": "See the subscription offers",
+    "aDeclarer": {
+      "titre": "To declare",
+      "validite": "Validity period: {duree}",
+      "echeance": "To declare before {date}",
+      "date": "Subscription date",
+      "montant": "Monthly amount charged (€ incl. VAT)",
+      "adresse": "Account address at the supplier",
+      "declarer": "Declare the subscription"
+    },
+    "abonnements": "Declared subscriptions",
+    "aucun": "No subscription declared.",
+    "colonnes": {
+      "offre": "Offer",
+      "equipe": "Team",
+      "compte": "Account",
+      "souscrit": "Subscribed on",
+      "montant": "Monthly amount",
+      "echeance": "Expiry",
+      "statut": "Status"
+    },
+    "horsLinagora": "address outside LINAGORA"
   }
 }

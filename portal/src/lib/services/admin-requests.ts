@@ -130,6 +130,8 @@ export interface RequestReview extends PendingRequest {
   subscriptionOffer: { supplier: string; name: string; monthlyPriceEur: number; dataLevel: DataLevel } | null;
   /** Durée de validité accordée, en jours (clé ou abonnement), null tant que la demande n'est pas approuvée. */
   approvedDays: number | null;
+  /** Demande d'abonnement : les abonnements en cours (non résiliés) du demandeur, pour décider en connaissance de cause. */
+  requesterSubscriptions: { offer: string; teamAlias: string; subscribedAt: Date; monthlyAmountEur: number }[];
   teamId: string;
   justification: string;
   requestedBudget: number | null;
@@ -149,6 +151,10 @@ export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: 
   const r = await deps.db.accessRequest.findUnique({ where: { id }, include: { offer: true } });
   if (!r) throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
   await requireAutorite(deps.db, actor, r.teamId, "demande");
+  const abonnements =
+    r.kind === "ABONNEMENT"
+      ? await deps.db.subscription.findMany({ where: { holderUid: r.requesterUid, status: { not: "RESILIE" } }, include: { offer: true }, orderBy: { subscribedAt: "asc" } })
+      : [];
   const checks =
     r.kind === "CLE" && r.dataLevel
       ? (await evaluateKeyRequest(deps, { requesterUid: r.requesterUid, teamId: r.teamId, dataLevel: r.dataLevel, models: r.models })).checks
@@ -159,6 +165,7 @@ export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: 
     offer: r.offer && libelleOffre(r.offer),
     subscriptionOffer: r.offer && { supplier: r.offer.supplier, name: r.offer.name, monthlyPriceEur: r.offer.monthlyPriceEur.toNumber(), dataLevel: r.offer.dataLevel },
     approvedDays: r.approvedDays,
+    requesterSubscriptions: abonnements.map((a) => ({ offer: libelleOffre(a.offer), teamAlias: a.teamAlias, subscribedAt: a.subscribedAt, monthlyAmountEur: a.monthlyAmountEur.toNumber() })),
     requesterUid: r.requesterUid,
     requesterEmail: r.requesterEmail,
     teamId: r.teamId,

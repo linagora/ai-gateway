@@ -24,7 +24,7 @@ import { AdminNav } from "../../admin-nav";
 /** F-31 / F-32 : fiche d'une demande, contrôles de politique réussis ou en échec, et décisions. */
 export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id]">) {
   const admin = await requireGestionPage();
-  const [{ date, euros }, t, domaine, avis, language] = await Promise.all([
+  const [{ date, euros, jour }, t, domaine, avis, language] = await Promise.all([
     formats(),
     getTranslations("gestion.fiche"),
     getTranslations("domaine"),
@@ -136,6 +136,23 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
           </>
         )}
       </dl>
+
+      {review.kind === "ABONNEMENT" && (
+        <section aria-labelledby="abonnements-en-cours">
+          <h2 id="abonnements-en-cours">{t("abonnementsEnCours")}</h2>
+          {review.requesterSubscriptions.length === 0 ? (
+            <p>{t("aucunAbonnement")}</p>
+          ) : (
+            <ul>
+              {review.requesterSubscriptions.map((a, i) => (
+                <li key={i}>
+                  {a.offer} · {a.teamAlias} · {t("depuis", { date: jour(a.subscribedAt) })} · {t("parMois", { montant: euros(a.monthlyAmountEur) })}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
       {review.kind === "CLE" && (
         <>

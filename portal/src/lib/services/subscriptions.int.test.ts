@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { resetDb, testDb } from "@/test/db";
 import { listAudit } from "./audit";
+import { runDailyTask } from "./echeances";
 import { FakeLiteLLM } from "@/test/fake-litellm";
 import { FakeMailer } from "@/test/fake-mailer";
 import { approveSubscriptionRequest, getRequestReview, listPendingRequests, refuseRequest, requestCompletion } from "./admin-requests";
@@ -8,7 +9,7 @@ import { type OfferInput, saveOffer } from "./offers";
 import { cancelRequest, listMyRequests } from "./requests";
 import { saveSettings } from "./settings";
 import { deleteTeam, removeTeamMember } from "./teams";
-import { completeSubscriptionRequest, createSubscriptionRequest, type SubscriptionRequestInput } from "./subscriptions";
+import { completeSubscriptionRequest, createSubscriptionRequest, declareSubscription, listMySubscriptions, type SubscriptionRequestInput } from "./subscriptions";
 
 /*
  * Abonnements individuels (spécification #51). Deux équipes : R&D, dont Léa Bernard est responsable et Paul Martin
@@ -158,6 +159,116 @@ describe("demander un abonnement et le faire valider (ticket #54)", () => {
     await expect(deleteTeam(deps, admin, "equipe-rd")).rejects.toMatchObject({ code: "equipe_non_vide", params: { demandes: "1" } });
     await removeTeamMember(deps, admin, { teamId: "equipe-rd", uid: "pmartin" });
     expect(await listMyRequests(deps, membre)).toEqual([expect.objectContaining({ id, status: "ANNULEE" })]);
+  });
+});
+
+/** Demande d'abonnement déposée par le membre, puis approuvée par la responsable de R&D pour la durée donnée. */
+async function approuvee(champs: Partial<SubscriptionRequestInput> = {}, jours = 90): Promise<string> {
+  const { id } = await createSubscriptionRequest(deps, membre, demande(champs));
+  await approveSubscriptionRequest(deps, responsable, id, { days: jours });
+  return id;
+}
+
+describe("déclarer un abonnement et le suivre dans « Mes abonnements » (ticket #55)", () => {
+  test("le titulaire déclare un abonnement approuvé : il apparaît dans « Mes abonnements », avec son montant, son adresse et son échéance", async () => {
+    const id = await approuvee();
+    expect(await listMySubscriptions(deps, membre)).toEqual({
+      aDeclarer: [
+        { requestId: id, offer: "Anthropic · Claude Max 5x", teamAlias: "R&D", approvedDays: 90, declarationDeadline: new Date("2026-10-15T09:00:00Z"), suggestedAmountEur: 108 },
+      ],
+      abonnements: [],
+    });
+    deps.now = () => new Date("2026-10-03T10:00:00Z");
+    await declareSubscription(deps, membre, id, { subscribedAt: "2026-10-02", monthlyAmountEur: 108, accountEmail: "pmartin@linagora.com" });
+    expect(await listMySubscriptions(deps, membre)).toEqual({
+      aDeclarer: [],
+      abonnements: [
+        {
+          id: expect.any(String),
+          offer: "Anthropic · Claude Max 5x",
+          supplier: "Anthropic",
+          teamAlias: "R&D",
+          accountEmail: "pmartin@linagora.com",
+          accountOutsideLinagora: false,
+          subscribedAt: new Date("2026-10-02T00:00:00Z"),
+          monthlyAmountEur: 108,
+          expiresAt: new Date("2026-12-31T00:00:00Z"),
+          status: "ACTIF",
+        },
+      ],
+    });
+    expect(await listMyRequests(deps, membre)).toEqual([expect.objectContaining({ id, status: "DECLAREE" })]);
+  });
+
+  test("une date de souscription passée régularise un abonnement déjà payé : son échéance court alors depuis l'approbation ; une date future est refusée", async () => {
+    const id = await approuvee({}, 180);
+    await expect(declareSubscription(deps, membre, id, { subscribedAt: "2026-10-05", monthlyAmountEur: 100, accountEmail: "pmartin@linagora.com" })).rejects.toMatchObject({ code: "date_future" });
+    await declareSubscription(deps, membre, id, { subscribedAt: "2025-03-15", monthlyAmountEur: 100, accountEmail: "pmartin@linagora.com" });
+    expect((await listMySubscriptions(deps, membre)).abonnements).toEqual([
+      expect.objectContaining({ subscribedAt: new Date("2025-03-15T00:00:00Z"), monthlyAmountEur: 100, expiresAt: new Date("2027-03-30T00:00:00Z") }),
+    ]);
+  });
+
+  test("une adresse de compte hors de LINAGORA est acceptée et signalée ; un alias de LINAGORA ne l'est pas", async () => {
+    await declareSubscription(deps, membre, await approuvee(), { subscribedAt: "2026-10-01", monthlyAmountEur: 108, accountEmail: "paul.martin@gmail.com" });
+    await declareSubscription(deps, membre, await approuvee(), { subscribedAt: "2026-10-01", monthlyAmountEur: 108, accountEmail: "pmartin+2@linagora.com" });
+    expect((await listMySubscriptions(deps, membre)).abonnements.map((a) => [a.accountEmail, a.accountOutsideLinagora]).sort()).toEqual([
+      ["paul.martin@gmail.com", true],
+      ["pmartin+2@linagora.com", false],
+    ]);
+  });
+
+  test("seul le titulaire déclare, une seule fois, une demande approuvée", async () => {
+    const id = await approuvee();
+    const declaration = { subscribedAt: "2026-10-01", monthlyAmountEur: 108, accountEmail: "pmartin@linagora.com" };
+    await expect(declareSubscription(deps, responsable, id, declaration)).rejects.toMatchObject({ code: "introuvable" });
+    const soumise = await createSubscriptionRequest(deps, membre, demande());
+    await expect(declareSubscription(deps, membre, soumise.id, declaration)).rejects.toMatchObject({ code: "transition_interdite" });
+    await declareSubscription(deps, membre, id, declaration);
+    await expect(declareSubscription(deps, membre, id, declaration)).rejects.toMatchObject({ code: "transition_interdite" });
+    expect((await listMySubscriptions(deps, membre)).abonnements).toHaveLength(1);
+  });
+
+  test("deux abonnements de la même offre coexistent, sur deux comptes du même salarié", async () => {
+    await declareSubscription(deps, membre, await approuvee(), { subscribedAt: "2026-10-01", monthlyAmountEur: 108, accountEmail: "pmartin@linagora.com" });
+    await declareSubscription(deps, membre, await approuvee(), { subscribedAt: "2026-10-01", monthlyAmountEur: 108, accountEmail: "pmartin+2@linagora.com" });
+    expect((await listMySubscriptions(deps, membre)).abonnements.map((a) => [a.offer, a.status])).toEqual([
+      ["Anthropic · Claude Max 5x", "ACTIF"],
+      ["Anthropic · Claude Max 5x", "ACTIF"],
+    ]);
+  });
+
+  test("la déclaration est inscrite au journal d'audit, sans l'adresse du compte", async () => {
+    const abonnement = await declareSubscription(deps, membre, await approuvee(), { subscribedAt: "2026-10-01", monthlyAmountEur: 108, accountEmail: "paul.martin@gmail.com" });
+    expect((await listAudit(testDb)).filter((e) => e.targetId === abonnement).map((e) => [e.actorUid, e.action, e.details])).toEqual([
+      ["pmartin", "SUBSCRIPTION_DECLARED", { offre: "Anthropic · Claude Max 5x", montant: 108, compteHorsLinagora: true }],
+    ]);
+  });
+
+  test("la fiche d'une demande d'abonnement montre au responsable les abonnements en cours du demandeur", async () => {
+    await declareSubscription(deps, membre, await approuvee(), { subscribedAt: "2026-09-20", monthlyAmountEur: 108, accountEmail: "pmartin@linagora.com" });
+    const { id } = await createSubscriptionRequest(deps, membre, demande());
+    expect((await getRequestReview(deps, responsable, id)).requesterSubscriptions).toEqual([
+      { offer: "Anthropic · Claude Max 5x", teamAlias: "R&D", subscribedAt: new Date("2026-09-20T00:00:00Z"), monthlyAmountEur: 108 },
+    ]);
+  });
+
+  test("un rappel part trois jours avant l'échéance de déclaration, une seule fois ; sans déclaration, la demande approuvée expire", async () => {
+    const id = await approuvee();
+    mailer.outbox.length = 0;
+    const tache = (date: string) => runDailyTask({ ...deps, now: () => new Date(date) });
+    expect(await tache("2026-10-11T05:00:00Z")).toMatchObject({ rappelsDeclaration: 0 });
+    expect(await tache("2026-10-12T05:00:00Z")).toMatchObject({ rappelsDeclaration: 1 });
+    expect(mailer.outbox.map((m) => [m.to, m.subject])).toEqual([
+      [["pmartin@linagora.com"], "[AI GATEWAY] Rappel : votre abonnement est à déclarer / Reminder: your subscription is to be declared"],
+    ]);
+    expect(mailer.outbox[0].text).toContain(
+      "Votre demande d'abonnement Anthropic · Claude Max 5x pour l'équipe R&D est approuvée : déclarez l'abonnement dans « Mes abonnements » avant le 15 octobre 2026, faute de quoi elle expirera.",
+    );
+    expect(mailer.outbox[0].text).toContain("https://portail.test/abonnements");
+    expect(await tache("2026-10-13T05:00:00Z")).toMatchObject({ rappelsDeclaration: 0 });
+    expect(await tache("2026-10-16T05:00:00Z")).toMatchObject({ demandesExpirees: 1 });
+    expect(await listMyRequests(deps, membre)).toEqual([expect.objectContaining({ id, status: "EXPIREE" })]);
   });
 });
 

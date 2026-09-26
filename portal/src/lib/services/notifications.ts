@@ -295,6 +295,21 @@ export async function notifyPickupReminder(deps: NotificationDeps, demande: Acce
   await envoyer(deps, [demande.requesterEmail], message);
 }
 
+/** Spécification #51 : rappel trois jours avant l'échéance de déclaration d'un abonnement approuvé. */
+export async function notifyDeclarationReminder(deps: NotificationDeps, demande: AccessRequest, offre: SubscriptionOffer, echeance: Date): Promise<void> {
+  const message = bilingue(
+    (t) => ({
+      sujet: t("courriels.rappelDeclaration.sujet"),
+      paragraphes: [
+        t("courriels.bonjour", { nom: nom(demande) }),
+        t("courriels.rappelDeclaration.corps", { offre: `${offre.supplier} · ${offre.name}`, equipe: demande.teamAlias, date: echeance }),
+      ],
+    }),
+    lienVers(deps, "/abonnements"),
+  );
+  await envoyer(deps, [demande.requesterEmail], message);
+}
+
 /** Rappel d'expiration (un mois, sept jours ou la veille) : son renouvellement se demande dans « Mes clés ». */
 export async function notifyExpiryReminder(deps: NotificationDeps, demande: AccessRequest & { keyAlias: string; keyExpiresAt: Date }, jours: number): Promise<void> {
   const message = bilingue(

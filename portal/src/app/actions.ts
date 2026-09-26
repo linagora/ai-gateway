@@ -18,7 +18,7 @@ import {
 } from "@/lib/services/admin-requests";
 import { saveCatalogEntry } from "@/lib/services/catalog";
 import { saveOffer } from "@/lib/services/offers";
-import { completeSubscriptionRequest, createSubscriptionRequest } from "@/lib/services/subscriptions";
+import { completeSubscriptionRequest, createSubscriptionRequest, declareSubscription } from "@/lib/services/subscriptions";
 import { blockKey, pickUpKey, replaceKey, revokeKey, unblockKey } from "@/lib/services/keys";
 import { cancelRequest, completeRequest, createKeyRequest, createTeamJoinRequest } from "@/lib/services/requests";
 import { saveSettings } from "@/lib/services/settings";
@@ -93,6 +93,21 @@ export async function demanderAbonnementAction(formData: FormData): Promise<void
       else await createSubscriptionRequest(getDeps(), user, input);
     },
     { path: "/demandes", message: completing ? "demandeResoumise" : "demandeEnvoyee" },
+  );
+}
+
+/** Spécification #51, ticket #55 : le titulaire déclare l'abonnement approuvé qu'il a souscrit. */
+export async function declarerAbonnementAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  await run(
+    "/abonnements",
+    () =>
+      declareSubscription(getDeps(), user, text(formData, "requestId"), {
+        subscribedAt: text(formData, "subscribedAt"),
+        monthlyAmountEur: optionalNumber(formData, "monthlyAmountEur") ?? Number.NaN,
+        accountEmail: text(formData, "accountEmail"),
+      }),
+    { path: "/abonnements", message: "abonnementDeclare" },
   );
 }
 
@@ -345,6 +360,7 @@ type CleSucces =
   | "demandeAnnulee"
   | "catalogueMisAJour"
   | "offreEnregistree"
+  | "abonnementDeclare"
   | "demandeApprouvee"
   | "adhesionApprouvee"
   | "demandeRefusee"

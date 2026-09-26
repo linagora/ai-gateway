@@ -1,5 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
-import { ADMIN, ajouterMembre, connecter, courriels, designer, echapper, faireSortir, nouvelleEquipe, supprimerEquipe } from "./outils";
+import { type Browser, expect, type Page, test } from "@playwright/test";
+import { ADMIN, ajouterMembre, connecter, courriels, designer, echapper, faireSortir, nouvelleEquipe, type Personne, supprimerEquipe } from "./outils";
 
 /* Abonnements individuels aux offres des fournisseurs d'IA (spécification #51). */
 const suffixe = Date.now().toString(36);
@@ -38,6 +38,80 @@ async function masquerOffre(admin: Page, fournisseur: string, nom: string): Prom
   await formulaire.getByLabel("Visible au catalogue").uncheck();
   await formulaire.getByRole("button", { name: "Enregistrer l'offre" }).click();
   await expect(admin.getByRole("status")).toHaveText("Offre enregistrée.");
+}
+
+/** Le membre (page ouverte) demande l'offre pour l'équipe, pour trois mois, en prenant l'engagement. */
+async function demanderOffre(pageMembre: Page, offre: string, equipe: string): Promise<void> {
+  await pageMembre.goto("/catalogue/abonnements");
+  await pageMembre.getByRole("article", { name: offre }).getByRole("link", { name: "Demander cet abonnement" }).click();
+  await pageMembre.getByLabel("Équipe").selectOption({ label: equipe });
+  await pageMembre.getByLabel("Motif").fill("Usage quotidien pour le projet");
+  await pageMembre.getByLabel("Durée souhaitée").selectOption({ label: "3 mois" });
+  await pageMembre.getByLabel(/Je m'engage à ne confier à cet abonnement/).check();
+  await pageMembre.getByRole("button", { name: "Envoyer la demande" }).click();
+  await expect(pageMembre.getByRole("status")).toHaveText("Demande envoyée aux administrateurs.");
+}
+
+/** Le responsable (page ouverte) approuve, depuis sa file, la demande d'abonnement du membre. */
+async function approuverDemande(pageResponsable: Page, membre: Personne): Promise<void> {
+  await pageResponsable.goto("/gestion/demandes");
+  await pageResponsable.getByRole("row", { name: new RegExp(`${membre.uid}.*Abonnement`) }).first().getByRole("link", { name: "Examiner" }).click();
+  await pageResponsable.getByRole("button", { name: "Approuver", exact: true }).click();
+  await expect(pageResponsable.getByRole("status")).toHaveText("Demande approuvée.");
+}
+
+/** Situation d'un parcours d'abonnement : l'admin, le responsable et le membre, leur équipe et l'offre. */
+interface Situation {
+  admin: Page;
+  pageResponsable: Page;
+  pageMembre: Page;
+  responsable: Personne;
+  membre: Personne;
+  equipe: string;
+  pageEquipe: string;
+  offre: string;
+}
+
+/**
+ * Mise en place : une offre visible, une équipe avec son responsable et son membre, et la demande d'abonnement du
+ * membre approuvée par le responsable.
+ */
+async function abonnementApprouve(browser: Browser, nom: string): Promise<Situation> {
+  const responsable = personne(`${nom}-responsable`);
+  const membre = personne(`${nom}-membre`);
+  const pageResponsable = await (await connecter(browser, responsable)).newPage();
+  const pageMembre = await (await connecter(browser, membre)).newPage();
+  const admin = await (await connecter(browser, ADMIN)).newPage();
+  const offre = `Offre ${nom} ${suffixe}`;
+  await creerOffre(admin, { fournisseur: "Anthropic", nom: offre, prix: "108", niveau: "N1 Public", reglesFr: "Désactivez l'entraînement sur vos données." });
+  const equipe = `Équipe ${nom} ${suffixe}`;
+  await nouvelleEquipe(admin, equipe);
+  await designer(admin, responsable.uid);
+  await ajouterMembre(admin, membre.uid);
+  const pageEquipe = admin.url();
+  await demanderOffre(pageMembre, offre, equipe);
+  await approuverDemande(pageResponsable, membre);
+  return { admin, pageResponsable, pageMembre, responsable, membre, equipe, pageEquipe, offre };
+}
+
+/** Le membre déclare dans « Mes abonnements » l'abonnement approuvé, au jour même, avec l'adresse et le montant donnés. */
+async function declarer(pageMembre: Page, offre: string, { montant, adresse }: { montant: string; adresse: string }): Promise<void> {
+  await pageMembre.goto("/abonnements");
+  const carte = pageMembre.getByRole("region", { name: "À déclarer" }).getByRole("article", { name: new RegExp(echapper(offre)) });
+  await carte.getByLabel("Montant mensuel prélevé (€ TTC)").fill(montant);
+  await carte.getByLabel("Adresse du compte chez le fournisseur").fill(adresse);
+  await carte.getByRole("button", { name: "Déclarer l'abonnement" }).click();
+  await expect(pageMembre.getByRole("status")).toHaveText("Abonnement déclaré.");
+}
+
+/** Nettoyage : sortie des membres (qui annule leurs demandes en cours), suppression de l'équipe, offre masquée. */
+async function nettoyer({ admin, pageEquipe, membre, responsable, offre }: Situation): Promise<void> {
+  await admin.goto(pageEquipe);
+  await faireSortir(admin, membre.uid);
+  await faireSortir(admin, responsable.uid);
+  await supprimerEquipe(admin);
+  await expect(admin.getByRole("status")).toHaveText("Équipe supprimée.");
+  await masquerOffre(admin, "Anthropic", offre);
 }
 
 test("un admin crée une offre, que les salariés voient au catalogue en français et en anglais ; masquée, elle disparaît (ticket #53)", async ({ browser }) => {
@@ -143,4 +217,31 @@ test("un membre demande une offre pour son équipe ; le responsable l'approuve, 
   await supprimerEquipe(admin);
   await expect(admin.getByRole("status")).toHaveText("Équipe supprimée.");
   await masquerOffre(admin, "OpenAI", nomOffre);
+});
+
+test("le titulaire déclare l'abonnement approuvé, qui apparaît dans « Mes abonnements » ; la fiche d'une nouvelle demande le montre (ticket #55)", async ({ browser }) => {
+  const situation = await abonnementApprouve(browser, "declaration");
+  const { pageMembre, pageResponsable, membre, equipe, offre } = situation;
+
+  // La pastille du menu signale l'abonnement à déclarer, et « Mes abonnements » propose la déclaration.
+  await pageMembre.goto("/demandes");
+  await pageMembre.getByRole("navigation", { name: "Navigation principale" }).getByRole("link", { name: "Mes abonnements (1 abonnement à déclarer)" }).click();
+  await expect(pageMembre.getByRole("heading", { level: 1 })).toHaveText("Mes abonnements");
+  await expect(pageMembre.getByRole("region", { name: "À déclarer" }).getByRole("article", { name: new RegExp(echapper(offre)) })).toContainText("Durée de validité : 3 mois");
+  await declarer(pageMembre, offre, { montant: "110", adresse: `${membre.uid}@gmail.com` });
+  const ligne = pageMembre.getByRole("region", { name: "Abonnements déclarés" }).getByRole("row", { name: new RegExp(echapper(offre)) });
+  await expect(ligne).toContainText(equipe);
+  await expect(ligne).toContainText(`${membre.uid}@gmail.com`);
+  await expect(ligne).toContainText("adresse hors LINAGORA");
+  await expect(ligne).toContainText(/110,00\s€/);
+  await expect(ligne).toContainText("Actif");
+  await expect(pageMembre.getByRole("region", { name: "À déclarer" })).toHaveCount(0);
+
+  // Une nouvelle demande du même salarié : sa fiche montre au responsable l'abonnement en cours.
+  await demanderOffre(pageMembre, offre, equipe);
+  await pageResponsable.goto("/gestion/demandes");
+  await pageResponsable.getByRole("row", { name: new RegExp(`${membre.uid}.*Abonnement`) }).getByRole("link", { name: "Examiner" }).click();
+  await expect(pageResponsable.getByRole("region", { name: "Abonnements en cours du demandeur" })).toContainText(`Anthropic · ${offre} · ${equipe}`);
+
+  await nettoyer(situation);
 });

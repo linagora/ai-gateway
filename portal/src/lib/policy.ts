@@ -98,14 +98,14 @@ function check(id: PolicyCheckId, offending: string[]): PolicyCheck {
   return { id, ok: offending.length === 0, offending };
 }
 
-export type RequestStatus = "SOUMISE" | "A_COMPLETER" | "APPROUVEE" | "REFUSEE" | "ANNULEE" | "CLE_EMISE" | "EXPIREE" | "REVOQUEE";
+export type RequestStatus = "SOUMISE" | "A_COMPLETER" | "APPROUVEE" | "REFUSEE" | "ANNULEE" | "CLE_EMISE" | "EXPIREE" | "REVOQUEE" | "DECLAREE";
 
 /** Règle 5 : seules ces transitions sont autorisées ; les autres statuts sont finaux. */
 const ALLOWED_TRANSITIONS: Partial<Record<RequestStatus, readonly RequestStatus[]>> = {
   SOUMISE: ["APPROUVEE", "REFUSEE", "A_COMPLETER", "ANNULEE"],
   A_COMPLETER: ["SOUMISE", "ANNULEE"],
-  // ANNULEE : sortie d'une équipe avant le retrait de la clé (F-54).
-  APPROUVEE: ["CLE_EMISE", "EXPIREE", "ANNULEE"],
+  // ANNULEE : sortie d'une équipe avant le retrait de la clé (F-54) ; DECLAREE : abonnement déclaré (spécification #51).
+  APPROUVEE: ["CLE_EMISE", "DECLAREE", "EXPIREE", "ANNULEE"],
   CLE_EMISE: ["REVOQUEE", "EXPIREE"],
 };
 

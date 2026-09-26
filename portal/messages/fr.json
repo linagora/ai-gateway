@@ -13,7 +13,9 @@
     "gestion": "Gestion",
     "deconnexion": "Se déconnecter",
     "mesCles": "Mes clés",
+    "mesAbonnements": "Mes abonnements",
     "aRetirer": "{nombre, plural, one {# clé à retirer} other {# clés à retirer}}",
+    "aDeclarer": "{nombre, plural, one {# abonnement à déclarer} other {# abonnements à déclarer}}",
     "aCompleter": "{nombre, plural, one {# demande à compléter} other {# demandes à compléter}}",
     "aValider": "{nombre, plural, one {# demande à valider} other {# demandes à valider}}"
   },
@@ -68,7 +70,13 @@
       "ANNULEE": "Annulée",
       "CLE_EMISE": "Clé émise",
       "EXPIREE": "Expirée",
-      "REVOQUEE": "Révoquée"
+      "REVOQUEE": "Révoquée",
+      "DECLAREE": "Déclarée"
+    },
+    "statutsAbonnement": {
+      "ACTIF": "Actif",
+      "A_RESILIER": "À résilier",
+      "RESILIE": "Résilié"
     },
     "typesDemande": {
       "CLE": "Clé d'API",
@@ -111,7 +119,8 @@
       "equipeSupprimee": "Équipe supprimée.",
       "responsableDesigne": "Responsable désigné.",
       "responsableRetire": "Rôle de responsable retiré.",
-      "offreEnregistree": "Offre enregistrée."
+      "offreEnregistree": "Offre enregistrée.",
+      "abonnementDeclare": "Abonnement déclaré."
     },
     "erreurs": {
       "controles_en_echec": "La demande ne respecte pas la politique d'accès aux modèles. Contrôles en échec : {controles}.",
@@ -137,7 +146,8 @@
       "responsable_existant": "{uid} est déjà responsable de l'équipe {equipe}.",
       "quatre_yeux": "{cas, select, cle {Vous ne pouvez pas bloquer ni débloquer votre propre clé : un autre responsable de l'équipe ou un administrateur s'en chargera.} other {Vous ne pouvez pas décider de votre propre demande : un autre responsable de l'équipe ou un administrateur s'en chargera.}}",
       "budget_equipe_invalide": "Budget d'équipe invalide : saisissez un montant positif ou nul (0 : sans limite) et, pour un montant positif, une période au format 30d, 12h…",
-      "non_membre": "Vous n'êtes pas membre de l'équipe {equipe}."
+      "non_membre": "Vous n'êtes pas membre de l'équipe {equipe}.",
+      "date_future": "La date de souscription ne peut pas être dans le futur."
     },
     "controles": {
       "membre_equipe": "Le demandeur est membre de l'équipe",
@@ -383,7 +393,8 @@
     "completer": "Compléter",
     "annuler": "Annuler",
     "aucune": "Aucune demande pour l'instant.",
-    "retirer": "Retirer ma clé"
+    "retirer": "Retirer ma clé",
+    "declarer": "Déclarer"
   },
   "nouvelleDemande": {
     "titre": "Demander une clé d'API",
@@ -503,7 +514,11 @@
       "prixMensuel": "Prix mensuel",
       "niveauMaximal": "Niveau maximal",
       "dureeSouhaitee": "Durée souhaitée",
-      "validiteAccordee": "Durée de validité accordée"
+      "validiteAccordee": "Durée de validité accordée",
+      "abonnementsEnCours": "Abonnements en cours du demandeur",
+      "aucunAbonnement": "Aucun abonnement en cours.",
+      "depuis": "depuis le {date}",
+      "parMois": "{montant} par mois"
     },
     "parametres": {
       "titre": "Valeurs par défaut des clés",
@@ -781,6 +796,10 @@
       "sujet": "Rappel : votre clé est à retirer",
       "corps": "Votre clé d'API pour l'équipe {equipe} vous attend. Retirez-la avant le {date, date, long} dans « Mes clés » : passé ce délai, la demande expire."
     },
+    "rappelDeclaration": {
+      "sujet": "Rappel : votre abonnement est à déclarer",
+      "corps": "Votre demande d'abonnement {offre} pour l'équipe {equipe} est approuvée : déclarez l'abonnement dans « Mes abonnements » avant le {date, date, long}, faute de quoi elle expirera."
+    },
     "rappelExpiration": {
       "sujet": "Rappel : votre clé {alias} expire bientôt",
       "corps": "Votre clé d'API {alias} expire {delai}, le {date, date, long}.",
@@ -873,5 +892,31 @@
     "engagement": "Je m'engage à ne confier à cet abonnement aucune donnée d'un niveau supérieur à : {niveau}.",
     "offreIntrouvable": "Cette offre n'est plus proposée.",
     "voirOffres": "Voir les offres"
+  },
+  "mesAbonnements": {
+    "titre": "Mes abonnements",
+    "introduction": "Vos abonnements individuels aux offres des fournisseurs d'IA. Une fois l'abonnement souscrit chez le fournisseur, déclarez ici votre demande approuvée.",
+    "voirOffres": "Voir les offres d'abonnement",
+    "aDeclarer": {
+      "titre": "À déclarer",
+      "validite": "Durée de validité : {duree}",
+      "echeance": "À déclarer avant le {date}",
+      "date": "Date de souscription",
+      "montant": "Montant mensuel prélevé (€ TTC)",
+      "adresse": "Adresse du compte chez le fournisseur",
+      "declarer": "Déclarer l'abonnement"
+    },
+    "abonnements": "Abonnements déclarés",
+    "aucun": "Aucun abonnement déclaré.",
+    "colonnes": {
+      "offre": "Offre",
+      "equipe": "Équipe",
+      "compte": "Compte",
+      "souscrit": "Souscrit le",
+      "montant": "Montant mensuel",
+      "echeance": "Échéance",
+      "statut": "Statut"
+    },
+    "horsLinagora": "adresse hors LINAGORA"
   }
 }

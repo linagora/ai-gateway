@@ -215,7 +215,7 @@ describe("pastilles du menu du salarié", () => {
     const aCompleter = await createKeyRequest(deps, demandeur, { ...demande, project: "à préciser" });
     await requestCompletion(deps, admin, aCompleter.id, "Précisez le projet");
     await createKeyRequest(deps, demandeur, { ...demande, project: "en attente" });
-    expect(await countMyPending(deps, demandeur)).toEqual({ clesARetirer: 1, demandesACompleter: 1 });
-    expect(await countMyPending(deps, admin)).toEqual({ clesARetirer: 0, demandesACompleter: 0 });
+    expect(await countMyPending(deps, demandeur)).toEqual({ clesARetirer: 1, abonnementsADeclarer: 0, demandesACompleter: 1 });
+    expect(await countMyPending(deps, admin)).toEqual({ clesARetirer: 0, abonnementsADeclarer: 0, demandesACompleter: 0 });
   });
 });

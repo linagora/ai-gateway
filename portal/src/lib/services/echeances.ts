@@ -2,7 +2,7 @@ import type { Db } from "@/lib/db";
 import type { LiteLLMClient, LiteLLMTeam } from "@/lib/litellm/client";
 import { recordAudit } from "./audit";
 import { managerEmails } from "./autorite";
-import { type NotificationDeps, notifyExpiryReminder, notifyPickupReminder, notifyTeamBudgetAlert } from "./notifications";
+import { type NotificationDeps, notifyDeclarationReminder, notifyExpiryReminder, notifyPickupReminder, notifyTeamBudgetAlert } from "./notifications";
 import { readSettings } from "./settings";
 
 export const JOUR = 86_400_000;
@@ -46,9 +46,10 @@ export function calendarDaysUntil(from: Date, to: Date): number {
  */
 export async function markExpired(db: Db, now: Date): Promise<{ demandesExpirees: number; clesExpirees: number }> {
   const delai = await readPickupDays(db);
+  // Une demande de clé approuvée non retirée, ou d'abonnement approuvée non déclarée (spécification #51), expire.
   const demandes =
     delai !== null
-      ? await db.accessRequest.findMany({ where: { kind: "CLE", status: "APPROUVEE", decidedAt: { lte: new Date(now.getTime() - delai * JOUR) } } })
+      ? await db.accessRequest.findMany({ where: { kind: { in: ["CLE", "ABONNEMENT"] }, status: "APPROUVEE", decidedAt: { lte: new Date(now.getTime() - delai * JOUR) } } })
       : [];
   const cles = await db.accessRequest.findMany({ where: { kind: "CLE", status: "CLE_EMISE", keyExpiresAt: { lte: now } } });
   let demandesExpirees = 0;
@@ -78,6 +79,7 @@ export interface DailyTaskDeps extends NotificationDeps {
 /** Compte rendu de la tâche quotidienne. */
 export interface DailyTaskReport {
   rappelsRetrait: number;
+  rappelsDeclaration: number;
   rappelsExpiration: number;
   demandesExpirees: number;
   clesExpirees: number;
@@ -98,18 +100,31 @@ export async function runDailyTask(deps: DailyTaskDeps): Promise<DailyTaskReport
   const horizon = (jours: number) => new Date(maintenant.getTime() + (jours + 2) * JOUR);
   const delai = await readPickupDays(deps.db);
   let rappelsRetrait = 0;
+  let rappelsDeclaration = 0;
   let rappelsExpiration = 0;
   if (delai !== null) {
-    const aRetirer = await deps.db.accessRequest.findMany({
-      where: { kind: "CLE", status: "APPROUVEE", pickupReminderSentAt: null, decidedAt: { lte: new Date(horizon(RAPPEL_RETRAIT).getTime() - delai * JOUR) } },
+    // Clé à retirer ou abonnement à déclarer (spécification #51) : même délai, même rappel trois jours avant.
+    const enAttente = await deps.db.accessRequest.findMany({
+      where: {
+        kind: { in: ["CLE", "ABONNEMENT"] },
+        status: "APPROUVEE",
+        pickupReminderSentAt: null,
+        decidedAt: { lte: new Date(horizon(RAPPEL_RETRAIT).getTime() - delai * JOUR) },
+      },
+      include: { offer: true },
     });
-    for (const r of aRetirer) {
+    for (const r of enAttente) {
       const echeance = r.decidedAt && pickupDeadline(r.decidedAt, delai);
       if (!echeance || calendarDaysUntil(maintenant, echeance) > RAPPEL_RETRAIT) continue;
       const { count } = await deps.db.accessRequest.updateMany({ where: { id: r.id, pickupReminderSentAt: null }, data: { pickupReminderSentAt: maintenant } });
       if (count === 0) continue;
-      rappelsRetrait++;
-      await notifyPickupReminder(deps, r, echeance);
+      if (r.kind === "ABONNEMENT" && r.offer) {
+        rappelsDeclaration++;
+        await notifyDeclarationReminder(deps, r, r.offer, echeance);
+      } else {
+        rappelsRetrait++;
+        await notifyPickupReminder(deps, r, echeance);
+      }
     }
   }
   const aExpirer = await deps.db.accessRequest.findMany({
@@ -131,7 +146,7 @@ export async function runDailyTask(deps: DailyTaskDeps): Promise<DailyTaskReport
     rappelsExpiration++;
     await notifyExpiryReminder(deps, { ...r, keyAlias: r.keyAlias, keyExpiresAt: r.keyExpiresAt }, jours);
   }
-  return { rappelsRetrait, rappelsExpiration, ...expirations, alertesBudget: await alerterBudgets(deps, maintenant) };
+  return { rappelsRetrait, rappelsDeclaration, rappelsExpiration, ...expirations, alertesBudget: await alerterBudgets(deps, maintenant) };
 }
 
 /**

@@ -26,6 +26,8 @@ enum RequestStatus {
   CLE_EMISE
   EXPIREE
   REVOQUEE
+  /// Demande d'abonnement dont l'abonnement est déclaré (spécification #51).
+  DECLAREE
 }
 
 enum RequestKind {
@@ -122,9 +124,10 @@ model AccessRequest {
 
   @@index([requesterUid])
   @@index([status])
-  /// Demande d'abonnement (spécification #51) : l'offre demandée.
+  /// Demande d'abonnement (spécification #51) : l'offre demandée, puis l'abonnement déclaré.
   offerId         String?
   offer           SubscriptionOffer? @relation(fields: [offerId], references: [id])
+  subscription    Subscription?
 }
 
 /// Valeurs par défaut configurables (F-51) : default_budget, default_budget_duration, default_days,
@@ -187,4 +190,38 @@ model SubscriptionOffer {
   updatedAt       DateTime  @updatedAt
   updatedBy       String
   requests        AccessRequest[]
+  subscriptions   Subscription[]
+}
+
+/// Statut d'un abonnement : actif, à résilier (demande de résiliation en cours) ou résilié.
+enum SubscriptionStatus {
+  ACTIF
+  A_RESILIER
+  RESILIE
+}
+
+/// Abonnement (spécification #51) : offre souscrite par un salarié lui-même, après la validation de sa demande, puis
+/// déclarée dans le portail ; il est rattaché à l'une de ses équipes. L'échéance est celle de son autorisation.
+model Subscription {
+  id               String             @id @default(cuid())
+  requestId        String             @unique
+  request          AccessRequest      @relation(fields: [requestId], references: [id])
+  offerId          String
+  offer            SubscriptionOffer  @relation(fields: [offerId], references: [id])
+  holderUid        String
+  holderEmail      String
+  holderName       String?
+  teamId           String
+  teamAlias        String
+  /// Adresse du compte chez le fournisseur, éventuellement hors de LINAGORA.
+  accountEmail     String
+  subscribedAt     DateTime
+  monthlyAmountEur Decimal
+  expiresAt        DateTime
+  status           SubscriptionStatus @default(ACTIF)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  @@index([holderUid])
+  @@index([teamId])
 }

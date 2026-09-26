@@ -41,6 +41,10 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
                   {t("mesCles")}
                   <Pastille nombre={enAttente?.clesARetirer ?? 0} libelle={t("aRetirer", { nombre: enAttente?.clesARetirer ?? 0 })} />
                 </Link>
+                <Link href="/abonnements">
+                  {t("mesAbonnements")}
+                  <Pastille nombre={enAttente?.abonnementsADeclarer ?? 0} libelle={t("aDeclarer", { nombre: enAttente?.abonnementsADeclarer ?? 0 })} />
+                </Link>
                 <Link href="/demandes/nouvelle">{t("nouvelleDemande")}</Link>
               </nav>
             )}
