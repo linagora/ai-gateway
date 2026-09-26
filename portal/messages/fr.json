@@ -692,15 +692,15 @@
     },
     "cleRevoquee": {
       "sujet": "Votre clé {alias} a été révoquée",
-      "corps": "Un administrateur a révoqué votre clé d'API {alias} : la passerelle la refuse désormais. Pour obtenir une nouvelle clé, demandez son renouvellement dans « Mes clés »."
+      "corps": "{role, select, responsable {Un responsable de votre équipe} other {Un administrateur}} a révoqué votre clé d'API {alias} : la passerelle la refuse désormais. Pour obtenir une nouvelle clé, demandez son renouvellement dans « Mes clés »."
     },
     "cleBloquee": {
       "sujet": "Votre clé {alias} est bloquée",
-      "corps": "Un administrateur a bloqué votre clé d'API {alias} : la passerelle la refuse jusqu'à son déblocage. Pour en savoir plus, écrivez aux administrateurs du portail."
+      "corps": "{role, select, responsable {Un responsable de votre équipe} other {Un administrateur}} a bloqué votre clé d'API {alias} : la passerelle la refuse jusqu'à son déblocage. Pour en savoir plus, écrivez aux administrateurs du portail."
     },
     "cleDebloquee": {
       "sujet": "Votre clé {alias} est débloquée",
-      "corps": "Un administrateur a débloqué votre clé d'API {alias} : elle fonctionne à nouveau."
+      "corps": "{role, select, responsable {Un responsable de votre équipe} other {Un administrateur}} a débloqué votre clé d'API {alias} : elle fonctionne à nouveau."
     },
     "equipe": {
       "creee": {
@@ -734,6 +734,10 @@
       "decision": {
         "sujet": "Demande traitée dans l'équipe {equipe} : {demandeur}",
         "corps": "{auteur} a {decision, select, approuvee {approuvé la demande de clé d'API de {demandeur}} refusee {refusé la demande de {demandeur}} complement {demandé un complément à {demandeur} sur sa demande} adhesion {accepté la demande d'accès de {demandeur}} other {traité la demande de {demandeur}}}."
+      },
+      "cle": {
+        "sujet": "Action sur une clé de l'équipe {equipe} : {alias}",
+        "corps": "{auteur} a {action, select, revocation {révoqué} blocage {bloqué} other {débloqué}} la clé {alias} de {titulaire}."
       }
     },
     "ajoutMembre": {

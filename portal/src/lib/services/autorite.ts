@@ -34,6 +34,12 @@ export async function requireAutorite(db: Db, actor: SessionUser, teamId: string
   if (equipes !== null && !equipes.includes(teamId)) throw new PortalError("introuvable", `${actor.uid} n'a pas autorité sur l'équipe ${teamId}.`, { objet });
 }
 
+/** L'acteur a-t-il autorité sur l'équipe (admin, ou responsable de cette équipe) ? */
+export async function aAutorite(db: Db, actor: SessionUser, teamId: string): Promise<boolean> {
+  const equipes = await equipesGerees(db, actor);
+  return equipes === null || equipes.includes(teamId);
+}
+
 /** Adresses des responsables d'une équipe, hors ceux exclus (auteur d'un changement, demandeur) : destinataires en plus des admins. */
 export async function managerEmails(db: Db, teamId: string, exclus: string[]): Promise<string[]> {
   const rows = await db.teamManager.findMany({ where: { teamId, uid: { notIn: exclus } }, orderBy: { uid: "asc" } });

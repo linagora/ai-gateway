@@ -134,11 +134,11 @@ export async function addTeamMember(deps: TeamDeps, actor: SessionUser, input: {
 }
 
 /**
- * F-54 : sortie d'une équipe. Ses clés de l'équipe sont révoquées d'abord (un échec laisse le membre en place), puis
+ * F-54 : sortie d'une équipe, décidée par un admin ou un responsable de l'équipe. Ses clés de l'équipe sont révoquées d'abord (un échec laisse le membre en place), puis
  * ses demandes en cours dans l'équipe annulées, avant son retrait de l'équipe dans LiteLLM ; il en est prévenu.
  */
 export async function removeTeamMember(deps: TeamDeps, actor: SessionUser, input: { teamId: string; uid: string }): Promise<void> {
-  requireAdmin(actor);
+  await requireAutorite(deps.db, actor, input.teamId, "equipe");
   const team = await existingTeam(deps, input.teamId);
   if (!team.memberUids.includes(input.uid)) throw new PortalError("introuvable", `${input.uid} n'est pas membre de ${team.teamAlias}.`, { objet: "membre" });
   const cles = await revokeMemberKeys(deps, actor, team.teamId, input.uid);

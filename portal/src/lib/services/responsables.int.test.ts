@@ -5,9 +5,9 @@ import { FakeMailer } from "@/test/fake-mailer";
 import { approveKeyRequest, approveTeamJoinRequest, countAdminPending, getRequestReview, listPendingRequests, listProcessedRequests, refuseRequest, requestCompletion } from "./admin-requests";
 import { listAudit } from "./audit";
 import { saveCatalogEntry } from "./catalog";
-import { listAllKeys, listKeysToPickUp } from "./keys";
+import { blockKey, listAllKeys, listKeysToPickUp, revokeKey, unblockKey } from "./keys";
 import { createKeyRequest, createTeamJoinRequest } from "./requests";
-import { getTeamPage, listTeamOverviews } from "./teams";
+import { addTeamMember, deleteTeam, designateManager, getTeamPage, listTeamOverviews, removeTeamMember, renameTeam } from "./teams";
 
 /*
  * Droits du responsable d'équipe (spécification #35, tickets #40 à #42). Deux équipes : R&D, dont Léa Bernard est
@@ -150,5 +150,57 @@ describe("le responsable valide les demandes de ses équipes (ticket #41)", () =
     const sienne = await demande("pmartin", "equipe-rd", "R&D");
     await expect(approveKeyRequest(deps, responsable, sienne.id, { ...parametres, teamId: "equipe-data" })).rejects.toMatchObject({ code: "introuvable" });
     expect((await testDb.accessRequest.findUniqueOrThrow({ where: { id: sienne.id } })).status).toBe("SOUMISE");
+  });
+});
+
+/** Clé réellement émise dans la passerelle simulée, et sa demande dans le portail. */
+async function cleEmise(uid: string, teamId: string, teamAlias: string) {
+  const alias = `${uid}-${teamId}-cle`;
+  const { tokenId } = await litellm.generateKey({ userId: uid, teamId, models: ["mistral-small"], maxBudget: 5, budgetDuration: "30d", duration: "30d", rpmLimit: null, tpmLimit: null, alias, metadata: {} });
+  return testDb.accessRequest.create({
+    data: {
+      kind: "CLE", status: "CLE_EMISE", requesterUid: uid, requesterEmail: `${uid}@linagora.com`, requesterName: uid, teamId, teamAlias, dataLevel: "N2",
+      models: ["mistral-small"], approvedModels: ["mistral-small"], justification: "Essai", keyAlias: alias, keyTokenId: tokenId, keyIssuedAt: new Date(),
+    },
+  });
+}
+
+describe("le responsable gère les clés et les membres de ses équipes (ticket #42)", () => {
+  test("il bloque, débloque et révoque une clé de son équipe ; le titulaire est prévenu, les admins et les autres responsables aussi", async () => {
+    await testDb.teamManager.create({ data: { teamId: "equipe-rd", uid: "cdurand", email: "cdurand@linagora.com", designatedBy: "jdupont" } });
+    const cle = await cleEmise("pmartin", "equipe-rd", "R&D");
+    await blockKey(deps, responsable, cle.id);
+    expect(litellm.keys.get(cle.keyTokenId!)?.blocked).toBe(true);
+    await unblockKey(deps, responsable, cle.id);
+    expect(litellm.keys.get(cle.keyTokenId!)?.blocked).toBe(false);
+    mailer.outbox.length = 0;
+    await revokeKey(deps, responsable, cle.id);
+    expect((await testDb.accessRequest.findUniqueOrThrow({ where: { id: cle.id } })).status).toBe("REVOQUEE");
+    expect(mailer.outbox.map((m) => [m.to, m.subject])).toEqual([
+      [["pmartin@linagora.com"], "[AI GATEWAY] Votre clé pmartin-equipe-rd-cle a été révoquée / Your key pmartin-equipe-rd-cle has been revoked"],
+      [[...ADMINS, "cdurand@linagora.com"], "[AI GATEWAY] Action sur une clé de l'équipe R&D : pmartin-equipe-rd-cle / Action on a key of the team R&D: pmartin-equipe-rd-cle"],
+    ]);
+    expect(mailer.outbox[0].text).toContain("Un responsable de votre équipe a révoqué votre clé d'API pmartin-equipe-rd-cle");
+    expect(mailer.outbox[1].text).toContain("Léa Bernard (lbernard) a révoqué la clé pmartin-equipe-rd-cle de pmartin.");
+    expect((await listAudit(testDb)).map((e) => [e.actorUid, e.action])).toEqual(expect.arrayContaining([["lbernard", "KEY_BLOCKED"], ["lbernard", "KEY_UNBLOCKED"], ["lbernard", "KEY_REVOKED"]]));
+  });
+
+  test("une clé d'une autre équipe lui reste introuvable", async () => {
+    const cle = await cleEmise("jdupont", "equipe-data", "Data");
+    await expect(blockKey(deps, responsable, cle.id)).rejects.toMatchObject({ code: "introuvable" });
+    await expect(revokeKey(deps, responsable, cle.id)).rejects.toMatchObject({ code: "introuvable" });
+    expect((await testDb.accessRequest.findUniqueOrThrow({ where: { id: cle.id } })).status).toBe("CLE_EMISE");
+  });
+
+  test("il fait sortir un membre de son équipe, avec révocation de ses clés de l'équipe ; ajout direct, désignation, renommage et suppression restent aux admins", async () => {
+    const cle = await cleEmise("pmartin", "equipe-rd", "R&D");
+    await removeTeamMember(deps, responsable, { teamId: "equipe-rd", uid: "pmartin" });
+    expect((await testDb.accessRequest.findUniqueOrThrow({ where: { id: cle.id } })).status).toBe("REVOQUEE");
+    expect((await litellm.getTeam("equipe-rd"))?.memberUids).toEqual(["lbernard"]);
+    await expect(removeTeamMember(deps, responsable, { teamId: "equipe-data", uid: "jdupont" })).rejects.toMatchObject({ code: "introuvable" });
+    await expect(addTeamMember(deps, responsable, { teamId: "equipe-rd", uid: "pmartin" })).rejects.toMatchObject({ code: "interdit" });
+    await expect(designateManager(deps, responsable, { teamId: "equipe-rd", uid: "pmartin" })).rejects.toMatchObject({ code: "interdit" });
+    await expect(renameTeam(deps, responsable, { teamId: "equipe-rd", name: "Recherche" })).rejects.toMatchObject({ code: "interdit" });
+    await expect(deleteTeam(deps, responsable, "equipe-rd")).rejects.toMatchObject({ code: "interdit" });
   });
 });

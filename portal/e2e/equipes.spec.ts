@@ -356,3 +356,49 @@ test("un responsable approuve la demande d'un membre de son équipe, qui retire 
   await supprimerEquipe(admin);
   await expect(admin.getByRole("status")).toHaveText("Équipe supprimée.");
 });
+
+test("un responsable bloque, débloque et révoque la clé d'un membre de son équipe, puis le fait sortir de l'équipe (ticket #42)", async ({ browser, request }) => {
+  const responsable = personne("gardien");
+  const membre = personne("porteur");
+  const pageResponsable = await (await connecter(browser, responsable)).newPage();
+  const pageMembre = await (await connecter(browser, membre)).newPage();
+  const admin = await (await connecter(browser, ADMIN)).newPage();
+  const nom = `Équipe clés ${suffixe}`;
+  await nouvelleEquipe(admin, nom);
+  await designer(admin, responsable.uid);
+  await ajouterMembre(admin, membre.uid);
+  const pageEquipe = admin.url();
+  await demanderEtApprouver(browser, pageMembre, membre, { equipe: nom, projet: "Essai gardien" });
+  const cle = await retirerCle(pageMembre);
+  expect(await appel(request, cle)).toBe(200);
+
+  // Blocage puis déblocage depuis la gestion du responsable.
+  await pageResponsable.goto("/gestion/cles");
+  const ligne = () => pageResponsable.getByRole("region", { name: "Clés actives" }).getByRole("row", { name: new RegExp(membre.uid) });
+  await ligne().getByRole("button", { name: "Bloquer" }).click();
+  await expect(pageResponsable.getByRole("status")).toHaveText("Clé bloquée.");
+  await expect.poll(() => appel(request, cle), { timeout: 15_000, intervals: [1_000] }).not.toBe(200);
+  await ligne().getByRole("button", { name: "Débloquer" }).click();
+  await expect(pageResponsable.getByRole("status")).toHaveText("Clé débloquée.");
+  await expect.poll(() => appel(request, cle), { timeout: 15_000, intervals: [1_000] }).toBe(200);
+
+  // Révocation : la passerelle refuse la clé ; le titulaire sait qu'un responsable de son équipe l'a révoquée.
+  await ligne().getByText("Révoquer").click();
+  await ligne().getByRole("button", { name: "Confirmer la révocation" }).click();
+  await expect(pageResponsable.getByRole("status")).toHaveText("Clé révoquée.");
+  await expect.poll(() => appel(request, cle), { timeout: 15_000, intervals: [1_000] }).toBe(401);
+  await expect.poll(async () => (await courriels(membre.uid)).find((c) => c.subject.includes("a été révoquée"))?.text ?? "", { timeout: 15_000 }).toContain(
+    "Un responsable de votre équipe a révoqué votre clé d'API",
+  );
+
+  // Le responsable fait sortir le membre de l'équipe.
+  await pageResponsable.goto(pageEquipe);
+  await faireSortir(pageResponsable, membre.uid);
+  await expect(pageResponsable.getByRole("region", { name: "Membres" })).not.toContainText(membre.uid);
+
+  // Nettoyage.
+  await admin.goto(pageEquipe);
+  await faireSortir(admin, responsable.uid);
+  await supprimerEquipe(admin);
+  await expect(admin.getByRole("status")).toHaveText("Équipe supprimée.");
+});

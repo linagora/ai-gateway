@@ -6,11 +6,10 @@ import type { ApiKind, KeyInfo, KeyParams, LiteLLMClient } from "@/lib/litellm/c
 import { SANS_EXPIRATION } from "@/lib/durees";
 import type { DataLevel, RequestStatus } from "@/lib/policy";
 import type { LimiteDeDebit } from "@/lib/limite-de-debit";
-import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
-import { dansEquipes, requireGestion } from "./autorite";
+import { aAutorite, dansEquipes, managerEmails, requireGestion } from "./autorite";
 import { markExpired, pickupDeadline, readPickupDays } from "./echeances";
-import { type NotificationDeps, notifyAdminKeyAction } from "./notifications";
+import { type NotificationDeps, notifyAdminKeyAction, notifyTeamChange } from "./notifications";
 import { ownKeyToRenew, transitionRequest } from "./requests";
 
 /** Dépendances du service des clés ; la date du jour est injectée pour rendre les échéances testables. */
@@ -289,14 +288,12 @@ export async function listAllKeys(deps: KeyDeps, actor: SessionUser): Promise<Ad
  * « Révoquée » (statut final). Le journal d'audit nomme l'auteur.
  */
 export async function revokeKey(deps: KeyDeps, user: SessionUser, requestId: string): Promise<void> {
-  const request = await activeKeyRequest(deps.db, requestId, (r) => r.requesterUid === user.uid || user.isAdmin);
+  const request = await activeKeyRequest(deps.db, requestId, async (r) => r.requesterUid === user.uid || (await aAutorite(deps.db, user, r.teamId)));
   await deleteFromGateway(deps.litellm, request.keyTokenId);
   await transitionRequest(deps.db, request, "REVOQUEE");
   await recordAudit(deps.db, { actorUid: user.uid, action: "KEY_REVOKED", targetId: request.id, details: { alias: request.keyAlias } });
   // Le titulaire est prévenu d'une révocation qu'il n'a pas faite lui-même.
-  if (user.uid !== request.requesterUid && request.keyAlias) {
-    await notifyAdminKeyAction(deps, { ...request, keyAlias: request.keyAlias }, "revocation");
-  }
+  if (user.uid !== request.requesterUid) await prevenirActionSurCle(deps, user, request, "revocation");
 }
 
 /**
@@ -370,7 +367,10 @@ const BLOCAGE = {
   debloquer: { appel: (l: LiteLLMClient, id: string) => l.unblockKey(id), echec: "Le déblocage de la clé a échoué.", audit: "KEY_UNBLOCKED", courriel: "deblocage" },
 } as const;
 
-/** F-43 : blocage d'une clé par un admin (suspension temporaire et réversible) ; la demande reste « Clé émise ». */
+/**
+ * F-43 : blocage d'une clé par un admin ou un responsable de son équipe (suspension temporaire et réversible) ; la
+ * demande reste « Clé émise ».
+ */
 export async function blockKey(deps: KeyDeps, actor: SessionUser, requestId: string): Promise<void> {
   await changeBlocking(deps, actor, requestId, BLOCAGE.bloquer);
 }
@@ -381,24 +381,44 @@ export async function unblockKey(deps: KeyDeps, actor: SessionUser, requestId: s
 }
 
 async function changeBlocking(deps: KeyDeps, actor: SessionUser, requestId: string, sens: (typeof BLOCAGE)[keyof typeof BLOCAGE]): Promise<void> {
-  requireAdmin(actor);
-  const request = await activeKeyRequest(deps.db, requestId, () => true);
+  // Un salarié sans rôle ne bloque rien, pas même sa propre clé ; hors de son autorité, la clé est introuvable.
+  await requireGestion(deps.db, actor);
+  const request = await activeKeyRequest(deps.db, requestId, (r) => aAutorite(deps.db, actor, r.teamId));
   try {
     await sens.appel(deps.litellm, request.keyTokenId);
   } catch {
     throw new PortalError("passerelle_indisponible", sens.echec);
   }
   await recordAudit(deps.db, { actorUid: actor.uid, action: sens.audit, targetId: request.id, details: { alias: request.keyAlias } });
-  if (request.keyAlias) await notifyAdminKeyAction(deps, { ...request, keyAlias: request.keyAlias }, sens.courriel);
+  await prevenirActionSurCle(deps, actor, request, sens.courriel);
+}
+
+/**
+ * Action d'un admin ou d'un responsable d'équipe sur la clé d'un autre : le titulaire en est prévenu ; celle d'un
+ * responsable est aussi annoncée aux admins et aux autres responsables de l'équipe (F-54).
+ */
+async function prevenirActionSurCle(deps: KeyDeps, actor: SessionUser, request: AccessRequest, action: "revocation" | "blocage" | "deblocage"): Promise<void> {
+  if (!request.keyAlias) return;
+  await notifyAdminKeyAction(deps, { ...request, keyAlias: request.keyAlias }, action, actor.isAdmin ? "admin" : "responsable");
+  if (actor.isAdmin) return;
+  await notifyTeamChange(
+    deps,
+    { type: "cle", action, alias: request.keyAlias, titulaire: request.requesterUid, teamId: request.teamId, equipe: request.teamAlias, auteur: actor },
+    await managerEmails(deps.db, request.teamId, [actor.uid]),
+  );
 }
 
 /**
  * Demande de clé dont la clé est émise et que l'utilisateur peut gérer. Une clé qu'il ne peut pas gérer est
  * « introuvable » (on ne révèle pas son existence) ; une clé révoquée ou expirée n'est plus active.
  */
-async function activeKeyRequest(db: Db, requestId: string, peutGerer: (r: AccessRequest) => boolean): Promise<AccessRequest & { keyTokenId: string }> {
+async function activeKeyRequest(
+  db: Db,
+  requestId: string,
+  peutGerer: (r: AccessRequest) => boolean | Promise<boolean>,
+): Promise<AccessRequest & { keyTokenId: string }> {
   const request = await db.accessRequest.findUnique({ where: { id: requestId } });
-  if (!request || request.kind !== "CLE" || !request.keyTokenId || !request.dataLevel || !peutGerer(request)) {
+  if (!request || request.kind !== "CLE" || !request.keyTokenId || !request.dataLevel || !(await peutGerer(request))) {
     throw new PortalError("introuvable", "Clé introuvable.", { objet: "demande_cle" });
   }
   if (request.status !== "CLE_EMISE") throw new PortalError("transition_interdite", "Cette clé n'est plus active.", { cas: "traitee" });

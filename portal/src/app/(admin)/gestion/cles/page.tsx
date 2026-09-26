@@ -6,8 +6,9 @@ import { DepenseSurBudget, formats, Notice } from "../../../components";
 import { AdminNav } from "../admin-nav";
 
 /**
- * F-43, ticket #19 : les clés approuvées qui attendent leur retrait, les clés actives avec la révocation, le blocage
- * et le déblocage par un admin, puis l'archive des clés révoquées ou expirées.
+ * F-43, tickets #19 et #42 : les clés approuvées qui attendent leur retrait, les clés actives avec la révocation, le
+ * blocage et le déblocage (par un admin, ou par un responsable pour les clés de ses équipes), puis l'archive des clés
+ * révoquées ou expirées.
  */
 export default async function GestionClesPage(props: PageProps<"/gestion/cles">) {
   const admin = await requireGestionPage();
@@ -99,24 +100,20 @@ export default async function GestionClesPage(props: PageProps<"/gestion/cles">)
                     {k.gatewayState?.blocked && ` · ${cles("bloquee")}`}
                   </td>
                   <td>
-                    {admin.isAdmin && (
-                      <>
-                        <form action={k.gatewayState?.blocked ? debloquerCleAction : bloquerCleAction}>
-                          <input type="hidden" name="id" value={k.requestId} />
-                          <button type="submit" className="mt-0 border-neutral-400 bg-white text-neutral-800 hover:bg-neutral-100">
-                            {k.gatewayState?.blocked ? t("debloquer") : t("bloquer")}
-                          </button>
-                        </form>
-                        <details>
-                          <summary className="cursor-pointer">{t("revoquer")}</summary>
-                          <p className="text-sm">{t("revocationAvertissement")}</p>
-                          <form action={revoquerCleAdminAction}>
-                            <input type="hidden" name="id" value={k.requestId} />
-                            <button type="submit">{t("confirmerRevocation")}</button>
-                          </form>
-                        </details>
-                      </>
-                    )}
+                    <form action={k.gatewayState?.blocked ? debloquerCleAction : bloquerCleAction}>
+                      <input type="hidden" name="id" value={k.requestId} />
+                      <button type="submit" className="mt-0 border-neutral-400 bg-white text-neutral-800 hover:bg-neutral-100">
+                        {k.gatewayState?.blocked ? t("debloquer") : t("bloquer")}
+                      </button>
+                    </form>
+                    <details>
+                      <summary className="cursor-pointer">{t("revoquer")}</summary>
+                      <p className="text-sm">{t("revocationAvertissement")}</p>
+                      <form action={revoquerCleAdminAction}>
+                        <input type="hidden" name="id" value={k.requestId} />
+                        <button type="submit">{t("confirmerRevocation")}</button>
+                      </form>
+                    </details>
                   </td>
                 </tr>
               ))}

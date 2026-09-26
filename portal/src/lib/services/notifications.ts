@@ -244,6 +244,7 @@ export async function notifyAdminKeyAction(
   deps: NotificationDeps,
   demande: AccessRequest & { keyAlias: string },
   action: "revocation" | "blocage" | "deblocage",
+  role: "admin" | "responsable" = "admin",
 ): Promise<void> {
   const cle = { revocation: "cleRevoquee", blocage: "cleBloquee", deblocage: "cleDebloquee" }[action] as "cleRevoquee" | "cleBloquee" | "cleDebloquee";
   const message = bilingue(
@@ -251,7 +252,7 @@ export async function notifyAdminKeyAction(
       sujet: t(`courriels.${cle}.sujet`, { alias: demande.keyAlias }),
       paragraphes: [
         t("courriels.bonjour", { nom: nom(demande) }),
-        t(`courriels.${cle}.corps`, { alias: demande.keyAlias }),
+        t(`courriels.${cle}.corps`, { alias: demande.keyAlias, role }),
         avecRecap(t("courriels.rappelCle"), recapCle(t, demande)),
       ],
     }),
@@ -269,7 +270,8 @@ export type TeamChange =
   | { type: "membreSorti"; membre: string }
   | { type: "responsableDesigne"; responsable: string }
   | { type: "responsableRetire"; responsable: string }
-  | { type: "decision"; decision: "approuvee" | "refusee" | "complement" | "adhesion"; demandeur: string; demandeId: string };
+  | { type: "decision"; decision: "approuvee" | "refusee" | "complement" | "adhesion"; demandeur: string; demandeId: string }
+  | { type: "cle"; action: "revocation" | "blocage" | "deblocage"; alias: string; titulaire: string };
 
 /**
  * F-53 et F-54 : un changement dans une équipe est annoncé aux admins et aux responsables de l'équipe que le service
@@ -287,6 +289,7 @@ export async function notifyTeamChange(
     ...("membre" in changement ? { membre: changement.membre } : {}),
     ...("responsable" in changement ? { responsable: changement.responsable } : {}),
     ...(changement.type === "decision" ? { decision: changement.decision, demandeur: changement.demandeur } : {}),
+    ...(changement.type === "cle" ? { action: changement.action, alias: changement.alias, titulaire: changement.titulaire } : {}),
   };
   const message = bilingue(
     (t) => ({
@@ -296,7 +299,13 @@ export async function notifyTeamChange(
     // Une équipe supprimée n'a plus de page : le lien mène à la liste des équipes.
     lienVers(
       deps,
-      changement.type === "supprimee" ? "/gestion/equipes" : changement.type === "decision" ? `/gestion/demandes/${changement.demandeId}` : `/gestion/equipes/${changement.teamId}`,
+      changement.type === "supprimee"
+        ? "/gestion/equipes"
+        : changement.type === "decision"
+          ? `/gestion/demandes/${changement.demandeId}`
+          : changement.type === "cle"
+            ? "/gestion/cles"
+            : `/gestion/equipes/${changement.teamId}`,
     ),
   );
   await envoyer(deps, [...new Set([...(deps.adminEmails ?? []), ...responsables])], message);

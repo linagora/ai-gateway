@@ -692,15 +692,15 @@
     },
     "cleRevoquee": {
       "sujet": "Your key {alias} has been revoked",
-      "corps": "An administrator revoked your API key {alias}: the gateway now refuses it. To get a new key, request its renewal in “My keys”."
+      "corps": "{role, select, responsable {A manager of your team} other {An administrator}} revoked your API key {alias}: the gateway now refuses it. To get a new key, request its renewal in “My keys”."
     },
     "cleBloquee": {
       "sujet": "Your key {alias} is blocked",
-      "corps": "An administrator blocked your API key {alias}: the gateway refuses it until it is unblocked. For more information, write to the portal administrators."
+      "corps": "{role, select, responsable {A manager of your team} other {An administrator}} blocked your API key {alias}: the gateway refuses it until it is unblocked. For more information, write to the portal administrators."
     },
     "cleDebloquee": {
       "sujet": "Your key {alias} is unblocked",
-      "corps": "An administrator unblocked your API key {alias}: it works again."
+      "corps": "{role, select, responsable {A manager of your team} other {An administrator}} unblocked your API key {alias}: it works again."
     },
     "equipe": {
       "creee": {
@@ -734,6 +734,10 @@
       "decision": {
         "sujet": "Request processed in the team {equipe}: {demandeur}",
         "corps": "{auteur} {decision, select, approuvee {approved the API key request of {demandeur}} refusee {refused the request of {demandeur}} complement {asked {demandeur} to complete their request} adhesion {accepted the access request of {demandeur}} other {processed the request of {demandeur}}}."
+      },
+      "cle": {
+        "sujet": "Action on a key of the team {equipe}: {alias}",
+        "corps": "{auteur} {action, select, revocation {revoked} blocage {blocked} other {unblocked}} the key {alias} of {titulaire}."
       }
     },
     "ajoutMembre": {

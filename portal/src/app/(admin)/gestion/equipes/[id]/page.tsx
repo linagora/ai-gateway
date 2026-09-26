@@ -17,7 +17,8 @@ import { AdminNav } from "../../admin-nav";
 
 /**
  * F-53 et F-54 : page d'une équipe : son résumé, son renommage, ses responsables et ses membres (ajout direct, sortie
- * d'une équipe), et sa suppression. Un responsable d'équipe la consulte sans pouvoir la modifier.
+ * d'une équipe), et sa suppression. Un responsable d'équipe la consulte et peut en faire sortir un membre ; le reste
+ * est réservé aux admins.
  */
 export default async function EquipePage(props: PageProps<"/gestion/equipes/[id]">) {
   const acteur = await requireGestionPage();
@@ -111,26 +112,25 @@ export default async function EquipePage(props: PageProps<"/gestion/equipes/[id]
             <thead>
               <tr>
                 <th>{t("colonneMembre")}</th>
-                {estAdmin && <th />}
+                <th />
               </tr>
             </thead>
             <tbody>
               {equipe.members.map((uid) => (
                 <tr key={uid}>
                   <td>{uid}</td>
-                  {estAdmin && (
-                    <td>
-                      <details>
-                        <summary className="cursor-pointer">{t("faireSortir")}</summary>
-                        <p className="text-sm">{t("avertissementSortie")}</p>
-                        <form action={faireSortirMembreAction}>
-                          <input type="hidden" name="id" value={equipe.teamId} />
-                          <input type="hidden" name="uid" value={uid} />
-                          <button type="submit">{t("confirmerSortie")}</button>
-                        </form>
-                      </details>
-                    </td>
-                  )}
+                  {/* Un admin ou un responsable de l'équipe peut faire sortir un membre (F-54). */}
+                  <td>
+                    <details>
+                      <summary className="cursor-pointer">{t("faireSortir")}</summary>
+                      <p className="text-sm">{t("avertissementSortie")}</p>
+                      <form action={faireSortirMembreAction}>
+                        <input type="hidden" name="id" value={equipe.teamId} />
+                        <input type="hidden" name="uid" value={uid} />
+                        <button type="submit">{t("confirmerSortie")}</button>
+                      </form>
+                    </details>
+                  </td>
                 </tr>
               ))}
             </tbody>
