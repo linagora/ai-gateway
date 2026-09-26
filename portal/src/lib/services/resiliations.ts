@@ -75,14 +75,16 @@ async function poserDemande(
 
 /**
  * Résiliation d'un abonnement à la date donnée : il passe « résilié » ; les prélèvements comptés à partir de cette date
- * sont retirés, et ceux échus avant elle, que la tâche quotidienne n'aurait pas encore comptés, sont ajoutés.
+ * sont retirés, sauf ceux déjà transmis à la comptabilité, et ceux échus avant elle, que la tâche quotidienne n'aurait
+ * pas encore comptés, sont ajoutés.
  */
 export async function enregistrerResiliation(db: Db, abonnement: Subscription, date: Date, maintenant: Date): Promise<void> {
   await db.$transaction(async (tx) => {
     // Condition sur le statut : une résiliation ne s'enregistre qu'une fois, même en cas de double envoi.
     const { count } = await tx.subscription.updateMany({ where: { id: abonnement.id, status: { not: "RESILIE" } }, data: { status: "RESILIE", terminatedOn: date } });
     if (count === 0) throw new PortalError("transition_interdite", "Cet abonnement est déjà résilié.", { cas: "abonnement" });
-    await tx.subscriptionCharge.deleteMany({ where: { subscriptionId: abonnement.id, chargedOn: { gte: date } } });
+    // Un prélèvement déjà transmis à la comptabilité reste : sa transmission, et son fichier, ne changent plus.
+    await tx.subscriptionCharge.deleteMany({ where: { subscriptionId: abonnement.id, chargedOn: { gte: date }, transmissionId: null } });
   });
   await enregistrerPrelevements(db, { ...abonnement, terminatedOn: date }, maintenant);
 }

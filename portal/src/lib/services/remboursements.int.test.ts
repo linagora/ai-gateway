@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { resetDb, testDb } from "@/test/db";
 import { listAudit } from "./audit";
 import { exportChargesToReimburse, listChargesToReimburse, listTransmissions, transmissionCsv, transmitCharges } from "./remboursements";
+import { enregistrerResiliation } from "./resiliations";
 
 /*
  * Remboursements (retours de l'utilisateur du 2026-09-26) : les prélèvements des abonnements, à rembourser aux
@@ -143,6 +144,17 @@ describe("remboursements", () => {
     for (const nombre of ["43.2", "36", "84.19", "70.16"]) expect(tout).toContain(`<v>${nombre}</v>`);
     expect(await listTransmissions(deps, admin)).toEqual([]);
     expect((await listChargesToReimburse(deps, admin, "2026-09")).count).toBe(4);
+  });
+
+  test("une résiliation déclarée après coup ne retire pas un prélèvement déjà transmis : la transmission et son CSV restent intacts", async () => {
+    const { paul } = await situation();
+    const id = await transmitCharges(deps, admin, { month: "2026-09", chargeIds: [paul[0], paul[1]] });
+    const abonnement = await testDb.subscription.findFirstOrThrow({ where: { holderUid: "pmartin" } });
+    // Résilié au 1er septembre : le prélèvement du 20 septembre, transmis, reste ; celui du 20 octobre est retiré.
+    await enregistrerResiliation(testDb, abonnement, jour("2026-09-01"), new Date("2026-10-02T09:00:00Z"));
+    expect(await listTransmissions(deps, admin)).toEqual([expect.objectContaining({ id, chargeCount: 2, totalEur: 43.2, totalHtEur: 36 })]);
+    expect((await transmissionCsv(deps, admin, id)).content.trim().split("\r\n")).toHaveLength(3);
+    expect((await listChargesToReimburse(deps, admin, "2026-10")).employees.map((e) => e.uid)).toEqual(["lbernard", "zeta"]);
   });
 
   test("réservé aux admins ; un mois mal formé et une transmission inconnue sont refusés", async () => {
