@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { PortalError } from "@/lib/errors";
 import type { Langue } from "@/lib/langue";
+import { DUREES_ABONNEMENT } from "@/lib/durees";
 import { modelAcceptsLevel } from "@/lib/policy";
 import { getRequestReview } from "@/lib/services/admin-requests";
 import { equipesGerees } from "@/lib/services/autorite";
@@ -10,6 +11,7 @@ import { listCatalog } from "@/lib/services/catalog";
 import { readSettings } from "@/lib/services/settings";
 import { getDeps, requireGestionPage } from "@/lib/session";
 import {
+  approuverAbonnementAction,
   approveKeyRequestAction,
   approveTeamJoinRequestAction,
   refuseRequestAction,
@@ -103,6 +105,28 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
             </dd>
           </>
         )}
+        {review.kind === "ABONNEMENT" && review.subscriptionOffer && (
+          <>
+            <dt>{t("offre")}</dt>
+            <dd>
+              {review.subscriptionOffer.name} ({review.subscriptionOffer.supplier})
+            </dd>
+            <dt>{t("prixMensuel")}</dt>
+            <dd>{euros(review.subscriptionOffer.monthlyPriceEur)}</dd>
+            <dt>{t("niveauMaximal")}</dt>
+            <dd>{domaine(`niveauxOffre.${review.subscriptionOffer.dataLevel}`)}</dd>
+            <dt>{t("projet")}</dt>
+            <dd>{review.project ?? domaine("nonRenseigne")}</dd>
+            <dt>{t("dureeSouhaitee")}</dt>
+            <dd>{review.requestedDays !== null ? libelleDuree(domaine, review.requestedDays) : domaine("nonRenseigne")}</dd>
+            {review.approvedDays !== null && (
+              <>
+                <dt>{t("validiteAccordee")}</dt>
+                <dd>{libelleDuree(domaine, review.approvedDays)}</dd>
+              </>
+            )}
+          </>
+        )}
         <dt>{t("motif")}</dt>
         <dd>{review.justification}</dd>
         {review.decisionComment && (
@@ -179,6 +203,26 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
             <label>
               {t("tpm")}
               <input name="tpmLimit" type="number" min="1" step="1" defaultValue={settings.default_tpm ?? ""} />
+            </label>
+            <button type="submit">{t("approuver")}</button>
+          </form>
+        </>
+      )}
+
+      {peutDecider && review.kind === "ABONNEMENT" && (
+        <>
+          <h2>{t("approuverAbonnement")}</h2>
+          <form action={approuverAbonnementAction}>
+            <input type="hidden" name="id" value={review.id} />
+            <label>
+              {t("validite")}
+              <select name="days" defaultValue={review.requestedDays ?? 90}>
+                {DUREES_ABONNEMENT.map((jours) => (
+                  <option key={jours} value={jours}>
+                    {libelleDuree(domaine, jours)}
+                  </option>
+                ))}
+              </select>
             </label>
             <button type="submit">{t("approuver")}</button>
           </form>

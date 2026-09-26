@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { ADMIN, connecter } from "./outils";
+import { ADMIN, ajouterMembre, connecter, courriels, designer, echapper, faireSortir, nouvelleEquipe, supprimerEquipe } from "./outils";
 
 /* Abonnements individuels aux offres des fournisseurs d'IA (spécification #51). */
 const suffixe = Date.now().toString(36);
@@ -81,4 +81,66 @@ test("un admin crée une offre, que les salariés voient au catalogue en frança
   await expect(admin.getByRole("heading", { name: new RegExp(`Anthropic · ${nom}.*masquée`) })).toBeVisible();
   await salarie.reload();
   await expect(salarie.getByRole("article", { name: nom })).toHaveCount(0);
+});
+
+test("un membre demande une offre pour son équipe ; le responsable l'approuve, et le courriel explique comment souscrire puis déclarer (ticket #54)", async ({ browser }) => {
+  const responsable = personne("responsable");
+  const membre = personne("membre");
+  const pageResponsable = await (await connecter(browser, responsable)).newPage();
+  const pageMembre = await (await connecter(browser, membre)).newPage();
+  const admin = await (await connecter(browser, ADMIN)).newPage();
+  const nomOffre = `ChatGPT Plus essai ${suffixe}`;
+  await creerOffre(admin, {
+    fournisseur: "OpenAI",
+    nom: nomOffre,
+    prix: "23",
+    niveau: "N1 Public",
+    reglesFr: "Désactivez « Améliorer le modèle pour tous » dans les paramètres.",
+    reglesEn: "Turn off “Improve the model for everyone” in the settings.",
+  });
+  const equipe = `Équipe abonnements ${suffixe}`;
+  await nouvelleEquipe(admin, equipe);
+  await designer(admin, responsable.uid);
+  await ajouterMembre(admin, membre.uid);
+  const pageEquipe = admin.url();
+
+  // Le membre demande l'offre depuis le catalogue, pour son équipe, en voyant qui validera.
+  await pageMembre.goto("/catalogue/abonnements");
+  await pageMembre.getByRole("article", { name: nomOffre }).getByRole("link", { name: "Demander cet abonnement" }).click();
+  await expect(pageMembre.getByRole("heading", { level: 1 })).toHaveText("Demander un abonnement");
+  await expect(pageMembre.getByRole("region", { name: new RegExp(`Offre demandée.*${echapper(nomOffre)}`) })).toContainText(/23,00\s€ TTC par mois/);
+  await pageMembre.getByLabel("Équipe").selectOption({ label: equipe });
+  await expect(pageMembre.getByText(`Votre demande sera validée par : ${responsable.uid}.`)).toBeVisible();
+  await pageMembre.getByLabel("Motif").fill("Rédaction assistée des comptes rendus");
+  await pageMembre.getByLabel("Durée souhaitée").selectOption({ label: "6 mois" });
+  await pageMembre.getByLabel(/Je m'engage à ne confier à cet abonnement/).check();
+  await pageMembre.getByRole("button", { name: "Envoyer la demande" }).click();
+  await expect(pageMembre.getByRole("status")).toHaveText("Demande envoyée aux administrateurs.");
+  await expect(pageMembre.getByRole("row", { name: new RegExp(`Abonnement.*${echapper(equipe)}.*OpenAI · ${echapper(nomOffre)}.*Soumise`) })).toBeVisible();
+
+  // Le responsable l'examine et l'approuve pour six mois.
+  await pageResponsable.goto("/gestion/demandes");
+  await pageResponsable.getByRole("row", { name: new RegExp(`${membre.uid}.*Abonnement`) }).getByRole("link", { name: "Examiner" }).click();
+  await expect(pageResponsable.getByRole("main")).toContainText(`${nomOffre} (OpenAI)`);
+  await expect(pageResponsable.getByLabel("Durée de validité")).toHaveValue("180");
+  await pageResponsable.getByRole("button", { name: "Approuver", exact: true }).click();
+  await expect(pageResponsable.getByRole("status")).toHaveText("Demande approuvée.");
+
+  // Le membre apprend comment souscrire puis déclarer l'abonnement.
+  const sujet = "[AI GATEWAY] Votre demande d'abonnement est approuvée / Your subscription request is approved";
+  await expect.poll(async () => (await courriels(membre.uid)).map((c) => c.subject), { timeout: 15_000 }).toContain(sujet);
+  const approbation = (await courriels(membre.uid)).find((c) => c.subject === sujet)?.text ?? "";
+  expect(approbation).toContain("Souscrivez-le vous-même chez OpenAI, de préférence avec votre adresse professionnelle");
+  expect(approbation).toContain("Règles d'usage : Désactivez « Améliorer le modèle pour tous » dans les paramètres.");
+  expect(approbation).toContain("Déclarez ensuite l'abonnement dans « Mes abonnements » avant le");
+  await pageMembre.goto("/demandes");
+  await expect(pageMembre.getByRole("row", { name: new RegExp(`Abonnement.*${echapper(equipe)}.*Approuvée`) })).toBeVisible();
+
+  // Nettoyage : la sortie du membre annule sa demande approuvée non déclarée ; l'équipe se supprime ; l'offre est masquée.
+  await admin.goto(pageEquipe);
+  await faireSortir(admin, membre.uid);
+  await faireSortir(admin, responsable.uid);
+  await supprimerEquipe(admin);
+  await expect(admin.getByRole("status")).toHaveText("Équipe supprimée.");
+  await masquerOffre(admin, "OpenAI", nomOffre);
 });

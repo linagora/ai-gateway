@@ -11,12 +11,14 @@ import type { DataLevel } from "@/lib/policy";
 import type { UseCase } from "@/lib/use-cases";
 import {
   approveKeyRequest,
+  approveSubscriptionRequest,
   approveTeamJoinRequest,
   refuseRequest,
   requestCompletion,
 } from "@/lib/services/admin-requests";
 import { saveCatalogEntry } from "@/lib/services/catalog";
 import { saveOffer } from "@/lib/services/offers";
+import { completeSubscriptionRequest, createSubscriptionRequest } from "@/lib/services/subscriptions";
 import { blockKey, pickUpKey, replaceKey, revokeKey, unblockKey } from "@/lib/services/keys";
 import { cancelRequest, completeRequest, createKeyRequest, createTeamJoinRequest } from "@/lib/services/requests";
 import { saveSettings } from "@/lib/services/settings";
@@ -66,6 +68,29 @@ export async function createKeyRequestAction(formData: FormData): Promise<void> 
       const input = keyRequestFromForm(formData);
       if (completing) await completeRequest(getDeps(), user, completing, input);
       else await createKeyRequest(getDeps(), user, input);
+    },
+    { path: "/demandes", message: completing ? "demandeResoumise" : "demandeEnvoyee" },
+  );
+}
+
+/** Spécification #51, ticket #54 : demande d'abonnement, ou complément d'une demande renvoyée. */
+export async function demanderAbonnementAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const completing = text(formData, "requestId");
+  const input = {
+    offerId: text(formData, "offerId"),
+    teamId: text(formData, "teamId"),
+    justification: text(formData, "justification"),
+    project: optionalText(formData, "project"),
+    requestedDays: optionalNumber(formData, "requestedDays") ?? Number.NaN,
+    commitment: formData.get("commitment") === "on",
+  };
+  const formulaire = `/demandes/abonnement?${completing ? `completer=${encodeURIComponent(completing)}` : `offre=${encodeURIComponent(input.offerId)}`}`;
+  await run(
+    formulaire,
+    async () => {
+      if (completing) await completeSubscriptionRequest(getDeps(), user, completing, input);
+      else await createSubscriptionRequest(getDeps(), user, input);
     },
     { path: "/demandes", message: completing ? "demandeResoumise" : "demandeEnvoyee" },
   );
@@ -148,6 +173,16 @@ export async function approveKeyRequestAction(formData: FormData): Promise<void>
       }),
     { path: "/gestion/demandes", message: "demandeApprouvee" },
   );
+}
+
+/** Spécification #51, ticket #54 : approbation d'une demande d'abonnement, avec sa durée de validité. */
+export async function approuverAbonnementAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const id = text(formData, "id");
+  await run(`/gestion/demandes/${id}`, () => approveSubscriptionRequest(getDeps(), user, id, { days: optionalNumber(formData, "days") ?? Number.NaN }), {
+    path: "/gestion/demandes",
+    message: "demandeApprouvee",
+  });
 }
 
 export async function approveTeamJoinRequestAction(formData: FormData): Promise<void> {
@@ -336,7 +371,7 @@ async function run(errorPath: string, action: () => Promise<unknown>, success: {
     erreur = describeError(e);
   }
   // redirect() lève une exception de navigation : il doit rester hors du try/catch.
-  if (erreur) redirect(`${errorPath}?${erreur}`);
+  if (erreur) redirect(`${errorPath}${errorPath.includes("?") ? "&" : "?"}${erreur}`);
   revalidatePath(success.path);
   redirect(`${success.path}?ok=${success.message}`);
 }

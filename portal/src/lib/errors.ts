@@ -17,6 +17,7 @@ export type PortalErrorCode =
   | "motif_obligatoire"
   | "nom_equipe_invalide"
   | "nom_equipe_pris"
+  | "non_membre"
   | "parametre_manquant"
   | "passerelle_indisponible"
   | "quatre_yeux"

@@ -1,4 +1,5 @@
 import { ExternalLink } from "lucide-react";
+import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import type { Langue } from "@/lib/langue";
 import { listOffers } from "@/lib/services/offers";
@@ -41,14 +42,24 @@ export default async function AbonnementsPage(props: PageProps<"/catalogue/abonn
               <p className="text-sm">{t("niveau", { niveau: domaine(`niveauxOffre.${o.dataLevel}`) })}</p>
               <h3 className="mt-2.5 text-xs font-semibold tracking-wide text-neutral-500 uppercase">{t("regles")}</h3>
               <p className="mt-1 text-sm">{o.rules}</p>
-              {o.url && (
-                <p className="mt-auto pt-3 text-sm">
-                  <a href={o.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1">
-                    {t("lienFournisseur", { fournisseur: o.supplier })}
-                    <ExternalLink aria-hidden="true" className="size-3.5" />
-                  </a>
+              <div className="mt-auto pt-3">
+                {o.url && (
+                  <p className="text-sm">
+                    <a href={o.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1">
+                      {t("lienFournisseur", { fournisseur: o.supplier })}
+                      <ExternalLink aria-hidden="true" className="size-3.5" />
+                    </a>
+                  </p>
+                )}
+                <p className="mt-2">
+                  <Link
+                    href={`/demandes/abonnement?offre=${encodeURIComponent(o.id)}`}
+                    className="inline-block rounded bg-linagora px-3 py-1.5 text-sm font-medium text-white no-underline hover:bg-linagora-fonce"
+                  >
+                    {t("demander")}
+                  </Link>
                 </p>
-              )}
+              </div>
             </article>
           ))}
         </div>

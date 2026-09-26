@@ -72,7 +72,8 @@
     },
     "typesDemande": {
       "CLE": "Clé d'API",
-      "ADHESION_EQUIPE": "Accès à une équipe"
+      "ADHESION_EQUIPE": "Accès à une équipe",
+      "ABONNEMENT": "Abonnement"
     },
     "durees": {
       "1": "24 heures",
@@ -118,7 +119,7 @@
       "demande_en_cours": "Vous avez déjà une demande d'accès en cours pour l'équipe {equipe}.",
       "engagement_requis": "Engagez-vous à ne pas soumettre de données d'un niveau supérieur à celui déclaré.",
       "interdit": "Action réservée aux administrateurs.",
-      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} membre {Membre introuvable dans cette équipe.} responsable {Responsable introuvable dans cette équipe.} other {Demande introuvable.}}",
+      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} membre {Membre introuvable dans cette équipe.} responsable {Responsable introuvable dans cette équipe.} offre {Offre d'abonnement introuvable.} demande_abonnement {Demande d'abonnement introuvable.} other {Demande introuvable.}}",
       "motif_obligatoire": "Un motif est obligatoire.",
       "parametre_manquant": "Budget, période du budget et durée de validité sont obligatoires : saisissez-les ou configurez des valeurs par défaut.",
       "recommandation_hors_cas_usage": "Une recommandation ne peut porter que sur un cas d'usage coché.",
@@ -135,7 +136,8 @@
       "equipe_non_vide": "Cette équipe a encore des clés actives ({cles}) ou des demandes en cours ({demandes}) : révoquez ses clés, y compris celles créées depuis la console de LiteLLM, et traitez ses demandes avant de la supprimer.",
       "responsable_existant": "{uid} est déjà responsable de l'équipe {equipe}.",
       "quatre_yeux": "{cas, select, cle {Vous ne pouvez pas bloquer ni débloquer votre propre clé : un autre responsable de l'équipe ou un administrateur s'en chargera.} other {Vous ne pouvez pas décider de votre propre demande : un autre responsable de l'équipe ou un administrateur s'en chargera.}}",
-      "budget_equipe_invalide": "Budget d'équipe invalide : saisissez un montant positif ou nul (0 : sans limite) et, pour un montant positif, une période au format 30d, 12h…"
+      "budget_equipe_invalide": "Budget d'équipe invalide : saisissez un montant positif ou nul (0 : sans limite) et, pour un montant positif, une période au format 30d, 12h…",
+      "non_membre": "Vous n'êtes pas membre de l'équipe {equipe}."
     },
     "controles": {
       "membre_equipe": "Le demandeur est membre de l'équipe",
@@ -303,7 +305,8 @@
       "prix": "{prix} TTC par mois",
       "niveau": "Niveau maximal des données : {niveau}",
       "regles": "Règles d'usage",
-      "lienFournisseur": "Voir l'offre chez {fournisseur}"
+      "lienFournisseur": "Voir l'offre chez {fournisseur}",
+      "demander": "Demander cet abonnement"
     }
   },
   "niveau": {
@@ -494,7 +497,13 @@
       "aideEquipe": "Si le demandeur n'est pas membre de l'équipe choisie, l'approbation l'y ajoute.",
       "renouvellement": "Renouvellement de la clé {alias}.",
       "depenseOrigine": "Dépense de cette clé : {depense}.",
-      "propreDemande": "Vous ne pouvez pas décider de votre propre demande : un autre responsable de l'équipe ou un administrateur s'en chargera."
+      "propreDemande": "Vous ne pouvez pas décider de votre propre demande : un autre responsable de l'équipe ou un administrateur s'en chargera.",
+      "approuverAbonnement": "Approuver (durée de validité de l'abonnement)",
+      "offre": "Offre",
+      "prixMensuel": "Prix mensuel",
+      "niveauMaximal": "Niveau maximal",
+      "dureeSouhaitee": "Durée souhaitée",
+      "validiteAccordee": "Durée de validité accordée"
     },
     "parametres": {
       "titre": "Valeurs par défaut des clés",
@@ -719,6 +728,10 @@
       "budgetValeur": "{montant, number, ::currency/EUR} par période de {periode}",
       "validite": "Durée de validité",
       "expiration": "Expiration",
+      "offre": "Offre",
+      "prixMensuel": "Prix mensuel",
+      "prixMensuelValeur": "{montant, number, ::currency/EUR} TTC",
+      "niveauMaximal": "Niveau maximal",
       "date": "{date, date, long}"
     },
     "nouvelleDemandeCle": {
@@ -729,21 +742,33 @@
       "sujet": "Nouvelle demande d'accès à une équipe de {nom}",
       "corps": "{nom} ({email}) demande à rejoindre l'équipe {equipe} :"
     },
+    "nouvelleDemandeAbonnement": {
+      "sujet": "Nouvelle demande d'abonnement de {nom}",
+      "corps": "{nom} ({email}) demande un abonnement :"
+    },
     "demandeApprouvee": {
       "sujet": "Votre demande de clé est approuvée",
       "corps": "Votre demande de clé d'API pour l'équipe {equipe} est approuvée. Paramètres de votre clé :",
       "retrait": "Retirez votre clé avant le {date, date, long} dans « Mes clés » : elle ne s'affichera qu'une seule fois.",
       "retraitSansEcheance": "Retirez votre clé dans « Mes clés » : elle ne s'affichera qu'une seule fois."
     },
+    "abonnementApprouve": {
+      "sujet": "Votre demande d'abonnement est approuvée",
+      "corps": "Votre demande d'abonnement pour l'équipe {equipe} est approuvée :",
+      "souscrire": "Souscrivez-le vous-même chez {fournisseur}, de préférence avec votre adresse professionnelle, et désactivez l'utilisation de vos données pour l'entraînement des modèles.",
+      "regles": "Règles d'usage : {regles}",
+      "declarer": "Déclarez ensuite l'abonnement dans « Mes abonnements » avant le {date, date, long}.",
+      "declarerSansEcheance": "Déclarez ensuite l'abonnement dans « Mes abonnements »."
+    },
     "demandeRefusee": {
       "sujet": "Votre demande est refusée",
-      "corps": "{type, select, CLE {Votre demande de clé d'API pour l'équipe {equipe} est refusée.} other {Votre demande d'accès à l'équipe {equipe} est refusée.}}",
+      "corps": "{type, select, CLE {Votre demande de clé d'API pour l'équipe {equipe} est refusée.} ABONNEMENT {Votre demande d'abonnement pour l'équipe {equipe} est refusée.} other {Votre demande d'accès à l'équipe {equipe} est refusée.}}",
       "motif": "Motif du refus : {motif}",
       "suite": "Vous pouvez déposer une nouvelle demande depuis le portail."
     },
     "complementDemande": {
       "sujet": "Votre demande est à compléter",
-      "corps": "{type, select, CLE {Un administrateur demande un complément sur votre demande de clé d'API pour l'équipe {equipe}.} other {Un administrateur demande un complément sur votre demande d'accès à l'équipe {equipe}.}}",
+      "corps": "{type, select, CLE {Un administrateur demande un complément sur votre demande de clé d'API pour l'équipe {equipe}.} ABONNEMENT {Un administrateur demande un complément sur votre demande d'abonnement pour l'équipe {equipe}.} other {Un administrateur demande un complément sur votre demande d'accès à l'équipe {equipe}.}}",
       "commentaire": "Commentaire de l'administrateur : {commentaire}",
       "suite": "Complétez-la dans « Mes demandes »."
     },
@@ -810,7 +835,7 @@
       },
       "decision": {
         "sujet": "Demande traitée dans l'équipe {equipe} : {demandeur}",
-        "corps": "{auteur} a {decision, select, approuvee {approuvé la demande de clé d'API de {demandeur}} refusee {refusé la demande de {demandeur}} complement {demandé un complément à {demandeur} sur sa demande} adhesion {accepté la demande d'accès de {demandeur}} other {traité la demande de {demandeur}}}."
+        "corps": "{auteur} a {decision, select, approuvee {approuvé la demande de clé d'API de {demandeur}} refusee {refusé la demande de {demandeur}} complement {demandé un complément à {demandeur} sur sa demande} adhesion {accepté la demande d'accès de {demandeur}} abonnement {approuvé la demande d'abonnement de {demandeur}} other {traité la demande de {demandeur}}}."
       },
       "cle": {
         "sujet": "Action sur une clé de l'équipe {equipe} : {alias}",
@@ -840,5 +865,13 @@
   "validation": {
     "valideePar": "Votre demande sera validée par : {valideurs}.",
     "valideeParAdmins": "Votre demande sera validée par les administrateurs."
+  },
+  "demandeAbonnement": {
+    "titre": "Demander un abonnement",
+    "titreCompleter": "Compléter votre demande d'abonnement",
+    "offre": "Offre demandée",
+    "engagement": "Je m'engage à ne confier à cet abonnement aucune donnée d'un niveau supérieur à : {niveau}.",
+    "offreIntrouvable": "Cette offre n'est plus proposée.",
+    "voirOffres": "Voir les offres"
   }
 }

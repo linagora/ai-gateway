@@ -1,7 +1,8 @@
 import { createTranslator } from "next-intl";
-import type { AccessRequest } from "@/generated/prisma/client";
+import type { AccessRequest, SubscriptionOffer } from "@/generated/prisma/client";
 import type { Mailer, Message } from "@/lib/courriel";
 import { DUREES_VALIDITE, joursDePeriode } from "@/lib/durees";
+import type { Langue } from "@/lib/langue";
 import en from "../../../messages/en.json";
 import fr from "../../../messages/fr.json";
 
@@ -28,13 +29,17 @@ interface Contenu {
   paragraphes: string[];
 }
 
+/** Langue de chaque traducteur, dans l'ordre des courriels : le français, puis l'anglais. */
+const LANGUES_DES_COURRIELS: readonly Langue[] = ["fr", "en"];
+
 /**
  * Courriel bilingue : le même contenu en français puis en anglais, chacun suivi du lien. Le contenu de chaque
- * langue est calculé par `contenu`, qui reçoit le traducteur de cette langue (textes des dictionnaires).
+ * langue est calculé par `contenu`, qui reçoit le traducteur de cette langue (textes des dictionnaires) et la langue,
+ * pour les textes saisis dans les deux langues (règles d'une offre).
  */
-function bilingue(contenu: (t: Traducteur) => Contenu, lien: string): Omit<Message, "to"> {
-  const [francais, anglais] = TRADUCTEURS.map((t) => {
-    const { sujet, paragraphes } = contenu(t);
+function bilingue(contenu: (t: Traducteur, langue: Langue) => Contenu, lien: string): Omit<Message, "to"> {
+  const [francais, anglais] = TRADUCTEURS.map((t, i) => {
+    const { sujet, paragraphes } = contenu(t, LANGUES_DES_COURRIELS[i]);
     return { sujet, corps: [...paragraphes, t("courriels.lien", { url: lien })].join("\n\n") };
   });
   return {
@@ -74,19 +79,49 @@ function periode(t: Traducteur, budgetDuration: string): string {
 }
 
 /** Libellés des lignes d'un récapitulatif (dictionnaires, espace « courriels.recap »). */
-type Libelle = "equipe" | "niveau" | "modeles" | "modelesAccordes" | "projet" | "motif" | "dureeSouhaitee" | "budget" | "validite" | "expiration";
+type Libelle =
+  | "equipe"
+  | "niveau"
+  | "modeles"
+  | "modelesAccordes"
+  | "projet"
+  | "motif"
+  | "dureeSouhaitee"
+  | "budget"
+  | "validite"
+  | "expiration"
+  | "offre"
+  | "prixMensuel"
+  | "niveauMaximal";
+
+/** Demande, avec l'offre demandée quand c'est une demande d'abonnement (spécification #51). */
+type DemandeAvecOffre = AccessRequest & { offer?: Pick<SubscriptionOffer, "supplier" | "name" | "monthlyPriceEur" | "dataLevel"> | null };
 
 /** Lignes « - Libellé : valeur » d'un récapitulatif ; les valeurs absentes sont omises. */
 function lignes(t: Traducteur, champs: [libelle: Libelle, valeur: string | null | undefined][]): string[] {
   return champs.flatMap(([libelle, valeur]) => (valeur ? [t("courriels.recap.ligne", { libelle: t(`courriels.recap.${libelle}`), valeur })] : []));
 }
 
-/** Ce que le salarié a demandé : équipe, niveau, modèles, projet, motif et durée souhaitée. */
-function recapDemande(t: Traducteur, r: AccessRequest): string[] {
+/** Ce que le salarié a demandé : équipe, niveau, modèles, projet, motif et durée souhaitée ; pour un abonnement, l'offre. */
+function recapDemande(t: Traducteur, r: DemandeAvecOffre): string[] {
+  if (r.kind === "ABONNEMENT" && r.offer) return recapAbonnement(t, r, r.offer);
   return lignes(t, [
     ["equipe", r.teamAlias],
     ["niveau", r.dataLevel && t(`domaine.niveaux.${r.dataLevel}`)],
     ["modeles", r.models.join(", ")],
+    ["projet", r.project],
+    ["motif", r.justification],
+    ["dureeSouhaitee", r.requestedDays !== null ? duree(t, r.requestedDays) : null],
+  ]);
+}
+
+/** Demande d'abonnement : équipe, offre et son prix mensuel TTC, niveau maximal, projet, motif et durée souhaitée. */
+function recapAbonnement(t: Traducteur, r: AccessRequest, offre: NonNullable<DemandeAvecOffre["offer"]>): string[] {
+  return lignes(t, [
+    ["equipe", r.teamAlias],
+    ["offre", `${offre.supplier} · ${offre.name}`],
+    ["prixMensuel", t("courriels.recap.prixMensuelValeur", { montant: offre.monthlyPriceEur.toNumber() })],
+    ["niveauMaximal", t(`domaine.niveauxOffre.${offre.dataLevel}`)],
     ["projet", r.project],
     ["motif", r.justification],
     ["dureeSouhaitee", r.requestedDays !== null ? duree(t, r.requestedDays) : null],
@@ -123,7 +158,7 @@ const avecRecap = (introduction: string, recap: string[]) => [introduction, ...r
  * F-30 : chaque nouvelle demande est notifiée aux admins et aux responsables de l'équipe désignés par le service (hors
  * le demandeur) : qui la dépose, ce qu'elle demande, et le lien vers sa fiche.
  */
-export async function notifyNewRequest(deps: NotificationDeps, demande: AccessRequest, responsables: string[] = []): Promise<void> {
+export async function notifyNewRequest(deps: NotificationDeps, demande: DemandeAvecOffre, responsables: string[] = []): Promise<void> {
   const qui = { nom: nom(demande), email: demande.requesterEmail };
   const message = bilingue(
     (t) =>
@@ -132,7 +167,12 @@ export async function notifyNewRequest(deps: NotificationDeps, demande: AccessRe
             sujet: t("courriels.nouvelleDemandeCle.sujet", qui),
             paragraphes: [t("courriels.bonjourAdmins"), avecRecap(t("courriels.nouvelleDemandeCle.corps", qui), recapDemande(t, demande)), t("courriels.examiner")],
           }
-        : {
+        : demande.kind === "ABONNEMENT"
+          ? {
+              sujet: t("courriels.nouvelleDemandeAbonnement.sujet", qui),
+              paragraphes: [t("courriels.bonjourAdmins"), avecRecap(t("courriels.nouvelleDemandeAbonnement.corps", qui), recapDemande(t, demande)), t("courriels.examiner")],
+            }
+          : {
             sujet: t("courriels.nouvelleDemandeAdhesion.sujet", qui),
             paragraphes: [
               t("courriels.bonjourAdmins"),
@@ -161,8 +201,38 @@ export async function notifyKeyApproved(deps: NotificationDeps, demande: AccessR
   await envoyer(deps, [demande.requesterEmail], message);
 }
 
+/**
+ * Spécification #51 : demande d'abonnement approuvée. Le demandeur apprend comment souscrire (de préférence avec son
+ * adresse professionnelle, entraînement sur ses données désactivé), les règles d'usage de l'offre, et quand déclarer
+ * l'abonnement dans « Mes abonnements ».
+ */
+export async function notifySubscriptionApproved(deps: NotificationDeps, demande: AccessRequest, offre: SubscriptionOffer, echeance: Date | null): Promise<void> {
+  const message = bilingue(
+    (t, langue) => ({
+      sujet: t("courriels.abonnementApprouve.sujet"),
+      paragraphes: [
+        t("courriels.bonjour", { nom: nom(demande) }),
+        avecRecap(
+          t("courriels.abonnementApprouve.corps", { equipe: demande.teamAlias }),
+          lignes(t, [
+            ["offre", `${offre.supplier} · ${offre.name}`],
+            ["prixMensuel", t("courriels.recap.prixMensuelValeur", { montant: offre.monthlyPriceEur.toNumber() })],
+            ["niveauMaximal", t(`domaine.niveauxOffre.${offre.dataLevel}`)],
+            ["validite", demande.approvedDays !== null ? duree(t, demande.approvedDays) : null],
+          ]),
+        ),
+        t("courriels.abonnementApprouve.souscrire", { fournisseur: offre.supplier }),
+        t("courriels.abonnementApprouve.regles", { regles: langue === "en" ? (offre.rulesEn ?? offre.rulesFr) : offre.rulesFr }),
+        echeance ? t("courriels.abonnementApprouve.declarer", { date: echeance }) : t("courriels.abonnementApprouve.declarerSansEcheance"),
+      ],
+    }),
+    lienVers(deps, "/abonnements"),
+  );
+  await envoyer(deps, [demande.requesterEmail], message);
+}
+
 /** Demande refusée, avec le motif du refus et le rappel de la demande. */
-export async function notifyRefused(deps: NotificationDeps, demande: AccessRequest, motif: string): Promise<void> {
+export async function notifyRefused(deps: NotificationDeps, demande: DemandeAvecOffre, motif: string): Promise<void> {
   const message = bilingue(
     (t) => ({
       sujet: t("courriels.demandeRefusee.sujet"),
@@ -180,7 +250,7 @@ export async function notifyRefused(deps: NotificationDeps, demande: AccessReque
 }
 
 /** Complément demandé, avec le commentaire de l'admin et le rappel de la demande. */
-export async function notifyCompletionRequested(deps: NotificationDeps, demande: AccessRequest, commentaire: string | null): Promise<void> {
+export async function notifyCompletionRequested(deps: NotificationDeps, demande: DemandeAvecOffre, commentaire: string | null): Promise<void> {
   const message = bilingue(
     (t) => ({
       sujet: t("courriels.complementDemande.sujet"),
@@ -274,7 +344,7 @@ export type TeamChange =
   | { type: "responsableDesigne"; responsable: string }
   | { type: "responsableRetire"; responsable: string }
   | { type: "budget"; plafond: { montant: number; periode: string } | null }
-  | { type: "decision"; decision: "approuvee" | "refusee" | "complement" | "adhesion"; demandeur: string; demandeId: string }
+  | { type: "decision"; decision: "approuvee" | "refusee" | "complement" | "adhesion" | "abonnement"; demandeur: string; demandeId: string }
   | { type: "cle"; action: "revocation" | "blocage" | "deblocage"; alias: string; titulaire: string };
 
 /**

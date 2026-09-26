@@ -72,7 +72,8 @@
     },
     "typesDemande": {
       "CLE": "API key",
-      "ADHESION_EQUIPE": "Team access"
+      "ADHESION_EQUIPE": "Team access",
+      "ABONNEMENT": "Subscription"
     },
     "durees": {
       "1": "24 hours",
@@ -118,7 +119,7 @@
       "demande_en_cours": "You already have a pending access request for the {equipe} team.",
       "engagement_requis": "Commit to not submitting data above the declared level.",
       "interdit": "Administrators only.",
-      "introuvable": "{objet, select, modele {Model {modele} is not declared in the gateway.} equipe {Team not found.} demande_adhesion {Access request not found.} demande_cle {Key request not found.} membre {Member not found in this team.} responsable {Manager not found in this team.} other {Request not found.}}",
+      "introuvable": "{objet, select, modele {Model {modele} is not declared in the gateway.} equipe {Team not found.} demande_adhesion {Access request not found.} demande_cle {Key request not found.} membre {Member not found in this team.} responsable {Manager not found in this team.} offre {Subscription offer not found.} demande_abonnement {Subscription request not found.} other {Request not found.}}",
       "motif_obligatoire": "A reason is required.",
       "parametre_manquant": "Budget, budget period and validity are required: enter them or configure default values.",
       "recommandation_hors_cas_usage": "A recommendation can only apply to a checked use case.",
@@ -135,7 +136,8 @@
       "equipe_non_vide": "This team still has active keys ({cles}) or pending requests ({demandes}): revoke its keys, including those created from the LiteLLM console, and process its requests before deleting it.",
       "responsable_existant": "{uid} is already a manager of the team {equipe}.",
       "quatre_yeux": "{cas, select, cle {You cannot block or unblock your own key: another manager of the team or an administrator will handle it.} other {You cannot decide on your own request: another manager of the team or an administrator will handle it.}}",
-      "budget_equipe_invalide": "Invalid team budget: enter an amount of zero or more (0: no limit) and, for a positive amount, a period such as 30d, 12h…"
+      "budget_equipe_invalide": "Invalid team budget: enter an amount of zero or more (0: no limit) and, for a positive amount, a period such as 30d, 12h…",
+      "non_membre": "You are not a member of the {equipe} team."
     },
     "controles": {
       "membre_equipe": "The requester is a member of the team",
@@ -303,7 +305,8 @@
       "prix": "{prix} incl. VAT per month",
       "niveau": "Maximum data level: {niveau}",
       "regles": "Usage rules",
-      "lienFournisseur": "See the offer at {fournisseur}"
+      "lienFournisseur": "See the offer at {fournisseur}",
+      "demander": "Request this subscription"
     }
   },
   "niveau": {
@@ -494,7 +497,13 @@
       "aideEquipe": "If the requester is not a member of the chosen team, approval adds them to it.",
       "renouvellement": "Renewal of the key {alias}.",
       "depenseOrigine": "Spend of this key: {depense}.",
-      "propreDemande": "You cannot decide on your own request: another manager of the team or an administrator will handle it."
+      "propreDemande": "You cannot decide on your own request: another manager of the team or an administrator will handle it.",
+      "approuverAbonnement": "Approve (subscription validity period)",
+      "offre": "Offer",
+      "prixMensuel": "Monthly price",
+      "niveauMaximal": "Maximum level",
+      "dureeSouhaitee": "Requested duration",
+      "validiteAccordee": "Granted validity period"
     },
     "parametres": {
       "titre": "Default key values",
@@ -719,6 +728,10 @@
       "budgetValeur": "{montant, number, ::currency/EUR} every {periode}",
       "validite": "Validity",
       "expiration": "Expires",
+      "offre": "Offer",
+      "prixMensuel": "Monthly price",
+      "prixMensuelValeur": "{montant, number, ::currency/EUR} incl. VAT",
+      "niveauMaximal": "Maximum level",
       "date": "{date, date, long}"
     },
     "nouvelleDemandeCle": {
@@ -729,21 +742,33 @@
       "sujet": "New team access request from {nom}",
       "corps": "{nom} ({email}) asks to join the {equipe} team:"
     },
+    "nouvelleDemandeAbonnement": {
+      "sujet": "New subscription request from {nom}",
+      "corps": "{nom} ({email}) requests a subscription:"
+    },
     "demandeApprouvee": {
       "sujet": "Your key request is approved",
       "corps": "Your API key request for the {equipe} team is approved. Your key's parameters:",
       "retrait": "Pick up your key before {date, date, long} in “My keys”: it will be shown only once.",
       "retraitSansEcheance": "Pick up your key in “My keys”: it will be shown only once."
     },
+    "abonnementApprouve": {
+      "sujet": "Your subscription request is approved",
+      "corps": "Your subscription request for the {equipe} team is approved:",
+      "souscrire": "Take it out yourself with {fournisseur}, preferably with your work address, and turn off the use of your data for model training.",
+      "regles": "Usage rules: {regles}",
+      "declarer": "Then declare the subscription in “My subscriptions” before {date, date, long}.",
+      "declarerSansEcheance": "Then declare the subscription in “My subscriptions”."
+    },
     "demandeRefusee": {
       "sujet": "Your request is refused",
-      "corps": "{type, select, CLE {Your API key request for the {equipe} team is refused.} other {Your request to join the {equipe} team is refused.}}",
+      "corps": "{type, select, CLE {Your API key request for the {equipe} team is refused.} ABONNEMENT {Your subscription request for the {equipe} team is refused.} other {Your request to join the {equipe} team is refused.}}",
       "motif": "Reason for refusal: {motif}",
       "suite": "You can submit a new request from the portal."
     },
     "complementDemande": {
       "sujet": "Your request needs more information",
-      "corps": "{type, select, CLE {An administrator asks for more information about your API key request for the {equipe} team.} other {An administrator asks for more information about your request to join the {equipe} team.}}",
+      "corps": "{type, select, CLE {An administrator asks for more information about your API key request for the {equipe} team.} ABONNEMENT {An administrator asks for more information about your subscription request for the {equipe} team.} other {An administrator asks for more information about your request to join the {equipe} team.}}",
       "commentaire": "Administrator's comment: {commentaire}",
       "suite": "Complete it in “My requests”."
     },
@@ -810,7 +835,7 @@
       },
       "decision": {
         "sujet": "Request processed in the team {equipe}: {demandeur}",
-        "corps": "{auteur} {decision, select, approuvee {approved the API key request of {demandeur}} refusee {refused the request of {demandeur}} complement {asked {demandeur} to complete their request} adhesion {accepted the access request of {demandeur}} other {processed the request of {demandeur}}}."
+        "corps": "{auteur} {decision, select, approuvee {approved the API key request of {demandeur}} refusee {refused the request of {demandeur}} complement {asked {demandeur} to complete their request} adhesion {accepted the access request of {demandeur}} abonnement {approved the subscription request of {demandeur}} other {processed the request of {demandeur}}}."
       },
       "cle": {
         "sujet": "Action on a key of the team {equipe}: {alias}",
@@ -840,5 +865,13 @@
   "validation": {
     "valideePar": "Your request will be approved by: {valideurs}.",
     "valideeParAdmins": "Your request will be approved by the administrators."
+  },
+  "demandeAbonnement": {
+    "titre": "Request a subscription",
+    "titreCompleter": "Complete your subscription request",
+    "offre": "Requested offer",
+    "engagement": "I commit not to entrust this subscription with any data above: {niveau}.",
+    "offreIntrouvable": "This offer is no longer available.",
+    "voirOffres": "See the offers"
   }
 }

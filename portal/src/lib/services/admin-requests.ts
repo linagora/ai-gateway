@@ -1,8 +1,8 @@
 import { z } from "zod";
-import type { Prisma } from "@/generated/prisma/client";
+import type { Prisma, RequestKind } from "@/generated/prisma/client";
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
-import { PERIODE_BUDGET } from "@/lib/durees";
+import { DUREES_ABONNEMENT, PERIODE_BUDGET } from "@/lib/durees";
 import { PolicyViolationError, PortalError } from "@/lib/errors";
 import type { LiteLLMClient } from "@/lib/litellm/client";
 import { type Page, tranche } from "@/lib/pagination";
@@ -10,7 +10,16 @@ import type { DataLevel, PolicyCheck, RequestStatus } from "@/lib/policy";
 import { recordAudit } from "./audit";
 import { dansEquipes, managerEmails, requireAutorite, requireGestion } from "./autorite";
 import { markExpired, pickupDeadline, readPickupDays } from "./echeances";
-import { type NotificationDeps, notifyCompletionRequested, notifyKeyApproved, notifyMembershipApproved, notifyRefused, notifyTeamChange } from "./notifications";
+import {
+  type NotificationDeps,
+  notifyCompletionRequested,
+  notifyKeyApproved,
+  notifyMembershipApproved,
+  notifyRefused,
+  notifySubscriptionApproved,
+  notifyTeamChange,
+} from "./notifications";
+import { libelleOffre } from "./offers";
 import { evaluateKeyRequest, transitionRequest } from "./requests";
 import { readSettings, type SettingValues } from "./settings";
 
@@ -24,7 +33,9 @@ interface AdminDeps extends NotificationDeps {
 /** Ligne de la file de validation (F-30). */
 export interface PendingRequest {
   id: string;
-  kind: "CLE" | "ADHESION_EQUIPE";
+  kind: RequestKind;
+  /** Demande d'abonnement : l'offre demandée, « Anthropic · Claude Max 5x ». */
+  offer: string | null;
   requesterUid: string;
   teamAlias: string;
   dataLevel: DataLevel | null;
@@ -37,10 +48,11 @@ export interface PendingRequest {
 /** F-30 : demandes en attente, de la plus ancienne à la plus récente ; pour un responsable, celles de ses équipes. */
 export async function listPendingRequests(deps: AdminDeps, actor: SessionUser): Promise<PendingRequest[]> {
   const equipes = await requireGestion(deps.db, actor);
-  const rows = await deps.db.accessRequest.findMany({ where: { status: "SOUMISE", ...dansEquipes(equipes) }, orderBy: { createdAt: "asc" } });
+  const rows = await deps.db.accessRequest.findMany({ where: { status: "SOUMISE", ...dansEquipes(equipes) }, orderBy: { createdAt: "asc" }, include: { offer: true } });
   return rows.map((r) => ({
     id: r.id,
     kind: r.kind,
+    offer: r.offer && libelleOffre(r.offer),
     requesterUid: r.requesterUid,
     teamAlias: r.teamAlias,
     dataLevel: r.dataLevel,
@@ -90,10 +102,12 @@ export async function listProcessedRequests(deps: AdminDeps, actor: SessionUser,
     orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
     skip,
     take,
+    include: { offer: true },
   });
   const elements = rows.map((r) => ({
     id: r.id,
     kind: r.kind,
+    offer: r.offer && libelleOffre(r.offer),
     requesterUid: r.requesterUid,
     teamAlias: r.teamAlias,
     dataLevel: r.dataLevel,
@@ -112,6 +126,10 @@ export async function listProcessedRequests(deps: AdminDeps, actor: SessionUser,
 /** Fiche de validation (F-32) : la demande et ses contrôles, rejoués avec l'état actuel (règle 4). */
 export interface RequestReview extends PendingRequest {
   requesterEmail: string;
+  /** Demande d'abonnement : l'offre demandée, avec son prix mensuel TTC et son niveau maximal. */
+  subscriptionOffer: { supplier: string; name: string; monthlyPriceEur: number; dataLevel: DataLevel } | null;
+  /** Durée de validité accordée, en jours (clé ou abonnement), null tant que la demande n'est pas approuvée. */
+  approvedDays: number | null;
   teamId: string;
   justification: string;
   requestedBudget: number | null;
@@ -128,7 +146,7 @@ export interface RequestReview extends PendingRequest {
 export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: string): Promise<RequestReview> {
   await requireGestion(deps.db, actor);
   await markExpired(deps.db, deps.now?.() ?? new Date());
-  const r = await deps.db.accessRequest.findUnique({ where: { id } });
+  const r = await deps.db.accessRequest.findUnique({ where: { id }, include: { offer: true } });
   if (!r) throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
   await requireAutorite(deps.db, actor, r.teamId, "demande");
   const checks =
@@ -138,6 +156,9 @@ export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: 
   return {
     id: r.id,
     kind: r.kind,
+    offer: r.offer && libelleOffre(r.offer),
+    subscriptionOffer: r.offer && { supplier: r.offer.supplier, name: r.offer.name, monthlyPriceEur: r.offer.monthlyPriceEur.toNumber(), dataLevel: r.offer.dataLevel },
+    approvedDays: r.approvedDays,
     requesterUid: r.requesterUid,
     requesterEmail: r.requesterEmail,
     teamId: r.teamId,
@@ -253,7 +274,7 @@ function withDefaults(params: ApprovalInput, settings: SettingValues): ApprovalI
 /** F-31 : refuse une demande ; le motif est obligatoire et visible du demandeur. */
 export async function refuseRequest(deps: AdminDeps, actor: SessionUser, id: string, comment: string): Promise<void> {
   await requireGestion(deps.db, actor);
-  const request = await deps.db.accessRequest.findUnique({ where: { id } });
+  const request = await deps.db.accessRequest.findUnique({ where: { id }, include: { offer: true } });
   if (!request) throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
   await requireDecision(deps, actor, request, "demande");
   await transitionRequest(deps.db, request, "REFUSEE", {
@@ -268,7 +289,7 @@ export async function refuseRequest(deps: AdminDeps, actor: SessionUser, id: str
 /** F-31 : renvoie la demande au demandeur pour qu'il la complète (statut A_COMPLETER). */
 export async function requestCompletion(deps: AdminDeps, actor: SessionUser, id: string, comment: string): Promise<void> {
   await requireGestion(deps.db, actor);
-  const request = await deps.db.accessRequest.findUnique({ where: { id } });
+  const request = await deps.db.accessRequest.findUnique({ where: { id }, include: { offer: true } });
   if (!request) throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
   await requireDecision(deps, actor, request, "demande");
   await transitionRequest(deps.db, request, "A_COMPLETER", {
@@ -295,6 +316,28 @@ export async function approveTeamJoinRequest(deps: AdminDeps, actor: SessionUser
   await recordAudit(deps.db, { actorUid: actor.uid, action: "MEMBERSHIP_APPROVED", targetId: request.id, details: { teamAlias: equipe.teamAlias } });
   await notifyMembershipApproved(deps, request, equipe.teamAlias);
   await annoncerDecision(deps, actor, { ...request, ...equipe }, "adhesion");
+}
+
+/** Durée de validité accordée à un abonnement (spécification #51) : de 1 mois à 1 an. */
+export const subscriptionApprovalSchema = z.object({ days: z.number().refine((jours) => (DUREES_ABONNEMENT as readonly number[]).includes(jours)) });
+
+/**
+ * Spécification #51 : approuve une demande d'abonnement en fixant sa durée de validité. Le demandeur apprend comment
+ * souscrire, puis déclarer l'abonnement dans le délai de retrait ; la décision est annoncée selon les règles des équipes.
+ */
+export async function approveSubscriptionRequest(deps: AdminDeps, actor: SessionUser, id: string, input: { days: number }): Promise<void> {
+  await requireGestion(deps.db, actor);
+  const { days } = subscriptionApprovalSchema.parse(input);
+  const request = await deps.db.accessRequest.findUnique({ where: { id }, include: { offer: true } });
+  if (!request || request.kind !== "ABONNEMENT" || !request.offer) throw new PortalError("introuvable", "Demande d'abonnement introuvable.", { objet: "demande_abonnement" });
+  await requireDecision(deps, actor, request, "demande_abonnement");
+  if (request.status !== "SOUMISE") throw new PortalError("transition_interdite", "Cette demande a déjà été traitée.", { cas: "traitee" });
+  const approuveeLe = deps.now?.() ?? new Date();
+  await transitionRequest(deps.db, request, "APPROUVEE", { data: { approvedDays: days, decidedBy: actor.uid, decidedAt: approuveeLe } });
+  await recordAudit(deps.db, { actorUid: actor.uid, action: "REQUEST_APPROVED", targetId: request.id, details: { kind: "ABONNEMENT", offre: libelleOffre(request.offer), jours: days } });
+  const delai = await readPickupDays(deps.db);
+  await notifySubscriptionApproved(deps, { ...request, approvedDays: days }, request.offer, delai !== null ? pickupDeadline(approuveeLe, delai) : null);
+  await annoncerDecision(deps, actor, request, "abonnement");
 }
 
 /**
@@ -347,7 +390,7 @@ async function annoncerDecision(
   deps: AdminDeps,
   actor: SessionUser,
   request: { id: string; teamId: string; teamAlias: string; requesterUid: string },
-  decision: "approuvee" | "refusee" | "complement" | "adhesion",
+  decision: "approuvee" | "refusee" | "complement" | "adhesion" | "abonnement",
 ): Promise<void> {
   await notifyTeamChange(
     deps,

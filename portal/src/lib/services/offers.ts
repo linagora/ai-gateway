@@ -55,6 +55,9 @@ export interface AdminOffer extends Omit<CatalogOffer, "rules"> {
   visible: boolean;
 }
 
+/** Nom d'une offre tel que le montrent les listes et les courriels : « Anthropic · Claude Max 5x ». */
+export const libelleOffre = (offre: { supplier: string; name: string }) => `${offre.supplier} · ${offre.name}`;
+
 /** Offres visibles au catalogue, par fournisseur puis par nom. */
 export async function listOffers(deps: OfferDeps, language: Langue = "fr"): Promise<CatalogOffer[]> {
   const offres = await deps.db.subscriptionOffer.findMany({ where: { visible: true }, orderBy: [{ supplier: "asc" }, { name: "asc" }] });

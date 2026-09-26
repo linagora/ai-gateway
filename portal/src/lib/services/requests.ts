@@ -3,12 +3,13 @@ import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
 import type { LiteLLMClient, LiteLLMTeamSummary } from "@/lib/litellm/client";
 import { PolicyViolationError, PortalError } from "@/lib/errors";
-import type { Prisma } from "@/generated/prisma/client";
+import type { Prisma, RequestKind } from "@/generated/prisma/client";
 import { type CatalogModel, checkKeyRequest, checkTransition, DATA_LEVELS, type DataLevel, type KeyRequestDraft, type PolicyVerdict, type RequestStatus } from "@/lib/policy";
 import { recordAudit } from "./audit";
 import { markExpired } from "./echeances";
 import { managerEmails } from "./autorite";
 import { type NotificationDeps, notifyNewRequest } from "./notifications";
+import { libelleOffre } from "./offers";
 
 interface RequestDeps extends NotificationDeps {
   db: Db;
@@ -38,7 +39,9 @@ export type KeyRequestInput = z.infer<typeof keyRequestInputSchema>;
 /** Ligne de « Mes demandes » (F-24). */
 export interface RequestSummary {
   id: string;
-  kind: "CLE" | "ADHESION_EQUIPE";
+  kind: RequestKind;
+  /** Demande d'abonnement : l'offre demandée, « Anthropic · Claude Max 5x ». */
+  offer: string | null;
   teamAlias: string;
   dataLevel: DataLevel | null;
   models: string[];
@@ -148,11 +151,12 @@ export async function cancelRequest(deps: RequestDeps, user: SessionUser, id: st
 }
 
 /**
- * Demandes en cours dans une équipe (F-54, #38) : soumises ou à compléter, et demandes de clé approuvées dont la clé
- * n'est pas retirée. Une demande d'accès approuvée est close : le salarié est entré dans l'équipe.
+ * Demandes en cours dans une équipe (F-54, #38) : soumises ou à compléter, demandes de clé approuvées dont la clé
+ * n'est pas retirée, et demandes d'abonnement approuvées pas encore déclarées. Une demande d'accès approuvée est close :
+ * le salarié est entré dans l'équipe.
  */
 export const DEMANDES_EN_COURS: Prisma.AccessRequestWhereInput = {
-  OR: [{ status: { in: ["SOUMISE", "A_COMPLETER"] } }, { kind: "CLE", status: "APPROUVEE" }],
+  OR: [{ status: { in: ["SOUMISE", "A_COMPLETER"] } }, { kind: { in: ["CLE", "ABONNEMENT"] }, status: "APPROUVEE" }],
 };
 
 /**
@@ -199,10 +203,11 @@ export async function evaluateKeyRequest(deps: RequestDeps, draft: KeyRequestDra
 /** F-24 : demandes de l'utilisateur, les plus récentes d'abord. */
 export async function listMyRequests(deps: RequestDeps, user: SessionUser): Promise<RequestSummary[]> {
   await markExpired(deps.db, deps.now?.() ?? new Date());
-  const rows = await deps.db.accessRequest.findMany({ where: { requesterUid: user.uid }, orderBy: { createdAt: "desc" } });
+  const rows = await deps.db.accessRequest.findMany({ where: { requesterUid: user.uid }, orderBy: { createdAt: "desc" }, include: { offer: true } });
   return rows.map((r) => ({
     id: r.id,
     kind: r.kind,
+    offer: r.offer && libelleOffre(r.offer),
     teamAlias: r.teamAlias,
     dataLevel: r.dataLevel,
     models: r.models,
