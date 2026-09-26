@@ -4,11 +4,10 @@ import type { Db } from "@/lib/db";
 import { PolicyViolationError, PortalError } from "@/lib/errors";
 import type { LiteLLMClient } from "@/lib/litellm/client";
 import type { DataLevel, PolicyCheck, RequestStatus } from "@/lib/policy";
-import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
-import { dansEquipes, requireAutorite, requireGestion } from "./autorite";
+import { dansEquipes, managerEmails, requireAutorite, requireGestion } from "./autorite";
 import { markExpired, pickupDeadline, readPickupDays } from "./echeances";
-import { type NotificationDeps, notifyCompletionRequested, notifyKeyApproved, notifyMembershipApproved, notifyRefused } from "./notifications";
+import { type NotificationDeps, notifyCompletionRequested, notifyKeyApproved, notifyMembershipApproved, notifyRefused, notifyTeamChange } from "./notifications";
 import { evaluateKeyRequest, transitionRequest } from "./requests";
 import { readSettings, type SettingValues } from "./settings";
 
@@ -182,7 +181,7 @@ export type ApprovalInput = z.infer<typeof approvalInputSchema>;
  * demandeur s'il n'en est pas membre (décision du 2026-09-25).
  */
 export async function approveKeyRequest(deps: AdminDeps, actor: SessionUser, id: string, input: ApprovalInput): Promise<void> {
-  requireAdmin(actor);
+  await requireGestion(deps.db, actor);
   const params = withDefaults(approvalInputSchema.parse(input), await readSettings(deps.db));
   if (params.budget === null || params.budgetDuration === null || params.days === null) {
     throw new PortalError(
@@ -192,7 +191,8 @@ export async function approveKeyRequest(deps: AdminDeps, actor: SessionUser, id:
   }
   const request = await deps.db.accessRequest.findUnique({ where: { id } });
   if (!request || request.kind !== "CLE" || !request.dataLevel) throw new PortalError("introuvable", "Demande de clé introuvable.", { objet: "demande_cle" });
-  const equipe = await teamForApproval(deps, request, params.teamId);
+  await requireDecision(deps, actor, request, "demande_cle");
+  const equipe = await teamForApproval(deps, actor, request, params.teamId);
   const reaffectee = equipe.teamId !== request.teamId;
   const draft = { requesterUid: request.requesterUid, teamId: equipe.teamId, dataLevel: request.dataLevel, models: params.models };
   const verdict = await evaluateKeyRequest(deps, draft);
@@ -217,6 +217,7 @@ export async function approveKeyRequest(deps: AdminDeps, actor: SessionUser, id:
   await recordAudit(deps.db, { actorUid: actor.uid, action: "REQUEST_APPROVED", targetId: request.id, details: { teamAlias: equipe.teamAlias } });
   const [approuvee, delai] = await Promise.all([deps.db.accessRequest.findUniqueOrThrow({ where: { id: request.id } }), readPickupDays(deps.db)]);
   await notifyKeyApproved(deps, approuvee, delai !== null ? pickupDeadline(approuveeLe, delai) : null);
+  await annoncerDecision(deps, actor, { ...request, ...equipe }, "approuvee");
 }
 
 /** Règle 7 : les paramètres non saisis prennent les valeurs par défaut configurées (F-51). */
@@ -235,27 +236,31 @@ function withDefaults(params: ApprovalInput, settings: SettingValues): ApprovalI
 
 /** F-31 : refuse une demande ; le motif est obligatoire et visible du demandeur. */
 export async function refuseRequest(deps: AdminDeps, actor: SessionUser, id: string, comment: string): Promise<void> {
-  requireAdmin(actor);
+  await requireGestion(deps.db, actor);
   const request = await deps.db.accessRequest.findUnique({ where: { id } });
   if (!request) throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
+  await requireDecision(deps, actor, request, "demande");
   await transitionRequest(deps.db, request, "REFUSEE", {
     comment,
     data: { decidedBy: actor.uid, decidedAt: new Date(), decisionComment: comment.trim() },
   });
   await recordAudit(deps.db, { actorUid: actor.uid, action: "REQUEST_REFUSED", targetId: request.id, details: { motif: comment.trim() } });
   await notifyRefused(deps, request, comment.trim());
+  await annoncerDecision(deps, actor, request, "refusee");
 }
 
 /** F-31 : renvoie la demande au demandeur pour qu'il la complète (statut A_COMPLETER). */
 export async function requestCompletion(deps: AdminDeps, actor: SessionUser, id: string, comment: string): Promise<void> {
-  requireAdmin(actor);
+  await requireGestion(deps.db, actor);
   const request = await deps.db.accessRequest.findUnique({ where: { id } });
   if (!request) throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
+  await requireDecision(deps, actor, request, "demande");
   await transitionRequest(deps.db, request, "A_COMPLETER", {
     data: { decidedBy: actor.uid, decidedAt: new Date(), decisionComment: comment.trim() || null },
   });
   await recordAudit(deps.db, { actorUid: actor.uid, action: "COMPLETION_REQUESTED", targetId: request.id, details: { commentaire: comment.trim() || null } });
   await notifyCompletionRequested(deps, request, comment.trim() || null);
+  await annoncerDecision(deps, actor, request, "complement");
 }
 
 /**
@@ -263,15 +268,17 @@ export async function requestCompletion(deps: AdminDeps, actor: SessionUser, id:
  * celle que choisit l'admin (réaffectation). LiteLLM d'abord : en cas d'échec, la demande reste SOUMISE.
  */
 export async function approveTeamJoinRequest(deps: AdminDeps, actor: SessionUser, id: string, teamId?: string): Promise<void> {
-  requireAdmin(actor);
+  await requireGestion(deps.db, actor);
   const request = await deps.db.accessRequest.findUnique({ where: { id } });
   if (!request || request.kind !== "ADHESION_EQUIPE") throw new PortalError("introuvable", "Demande d'adhésion introuvable.", { objet: "demande_adhesion" });
+  await requireDecision(deps, actor, request, "demande_adhesion");
   if (request.status !== "SOUMISE") throw new PortalError("transition_interdite", "Cette demande a déjà été traitée.", { cas: "traitee" });
-  const equipe = await teamForApproval(deps, request, teamId);
+  const equipe = await teamForApproval(deps, actor, request, teamId);
   await ajouterMembre(deps.litellm, equipe.teamId, request.requesterUid);
   await transitionRequest(deps.db, request, "APPROUVEE", { data: { ...equipe, decidedBy: actor.uid, decidedAt: new Date() } });
   await recordAudit(deps.db, { actorUid: actor.uid, action: "MEMBERSHIP_APPROVED", targetId: request.id, details: { teamAlias: equipe.teamAlias } });
   await notifyMembershipApproved(deps, request, equipe.teamAlias);
+  await annoncerDecision(deps, actor, { ...request, ...equipe }, "adhesion");
 }
 
 /**
@@ -288,14 +295,45 @@ async function ajouterMembre(litellm: LiteLLMClient, teamId: string, uid: string
   }
 }
 
-/** Équipe retenue à l'approbation : celle de la demande, sauf si l'admin en choisit une autre, qui doit exister. */
+/**
+ * Équipe retenue à l'approbation : celle de la demande, sauf si le valideur en choisit une autre, qui doit exister et,
+ * pour un responsable d'équipe, être une équipe qu'il gère.
+ */
 async function teamForApproval(
   deps: AdminDeps,
+  actor: SessionUser,
   request: { teamId: string; teamAlias: string },
   teamId: string | undefined,
 ): Promise<{ teamId: string; teamAlias: string }> {
   if (!teamId || teamId === request.teamId) return { teamId: request.teamId, teamAlias: request.teamAlias };
+  await requireAutorite(deps.db, actor, teamId, "equipe");
   const team = await deps.litellm.getTeam(teamId);
   if (!team) throw new PortalError("introuvable", `Équipe introuvable : ${teamId}.`, { objet: "equipe" });
   return { teamId: team.teamId, teamAlias: team.teamAlias };
+}
+
+/**
+ * Droit de décider d'une demande (F-54) : autorité sur son équipe (admin, ou responsable de cette équipe) et, pour un
+ * responsable, jamais sur sa propre demande : un autre responsable de l'équipe ou un admin en décide.
+ */
+async function requireDecision(deps: AdminDeps, actor: SessionUser, request: { teamId: string; requesterUid: string }, objet: string): Promise<void> {
+  await requireAutorite(deps.db, actor, request.teamId, objet);
+  if (!actor.isAdmin && request.requesterUid === actor.uid) {
+    throw new PortalError("quatre_yeux", "Un responsable ne décide pas de sa propre demande.");
+  }
+}
+
+/** La décision d'un responsable d'équipe est annoncée aux admins et aux autres responsables de l'équipe (F-54). */
+async function annoncerDecision(
+  deps: AdminDeps,
+  actor: SessionUser,
+  request: { id: string; teamId: string; teamAlias: string; requesterUid: string },
+  decision: "approuvee" | "refusee" | "complement" | "adhesion",
+): Promise<void> {
+  if (actor.isAdmin) return;
+  await notifyTeamChange(
+    deps,
+    { type: "decision", decision, demandeur: request.requesterUid, demandeId: request.id, teamId: request.teamId, equipe: request.teamAlias, auteur: actor },
+    await managerEmails(deps.db, request.teamId, [actor.uid]),
+  );
 }

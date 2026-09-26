@@ -119,7 +119,8 @@
       "salarie_inconnu": "Aucun salarié ne s'est encore connecté au portail avec l'identifiant {uid}.",
       "membre_existant": "{uid} est déjà membre de l'équipe {equipe}.",
       "equipe_non_vide": "Cette équipe a encore des clés actives ({cles}) ou des demandes en cours ({demandes}) : révoquez ses clés et traitez ses demandes avant de la supprimer.",
-      "responsable_existant": "{uid} est déjà responsable de l'équipe {equipe}."
+      "responsable_existant": "{uid} est déjà responsable de l'équipe {equipe}.",
+      "quatre_yeux": "Vous ne pouvez pas décider de votre propre demande : un autre responsable de l'équipe ou un administrateur s'en chargera."
     },
     "controles": {
       "membre_equipe": "Le demandeur est membre de l'équipe",
@@ -440,7 +441,8 @@
       "equipeAffectation": "Équipe d'affectation",
       "aideEquipe": "Si le demandeur n'est pas membre de l'équipe choisie, l'approbation l'y ajoute.",
       "renouvellement": "Renouvellement de la clé {alias}.",
-      "depenseOrigine": "Dépense de cette clé : {depense}."
+      "depenseOrigine": "Dépense de cette clé : {depense}.",
+      "propreDemande": "Vous ne pouvez pas décider de votre propre demande : un autre responsable de l'équipe ou un administrateur s'en chargera."
     },
     "parametres": {
       "titre": "Valeurs par défaut des clés",
@@ -728,6 +730,10 @@
       "responsableRetire": {
         "sujet": "Responsable retiré de l'équipe {equipe} : {responsable}",
         "corps": "{auteur} a retiré à {responsable} son rôle de responsable de l'équipe {equipe}."
+      },
+      "decision": {
+        "sujet": "Demande traitée dans l'équipe {equipe} : {demandeur}",
+        "corps": "{auteur} a {decision, select, approuvee {approuvé la demande de clé d'API de {demandeur}} refusee {refusé la demande de {demandeur}} complement {demandé un complément à {demandeur} sur sa demande} adhesion {accepté la demande d'accès de {demandeur}} other {traité la demande de {demandeur}}}."
       }
     },
     "ajoutMembre": {

@@ -4,6 +4,7 @@ import { PortalError } from "@/lib/errors";
 import type { Langue } from "@/lib/langue";
 import { modelAcceptsLevel } from "@/lib/policy";
 import { getRequestReview } from "@/lib/services/admin-requests";
+import { equipesGerees } from "@/lib/services/autorite";
 import { listCatalog } from "@/lib/services/catalog";
 import { readSettings } from "@/lib/services/settings";
 import { getDeps, requireGestionPage } from "@/lib/session";
@@ -34,11 +35,14 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
     if (e instanceof PortalError && e.code === "introuvable") notFound();
     throw e;
   });
-  const [settings, catalog, teams] = await Promise.all([readSettings(deps.db), listCatalog(deps, language), deps.litellm.listTeams()]);
-  // Équipes proposées à la validation : celle de la demande (même si elle a disparu de LiteLLM) et les autres, par nom.
+  const [settings, catalog, teams, gerees] = await Promise.all([readSettings(deps.db), listCatalog(deps, language), deps.litellm.listTeams(), equipesGerees(deps.db, admin)]);
+  // Équipes proposées à la validation : celle de la demande (même si elle a disparu de LiteLLM) et les autres, par nom ;
+  // pour un responsable, les seules équipes qu'il gère.
   const equipes = [
     { teamId: review.teamId, teamAlias: review.teamAlias },
-    ...teams.filter((team) => team.teamId !== review.teamId).sort((a, b) => a.teamAlias.localeCompare(b.teamAlias, language)),
+    ...teams
+      .filter((team) => team.teamId !== review.teamId && (gerees === null || gerees.includes(team.teamId)))
+      .sort((a, b) => a.teamAlias.localeCompare(b.teamAlias, language)),
   ];
   const choixEquipe = (libelle: string) => (
     <label>
@@ -53,8 +57,9 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
     </label>
   );
   const pending = review.status === "SOUMISE";
-  // Les décisions restent aux admins ; celles d'un responsable arrivent avec le ticket #41.
-  const peutDecider = pending && admin.isAdmin;
+  // Un responsable d'équipe décide des demandes de ses équipes, jamais de la sienne (F-54).
+  const sienne = !admin.isAdmin && review.requesterUid === admin.uid;
+  const peutDecider = pending && !sienne;
 
   return (
     <>
@@ -120,6 +125,8 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
           </ul>
         </>
       )}
+
+      {pending && sienne && <p className="mt-6 rounded border border-neutral-300 bg-neutral-50 p-3">{t("propreDemande")}</p>}
 
       {peutDecider && <ExplicationObligatoires />}
 

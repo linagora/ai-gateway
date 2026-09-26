@@ -119,7 +119,8 @@
       "salarie_inconnu": "No employee has signed in to the portal yet with the identifier {uid}.",
       "membre_existant": "{uid} is already a member of the team {equipe}.",
       "equipe_non_vide": "This team still has active keys ({cles}) or pending requests ({demandes}): revoke its keys and process its requests before deleting it.",
-      "responsable_existant": "{uid} is already a manager of the team {equipe}."
+      "responsable_existant": "{uid} is already a manager of the team {equipe}.",
+      "quatre_yeux": "You cannot decide on your own request: another manager of the team or an administrator will handle it."
     },
     "controles": {
       "membre_equipe": "The requester is a member of the team",
@@ -440,7 +441,8 @@
       "equipeAffectation": "Assigned team",
       "aideEquipe": "If the requester is not a member of the chosen team, approval adds them to it.",
       "renouvellement": "Renewal of the key {alias}.",
-      "depenseOrigine": "Spend of this key: {depense}."
+      "depenseOrigine": "Spend of this key: {depense}.",
+      "propreDemande": "You cannot decide on your own request: another manager of the team or an administrator will handle it."
     },
     "parametres": {
       "titre": "Default key values",
@@ -728,6 +730,10 @@
       "responsableRetire": {
         "sujet": "Manager removed from the team {equipe}: {responsable}",
         "corps": "{auteur} removed the manager role of {responsable} for the team {equipe}."
+      },
+      "decision": {
+        "sujet": "Request processed in the team {equipe}: {demandeur}",
+        "corps": "{auteur} {decision, select, approuvee {approved the API key request of {demandeur}} refusee {refused the request of {demandeur}} complement {asked {demandeur} to complete their request} adhesion {accepted the access request of {demandeur}} other {processed the request of {demandeur}}}."
       }
     },
     "ajoutMembre": {

@@ -303,3 +303,56 @@ test("un responsable voit, dans une gestion limitée à son équipe, ses demande
   await supprimerEquipe(admin);
   await expect(admin.getByRole("status")).toHaveText("Équipe supprimée.");
 });
+
+test("un responsable approuve la demande d'un membre de son équipe, qui retire sa clé ; sa propre demande part aux admins (ticket #41)", async ({ browser, request }) => {
+  const responsable = personne("valideur");
+  const membre = personne("titulaire");
+  const pageResponsable = await (await connecter(browser, responsable)).newPage();
+  const pageMembre = await (await connecter(browser, membre)).newPage();
+  const admin = await (await connecter(browser, ADMIN)).newPage();
+  const nom = `Équipe validation ${suffixe}`;
+  await nouvelleEquipe(admin, nom);
+  await designer(admin, responsable.uid);
+  await ajouterMembre(admin, membre.uid);
+  const pageEquipe = admin.url();
+  await deposerDemande(pageMembre, nom, "Demande à valider par le responsable");
+
+  // Le responsable approuve depuis sa gestion ; seules ses équipes lui sont proposées.
+  await pageResponsable.goto("/gestion/demandes");
+  await pageResponsable.getByRole("row", { name: new RegExp(membre.uid) }).getByRole("link", { name: "Examiner" }).click();
+  await expect(pageResponsable.getByLabel("Équipe de la clé").locator("option")).toHaveText([nom]);
+  await pageResponsable.getByLabel("Budget (€)").fill("5");
+  await pageResponsable.getByLabel("Période du budget (ex. 30d)").fill("30d");
+  await pageResponsable.getByLabel("Durée de validité").selectOption({ label: "1 mois" });
+  await pageResponsable.getByRole("button", { name: "Approuver", exact: true }).click();
+  await expect(pageResponsable.getByRole("status")).toHaveText("Demande approuvée.");
+
+  // Le membre retire sa clé, qui fonctionne ; la décision est au nom du responsable, et les admins en sont prévenus.
+  const cle = await retirerCle(pageMembre);
+  expect(await appel(request, cle)).toBe(200);
+  await pageResponsable.goto("/gestion/demandes");
+  await expect(pageResponsable.getByRole("region", { name: /Archive/ }).getByRole("row", { name: new RegExp(membre.uid) })).toContainText(responsable.uid);
+  await expect.poll(async () => (await courriels(membre.uid)).map((c) => c.subject), { timeout: 15_000 }).toContain(
+    `[AI GATEWAY] Demande traitée dans l'équipe ${nom} : ${membre.uid} / Request processed in the team ${nom}: ${membre.uid}`,
+  );
+
+  // Sa propre demande : aucune décision possible ; elle ira aux administrateurs.
+  await deposerDemande(pageResponsable, nom, "Demande du responsable");
+  await pageResponsable.goto("/gestion/demandes");
+  await pageResponsable.getByRole("row", { name: new RegExp(`${responsable.uid}.*Clé d'API`) }).getByRole("link", { name: "Examiner" }).click();
+  await expect(pageResponsable.getByText("Vous ne pouvez pas décider de votre propre demande : un autre responsable de l'équipe ou un administrateur s'en chargera.")).toBeVisible();
+  await expect(pageResponsable.getByRole("button", { name: "Approuver", exact: true })).toHaveCount(0);
+  const fiche = pageResponsable.url();
+  // L'admin, lui, la refuse.
+  await admin.goto(fiche);
+  await admin.getByLabel("Motif du refus").fill("Essai terminé");
+  await admin.getByRole("button", { name: "Refuser" }).click();
+  await expect(admin.getByRole("status")).toHaveText("Demande refusée.");
+
+  // Nettoyage : la sortie du membre révoque sa clé, puis l'équipe se supprime.
+  await admin.goto(pageEquipe);
+  await faireSortir(admin, membre.uid);
+  await faireSortir(admin, responsable.uid);
+  await supprimerEquipe(admin);
+  await expect(admin.getByRole("status")).toHaveText("Équipe supprimée.");
+});

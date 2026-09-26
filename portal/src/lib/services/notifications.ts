@@ -268,7 +268,8 @@ export type TeamChange =
   | { type: "membreAjoute"; membre: string }
   | { type: "membreSorti"; membre: string }
   | { type: "responsableDesigne"; responsable: string }
-  | { type: "responsableRetire"; responsable: string };
+  | { type: "responsableRetire"; responsable: string }
+  | { type: "decision"; decision: "approuvee" | "refusee" | "complement" | "adhesion"; demandeur: string; demandeId: string };
 
 /**
  * F-53 et F-54 : un changement dans une équipe est annoncé aux admins et aux responsables de l'équipe que le service
@@ -285,6 +286,7 @@ export async function notifyTeamChange(
     ...("ancienNom" in changement ? { ancienNom: changement.ancienNom } : {}),
     ...("membre" in changement ? { membre: changement.membre } : {}),
     ...("responsable" in changement ? { responsable: changement.responsable } : {}),
+    ...(changement.type === "decision" ? { decision: changement.decision, demandeur: changement.demandeur } : {}),
   };
   const message = bilingue(
     (t) => ({
@@ -292,7 +294,10 @@ export async function notifyTeamChange(
       paragraphes: [t("courriels.bonjourAdmins"), t(`courriels.equipe.${changement.type}.corps`, valeurs)],
     }),
     // Une équipe supprimée n'a plus de page : le lien mène à la liste des équipes.
-    lienVers(deps, changement.type === "supprimee" ? "/gestion/equipes" : `/gestion/equipes/${changement.teamId}`),
+    lienVers(
+      deps,
+      changement.type === "supprimee" ? "/gestion/equipes" : changement.type === "decision" ? `/gestion/demandes/${changement.demandeId}` : `/gestion/equipes/${changement.teamId}`,
+    ),
   );
   await envoyer(deps, [...new Set([...(deps.adminEmails ?? []), ...responsables])], message);
 }

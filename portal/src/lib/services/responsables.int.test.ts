@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
 import { FakeMailer } from "@/test/fake-mailer";
-import { countAdminPending, getRequestReview, listPendingRequests, listProcessedRequests } from "./admin-requests";
+import { approveKeyRequest, approveTeamJoinRequest, countAdminPending, getRequestReview, listPendingRequests, listProcessedRequests, refuseRequest, requestCompletion } from "./admin-requests";
+import { listAudit } from "./audit";
 import { saveCatalogEntry } from "./catalog";
 import { listAllKeys, listKeysToPickUp } from "./keys";
 import { createKeyRequest, createTeamJoinRequest } from "./requests";
@@ -93,5 +94,61 @@ describe("gestion limitée du responsable d'équipe (ticket #40)", () => {
     mailer.outbox.length = 0;
     await createKeyRequest(deps, responsable, { teamId: "equipe-rd", dataLevel: "N2", models: ["mistral-small"], justification: "Essai", project: null, requestedBudget: null, requestedDays: 90, commitment: true });
     expect(mailer.outbox.map((m) => m.to)).toEqual([ADMINS]);
+  });
+});
+
+describe("le responsable valide les demandes de ses équipes (ticket #41)", () => {
+  const parametres = { models: ["mistral-small"], budget: 10, budgetDuration: "30d", days: 90, rpmLimit: null, tpmLimit: null };
+
+  test("un responsable approuve une demande de clé de son équipe, avec les contrôles de politique ; la décision est à son nom, envoyée au demandeur et annoncée aux admins et aux autres responsables", async () => {
+    await testDb.teamManager.create({ data: { teamId: "equipe-rd", uid: "cdurand", email: "cdurand@linagora.com", designatedBy: "jdupont" } });
+    const { id } = await createKeyRequest(deps, membre, { teamId: "equipe-rd", dataLevel: "N2", models: ["mistral-small"], justification: "Essai", project: null, requestedBudget: null, requestedDays: 90, commitment: true });
+    mailer.outbox.length = 0;
+    // Les contrôles de politique restent bloquants : un modèle inconnu est refusé.
+    await expect(approveKeyRequest(deps, responsable, id, { ...parametres, models: ["modele-inconnu"] })).rejects.toMatchObject({ code: "controles_en_echec" });
+    await approveKeyRequest(deps, responsable, id, parametres);
+    const approuvee = await testDb.accessRequest.findUniqueOrThrow({ where: { id } });
+    expect(approuvee).toMatchObject({ status: "APPROUVEE", decidedBy: "lbernard" });
+    expect((await listAudit(testDb)).at(-1)).toMatchObject({ actorUid: "lbernard", action: "REQUEST_APPROVED", targetId: id });
+    expect(mailer.outbox.map((m) => [m.to, m.subject])).toEqual([
+      [["pmartin@linagora.com"], "[AI GATEWAY] Votre demande de clé est approuvée / Your key request is approved"],
+      [[...ADMINS, "cdurand@linagora.com"], "[AI GATEWAY] Demande traitée dans l'équipe R&D : pmartin / Request processed in the team R&D: pmartin"],
+    ]);
+    expect(mailer.outbox[1].text).toContain("Léa Bernard (lbernard) a approuvé la demande de clé d'API de pmartin.");
+    expect(mailer.outbox[1].text).toContain(`https://portail.test/gestion/demandes/${id}`);
+  });
+
+  test("il refuse ou renvoie pour complément une demande de son équipe, et accepte une demande d'accès à son équipe", async () => {
+    const refusee = await demande("pmartin", "equipe-rd", "R&D");
+    await refuseRequest(deps, responsable, refusee.id, "Hors du périmètre de l'équipe");
+    const aCompleter = await demande("pmartin", "equipe-rd", "R&D");
+    await requestCompletion(deps, responsable, aCompleter.id, "Précisez le projet");
+    const { id: acces } = await createTeamJoinRequest(deps, admin, { teamId: "equipe-rd", justification: "Rejoindre R&D" });
+    await approveTeamJoinRequest(deps, responsable, acces);
+    expect(await testDb.accessRequest.findMany({ where: { id: { in: [refusee.id, aCompleter.id, acces] } }, orderBy: { createdAt: "asc" }, select: { status: true, decidedBy: true } })).toEqual([
+      { status: "REFUSEE", decidedBy: "lbernard" },
+      { status: "A_COMPLETER", decidedBy: "lbernard" },
+      { status: "APPROUVEE", decidedBy: "lbernard" },
+    ]);
+    expect((await litellm.getTeam("equipe-rd"))?.memberUids).toContain("jdupont");
+  });
+
+  test("il ne peut pas décider de ses propres demandes ; un autre responsable de l'équipe ou un admin le peut", async () => {
+    const sienne = await demande("lbernard", "equipe-rd", "R&D");
+    await expect(approveKeyRequest(deps, responsable, sienne.id, parametres)).rejects.toMatchObject({ code: "quatre_yeux" });
+    await expect(refuseRequest(deps, responsable, sienne.id, "Non")).rejects.toMatchObject({ code: "quatre_yeux" });
+    await expect(requestCompletion(deps, responsable, sienne.id, "Précisez")).rejects.toMatchObject({ code: "quatre_yeux" });
+    await testDb.teamManager.create({ data: { teamId: "equipe-rd", uid: "pmartin", email: "pmartin@linagora.com", designatedBy: "jdupont" } });
+    await refuseRequest(deps, membre, sienne.id, "Hors du périmètre");
+    expect((await testDb.accessRequest.findUniqueOrThrow({ where: { id: sienne.id } })).decidedBy).toBe("pmartin");
+  });
+
+  test("il ne décide pas d'une demande d'une autre équipe, et ne déplace une demande que vers une équipe qu'il gère", async () => {
+    const autre = await demande("jdupont", "equipe-data", "Data");
+    await expect(refuseRequest(deps, responsable, autre.id, "Non")).rejects.toMatchObject({ code: "introuvable" });
+    await expect(approveKeyRequest(deps, responsable, autre.id, parametres)).rejects.toMatchObject({ code: "introuvable" });
+    const sienne = await demande("pmartin", "equipe-rd", "R&D");
+    await expect(approveKeyRequest(deps, responsable, sienne.id, { ...parametres, teamId: "equipe-data" })).rejects.toMatchObject({ code: "introuvable" });
+    expect((await testDb.accessRequest.findUniqueOrThrow({ where: { id: sienne.id } })).status).toBe("SOUMISE");
   });
 });
