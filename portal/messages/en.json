@@ -503,7 +503,11 @@
         "aucune": "No revoked or expired key.",
         "colonnes": {
           "emise": "Issued on"
-        }
+        },
+        "pagination": "Key archive pages",
+        "position": "Page {page} of {pages} ({total, plural, one {# archived key} other {# archived keys}})",
+        "plusRecentes": "More recent keys",
+        "plusAnciennes": "Older keys"
       }
     },
     "outils": {

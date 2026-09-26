@@ -6,6 +6,7 @@ import type { ApiKind, KeyInfo, KeyParams, LiteLLMClient } from "@/lib/litellm/c
 import { SANS_EXPIRATION } from "@/lib/durees";
 import type { DataLevel, RequestStatus } from "@/lib/policy";
 import type { LimiteDeDebit } from "@/lib/limite-de-debit";
+import { type Page, tranche } from "@/lib/pagination";
 import { recordAudit } from "./audit";
 import { aAutorite, dansEquipes, managerEmails, requireGestion } from "./autorite";
 import { markExpired, pickupDeadline, readPickupDays } from "./echeances";
@@ -269,18 +270,36 @@ export async function listKeysToPickUp(deps: KeyDeps, actor: SessionUser): Promi
 }
 
 /**
- * F-43 : toutes les clés émises (pour un responsable, celles de ses équipes), les actives d'abord puis les plus
- * récentes, avec leur dépense lue en direct.
+ * F-43 : clés actives (pour un responsable, celles de ses équipes), les plus récemment émises d'abord, avec leur
+ * dépense lue en direct.
  */
-export async function listAllKeys(deps: KeyDeps, actor: SessionUser): Promise<AdminKey[]> {
+export async function listActiveKeys(deps: KeyDeps, actor: SessionUser): Promise<AdminKey[]> {
   const equipes = await requireGestion(deps.db, actor);
   await markExpired(deps.db, deps.now?.() ?? new Date());
   const rows = await deps.db.accessRequest.findMany({
-    where: { kind: "CLE", keyAlias: { not: null }, keyIssuedAt: { not: null }, ...dansEquipes(equipes) },
-    orderBy: { keyIssuedAt: "desc" },
+    where: { kind: "CLE", status: "CLE_EMISE", keyAlias: { not: null }, keyIssuedAt: { not: null }, ...dansEquipes(equipes) },
+    orderBy: [{ keyIssuedAt: "desc" }, { id: "desc" }],
   });
-  const cles = await Promise.all(rows.map(async (r) => ({ ...(await toIssuedKey(deps.litellm, r)), holderUid: r.requesterUid, holderEmail: r.requesterEmail })));
-  return cles.sort((a, b) => Number(b.status === "CLE_EMISE") - Number(a.status === "CLE_EMISE"));
+  return Promise.all(rows.map((r) => adminKey(deps.litellm, r)));
+}
+
+/**
+ * F-43 : archive des clés révoquées ou expirées (mêmes filtres que les clés actives), la plus récemment émise d'abord,
+ * par pages de PAR_PAGE ; une page hors limites mène à la plus proche.
+ */
+export async function listKeyArchive(deps: KeyDeps, actor: SessionUser, page = 1): Promise<Page<AdminKey>> {
+  const equipes = await requireGestion(deps.db, actor);
+  await markExpired(deps.db, deps.now?.() ?? new Date());
+  const where = { kind: "CLE" as const, status: { not: "CLE_EMISE" as const }, keyAlias: { not: null }, keyIssuedAt: { not: null }, ...dansEquipes(equipes) };
+  const total = await deps.db.accessRequest.count({ where });
+  const { page: courante, pages, skip, take } = tranche(total, page);
+  const rows = await deps.db.accessRequest.findMany({ where, orderBy: [{ keyIssuedAt: "desc" }, { id: "desc" }], skip, take });
+  return { elements: await Promise.all(rows.map((r) => adminKey(deps.litellm, r))), page: courante, pages, total };
+}
+
+/** Clé vue par la gestion : celle de son titulaire, avec son identité. */
+async function adminKey(litellm: LiteLLMClient, r: AccessRequest): Promise<AdminKey> {
+  return { ...(await toIssuedKey(litellm, r)), holderUid: r.requesterUid, holderEmail: r.requesterEmail };
 }
 
 /**

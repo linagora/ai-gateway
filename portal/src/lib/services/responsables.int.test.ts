@@ -5,7 +5,7 @@ import { FakeMailer } from "@/test/fake-mailer";
 import { approveKeyRequest, approveTeamJoinRequest, countAdminPending, getRequestReview, listPendingRequests, listProcessedRequests, refuseRequest, requestCompletion } from "./admin-requests";
 import { listAudit } from "./audit";
 import { saveCatalogEntry } from "./catalog";
-import { blockKey, listAllKeys, listKeysToPickUp, pickUpKey, revokeKey, unblockKey } from "./keys";
+import { blockKey, listActiveKeys, listKeysToPickUp, pickUpKey, revokeKey, unblockKey } from "./keys";
 import { createKeyRequest, createTeamJoinRequest } from "./requests";
 import { addTeamMember, deleteTeam, designateManager, getTeamPage, listTeamOverviews, removeTeamMember, renameTeam } from "./teams";
 
@@ -64,8 +64,8 @@ describe("gestion limitée du responsable d'équipe (ticket #40)", () => {
   test("les clés actives d'une autre équipe ne sont pas montrées au responsable", async () => {
     await demande("pmartin", "equipe-rd", "R&D", "CLE_EMISE");
     await demande("jdupont", "equipe-data", "Data", "CLE_EMISE");
-    expect((await listAllKeys(deps, responsable)).map((k) => k.teamAlias)).toEqual(["R&D"]);
-    expect((await listAllKeys(deps, admin)).map((k) => k.teamAlias).sort()).toEqual(["Data", "R&D"]);
+    expect((await listActiveKeys(deps, responsable)).map((k) => k.teamAlias)).toEqual(["R&D"]);
+    expect((await listActiveKeys(deps, admin)).map((k) => k.teamAlias).sort()).toEqual(["Data", "R&D"]);
   });
 
   test("la pastille d'un responsable compte les demandes à valider de ses équipes, hors les siennes", async () => {

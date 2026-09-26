@@ -503,7 +503,11 @@
         "aucune": "Aucune clé révoquée ou expirée.",
         "colonnes": {
           "emise": "Émise le"
-        }
+        },
+        "pagination": "Pages de l'archive des clés",
+        "position": "Page {page} sur {pages} ({total, plural, one {# clé archivée} other {# clés archivées}})",
+        "plusRecentes": "Clés plus récentes",
+        "plusAnciennes": "Clés plus anciennes"
       }
     },
     "outils": {
