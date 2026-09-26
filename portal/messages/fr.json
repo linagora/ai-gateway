@@ -1,6 +1,6 @@
 {
   "metadonnees": {
-    "titre": "Portail IA Linagora",
+    "titre": "Portail IA LINAGORA",
     "description": "Catalogue des modèles d'IA et demandes de clés d'API"
   },
   "entete": {
@@ -19,7 +19,7 @@
   },
   "accueil": {
     "bonjour": "Bonjour {nom}",
-    "presentation": "Ce portail donne accès aux modèles d'IA de Linagora par une API compatible OpenAI. Chaque clé d'API est validée par un administrateur et limitée aux modèles compatibles avec le niveau de confidentialité de vos données.",
+    "presentation": "Ce portail donne accès aux modèles d'IA de LINAGORA par une API compatible OpenAI. Chaque clé d'API est validée par un administrateur et limitée aux modèles compatibles avec le niveau de confidentialité de vos données.",
     "catalogue": "Consulter le catalogue des modèles",
     "demander": "Demander une clé d'API",
     "suivre": "Suivre mes demandes",
@@ -31,6 +31,12 @@
       "N2": "N2 Interne",
       "N3": "N3 Confidentiel",
       "EXP": "Expérimental (bêta)"
+    },
+    "classifications": {
+      "NC": "Classification NC · Public",
+      "C1": "Classification C1 · Interne",
+      "C2": "Classification C2 · Restreint",
+      "C3": "Classification C3 · Secret"
     },
     "zones": {
       "UE": "UE",
@@ -89,7 +95,14 @@
       "parametresEnregistres": "Paramètres enregistrés.",
       "cleRevoquee": "Clé révoquée.",
       "cleBloquee": "Clé bloquée.",
-      "cleDebloquee": "Clé débloquée."
+      "cleDebloquee": "Clé débloquée.",
+      "equipeCreee": "Équipe créée.",
+      "equipeRenommee": "Équipe renommée.",
+      "membreAjoute": "Membre ajouté.",
+      "membreSorti": "Le membre est sorti de l'équipe : ses clés de l'équipe sont révoquées.",
+      "equipeSupprimee": "Équipe supprimée.",
+      "responsableDesigne": "Responsable désigné.",
+      "responsableRetire": "Rôle de responsable retiré."
     },
     "erreurs": {
       "controles_en_echec": "La demande ne respecte pas la politique d'accès aux modèles. Contrôles en échec : {controles}.",
@@ -97,7 +110,7 @@
       "demande_en_cours": "Vous avez déjà une demande d'accès en cours pour l'équipe {equipe}.",
       "engagement_requis": "Engagez-vous à ne pas soumettre de données d'un niveau supérieur à celui déclaré.",
       "interdit": "Action réservée aux administrateurs.",
-      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} other {Demande introuvable.}}",
+      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} membre {Membre introuvable dans cette équipe.} responsable {Responsable introuvable dans cette équipe.} other {Demande introuvable.}}",
       "motif_obligatoire": "Un motif est obligatoire.",
       "parametre_manquant": "Budget, période du budget et durée de validité sont obligatoires : saisissez-les ou configurez des valeurs par défaut.",
       "recommandation_hors_cas_usage": "Une recommandation ne peut porter que sur un cas d'usage coché.",
@@ -106,7 +119,14 @@
       "saisie_invalide": "Saisie invalide : vérifiez les champs {champs}.",
       "inconnue": "Une erreur est survenue.",
       "passerelle_indisponible": "La passerelle ne répond pas : réessayez dans quelques instants.",
-      "trop_de_generations": "Trop de clés générées en peu de temps : réessayez dans quelques minutes."
+      "trop_de_generations": "Trop de clés générées en peu de temps : réessayez dans quelques minutes.",
+      "nom_equipe_invalide": "Donnez un nom à l'équipe (100 caractères au plus).",
+      "nom_equipe_pris": "Le nom {nom} est déjà pris par une autre équipe.",
+      "salarie_inconnu": "Aucun salarié ne s'est encore connecté au portail avec l'identifiant {uid}.",
+      "membre_existant": "{uid} est déjà membre de l'équipe {equipe}.",
+      "equipe_non_vide": "Cette équipe a encore des clés actives ({cles}) ou des demandes en cours ({demandes}) : révoquez ses clés et traitez ses demandes avant de la supprimer.",
+      "responsable_existant": "{uid} est déjà responsable de l'équipe {equipe}.",
+      "quatre_yeux": "{cas, select, cle {Vous ne pouvez pas bloquer ni débloquer votre propre clé : un autre responsable de l'équipe ou un administrateur s'en chargera.} other {Vous ne pouvez pas décider de votre propre demande : un autre responsable de l'équipe ou un administrateur s'en chargera.}}"
     },
     "controles": {
       "membre_equipe": "Le demandeur est membre de l'équipe",
@@ -193,28 +213,28 @@
     "aucunModele": "Aucun modèle n'est encore ouvert à ce niveau. Pour en demander un, écrivez aux administrateurs du portail.",
     "niveaux": {
       "N1": {
-        "definition": "Informations publiques ou destinées à l'être.",
+        "definition": "Informations publiques (NC) ou destinées à tous les salariés (C1).",
         "confier": [
-          "Code open source et documentation publique",
-          "Contenus déjà publiés : site, articles, communiqués",
-          "Veille et recherche sur des sources publiques"
+          "Code open source, documentation et contenus publiés",
+          "Veille et recherche sur des sources publiques",
+          "Notes et documents internes destinés à tous les salariés (C1)"
         ],
         "jamais": [
-          "Documents internes non publiés (niveau N2)",
-          "Données clients ou personnelles (niveau N3)"
+          "Informations à diffusion restreinte (C2, niveau N2)",
+          "Données clients ou personnelles (C3, niveau N3)"
         ],
         "garanties": "Exécution en Union européenne ou hors UE selon le modèle : la zone de chaque modèle est indiquée."
       },
       "N2": {
-        "definition": "Informations internes non publiques, sans données personnelles sensibles.",
+        "definition": "Informations internes à diffusion restreinte (C2), sans données personnelles sensibles.",
         "confier": [
-          "Code et documents internes",
+          "Code et documents de projet non publiés",
           "Spécifications et comptes rendus de réunion",
           "Propositions commerciales non nominatives"
         ],
         "jamais": [
-          "Données clients ou personnelles (niveau N3)",
-          "Contrats, secrets et données sous NDA (niveau N3)"
+          "Données clients ou personnelles (C3, niveau N3)",
+          "Contrats, secrets et données sous NDA (C3, niveau N3)"
         ],
         "garanties": "Hébergeurs engagés à ne pas conserver les données ni à les utiliser pour l'entraînement, en Union européenne de préférence."
       },
@@ -226,10 +246,10 @@
           "Données sous NDA ou du secteur public"
         ],
         "jamais": [
-          "Informations classifiées (Diffusion Restreinte et au-delà)",
+          "Informations classifiées de l'État (Diffusion Restreinte et au-delà)",
           "Données qu'un contrat interdit de confier à un tiers"
         ],
-        "garanties": "Modèles hébergés en France chez OVHcloud, sous contrat de sous-traitance ; à terme, chez Linagora ou un hébergeur souverain."
+        "garanties": "Modèles hébergés en France chez OVHcloud, sous contrat de sous-traitance ; à terme, chez LINAGORA ou un hébergeur souverain."
       },
       "EXP": {
         "definition": "Modèles récents en bêta, à essayer avec des données publiques uniquement.",
@@ -277,6 +297,7 @@
     "notreChoix": "Notre choix pour : {cas}",
     "selectionner": "Sélectionner",
     "selectionnerModele": "Sélectionner {nom}",
+    "voirFiche": "Voir la fiche détaillée<masque> de {nom}</masque>",
     "demanderSelection": "Demander une clé pour la sélection"
   },
   "detail": {
@@ -350,7 +371,7 @@
   },
   "connexion": {
     "titre": "Connexion au Portail IA",
-    "explication": "Le portail utilise votre compte Linagora : connectez-vous avec le SSO de l'entreprise.",
+    "explication": "Le portail utilise votre compte LINAGORA : connectez-vous avec le SSO de l'entreprise.",
     "bouton": "Se connecter avec LemonLDAP::NG",
     "echec": "La connexion a échoué. Réessayez ; si le problème persiste, contactez un administrateur du portail."
   },
@@ -366,8 +387,10 @@
       "catalogue": "Catalogue",
       "parametres": "Valeurs par défaut",
       "cles": "Clés",
+      "equipes": "Équipes",
       "aValider": "{nombre, plural, one {# demande à valider} other {# demandes à valider}}",
-      "aRetirer": "{nombre, plural, one {# clé à retirer} other {# clés à retirer}}"
+      "aRetirer": "{nombre, plural, one {# clé à retirer} other {# clés à retirer}}",
+      "outils": "Outils"
     },
     "file": {
       "titre": "Demandes en attente de validation",
@@ -424,7 +447,8 @@
       "equipeAffectation": "Équipe d'affectation",
       "aideEquipe": "Si le demandeur n'est pas membre de l'équipe choisie, l'approbation l'y ajoute.",
       "renouvellement": "Renouvellement de la clé {alias}.",
-      "depenseOrigine": "Dépense de cette clé : {depense}."
+      "depenseOrigine": "Dépense de cette clé : {depense}.",
+      "propreDemande": "Vous ne pouvez pas décider de votre propre demande : un autre responsable de l'équipe ou un administrateur s'en chargera."
     },
     "parametres": {
       "titre": "Valeurs par défaut des clés",
@@ -473,6 +497,63 @@
           "emise": "Émise le"
         }
       }
+    },
+    "outils": {
+      "titre": "Outils d'administration",
+      "intro": "Fonctions réservées aux admins, servies à côté du portail par d'autres services. Elles s'ouvrent dans un nouvel onglet.",
+      "nouvelOnglet": "nouvel onglet",
+      "reporting": {
+        "titre": "Reporting (Superset)",
+        "description": "Tableaux de bord de la consommation de la passerelle : coûts, requêtes et jetons par équipe, par modèle et par niveau. « Pilotage » est réservé aux admins ; les lecteurs du reporting voient « Consommation ».",
+        "consommation": "Tableau de bord « Consommation »",
+        "pilotage": "Tableau de bord « Pilotage »",
+        "accueil": "Accueil de Superset"
+      },
+      "passerelle": {
+        "titre": "Passerelle (LiteLLM)",
+        "description": "Vue technique de la passerelle : modèles, clés, équipes, dépenses et journaux. Accessible seulement depuis les adresses autorisées, avec les identifiants propres à la console.",
+        "avertissement": "Une modification faite dans la console échappe aux règles du portail (niveaux, validations, courriels, journal d'audit) : à réserver au dépannage.",
+        "console": "Console LiteLLM",
+        "openapi": "Schéma OpenAPI de l'API d'administration"
+      }
+    },
+    "equipes": {
+      "titre": "Équipes",
+      "nouvelle": "Nom de la nouvelle équipe",
+      "creer": "Créer l'équipe",
+      "aucune": "Aucune équipe.",
+      "colonnes": {
+        "equipe": "Équipe",
+        "membres": "Membres",
+        "cles": "Clés actives",
+        "responsables": "Responsables"
+      },
+      "toutes": "Toutes les équipes",
+      "resume": "Résumé de l'équipe",
+      "nom": "Nom de l'équipe",
+      "renommer": "Renommer",
+      "membres": "Membres",
+      "aucunMembre": "Aucun membre.",
+      "uid": "Uid du salarié",
+      "ajouter": "Ajouter à l'équipe",
+      "colonneMembre": "Membre",
+      "faireSortir": "Faire sortir de l'équipe",
+      "avertissementSortie": "Ses clés de cette équipe seront révoquées et ses demandes en cours dans l'équipe annulées.",
+      "confirmerSortie": "Confirmer la sortie",
+      "suppression": {
+        "titre": "Suppression de l'équipe",
+        "supprimer": "Supprimer l'équipe",
+        "avertissement": "L'équipe disparaîtra de la passerelle ; l'historique de ses demandes restera consultable. Une équipe qui a des clés actives ou des demandes en cours ne peut pas être supprimée.",
+        "confirmer": "Confirmer la suppression"
+      },
+      "responsables": "Responsables",
+      "aucunResponsable": "Aucun responsable : les administrateurs valident les demandes de l'équipe.",
+      "uidResponsable": "Uid du responsable",
+      "designer": "Désigner responsable",
+      "retirerRole": "Retirer le rôle de responsable",
+      "colonneResponsable": "Responsable",
+      "colonneAdresse": "Adresse",
+      "aucun": "Aucun"
     }
   },
   "introuvable": {
@@ -617,15 +698,71 @@
     },
     "cleRevoquee": {
       "sujet": "Votre clé {alias} a été révoquée",
-      "corps": "Un administrateur a révoqué votre clé d'API {alias} : la passerelle la refuse désormais. Pour obtenir une nouvelle clé, demandez son renouvellement dans « Mes clés »."
+      "corps": "{role, select, responsable {Un responsable de votre équipe} other {Un administrateur}} a révoqué votre clé d'API {alias} : la passerelle la refuse désormais. Pour obtenir une nouvelle clé, demandez son renouvellement dans « Mes clés »."
     },
     "cleBloquee": {
       "sujet": "Votre clé {alias} est bloquée",
-      "corps": "Un administrateur a bloqué votre clé d'API {alias} : la passerelle la refuse jusqu'à son déblocage. Pour en savoir plus, écrivez aux administrateurs du portail."
+      "corps": "{role, select, responsable {Un responsable de votre équipe} other {Un administrateur}} a bloqué votre clé d'API {alias} : la passerelle la refuse jusqu'à son déblocage. Pour en savoir plus, écrivez aux administrateurs du portail."
     },
     "cleDebloquee": {
       "sujet": "Votre clé {alias} est débloquée",
-      "corps": "Un administrateur a débloqué votre clé d'API {alias} : elle fonctionne à nouveau."
+      "corps": "{role, select, responsable {Un responsable de votre équipe} other {Un administrateur}} a débloqué votre clé d'API {alias} : elle fonctionne à nouveau."
+    },
+    "equipe": {
+      "creee": {
+        "sujet": "Équipe créée : {equipe}",
+        "corps": "{auteur} a créé l'équipe {equipe}."
+      },
+      "renommee": {
+        "sujet": "Équipe renommée : {equipe}",
+        "corps": "{auteur} a renommé l'équipe {ancienNom} en {equipe}."
+      },
+      "membreAjoute": {
+        "sujet": "Membre ajouté à l'équipe {equipe} : {membre}",
+        "corps": "{auteur} a ajouté {membre} à l'équipe {equipe}."
+      },
+      "membreSorti": {
+        "sujet": "Membre sorti de l'équipe {equipe} : {membre}",
+        "corps": "{auteur} a fait sortir {membre} de l'équipe {equipe}."
+      },
+      "supprimee": {
+        "sujet": "Équipe supprimée : {equipe}",
+        "corps": "{auteur} a supprimé l'équipe {equipe}."
+      },
+      "responsableDesigne": {
+        "sujet": "Responsable désigné pour l'équipe {equipe} : {responsable}",
+        "corps": "{auteur} a désigné {responsable} responsable de l'équipe {equipe}."
+      },
+      "responsableRetire": {
+        "sujet": "Responsable retiré de l'équipe {equipe} : {responsable}",
+        "corps": "{auteur} a retiré à {responsable} son rôle de responsable de l'équipe {equipe}."
+      },
+      "decision": {
+        "sujet": "Demande traitée dans l'équipe {equipe} : {demandeur}",
+        "corps": "{auteur} a {decision, select, approuvee {approuvé la demande de clé d'API de {demandeur}} refusee {refusé la demande de {demandeur}} complement {demandé un complément à {demandeur} sur sa demande} adhesion {accepté la demande d'accès de {demandeur}} other {traité la demande de {demandeur}}}."
+      },
+      "cle": {
+        "sujet": "Action sur une clé de l'équipe {equipe} : {alias}",
+        "corps": "{auteur} a {action, select, revocation {révoqué} blocage {bloqué} other {débloqué}} la clé {alias} de {titulaire}."
+      }
+    },
+    "ajoutMembre": {
+      "sujet": "Vous êtes membre de l'équipe {equipe}",
+      "corps": "{auteur} vous a ajouté à l'équipe {equipe} : vous pouvez y demander une clé d'API."
+    },
+    "sortieMembre": {
+      "sujet": "Vous ne faites plus partie de l'équipe {equipe}",
+      "corps": "{auteur} vous a fait sortir de l'équipe {equipe}.",
+      "cles": "Clés révoquées : {cles}.",
+      "demandes": "Demandes annulées : {nombre}."
+    },
+    "designationResponsable": {
+      "sujet": "Vous êtes responsable de l'équipe {equipe}",
+      "corps": "{auteur} vous a désigné responsable de l'équipe {equipe} : vous validez ses demandes d'accès et de clé (sauf les vôtres), et gérez ses membres et ses clés depuis la gestion du portail."
     }
+  },
+  "validation": {
+    "valideePar": "Votre demande sera validée par : {valideurs}.",
+    "valideeParAdmins": "Votre demande sera validée par les administrateurs."
   }
 }

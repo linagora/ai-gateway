@@ -7,6 +7,7 @@ import { addressesFromEnv, mailerFromEnv } from "@/lib/courriel";
 import { getDb } from "@/lib/db";
 import { getLiteLLM } from "@/lib/litellm/instance";
 import { LimiteDeDebit } from "@/lib/limite-de-debit";
+import { equipesGerees } from "@/lib/services/autorite";
 
 /**
  * Couche d'accès aux données (DAL) : l'utilisateur courant, reconstruit à chaque requête. Le rôle
@@ -25,7 +26,18 @@ export async function requireUser(): Promise<SessionUser> {
   return user;
 }
 
-/** Pages de gestion : réservées aux admins ; pour les autres, la page n'existe pas (404). */
+/**
+ * Pages de gestion ouvertes aux responsables d'équipe (demandes, clés, équipes, limitées à leurs équipes par les
+ * services) ; pour les autres salariés, la page n'existe pas (404).
+ */
+export async function requireGestionPage(): Promise<SessionUser> {
+  const user = await requireUser();
+  const equipes = await equipesGerees(getDb(), user);
+  if (equipes !== null && equipes.length === 0) notFound();
+  return user;
+}
+
+/** Pages de gestion réservées aux admins (catalogue, valeurs par défaut, outils) ; pour les autres, 404. */
 export async function requireAdminPage(): Promise<SessionUser> {
   const user = await requireUser();
   if (!user.isAdmin) notFound();

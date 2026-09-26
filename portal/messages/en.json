@@ -1,6 +1,6 @@
 {
   "metadonnees": {
-    "titre": "Linagora AI Portal",
+    "titre": "LINAGORA AI Portal",
     "description": "AI model catalog and API key requests"
   },
   "entete": {
@@ -19,7 +19,7 @@
   },
   "accueil": {
     "bonjour": "Hello {nom}",
-    "presentation": "This portal gives access to Linagora's AI models through an OpenAI-compatible API. Each API key is approved by an administrator and limited to the models compatible with the confidentiality level of your data.",
+    "presentation": "This portal gives access to LINAGORA's AI models through an OpenAI-compatible API. Each API key is approved by an administrator and limited to the models compatible with the confidentiality level of your data.",
     "catalogue": "Browse the model catalog",
     "demander": "Request an API key",
     "suivre": "Track my requests",
@@ -31,6 +31,12 @@
       "N2": "N2 Internal",
       "N3": "N3 Confidential",
       "EXP": "Experimental (beta)"
+    },
+    "classifications": {
+      "NC": "Classification NC · Public",
+      "C1": "Classification C1 · Internal",
+      "C2": "Classification C2 · Restricted",
+      "C3": "Classification C3 · Secret"
     },
     "zones": {
       "UE": "EU",
@@ -89,7 +95,14 @@
       "parametresEnregistres": "Settings saved.",
       "cleRevoquee": "Key revoked.",
       "cleBloquee": "Key blocked.",
-      "cleDebloquee": "Key unblocked."
+      "cleDebloquee": "Key unblocked.",
+      "equipeCreee": "Team created.",
+      "equipeRenommee": "Team renamed.",
+      "membreAjoute": "Member added.",
+      "membreSorti": "The member has left the team: their keys of the team are revoked.",
+      "equipeSupprimee": "Team deleted.",
+      "responsableDesigne": "Manager designated.",
+      "responsableRetire": "Manager role removed."
     },
     "erreurs": {
       "controles_en_echec": "The request does not comply with the model access policy. Failed checks: {controles}.",
@@ -97,7 +110,7 @@
       "demande_en_cours": "You already have a pending access request for the {equipe} team.",
       "engagement_requis": "Commit to not submitting data above the declared level.",
       "interdit": "Administrators only.",
-      "introuvable": "{objet, select, modele {Model {modele} is not declared in the gateway.} equipe {Team not found.} demande_adhesion {Access request not found.} demande_cle {Key request not found.} other {Request not found.}}",
+      "introuvable": "{objet, select, modele {Model {modele} is not declared in the gateway.} equipe {Team not found.} demande_adhesion {Access request not found.} demande_cle {Key request not found.} membre {Member not found in this team.} responsable {Manager not found in this team.} other {Request not found.}}",
       "motif_obligatoire": "A reason is required.",
       "parametre_manquant": "Budget, budget period and validity are required: enter them or configure default values.",
       "recommandation_hors_cas_usage": "A recommendation can only apply to a checked use case.",
@@ -106,7 +119,14 @@
       "saisie_invalide": "Invalid input: check the fields {champs}.",
       "inconnue": "An error occurred.",
       "passerelle_indisponible": "The gateway is not responding: try again in a few moments.",
-      "trop_de_generations": "Too many keys generated in a short time: try again in a few minutes."
+      "trop_de_generations": "Too many keys generated in a short time: try again in a few minutes.",
+      "nom_equipe_invalide": "Give the team a name (100 characters at most).",
+      "nom_equipe_pris": "The name {nom} is already used by another team.",
+      "salarie_inconnu": "No employee has signed in to the portal yet with the identifier {uid}.",
+      "membre_existant": "{uid} is already a member of the team {equipe}.",
+      "equipe_non_vide": "This team still has active keys ({cles}) or pending requests ({demandes}): revoke its keys and process its requests before deleting it.",
+      "responsable_existant": "{uid} is already a manager of the team {equipe}.",
+      "quatre_yeux": "{cas, select, cle {You cannot block or unblock your own key: another manager of the team or an administrator will handle it.} other {You cannot decide on your own request: another manager of the team or an administrator will handle it.}}"
     },
     "controles": {
       "membre_equipe": "The requester is a member of the team",
@@ -193,28 +213,28 @@
     "aucunModele": "No model is open at this level yet. To request one, write to the portal administrators.",
     "niveaux": {
       "N1": {
-        "definition": "Information that is public or intended to be.",
+        "definition": "Public information (NC) or information intended for all employees (C1).",
         "confier": [
-          "Open source code and public documentation",
-          "Content already published: website, articles, press releases",
-          "Monitoring and research on public sources"
+          "Open source code, documentation and published content",
+          "Monitoring and research on public sources",
+          "Internal notes and documents intended for all employees (C1)"
         ],
         "jamais": [
-          "Unpublished internal documents (level N2)",
-          "Customer or personal data (level N3)"
+          "Restricted information (C2, level N2)",
+          "Customer or personal data (C3, level N3)"
         ],
         "garanties": "Executed in the European Union or outside the EU depending on the model: each model shows its execution region."
       },
       "N2": {
-        "definition": "Non-public internal information, without sensitive personal data.",
+        "definition": "Restricted internal information (C2), without sensitive personal data.",
         "confier": [
-          "Internal code and documents",
+          "Unpublished code and project documents",
           "Specifications and meeting minutes",
           "Non-nominative commercial proposals"
         ],
         "jamais": [
-          "Customer or personal data (level N3)",
-          "Contracts, secrets and data under NDA (level N3)"
+          "Customer or personal data (C3, level N3)",
+          "Contracts, secrets and data under NDA (C3, level N3)"
         ],
         "garanties": "Hosts committed to neither retaining the data nor using it for training, preferably in the European Union."
       },
@@ -226,10 +246,10 @@
           "Data under NDA or from the public sector"
         ],
         "jamais": [
-          "Classified information (Restricted and above)",
+          "Government classified information (Diffusion Restreinte and above)",
           "Data that a contract forbids entrusting to a third party"
         ],
-        "garanties": "Models hosted in France by OVHcloud, under a data processing agreement; eventually by Linagora or a sovereign host."
+        "garanties": "Models hosted in France by OVHcloud, under a data processing agreement; eventually by LINAGORA or a sovereign host."
       },
       "EXP": {
         "definition": "Recent models in beta, to try with public data only.",
@@ -277,6 +297,7 @@
     "notreChoix": "Our pick for: {cas}",
     "selectionner": "Select",
     "selectionnerModele": "Select {nom}",
+    "voirFiche": "View details<masque> of {nom}</masque>",
     "demanderSelection": "Request a key for the selection"
   },
   "detail": {
@@ -350,7 +371,7 @@
   },
   "connexion": {
     "titre": "Sign in to the AI Portal",
-    "explication": "The portal uses your Linagora account: sign in with the company SSO.",
+    "explication": "The portal uses your LINAGORA account: sign in with the company SSO.",
     "bouton": "Sign in with LemonLDAP::NG",
     "echec": "Sign-in failed. Try again; if the problem persists, contact a portal administrator."
   },
@@ -366,8 +387,10 @@
       "catalogue": "Catalog",
       "parametres": "Default values",
       "cles": "Keys",
+      "equipes": "Teams",
       "aValider": "{nombre, plural, one {# request to review} other {# requests to review}}",
-      "aRetirer": "{nombre, plural, one {# key to pick up} other {# keys to pick up}}"
+      "aRetirer": "{nombre, plural, one {# key to pick up} other {# keys to pick up}}",
+      "outils": "Tools"
     },
     "file": {
       "titre": "Requests awaiting validation",
@@ -424,7 +447,8 @@
       "equipeAffectation": "Assigned team",
       "aideEquipe": "If the requester is not a member of the chosen team, approval adds them to it.",
       "renouvellement": "Renewal of the key {alias}.",
-      "depenseOrigine": "Spend of this key: {depense}."
+      "depenseOrigine": "Spend of this key: {depense}.",
+      "propreDemande": "You cannot decide on your own request: another manager of the team or an administrator will handle it."
     },
     "parametres": {
       "titre": "Default key values",
@@ -473,6 +497,63 @@
           "emise": "Issued on"
         }
       }
+    },
+    "outils": {
+      "titre": "Administration tools",
+      "intro": "Admin-only features, served next to the portal by other services. They open in a new tab.",
+      "nouvelOnglet": "new tab",
+      "reporting": {
+        "titre": "Reporting (Superset)",
+        "description": "Dashboards of the gateway's usage: costs, requests and tokens by team, model and level. The “Pilotage” (steering) dashboard is for admins only; reporting readers see “Consommation” (usage).",
+        "consommation": "“Consommation” dashboard (usage)",
+        "pilotage": "“Pilotage” dashboard (steering)",
+        "accueil": "Superset home"
+      },
+      "passerelle": {
+        "titre": "Gateway (LiteLLM)",
+        "description": "Technical view of the gateway: models, keys, teams, spend and logs. Only reachable from allowed addresses, with the console's own credentials.",
+        "avertissement": "A change made in the console bypasses the portal's rules (levels, approvals, emails, audit log): keep it for troubleshooting.",
+        "console": "LiteLLM console",
+        "openapi": "OpenAPI schema of the admin API"
+      }
+    },
+    "equipes": {
+      "titre": "Teams",
+      "nouvelle": "New team name",
+      "creer": "Create team",
+      "aucune": "No team.",
+      "colonnes": {
+        "equipe": "Team",
+        "membres": "Members",
+        "cles": "Active keys",
+        "responsables": "Managers"
+      },
+      "toutes": "All teams",
+      "resume": "Team summary",
+      "nom": "Team name",
+      "renommer": "Rename",
+      "membres": "Members",
+      "aucunMembre": "No member.",
+      "uid": "Employee uid",
+      "ajouter": "Add to the team",
+      "colonneMembre": "Member",
+      "faireSortir": "Remove from the team",
+      "avertissementSortie": "Their keys of this team will be revoked and their pending requests in the team cancelled.",
+      "confirmerSortie": "Confirm removal",
+      "suppression": {
+        "titre": "Team deletion",
+        "supprimer": "Delete the team",
+        "avertissement": "The team will disappear from the gateway; the history of its requests will remain available. A team with active keys or pending requests cannot be deleted.",
+        "confirmer": "Confirm deletion"
+      },
+      "responsables": "Managers",
+      "aucunResponsable": "No manager: the administrators approve the team's requests.",
+      "uidResponsable": "Manager uid",
+      "designer": "Designate manager",
+      "retirerRole": "Remove the manager role",
+      "colonneResponsable": "Manager",
+      "colonneAdresse": "Address",
+      "aucun": "None"
     }
   },
   "introuvable": {
@@ -617,15 +698,71 @@
     },
     "cleRevoquee": {
       "sujet": "Your key {alias} has been revoked",
-      "corps": "An administrator revoked your API key {alias}: the gateway now refuses it. To get a new key, request its renewal in “My keys”."
+      "corps": "{role, select, responsable {A manager of your team} other {An administrator}} revoked your API key {alias}: the gateway now refuses it. To get a new key, request its renewal in “My keys”."
     },
     "cleBloquee": {
       "sujet": "Your key {alias} is blocked",
-      "corps": "An administrator blocked your API key {alias}: the gateway refuses it until it is unblocked. For more information, write to the portal administrators."
+      "corps": "{role, select, responsable {A manager of your team} other {An administrator}} blocked your API key {alias}: the gateway refuses it until it is unblocked. For more information, write to the portal administrators."
     },
     "cleDebloquee": {
       "sujet": "Your key {alias} is unblocked",
-      "corps": "An administrator unblocked your API key {alias}: it works again."
+      "corps": "{role, select, responsable {A manager of your team} other {An administrator}} unblocked your API key {alias}: it works again."
+    },
+    "equipe": {
+      "creee": {
+        "sujet": "Team created: {equipe}",
+        "corps": "{auteur} created the team {equipe}."
+      },
+      "renommee": {
+        "sujet": "Team renamed: {equipe}",
+        "corps": "{auteur} renamed the team {ancienNom} to {equipe}."
+      },
+      "membreAjoute": {
+        "sujet": "Member added to the team {equipe}: {membre}",
+        "corps": "{auteur} added {membre} to the team {equipe}."
+      },
+      "membreSorti": {
+        "sujet": "Member removed from the team {equipe}: {membre}",
+        "corps": "{auteur} removed {membre} from the team {equipe}."
+      },
+      "supprimee": {
+        "sujet": "Team deleted: {equipe}",
+        "corps": "{auteur} deleted the team {equipe}."
+      },
+      "responsableDesigne": {
+        "sujet": "Manager designated for the team {equipe}: {responsable}",
+        "corps": "{auteur} designated {responsable} as a manager of the team {equipe}."
+      },
+      "responsableRetire": {
+        "sujet": "Manager removed from the team {equipe}: {responsable}",
+        "corps": "{auteur} removed the manager role of {responsable} for the team {equipe}."
+      },
+      "decision": {
+        "sujet": "Request processed in the team {equipe}: {demandeur}",
+        "corps": "{auteur} {decision, select, approuvee {approved the API key request of {demandeur}} refusee {refused the request of {demandeur}} complement {asked {demandeur} to complete their request} adhesion {accepted the access request of {demandeur}} other {processed the request of {demandeur}}}."
+      },
+      "cle": {
+        "sujet": "Action on a key of the team {equipe}: {alias}",
+        "corps": "{auteur} {action, select, revocation {revoked} blocage {blocked} other {unblocked}} the key {alias} of {titulaire}."
+      }
+    },
+    "ajoutMembre": {
+      "sujet": "You are a member of the team {equipe}",
+      "corps": "{auteur} added you to the team {equipe}: you can request an API key there."
+    },
+    "sortieMembre": {
+      "sujet": "You are no longer a member of the team {equipe}",
+      "corps": "{auteur} removed you from the team {equipe}.",
+      "cles": "Revoked keys: {cles}.",
+      "demandes": "Cancelled requests: {nombre}."
+    },
+    "designationResponsable": {
+      "sujet": "You are a manager of the team {equipe}",
+      "corps": "{auteur} designated you as a manager of the team {equipe}: you approve its access and key requests (except your own), and manage its members and keys from the portal's administration."
     }
+  },
+  "validation": {
+    "valideePar": "Your request will be approved by: {valideurs}.",
+    "valideeParAdmins": "Your request will be approved by the administrators."
   }
 }

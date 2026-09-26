@@ -1,9 +1,13 @@
 import Link from "next/link";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import { DUREES_VALIDITE, optionsDuree } from "@/lib/durees";
+import type { SessionUser } from "@/lib/auth-user";
 import { countAdminPending } from "@/lib/services/admin-requests";
+import { equipesGerees } from "@/lib/services/autorite";
+import { approversByTeam } from "@/lib/services/teams";
 import { getCurrentUser, getDeps } from "@/lib/session";
 import { changerLangueAction, signOutAction } from "./actions";
+import type { EquipeProposee } from "./choix-equipe";
 import { Pastille } from "./pastille";
 
 /** Sélecteur FR | EN : chaque langue est nommée dans sa propre langue. */
@@ -35,10 +39,13 @@ export async function SelecteurLangue() {
 export async function UserMenu() {
   const [user, t] = await Promise.all([getCurrentUser(), getTranslations("entete")]);
   if (!user) return null;
-  const aValider = user.isAdmin ? (await countAdminPending(getDeps(), user)).demandes : 0;
+  // Admins et responsables d'équipe ont une gestion ; celle d'un responsable se limite à ses équipes.
+  const equipes = await equipesGerees(getDeps().db, user);
+  const gestion = equipes === null || equipes.length > 0;
+  const aValider = gestion ? (await countAdminPending(getDeps(), user)).demandes : 0;
   return (
     <div className="ml-auto flex items-center gap-4">
-      {user.isAdmin && (
+      {gestion && (
         <Link href="/gestion/demandes">
           {t("gestion")}
           <Pastille nombre={aValider} libelle={t("aValider", { nombre: aValider })} />
@@ -142,4 +149,16 @@ export async function formats() {
     nombre: (valeur: number) => format.number(valeur),
     date: (valeur: Date) => format.dateTime(valeur, { dateStyle: "short", timeStyle: "short" }),
   };
+}
+
+/**
+ * Équipes proposées dans un formulaire de demande, chacune avec qui validera la demande (F-22) : ses responsables, hors
+ * le demandeur lui-même, sinon les administrateurs.
+ */
+export async function equipesProposees(user: SessionUser, teams: { teamId: string; teamAlias: string }[]): Promise<EquipeProposee[]> {
+  const [t, valideurs] = await Promise.all([getTranslations("validation"), approversByTeam(getDeps().db, teams.map((team) => team.teamId))]);
+  return teams.map(({ teamId, teamAlias }) => {
+    const autres = (valideurs.get(teamId) ?? []).filter((uid) => uid !== user.uid);
+    return { teamId, teamAlias, valideurs: autres.length > 0 ? t("valideePar", { valideurs: autres.join(", ") }) : t("valideeParAdmins") };
+  });
 }

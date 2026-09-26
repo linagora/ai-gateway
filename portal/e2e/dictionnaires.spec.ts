@@ -22,3 +22,11 @@ test("les dictionnaires français et anglais ont les mêmes entrées, toutes ren
   expect([...en.keys()].filter((c) => !fr.has(c)), "entrées absentes du dictionnaire français").toEqual([]);
   expect([...fr, ...en].filter(([, v]) => !v.trim()).map(([c]) => c), "entrées vides").toEqual([]);
 });
+
+test("la marque s'écrit toujours LINAGORA, en majuscules, dans les deux dictionnaires", () => {
+  // Hors adresses (linagora.com, @linagora) et identifiants (LINAGORA_API_KEY).
+  const marque = /(?<![@./\w])linagora(?![.\w])/gi;
+  const [fr, en] = [lire("fr"), lire("en")];
+  const fautives = [...fr, ...en].filter(([, v]) => (v.match(marque) ?? []).some((m) => m !== "LINAGORA")).map(([c]) => c);
+  expect(fautives, "entrées où la marque n'est pas en majuscules").toEqual([]);
+});

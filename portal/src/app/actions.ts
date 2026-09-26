@@ -19,6 +19,7 @@ import { saveCatalogEntry } from "@/lib/services/catalog";
 import { blockKey, pickUpKey, replaceKey, revokeKey, unblockKey } from "@/lib/services/keys";
 import { cancelRequest, completeRequest, createKeyRequest, createTeamJoinRequest } from "@/lib/services/requests";
 import { saveSettings } from "@/lib/services/settings";
+import { addTeamMember, createTeam, deleteTeam, designateManager, removeManager, removeTeamMember, renameTeam } from "@/lib/services/teams";
 import { getDeps, requireUser } from "@/lib/session";
 
 /*
@@ -161,6 +162,54 @@ export async function saveSettingsAction(formData: FormData): Promise<void> {
   await run("/gestion/parametres", () => saveSettings(getDeps(), user, values), { path: "/gestion/parametres", message: "parametresEnregistres" });
 }
 
+/** F-53 : création d'une équipe par un admin. */
+export async function creerEquipeAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  await run("/gestion/equipes", () => createTeam(getDeps(), user, { name: text(formData, "nom") }), { path: "/gestion/equipes", message: "equipeCreee" });
+}
+
+/** F-53 : renommage d'une équipe par un admin. */
+export async function renommerEquipeAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+  await run(page, () => renameTeam(getDeps(), user, { teamId: text(formData, "id"), name: text(formData, "nom") }), { path: page, message: "equipeRenommee" });
+}
+
+/** F-53 : ajout direct d'un salarié à une équipe par un admin. */
+export async function ajouterMembreAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+  await run(page, () => addTeamMember(getDeps(), user, { teamId: text(formData, "id"), uid: text(formData, "uid") }), { path: page, message: "membreAjoute" });
+}
+
+/** F-54 : sortie d'une équipe, décidée par un admin. */
+export async function faireSortirMembreAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+  await run(page, () => removeTeamMember(getDeps(), user, { teamId: text(formData, "id"), uid: text(formData, "uid") }), { path: page, message: "membreSorti" });
+}
+
+/** F-53 : suppression d'une équipe par un admin ; en cas de refus, la page de l'équipe en donne la raison. */
+export async function supprimerEquipeAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+  await run(page, () => deleteTeam(getDeps(), user, text(formData, "id")), { path: "/gestion/equipes", message: "equipeSupprimee" });
+}
+
+/** F-54 : désignation d'un responsable d'équipe par un admin. */
+export async function designerResponsableAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+  await run(page, () => designateManager(getDeps(), user, { teamId: text(formData, "id"), uid: text(formData, "uid") }), { path: page, message: "responsableDesigne" });
+}
+
+/** F-54 : retrait du rôle de responsable par un admin. */
+export async function retirerResponsableAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+  await run(page, () => removeManager(getDeps(), user, { teamId: text(formData, "id"), uid: text(formData, "uid") }), { path: page, message: "responsableRetire" });
+}
+
 // --- outils ---
 
 /** F-43 : révocation d'une clé par son titulaire. */
@@ -234,7 +283,14 @@ type CleSucces =
   | "parametresEnregistres"
   | "cleRevoquee"
   | "cleBloquee"
-  | "cleDebloquee";
+  | "cleDebloquee"
+  | "equipeCreee"
+  | "equipeRenommee"
+  | "membreAjoute"
+  | "membreSorti"
+  | "equipeSupprimee"
+  | "responsableDesigne"
+  | "responsableRetire";
 
 /** Exécute le cas d'usage ; en cas d'erreur métier, revient sur `errorPath` avec le message. */
 async function run(errorPath: string, action: () => Promise<unknown>, success: { path: string; message: CleSucces }): Promise<void> {

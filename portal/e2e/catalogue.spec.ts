@@ -119,6 +119,46 @@ test.describe("vue d'ensemble des niveaux (ticket #5)", () => {
     }
   });
 
+  test("chaque carte montre, centrées au-dessus du nom du niveau, les pastilles des classifications qu'il accepte, en français et en anglais", async ({ browser }) => {
+    for (const [langue, pastilles] of [
+      [
+        "fr-FR",
+        {
+          "N1 Public": ["Classification NC · Public", "Classification C1 · Interne"],
+          "N2 Interne": ["Classification C2 · Restreint"],
+          "N3 Confidentiel": ["Classification C3 · Secret"],
+          "Expérimental (bêta)": ["Classification NC · Public"],
+        },
+      ],
+      [
+        "en-US",
+        {
+          "N1 Public": ["Classification NC · Public", "Classification C1 · Internal"],
+          "N2 Internal": ["Classification C2 · Restricted"],
+          "N3 Confidential": ["Classification C3 · Secret"],
+          "Experimental (beta)": ["Classification NC · Public"],
+        },
+      ],
+    ] as const) {
+      const context = await connecter(browser, salarie, langue);
+      const page = await context.newPage();
+      await page.goto("/catalogue");
+      for (const [niveau, attendues] of Object.entries(pastilles)) {
+        const images = carte(page, niveau).getByRole("img");
+        await expect(images).toHaveCount(attendues.length);
+        const titre = await carte(page, niveau).getByRole("heading", { level: 2 }).boundingBox();
+        for (const [i, nom] of attendues.entries()) {
+          await expect(images.nth(i)).toHaveAccessibleName(nom);
+          expect(await images.nth(i).evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0), `${nom} chargée`).toBe(true);
+          const pastille = await images.nth(i).boundingBox();
+          expect(Math.abs(pastille!.x + pastille!.width / 2 - (titre!.x + titre!.width / 2)), `${nom} centrée`).toBeLessThanOrEqual(1);
+          expect(pastille!.y + pastille!.height, `${nom} au-dessus du nom du niveau`).toBeLessThanOrEqual(titre!.y);
+        }
+      }
+      await context.close();
+    }
+  });
+
   test("chaque carte donne le nombre de modèles du niveau et son prix de départ", async ({ browser }) => {
     const context = await connecter(browser, salarie);
     const page = await context.newPage();
@@ -334,11 +374,27 @@ test.describe("filtres appliqués sans bouton (retours de recette du 2026-09-25)
 test.describe("détail d'un modèle (ticket #9)", () => {
   const panneau = (page: Page) => page.getByRole("dialog");
 
+  test("chaque carte mène à la fiche détaillée par un lien explicite ; sur un écran bas, la fiche défile et montre tout l'exemple d'appel", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1280, height: 600 });
+    await page.goto("/catalogue/n1");
+    await page.getByRole("article", { name: "Modèle graphique" }).getByRole("link", { name: "Voir la fiche détaillée de Modèle graphique" }).click();
+    await expect(panneau(page).getByRole("heading", { level: 2 })).toHaveText("Modèle graphique");
+    // L'exemple d'appel s'affiche en entier, sans ascenseur à lui : c'est la fiche qui défile.
+    const exemple = panneau(page).locator("pre");
+    expect(await exemple.evaluate((e) => ({ hauteur: e.scrollHeight - e.clientHeight, largeur: e.scrollWidth - e.clientWidth }))).toEqual({ hauteur: 0, largeur: 0 });
+    expect(await panneau(page).evaluate((e) => e.scrollHeight > e.clientHeight)).toBe(true);
+    await panneau(page).getByRole("button", { name: "Copier l'exemple" }).scrollIntoViewIfNeeded();
+    await expect(panneau(page).getByRole("button", { name: "Copier l'exemple" })).toBeInViewport();
+    await context.close();
+  });
+
   test("un clic sur un modèle ouvre son détail ; le fermer rend la page avec ses filtres et son tri", async ({ browser }) => {
     const context = await connecter(browser, salarie);
     const page = await context.newPage();
     await page.goto("/catalogue/n1?ue=1&tri=nom");
-    await page.getByRole("article", { name: "Modèle confidentiel" }).getByRole("link", { name: "Modèle confidentiel" }).click();
+    await page.getByRole("article", { name: "Modèle confidentiel" }).getByRole("link", { name: "Modèle confidentiel", exact: true }).click();
     await expect(page).toHaveURL(/\/catalogue\/n1\?ue=1&tri=nom&modele=dev-confidentiel$/);
     await expect(panneau(page)).toContainText("Modèle de démonstration N3, à réponses simulées.");
     await expect(panneau(page).getByRole("heading", { name: "Hébergeurs" })).toBeVisible();
@@ -363,7 +419,7 @@ test.describe("détail d'un modèle (ticket #9)", () => {
     await expect(carte).toContainText("Notre choix pour : Création d'images");
     await expect(carte).toContainText(/Environ 0,03\s€ par image/);
     await expect(carte).not.toContainText("jetons");
-    await carte.getByRole("link", { name: "Modèle graphique" }).click();
+    await carte.getByRole("link", { name: "Modèle graphique", exact: true }).click();
     await expect(panneau(page).getByRole("heading", { name: "Modèle d'images" })).toBeVisible();
     await expect(panneau(page).locator("pre")).toContainText('"modalities": [');
     await expect(panneau(page).locator("pre")).toContainText("base64");
@@ -443,7 +499,7 @@ test.describe("sélection de modèles et demande préremplie (ticket #10)", () =
     await page.goto("/catalogue/n1?tri=nom");
     const selection = page.getByRole("checkbox", { name: "Sélectionner Modèle public" });
     await selection.check();
-    await page.getByRole("article", { name: "Modèle interne" }).getByRole("link", { name: "Modèle interne" }).click();
+    await page.getByRole("article", { name: "Modèle interne" }).getByRole("link", { name: "Modèle interne", exact: true }).click();
     await expect(page.getByRole("dialog")).toBeVisible();
     await page.getByRole("dialog").getByRole("link", { name: "Fermer" }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);

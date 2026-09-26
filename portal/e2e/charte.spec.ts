@@ -28,7 +28,7 @@ test("le logo et la couleur principale de Linagora figurent dans l'en-tête et s
     const context = await connecter(browser, personne, langue);
     const page = await context.newPage();
     await page.goto("/demandes/adhesion");
-    await expect(page.getByRole("banner").getByRole("img", { name: "Linagora" })).toBeVisible();
+    await expect(page.getByRole("banner").getByRole("img", { name: "LINAGORA", exact: true })).toBeVisible();
     await expect(page.getByRole("banner")).toHaveCSS("border-top-color", ROUGE_LINAGORA);
     await expect(page.getByRole("button", { name: bouton })).toHaveCSS("background-color", ROUGE_LINAGORA);
     await context.close();

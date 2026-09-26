@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { listPendingRequests, listProcessedRequests } from "@/lib/services/admin-requests";
-import { getDeps, requireAdminPage } from "@/lib/session";
+import { getDeps, requireGestionPage } from "@/lib/session";
 import { Notice, formats } from "../../../components";
 import { AdminNav } from "../admin-nav";
 
 /** F-30 : demandes en attente, de la plus ancienne à la plus récente, puis l'archive des demandes traitées. */
 export default async function PendingRequestsPage(props: PageProps<"/gestion/demandes">) {
-  const admin = await requireAdminPage();
+  const admin = await requireGestionPage();
   const [{ date }, t, domaine, searchParams] = await Promise.all([formats(), getTranslations("gestion.file"), getTranslations("domaine"), props.searchParams]);
   const [pending, traitees] = await Promise.all([listPendingRequests(getDeps(), admin), listProcessedRequests(getDeps(), admin)]);
 

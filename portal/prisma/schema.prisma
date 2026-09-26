@@ -142,3 +142,16 @@ model AuditLog {
   /// jamais de secret
   details  Json
 }
+
+/// Responsable d'équipe (F-54) : tenu par le portail, les « admins d'équipe » de LiteLLM étant une fonction
+/// Enterprise (ADR 0001). L'adresse, lue dans LiteLLM à la désignation, sert aux courriels.
+model TeamManager {
+  teamId       String
+  uid          String
+  email        String
+  designatedBy String
+  designatedAt DateTime @default(now())
+
+  @@id([teamId, uid])
+  @@index([uid])
+}

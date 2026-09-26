@@ -39,7 +39,7 @@ function bilingue(contenu: (t: Traducteur) => Contenu, lien: string): Omit<Messa
   });
   return {
     subject: `${PREFIXE_OBJET} ${francais.sujet} / ${anglais.sujet}`,
-    text: [francais.corps, "* * *", anglais.corps, "Portail IA Linagora / Linagora AI Portal"].join("\n\n"),
+    text: [francais.corps, "* * *", anglais.corps, "Portail IA LINAGORA / LINAGORA AI Portal"].join("\n\n"),
   };
 }
 
@@ -116,8 +116,11 @@ function recapCle(t: Traducteur, r: AccessRequest): string[] {
 /** Paragraphe d'introduction suivi d'un récapitulatif en liste. */
 const avecRecap = (introduction: string, recap: string[]) => [introduction, ...recap].join("\n");
 
-/** F-30 : chaque nouvelle demande est notifiée aux admins : qui la dépose, ce qu'elle demande, et le lien vers sa fiche. */
-export async function notifyNewRequest(deps: NotificationDeps, demande: AccessRequest): Promise<void> {
+/**
+ * F-30 : chaque nouvelle demande est notifiée aux admins et aux responsables de l'équipe désignés par le service (hors
+ * le demandeur) : qui la dépose, ce qu'elle demande, et le lien vers sa fiche.
+ */
+export async function notifyNewRequest(deps: NotificationDeps, demande: AccessRequest, responsables: string[] = []): Promise<void> {
   const qui = { nom: nom(demande), email: demande.requesterEmail };
   const message = bilingue(
     (t) =>
@@ -136,7 +139,7 @@ export async function notifyNewRequest(deps: NotificationDeps, demande: AccessRe
           },
     lienVers(deps, `/gestion/demandes/${demande.id}`),
   );
-  await envoyer(deps, deps.adminEmails ?? [], message);
+  await envoyer(deps, [...new Set([...(deps.adminEmails ?? []), ...responsables])], message);
 }
 
 /** F-40 : demande de clé approuvée, avec les paramètres de la clé et l'échéance de retrait ; jamais de clé. */
@@ -241,6 +244,7 @@ export async function notifyAdminKeyAction(
   deps: NotificationDeps,
   demande: AccessRequest & { keyAlias: string },
   action: "revocation" | "blocage" | "deblocage",
+  role: "admin" | "responsable" = "admin",
 ): Promise<void> {
   const cle = { revocation: "cleRevoquee", blocage: "cleBloquee", deblocage: "cleDebloquee" }[action] as "cleRevoquee" | "cleBloquee" | "cleDebloquee";
   const message = bilingue(
@@ -248,11 +252,107 @@ export async function notifyAdminKeyAction(
       sujet: t(`courriels.${cle}.sujet`, { alias: demande.keyAlias }),
       paragraphes: [
         t("courriels.bonjour", { nom: nom(demande) }),
-        t(`courriels.${cle}.corps`, { alias: demande.keyAlias }),
+        t(`courriels.${cle}.corps`, { alias: demande.keyAlias, role }),
         avecRecap(t("courriels.rappelCle"), recapCle(t, demande)),
       ],
     }),
     lienVers(deps, "/cles"),
   );
   await envoyer(deps, [demande.requesterEmail], message);
+}
+
+/** Changement dans une équipe (F-53), annoncé aux admins. */
+export type TeamChange =
+  | { type: "creee" }
+  | { type: "renommee"; ancienNom: string }
+  | { type: "supprimee" }
+  | { type: "membreAjoute"; membre: string }
+  | { type: "membreSorti"; membre: string }
+  | { type: "responsableDesigne"; responsable: string }
+  | { type: "responsableRetire"; responsable: string }
+  | { type: "decision"; decision: "approuvee" | "refusee" | "complement" | "adhesion"; demandeur: string; demandeId: string }
+  | { type: "cle"; action: "revocation" | "blocage" | "deblocage"; alias: string; titulaire: string };
+
+/**
+ * F-53 et F-54 : un changement dans une équipe est annoncé aux admins et aux responsables de l'équipe que le service
+ * désigne (tous sauf l'auteur), avec son auteur et le lien vers la page de l'équipe.
+ */
+export async function notifyTeamChange(
+  deps: NotificationDeps,
+  changement: TeamChange & { teamId: string; equipe: string; auteur: { uid: string; name: string } },
+  responsables: string[] = [],
+): Promise<void> {
+  const valeurs = {
+    equipe: changement.equipe,
+    auteur: auteur(changement.auteur),
+    ...("ancienNom" in changement ? { ancienNom: changement.ancienNom } : {}),
+    ...("membre" in changement ? { membre: changement.membre } : {}),
+    ...("responsable" in changement ? { responsable: changement.responsable } : {}),
+    ...(changement.type === "decision" ? { decision: changement.decision, demandeur: changement.demandeur } : {}),
+    ...(changement.type === "cle" ? { action: changement.action, alias: changement.alias, titulaire: changement.titulaire } : {}),
+  };
+  const message = bilingue(
+    (t) => ({
+      sujet: t(`courriels.equipe.${changement.type}.sujet`, valeurs),
+      paragraphes: [t("courriels.bonjourAdmins"), t(`courriels.equipe.${changement.type}.corps`, valeurs)],
+    }),
+    // Une équipe supprimée n'a plus de page : le lien mène à la liste des équipes.
+    lienVers(
+      deps,
+      changement.type === "supprimee"
+        ? "/gestion/equipes"
+        : changement.type === "decision"
+          ? `/gestion/demandes/${changement.demandeId}`
+          : changement.type === "cle"
+            ? "/gestion/cles"
+            : `/gestion/equipes/${changement.teamId}`,
+    ),
+  );
+  await envoyer(deps, [...new Set([...(deps.adminEmails ?? []), ...responsables])], message);
+}
+
+/** Auteur d'une action, tel que le nomment les courriels : « Jeanne Dupont (jdupont) ». */
+const auteur = (a: { uid: string; name: string }) => `${a.name} (${a.uid})`;
+
+/** F-53 : le salarié ajouté directement à une équipe par un admin en est prévenu. */
+export async function notifyMemberAdded(deps: NotificationDeps, ajout: { email: string; equipe: string; auteur: { uid: string; name: string } }): Promise<void> {
+  const valeurs = { equipe: ajout.equipe, auteur: auteur(ajout.auteur) };
+  const message = bilingue(
+    (t) => ({ sujet: t("courriels.ajoutMembre.sujet", valeurs), paragraphes: [t("courriels.bonjourAdmins"), t("courriels.ajoutMembre.corps", valeurs)] }),
+    lienVers(deps, "/demandes/nouvelle"),
+  );
+  await envoyer(deps, [ajout.email], message);
+}
+
+/** F-54 : le salarié sorti d'une équipe en est prévenu, avec ses clés révoquées et le nombre de ses demandes annulées. */
+export async function notifyMemberRemoved(
+  deps: NotificationDeps,
+  sortie: { email: string; equipe: string; auteur: { uid: string; name: string }; cles: string[]; demandes: number },
+): Promise<void> {
+  const valeurs = { equipe: sortie.equipe, auteur: auteur(sortie.auteur) };
+  const message = bilingue(
+    (t) => ({
+      sujet: t("courriels.sortieMembre.sujet", valeurs),
+      paragraphes: [
+        t("courriels.bonjourAdmins"),
+        [
+          t("courriels.sortieMembre.corps", valeurs),
+          ...(sortie.cles.length > 0 ? [t("courriels.sortieMembre.cles", { cles: sortie.cles.join(", ") })] : []),
+          ...(sortie.demandes > 0 ? [t("courriels.sortieMembre.demandes", { nombre: sortie.demandes })] : []),
+        ].join(" "),
+      ],
+    }),
+    lienVers(deps, "/cles"),
+  );
+  await envoyer(deps, [sortie.email], message);
+}
+
+/** F-54 : le salarié désigné responsable d'une équipe en est prévenu. */
+export async function notifyManagerDesignated(deps: NotificationDeps, designation: { email: string; equipe: string; auteur: { uid: string; name: string } }): Promise<void> {
+  const valeurs = { equipe: designation.equipe, auteur: auteur(designation.auteur) };
+  const message = bilingue(
+    (t) => ({ sujet: t("courriels.designationResponsable.sujet", valeurs), paragraphes: [t("courriels.bonjourAdmins"), t("courriels.designationResponsable.corps", valeurs)] }),
+    lienVers(deps, "/gestion/demandes"),
+  );
+  await envoyer(deps, [designation.email], message);
 }

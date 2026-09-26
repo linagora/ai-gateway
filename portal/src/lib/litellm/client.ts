@@ -34,9 +34,16 @@ export interface LiteLLMUser {
   teams: LiteLLMTeamSummary[];
 }
 
+/** Équipe avec ses membres réels : le membre technique que LiteLLM ajoute à chaque équipe n'en fait pas partie (ADR 0001). */
 export interface LiteLLMTeam extends LiteLLMTeamSummary {
   memberUids: string[];
 }
+
+/**
+ * Membre que LiteLLM ajoute à chaque équipe créée avec la clé maîtresse, avec le rôle « admin » d'équipe (fonction
+ * Enterprise, inutilisée) : ce n'est pas un salarié, et le portail l'ignore partout.
+ */
+const MEMBRE_TECHNIQUE = "default_user_id";
 
 /**
  * Capacité d'un modèle, déclarée par la passerelle (les outils et le JSON, communs à tous, n'en sont pas) :
@@ -120,12 +127,20 @@ export interface LiteLLMClient {
   createUser(input: { userId: string; email: string }): Promise<void>;
   /** F-22 : ajoute l'utilisateur à l'équipe avec le rôle « user ». */
   addTeamMember(teamId: string, userId: string): Promise<void>;
+  /** F-53 : retire un membre d'une équipe (sortie d'une équipe). */
+  removeTeamMember(teamId: string, userId: string): Promise<void>;
   /** Équipe avec ses modèles et ses membres (règle 3) ; null si elle n'existe pas. */
   getTeam(teamId: string): Promise<LiteLLMTeam | null>;
   /** F-10 : modèles déclarés dans LiteLLM (GET /model/info). */
   listModels(): Promise<LiteLLMModel[]>;
-  /** F-22 : équipes existantes, pour les demandes d'adhésion. */
-  listTeams(): Promise<LiteLLMTeamSummary[]>;
+  /** F-22 et F-53 : équipes existantes, avec leurs membres réels. */
+  listTeams(): Promise<LiteLLMTeam[]>;
+  /** F-53 : crée une équipe sans liste de modèles (tous les modèles, le portail contrôlant les niveaux) ; rend son identifiant. */
+  createTeam(alias: string): Promise<string>;
+  /** F-53 : renomme une équipe. */
+  updateTeam(teamId: string, changes: { alias: string }): Promise<void>;
+  /** F-53 : supprime une équipe ; LiteLLM supprime aussi ses clés. */
+  deleteTeam(teamId: string): Promise<void>;
   /** F-40 : génère une clé ; l'alias doit être unique dans LiteLLM. */
   generateKey(params: KeyParams): Promise<GeneratedKey>;
   /** F-42 : informations d'une clé d'après son empreinte ; null si LiteLLM ne la connaît pas. */
@@ -144,6 +159,11 @@ const teamSummarySchema = z.object({
   models: z.array(z.string()).nullish(),
 });
 
+const membersSchema = z.array(z.object({ user_id: z.string().nullish() })).nullish();
+
+/** Équipe telle que la liste LiteLLM (GET /team/list) : ses membres y figurent. */
+const teamListItemSchema = teamSummarySchema.extend({ members_with_roles: membersSchema });
+
 const userInfoSchema = z.object({
   user_id: z.string(),
   user_info: z.object({ user_email: z.string().nullish() }).nullish(),
@@ -155,7 +175,7 @@ const teamInfoSchema = z.object({
   team_info: z.object({
     team_alias: z.string().nullish(),
     models: z.array(z.string()).nullish(),
-    members_with_roles: z.array(z.object({ user_id: z.string().nullish() })).nullish(),
+    members_with_roles: membersSchema,
   }),
 });
 
@@ -252,18 +272,18 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
       if (status !== 200) fail("POST", "/team/member_add", status, data);
     },
 
+    async removeTeamMember(teamId, userId) {
+      const { status, data } = await call("POST", "/team/member_delete", { team_id: teamId, user_id: userId });
+      if (status !== 200) fail("POST", "/team/member_delete", status, data);
+    },
+
     async getTeam(teamId) {
       const path = `/team/info?team_id=${encodeURIComponent(teamId)}`;
       const { status, data } = await call("GET", path);
       if (status === 404) return null;
       if (status !== 200) fail("GET", path, status, data);
       const { team_id, team_info } = teamInfoSchema.parse(data);
-      return {
-        teamId: team_id,
-        teamAlias: team_info.team_alias ?? team_id,
-        models: team_info.models ?? [],
-        memberUids: (team_info.members_with_roles ?? []).flatMap((m) => (m.user_id ? [m.user_id] : [])),
-      };
+      return toTeam({ team_id, ...team_info });
     },
 
     async listModels() {
@@ -291,7 +311,23 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
     async listTeams() {
       const { status, data } = await call("GET", "/team/list");
       if (status !== 200) fail("GET", "/team/list", status, data);
-      return z.array(teamSummarySchema).parse(data).map(toTeamSummary);
+      return z.array(teamListItemSchema).parse(data).map(toTeam);
+    },
+
+    async createTeam(alias) {
+      const { status, data } = await call("POST", "/team/new", { team_alias: alias });
+      if (status !== 200) fail("POST", "/team/new", status, data);
+      return z.object({ team_id: z.string() }).parse(data).team_id;
+    },
+
+    async deleteTeam(teamId) {
+      const { status, data } = await call("POST", "/team/delete", { team_ids: [teamId] });
+      if (status !== 200) fail("POST", "/team/delete", status, data);
+    },
+
+    async updateTeam(teamId, { alias }) {
+      const { status, data } = await call("POST", "/team/update", { team_id: teamId, team_alias: alias });
+      if (status !== 200) fail("POST", "/team/update", status, data);
     },
 
     async generateKey(params) {
@@ -350,4 +386,10 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
 
 function toTeamSummary(t: z.infer<typeof teamSummarySchema>): LiteLLMTeamSummary {
   return { teamId: t.team_id, teamAlias: t.team_alias ?? t.team_id, models: t.models ?? [] };
+}
+
+/** Équipe avec ses membres réels, sans le membre technique. */
+function toTeam(t: z.infer<typeof teamListItemSchema>): LiteLLMTeam {
+  const memberUids = (t.members_with_roles ?? []).flatMap((m) => (m.user_id && m.user_id !== MEMBRE_TECHNIQUE ? [m.user_id] : []));
+  return { ...toTeamSummary(t), memberUids };
 }

@@ -137,6 +137,13 @@ describe("annulation par le demandeur (F-24)", () => {
     await expect(cancelRequest(deps, demandeur, id)).rejects.toMatchObject({ code: "transition_interdite" });
   });
 
+  test("une demande approuvée ne s'annule plus : seule la sortie de l'équipe l'annule (F-54)", async () => {
+    const { id } = await createKeyRequest(deps, demandeur, demande);
+    await testDb.accessRequest.update({ where: { id }, data: { status: "APPROUVEE" } });
+    await expect(cancelRequest(deps, demandeur, id)).rejects.toMatchObject({ code: "transition_interdite" });
+    expect(await listMyRequests(deps, demandeur)).toMatchObject([{ id, status: "APPROUVEE" }]);
+  });
+
   test("un autre utilisateur ne peut pas annuler la demande", async () => {
     const { id } = await createKeyRequest(deps, demandeur, demande);
     const autre = { ...demandeur, uid: "pmartin", email: "pmartin@linagora.com" };

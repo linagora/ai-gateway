@@ -1,16 +1,17 @@
 import { getTranslations } from "next-intl/server";
 import { listAllKeys, listKeysToPickUp } from "@/lib/services/keys";
-import { getDeps, requireAdminPage } from "@/lib/session";
+import { getDeps, requireGestionPage } from "@/lib/session";
 import { bloquerCleAction, debloquerCleAction, revoquerCleAdminAction } from "../../../actions";
 import { DepenseSurBudget, formats, Notice } from "../../../components";
 import { AdminNav } from "../admin-nav";
 
 /**
- * F-43, ticket #19 : les clés approuvées qui attendent leur retrait, les clés actives avec la révocation, le blocage
- * et le déblocage par un admin, puis l'archive des clés révoquées ou expirées.
+ * F-43, tickets #19 et #42 : les clés approuvées qui attendent leur retrait, les clés actives avec la révocation, le
+ * blocage et le déblocage (par un admin, ou par un responsable pour les clés de ses équipes), puis l'archive des clés
+ * révoquées ou expirées.
  */
 export default async function GestionClesPage(props: PageProps<"/gestion/cles">) {
-  const admin = await requireAdminPage();
+  const admin = await requireGestionPage();
   const [{ date }, t, cles, domaine, searchParams] = await Promise.all([
     formats(),
     getTranslations("gestion.cles"),
@@ -99,12 +100,15 @@ export default async function GestionClesPage(props: PageProps<"/gestion/cles">)
                     {k.gatewayState?.blocked && ` · ${cles("bloquee")}`}
                   </td>
                   <td>
-                    <form action={k.gatewayState?.blocked ? debloquerCleAction : bloquerCleAction}>
-                      <input type="hidden" name="id" value={k.requestId} />
-                      <button type="submit" className="mt-0 border-neutral-400 bg-white text-neutral-800 hover:bg-neutral-100">
-                        {k.gatewayState?.blocked ? t("debloquer") : t("bloquer")}
-                      </button>
-                    </form>
+                    {/* Quatre yeux : un responsable ne bloque ni ne débloque sa propre clé. */}
+                    {(admin.isAdmin || k.holderUid !== admin.uid) && (
+                      <form action={k.gatewayState?.blocked ? debloquerCleAction : bloquerCleAction}>
+                        <input type="hidden" name="id" value={k.requestId} />
+                        <button type="submit" className="mt-0 border-neutral-400 bg-white text-neutral-800 hover:bg-neutral-100">
+                          {k.gatewayState?.blocked ? t("debloquer") : t("bloquer")}
+                        </button>
+                      </form>
+                    )}
                     <details>
                       <summary className="cursor-pointer">{t("revoquer")}</summary>
                       <p className="text-sm">{t("revocationAvertissement")}</p>
