@@ -2,7 +2,7 @@
 # Portail Linagora (brief §1) : image multi-étapes, sortie standalone de Next.js, utilisateur non root, port 3000.
 #   docker build -t linagora-ia/portal:local .                  → image d'exécution (cible runner)
 #   docker build --target migrate -t linagora-ia/portal-migrate .  → migrations Prisma (migrate deploy)
-ARG NODE_IMAGE=node:22.23.3-bookworm-slim@sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c
+ARG NODE_IMAGE=node:24.21.0-trixie-slim@sha256:8ec5d7557396cfe32d21c3f9c13072355ceab22b584578ca4bb28af31120cffe
 
 FROM ${NODE_IMAGE} AS deps
 # openssl : requis par le moteur de migrations de Prisma (absent de l'image slim)
