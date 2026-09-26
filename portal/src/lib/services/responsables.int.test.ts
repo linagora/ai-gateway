@@ -5,7 +5,7 @@ import { FakeMailer } from "@/test/fake-mailer";
 import { approveKeyRequest, approveTeamJoinRequest, countAdminPending, getRequestReview, listPendingRequests, listProcessedRequests, refuseRequest, requestCompletion } from "./admin-requests";
 import { listAudit } from "./audit";
 import { saveCatalogEntry } from "./catalog";
-import { blockKey, listAllKeys, listKeysToPickUp, revokeKey, unblockKey } from "./keys";
+import { blockKey, listAllKeys, listKeysToPickUp, pickUpKey, revokeKey, unblockKey } from "./keys";
 import { createKeyRequest, createTeamJoinRequest } from "./requests";
 import { addTeamMember, deleteTeam, designateManager, getTeamPage, listTeamOverviews, removeTeamMember, renameTeam } from "./teams";
 
@@ -116,6 +116,25 @@ describe("le responsable valide les demandes de ses équipes (ticket #41)", () =
     ]);
     expect(mailer.outbox[1].text).toContain("Léa Bernard (lbernard) a approuvé la demande de clé d'API de pmartin.");
     expect(mailer.outbox[1].text).toContain(`https://portail.test/gestion/demandes/${id}`);
+  });
+
+  test("il valide aussi une demande N3 de son équipe, les contrôles de niveau restant bloquants, et une demande de renouvellement", async () => {
+    litellm.withModel({ modelName: "qwen3.8" });
+    await saveCatalogEntry(deps, admin, { modelName: "qwen3.8", displayNameFr: "Qwen 3.8", shortDescriptionFr: "…", longDescriptionFr: "…", useCases: [], recommendedFor: [], dataLevel: "N3", visible: true });
+    const brouillon = { teamId: "equipe-rd", justification: "Essai", project: null, requestedBudget: null, requestedDays: 90, commitment: true };
+    const { id: n3 } = await createKeyRequest(deps, membre, { ...brouillon, dataLevel: "N3", models: ["qwen3.8"] });
+    await expect(approveKeyRequest(deps, responsable, n3, { ...parametres, models: ["qwen3.8", "mistral-small"] })).rejects.toMatchObject({
+      code: "controles_en_echec",
+      failedChecks: [{ id: "niveau_modeles", ok: false, offending: ["mistral-small"] }],
+    });
+    await approveKeyRequest(deps, responsable, n3, { ...parametres, models: ["qwen3.8"] });
+    await pickUpKey(deps, membre, n3);
+    const { id: renouvellement } = await createKeyRequest(deps, membre, { ...brouillon, dataLevel: "N3", models: ["qwen3.8"], renewsRequestId: n3 });
+    await approveKeyRequest(deps, responsable, renouvellement, { ...parametres, models: ["qwen3.8"] });
+    expect(await testDb.accessRequest.findMany({ where: { id: { in: [n3, renouvellement] } }, orderBy: { createdAt: "asc" }, select: { status: true, decidedBy: true, renewsRequestId: true } })).toEqual([
+      { status: "CLE_EMISE", decidedBy: "lbernard", renewsRequestId: null },
+      { status: "APPROUVEE", decidedBy: "lbernard", renewsRequestId: n3 },
+    ]);
   });
 
   test("il refuse ou renvoie pour complément une demande de son équipe, et accepte une demande d'accès à son équipe", async () => {
