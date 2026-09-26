@@ -6,6 +6,7 @@ import type { Langue } from "@/lib/langue";
 import { levelCriteria, levelFromSegment, levelPageHref, levelSegment, sortParam } from "@/lib/level-routes";
 import { LEVEL_SORTS, levelModels, modelDetail, type PriceTier, RECHERCHE_MINIMUM } from "@/lib/services/catalog";
 import { getDeps, requireUser } from "@/lib/session";
+import { espacesInsecables } from "@/lib/typographie";
 import { USE_CASES } from "@/lib/use-cases";
 import { formats, Notice } from "../../../components";
 import { BoutonCopier } from "../../../bouton-copier";
@@ -130,7 +131,7 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
                   <p className={`self-start rounded border-2 px-2 text-sm ${COULEURS_NIVEAUX[m.acceptsUpTo]}`}>{t("accepteJusqua", { niveau: m.acceptsUpTo })}</p>
                 )}
                 <p className="line-clamp-2" title={m.shortDescription}>
-                  {m.shortDescription}
+                  {espacesInsecables(m.shortDescription)}
                 </p>
                 {m.capabilities.length > 0 && (
                   <ul aria-label={t("capacites")} className="flex flex-wrap gap-x-3 text-sm">
@@ -213,11 +214,11 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
             <p className={`self-start rounded border-2 px-2 text-sm ${COULEURS_NIVEAUX[detail.acceptsUpTo]}`}>{t("accepteJusqua", { niveau: detail.acceptsUpTo })}</p>
           )}
           <h3 className="mt-3 font-medium">{detailT("description")}</h3>
-          <p className="whitespace-pre-line">{detail.longDescription}</p>
+          <p className="whitespace-pre-line">{espacesInsecables(detail.longDescription)}</p>
           <h3 className="mt-3 font-medium">{detailT("hebergeurs")}</h3>
           <p>{detail.hosts.join(", ") || domaine("nonRenseigne")}</p>
           <h3 className="mt-3 font-medium">{detailT("limites")}</h3>
-          <p className="whitespace-pre-line">{detail.limitations ?? detailT("aucuneLimite")}</p>
+          <p className="whitespace-pre-line">{detail.limitations ? espacesInsecables(detail.limitations) : detailT("aucuneLimite")}</p>
           {detail.apiKind === "decision" && (
             <>
               <h3 className="mt-3 font-medium">{detailT("apiDecision.titre")}</h3>
