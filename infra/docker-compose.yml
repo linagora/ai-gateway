@@ -48,7 +48,10 @@ services:
       SUPERSET_DB_PASSWORD: ${SUPERSET_DB_PASSWORD}
       REPORTING_RO_PASSWORD: ${REPORTING_RO_PASSWORD}
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      # PostgreSQL 18 : les données vont sous /var/lib/postgresql/18/docker, et le volume se monte sur /var/lib/postgresql.
+      # Le volume pg_data de PostgreSQL 16 reste sur l'hôte après la migration (scripts/migrer-postgres.sh), pour un
+      # retour arrière, jusqu'à sa suppression.
+      - pg_data_18:/var/lib/postgresql
       - ./postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
@@ -179,6 +182,6 @@ services:
     logging: *default-logging
 
 volumes:
-  pg_data:
+  pg_data_18:
   caddy_data:
   caddy_config:

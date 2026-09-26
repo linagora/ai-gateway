@@ -40,10 +40,13 @@ async function masquerOffre(admin: Page, fournisseur: string, nom: string): Prom
   await expect(admin.getByRole("status")).toHaveText("Offre enregistrée.");
 }
 
-/** Dans la carte d'un fournisseur de la page des abonnements, choisit une offre par son nom dans la liste. */
+/**
+ * Dans la carte d'un fournisseur de la page des abonnements, choisit une offre par son nom dans la liste, la seule de la
+ * carte : trouvée par son rôle, quelle que soit la langue (l'étiquette englobe aussi le texte des offres).
+ */
 async function choisirOffre(fournisseur: Locator, nom: string): Promise<void> {
   const valeur = await fournisseur.getByRole("option", { name: new RegExp(`^${echapper(nom)} · `) }).getAttribute("value");
-  await fournisseur.getByLabel("Offre").selectOption(valeur ?? "");
+  await fournisseur.getByRole("combobox").selectOption(valeur ?? "");
 }
 
 /**

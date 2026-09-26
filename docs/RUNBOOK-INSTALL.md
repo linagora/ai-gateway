@@ -220,6 +220,18 @@ ssh ia-host 'sudo /opt/linagora-ia/scripts/installer-tache-quotidienne.sh && \
 
 ---
 
+## Mise à jour majeure de PostgreSQL (16.15 → 18.6 le 2026-09-26)
+Les fichiers de données d'une version majeure ne servent pas à la suivante : la montée se fait par export et réimport, avec un court arrêt des services. Depuis la version 18, l'image officielle range les données sous `/var/lib/postgresql/18/docker` et le volume se monte sur `/var/lib/postgresql` : la migration crée un nouveau volume, et l'ancien reste intact pour un retour arrière.
+1. Répéter en développement (`portal/dev/docker-compose.yml`), puis Vitest et Playwright.
+2. `rsync` de `infra/` (nouveau montage dans `docker-compose.yml`, `scripts/migrer-postgres.sh`) ; nouvelle image dans le `.env` (`printf '%s' 'postgres:<version>@sha256:<empreinte>' | scripts/set-env-var.sh POSTGRES_IMAGE`), puis `docker compose pull postgres` : le serveur en service n'est pas touché.
+3. Migration :
+   ```bash
+   ssh ia-host 'cd /opt/linagora-ia && scripts/migrer-postgres.sh'
+   ```
+   Le script arrête `portal`, `litellm` et `superset`, compte les lignes de chaque table, exporte tout (`backups/postgres-dumpall-<date>.sql`, droits 600), recrée le conteneur `postgres` sur le nouveau volume, réimporte l'export dans un conteneur temporaire sans réseau ni scripts d'initialisation, démarre le nouveau serveur et compare les lignes table par table. Les services restent arrêtés.
+4. Contrôles, puis `docker compose --profile portal up -d` : portail, test de fumée de LiteLLM (phase 5), `scripts/installer-lien-portail.sh` (contrôles du lien entre bases), tableaux de bord Superset.
+5. Retour arrière, tant que l'ancien volume existe : remettre l'ancienne image dans le `.env` et l'ancien montage (`pg_data:/var/lib/postgresql/data`) dans `docker-compose.yml`, puis `docker compose up -d postgres` ; les écritures faites depuis la migration sont perdues. L'ancien volume (`linagora-ia_pg_data`) ne se supprime qu'après validation, sur décision explicite.
+
 ## Mise à jour de LiteLLM
 1. Lire les notes de version (changements de schéma, ruptures d'API).
 2. `backup.sh`, puis vérification cosign du nouveau tag (phase 4).

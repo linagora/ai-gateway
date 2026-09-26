@@ -32,7 +32,7 @@ services:
       - "127.0.0.1:54500:8080"
 
   postgres:
-    image: postgres:16.15@sha256:1a6ab3f5345eb6dbe04a1349529caabdb0ab09293a09590fad07b2246bfa4b54
+    image: postgres:18.6@sha256:5a5a84b19854a9ffaa54082c166ff4ec27473a361e496e5ea167f298f2da9722
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: dev
@@ -40,7 +40,8 @@ services:
       - "127.0.0.1:55432:5432"
     volumes:
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
-      - pg_dev:/var/lib/postgresql/data
+      # PostgreSQL 18 : les données vont sous /var/lib/postgresql/18/docker, et le volume se monte sur /var/lib/postgresql.
+      - pg_dev_18:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 3s
@@ -70,4 +71,4 @@ services:
       retries: 30
 
 volumes:
-  pg_dev:
+  pg_dev_18:
