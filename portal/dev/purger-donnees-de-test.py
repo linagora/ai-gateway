@@ -4,13 +4,14 @@
 Sans option, le script compte ce qu'il supprimerait ; avec --appliquer, il supprime :
   - dans le LiteLLM de dev : les équipes de test (avec leurs clés), les clés et l'appartenance des utilisateurs de test
     aux équipes de démonstration (« R&D », « LPS Paris »), puis ces utilisateurs ;
-  - dans la base portal de dev, qui ne sert qu'aux tests : les demandes, le journal d'audit, les responsables d'équipe et
-    les alertes de budget (le catalogue et les réglages restent) ;
+  - dans la base portal de dev, qui ne sert qu'aux tests : les prélèvements, les abonnements, les demandes, le journal
+    d'audit, les responsables d'équipe, les alertes de budget et les offres d'abonnement de test (le catalogue, les
+    offres initiales et les réglages restent) ;
   - dans Mailpit : les courriels reçus.
 
-Utilisateurs et équipes de test : identifiant ou nom terminé par un suffixe de 8 caractères (« equipes-membre-muhwx8w6 »,
-« u-1a2b3c4d », « Équipe budget muhyljri », « equipe-1a2b3c4d »). Les équipes et les utilisateurs sans ce suffixe
-(admin des tests, lecteur, utilisateur technique de LiteLLM) restent.
+Utilisateurs, équipes et offres de test : identifiant ou nom terminé par un suffixe de 8 caractères
+(« equipes-membre-muhwx8w6 », « u-1a2b3c4d », « Équipe budget muhyljri », « Offre suivi mui8dueh »). Les équipes et
+les utilisateurs sans ce suffixe (admin des tests, lecteur, utilisateur technique de LiteLLM) restent.
 
   python3 dev/purger-donnees-de-test.py [--appliquer]
 """
@@ -30,7 +31,9 @@ COMPOSE = Path(__file__).resolve().parent / "docker-compose.yml"
 
 SUFFIXE_DE_TEST = re.compile(r"[- ][a-z0-9]{8}$")
 EQUIPES_DE_DEMONSTRATION = {"R&D", "LPS Paris"}
-TABLES_DE_TEST = ["AccessRequest", "AuditLog", "TeamManager", "TeamBudgetAlert"]
+# Dans l'ordre des suppressions : un prélèvement tient à son abonnement, un abonnement à sa demande.
+TABLES_DE_TEST = ["SubscriptionCharge", "Subscription", "AccessRequest", "AuditLog", "TeamManager", "TeamBudgetAlert"]
+OFFRES_DE_TEST = """from "SubscriptionOffer" where name ~ '[- ][a-z0-9]{8}$'"""
 
 
 def litellm(methode: str, chemin: str, corps: object | None = None) -> object:
@@ -75,11 +78,12 @@ def main() -> None:
     membres = [(e["team_id"], m["user_id"]) for e in gardees for m in (e.get("members_with_roles") or []) if de_test(m.get("user_id"))]
     comptes = [u for u in utilisateurs() if de_test(u)]
     lignes = {table: int(portal(f'select count(*) from "{table}"')) for table in TABLES_DE_TEST}
+    offres = int(portal(f"select count(*) {OFFRES_DE_TEST}"))
     courriels = total_courriels_mailpit()
 
     print(f"LiteLLM : {len(equipes_de_test)} équipes de test sur {len(equipes)} (gardées : {', '.join(sorted(e.get('team_alias') or e['team_id'] for e in gardees))})")
     print(f"LiteLLM : {len(cles)} clés et {len(membres)} appartenances d'utilisateurs de test dans les équipes gardées ; {len(comptes)} utilisateurs de test")
-    print("portal : " + ", ".join(f"{table} {n}" for table, n in lignes.items()))
+    print("portal : " + ", ".join(f"{table} {n}" for table, n in lignes.items()) + f", offres de test {offres}")
     print(f"Mailpit : {courriels} courriels")
     if not appliquer:
         print("Simulation : rien n'est supprimé (relancer avec --appliquer).")
@@ -93,7 +97,7 @@ def main() -> None:
         litellm("POST", "/team/member_delete", {"team_id": team_id, "user_id": user_id})
     for lot in par_lots(comptes, 100):
         litellm("POST", "/user/delete", {"user_ids": lot})
-    portal("; ".join(f'delete from "{table}"' for table in TABLES_DE_TEST))
+    portal("; ".join([*(f'delete from "{table}"' for table in TABLES_DE_TEST), f"delete {OFFRES_DE_TEST}"]))
     with urllib.request.urlopen(urllib.request.Request(f"{MAILPIT}/api/v1/messages", method="DELETE"), timeout=60):
         pass
     print("Purge appliquée.")
