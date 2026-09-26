@@ -37,7 +37,7 @@ litellm_settings:
 # model_list:
 #   - model_name: qwen3.8                  # N3 — endpoint OVHcloud (déclaré en base le 2026-09-24)
 #     litellm_params:
-#       model: openai/Qwen3.8-27B
+#       model: ovhcloud/Qwen3.8-27B       # pas openai/… : /v1/messages passerait par l'API Responses, refusée par OVH
 #       api_base: os.environ/OVH_QWEN_API_BASE    # https://oai.endpoints.kepler.ai.cloud.ovh.net/v1
 #       api_key: os.environ/OVH_QWEN_API_KEY
 #       input_cost_per_token: 0.0000004           # 0,40 € HT / Mtoken (tarif public OVH, validé le 2026-09-24)
