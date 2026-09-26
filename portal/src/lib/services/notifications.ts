@@ -53,6 +53,9 @@ async function envoyer(deps: NotificationDeps, to: string[], message: Omit<Messa
   }
 }
 
+/** Destinataires d'une annonce, sans doublon : les admins (sauf `admins` à faux) et les responsables désignés par le service. */
+const adminsEtResponsables = (deps: NotificationDeps, responsables: string[], admins = true) => [...new Set([...(admins ? (deps.adminEmails ?? []) : []), ...responsables])];
+
 const lienVers = (deps: NotificationDeps, chemin: string) => `${(deps.portalUrl ?? "").replace(/\/$/, "")}${chemin}`;
 
 /** Nom du demandeur ; les demandes antérieures à son enregistrement n'ont que son identifiant. */
@@ -139,7 +142,7 @@ export async function notifyNewRequest(deps: NotificationDeps, demande: AccessRe
           },
     lienVers(deps, `/gestion/demandes/${demande.id}`),
   );
-  await envoyer(deps, [...new Set([...(deps.adminEmails ?? []), ...responsables])], message);
+  await envoyer(deps, adminsEtResponsables(deps, responsables), message);
 }
 
 /** F-40 : demande de clé approuvée, avec les paramètres de la clé et l'échéance de retrait ; jamais de clé. */
@@ -313,7 +316,7 @@ export async function notifyTeamChange(
     ),
   );
   const decisionDUnAdmin = (changement.type === "decision" || changement.type === "cle") && changement.auteur.isAdmin;
-  await envoyer(deps, [...new Set([...(decisionDUnAdmin ? [] : (deps.adminEmails ?? [])), ...responsables])], message);
+  await envoyer(deps, adminsEtResponsables(deps, responsables, !decisionDUnAdmin), message);
 }
 
 /** Budget d'équipe tel que le nomment les courriels : « 100,00 € par période de 30 jours », ou « sans limite ». */
@@ -346,7 +349,7 @@ export async function notifyTeamBudgetAlert(
       paragraphes: [t("courriels.bonjourAdmins"), [t("courriels.alerteBudget.corps", valeurs), t("courriels.alerteBudget.suite", valeurs)].join(" ")],
     };
   }, lienVers(deps, `/gestion/equipes/${alerte.teamId}`));
-  await envoyer(deps, [...new Set([...(deps.adminEmails ?? []), ...responsables])], message);
+  await envoyer(deps, adminsEtResponsables(deps, responsables), message);
 }
 
 /** Auteur d'une action, tel que le nomment les courriels : « Jeanne Dupont (jdupont) ». */
