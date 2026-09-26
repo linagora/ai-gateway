@@ -32,7 +32,7 @@ test("un échec de connexion est expliqué dans la langue du navigateur", async 
   const context = await browser.newContext({ locale: "en-US" });
   const page = await context.newPage();
   await page.goto("/connexion?error=Configuration");
-  await expect(page.getByRole("alert")).toHaveText("Sign-in failed. Try again; if the problem persists, contact a portal administrator.");
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText("Sign-in failed. Try again; if the problem persists, contact a portal administrator.");
   await expect(page.getByRole("button", { name: "Sign in with LemonLDAP::NG" })).toBeVisible();
   await context.close();
 });
