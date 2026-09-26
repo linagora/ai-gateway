@@ -58,9 +58,12 @@ export interface AdminOffer extends Omit<CatalogOffer, "rules"> {
 /** Nom d'une offre tel que le montrent les listes et les courriels : « Anthropic · Claude Max 5x ». */
 export const libelleOffre = (offre: { supplier: string; name: string }) => `${offre.supplier} · ${offre.name}`;
 
-/** Offres visibles au catalogue, par fournisseur puis par nom. */
+/** Ordre des offres : par fournisseur, puis par prix croissant, pour lire les gammes d'un fournisseur dans l'ordre. */
+const ORDRE_DES_OFFRES = [{ supplier: "asc" }, { monthlyPriceEur: "asc" }, { name: "asc" }] as const;
+
+/** Offres visibles au catalogue, par fournisseur puis par prix croissant. */
 export async function listOffers(deps: OfferDeps, language: Langue = "fr"): Promise<CatalogOffer[]> {
-  const offres = await deps.db.subscriptionOffer.findMany({ where: { visible: true }, orderBy: [{ supplier: "asc" }, { name: "asc" }] });
+  const offres = await deps.db.subscriptionOffer.findMany({ where: { visible: true }, orderBy: [...ORDRE_DES_OFFRES] });
   return offres.map((o) => ({
     id: o.id,
     supplier: o.supplier,
@@ -75,7 +78,7 @@ export async function listOffers(deps: OfferDeps, language: Langue = "fr"): Prom
 /** Toutes les offres, masquées comprises, pour la gestion du catalogue : réservé aux admins. */
 export async function listOffersForAdmin(deps: OfferDeps, actor: SessionUser): Promise<AdminOffer[]> {
   requireAdmin(actor);
-  const offres = await deps.db.subscriptionOffer.findMany({ orderBy: [{ supplier: "asc" }, { name: "asc" }] });
+  const offres = await deps.db.subscriptionOffer.findMany({ orderBy: [...ORDRE_DES_OFFRES] });
   return offres.map((o) => ({
     id: o.id,
     supplier: o.supplier,

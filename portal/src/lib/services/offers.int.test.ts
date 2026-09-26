@@ -38,6 +38,21 @@ describe("offres d'abonnement au catalogue (ticket #53)", () => {
     expect(await listOffersForAdmin(deps, admin)).toEqual([expect.objectContaining({ id, name: "Claude Max 5x", monthlyPriceEur: 120, visible: false })]);
   });
 
+  test("les offres se présentent par fournisseur, puis par prix croissant : les gammes d'un fournisseur se lisent dans l'ordre", async () => {
+    for (const [supplier, name, monthlyPriceEur] of [
+      ["OpenAI", "ChatGPT Plus", 23],
+      ["Anthropic", "Claude Max 20x", 216],
+      ["Anthropic", "Claude Pro", 21.6],
+      ["Anthropic", "Claude Max 5x", 108],
+      ["OpenAI", "ChatGPT Go", 8],
+    ] as const) {
+      await saveOffer(deps, admin, { ...claudeMax, supplier, name, monthlyPriceEur });
+    }
+    const ordre = ["Claude Pro", "Claude Max 5x", "Claude Max 20x", "ChatGPT Go", "ChatGPT Plus"];
+    expect((await listOffers(deps)).map((o) => o.name)).toEqual(ordre);
+    expect((await listOffersForAdmin(deps, admin)).map((o) => o.name)).toEqual(ordre);
+  });
+
   test("seul un admin tient les offres ; une offre sans nom, à prix nul ou au lien non sécurisé est refusée", async () => {
     await expect(saveOffer(deps, salarie, claudeMax)).rejects.toMatchObject({ code: "interdit" });
     await expect(listOffersForAdmin(deps, salarie)).rejects.toMatchObject({ code: "interdit" });
