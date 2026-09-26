@@ -30,6 +30,13 @@ test("le menu signale les demandes à valider et les clés à retirer ; les page
   await expect(admin.getByRole("banner").getByRole("link", { name: /^Gestion \(\d+ demandes? à valider\)$/ })).toBeVisible();
   const archive = admin.getByRole("region", { name: "Archive : demandes traitées" });
   await expect(archive.getByRole("row", { name: new RegExp(`${salarie.uid}.*Clé d'API.*Approuvée`) })).toBeVisible();
+  // L'archive se lit page par page, la plus récente d'abord ; une page hors limites mène à la dernière.
+  const pagination = archive.getByRole("navigation", { name: "Pages de l'archive" });
+  await expect(pagination).toContainText(/^Page 1 sur \d+ \(\d+ demandes? traitées?\)/);
+  const pages = Number(/sur (\d+)/.exec((await pagination.textContent()) ?? "")?.[1]);
+  await admin.goto("/gestion/demandes?page=999");
+  await expect(pagination).toContainText(`Page ${pages} sur ${pages}`);
+  await admin.goto("/gestion/demandes");
 
   await menu.getByRole("link", { name: /^Clés/ }).click();
   await expect(admin.getByRole("region", { name: "Clés approuvées, à retirer par le salarié" }).getByRole("row", { name: new RegExp(salarie.uid) })).toBeVisible();
