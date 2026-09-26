@@ -59,7 +59,7 @@ export interface AdminOffer extends Omit<CatalogOffer, "rules"> {
 /** Nom d'une offre tel que le montrent les listes et les courriels : « Anthropic · Claude Max 5x ». */
 export const libelleOffre = (offre: { supplier: string; name: string }) => `${offre.supplier} · ${offre.name}`;
 
-/** Ordre des offres : par fournisseur, puis par prix croissant, pour lire les gammes d'un fournisseur dans l'ordre. */
+/** Ordre des offres : par fournisseur, puis par prix croissant, pour lire les offres d'un fournisseur de la moins chère à la plus chère. */
 const ORDRE_DES_OFFRES = [{ supplier: "asc" }, { monthlyPriceEur: "asc" }, { name: "asc" }] as const;
 
 /** Offre telle que la voit un salarié, avec ses règles dans sa langue (en français à défaut). */

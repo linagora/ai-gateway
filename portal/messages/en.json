@@ -130,7 +130,7 @@
     "erreurs": {
       "controles_en_echec": "The request does not comply with the model access policy. Failed checks: {controles}.",
       "deja_membre": "You are already a member of the {equipe} team.",
-      "demande_en_cours": "{cas, select, abonnement {A renewal or offer change request is already pending for this subscription.} other {You already have a pending access request for the {equipe} team.}}",
+      "demande_en_cours": "{cas, select, abonnement {A renewal or plan change request is already pending for this subscription.} other {You already have a pending access request for the {equipe} team.}}",
       "renouvellement_trop_tot": "Renewal can be requested at the earliest one month before the subscription expires.",
       "engagement_requis": "Commit to not submitting data above the declared level.",
       "interdit": "Administrators only.",
@@ -517,7 +517,7 @@
       "aideEquipe": "If the requester is not a member of the chosen team, approval adds them to it.",
       "renouvellement": "Renewal of the key {alias}.",
       "renouvellementAbonnement": "Renewal of the subscription {offre}, which expires on {echeance}: once approved, it extends this expiry by the granted validity period, without a new declaration.",
-      "changementOffre": "Offer change: this subscription replaces the subscription {offre}, cancelled when the new offer is declared.",
+      "changementOffre": "Plan change: this subscription replaces the subscription {offre}, cancelled when the new offer is declared.",
       "depenseOrigine": "Spend of this key: {depense}.",
       "propreDemande": "You cannot decide on your own request: another manager of the team or an administrator will handle it.",
       "approuverAbonnement": "Approve (subscription validity period)",
@@ -1005,7 +1005,7 @@
     "offreIntrouvable": "This offer is no longer available.",
     "voirOffres": "See the offers",
     "completerRenouvellement": "Renewal of your subscription attached to the {equipe} team: the offer and the team remain those of the subscription.",
-    "completerChangement": "Offer change of your subscription attached to the {equipe} team: the team remains that of the subscription.",
+    "completerChangement": "Plan change of your subscription attached to the {equipe} team: the team remains that of the subscription.",
     "titreRenouveler": "Renew a subscription",
     "renouvellementImpossible": "This subscription cannot be renewed now: the renewal of a subscription that is not cancelled can be requested from one month before its expiry.",
     "retourAbonnements": "Back to “My subscriptions”",
@@ -1013,7 +1013,7 @@
     "equipeEtEcheance": "Attached to the {equipe} team, expires on {date}.",
     "aideRenouvellement": "Once approved, the renewal extends the expiry by the granted period, from the current expiry, without a new declaration; if refused, it counts as a cancellation request for the subscription.",
     "envoyerRenouvellement": "Request the renewal",
-    "titreChanger": "Change offer",
+    "titreChanger": "Change plan",
     "abonnementIntrouvable": "This subscription cannot be found or is cancelled.",
     "aucuneAutreOffre": "No other offer from the supplier of your subscription {offre} is available.",
     "abonnementRemplace": "Replaced subscription: {offre}, attached to the {equipe} team.",
@@ -1021,7 +1021,7 @@
     "choixOffre": "{offre}: {prix} incl. VAT per month, {niveau}",
     "aideChangement": "Once the request is approved, take out the new offer with the supplier, then declare it in “My subscriptions”: the replaced subscription will be cancelled as of the declared subscription date.",
     "engagementOffreChoisie": "I commit not to entrust this subscription with any data above the maximum level of the chosen offer.",
-    "envoyerChangement": "Request the offer change"
+    "envoyerChangement": "Request the plan change"
   },
   "mesAbonnements": {
     "titre": "My subscriptions",
@@ -1053,9 +1053,9 @@
     "resiliationDemandee": "Cancellation requested on {date}",
     "motif": "Reason: {motif}",
     "renouveler": "Request the renewal",
-    "changerOffre": "Change offer",
+    "changerOffre": "Change plan",
     "renouvellementDemande": "Renewal requested",
-    "changementDemande": "Offer change requested",
+    "changementDemande": "Plan change requested",
     "resiliation": {
       "ouvrir": "Declare the cancellation",
       "formulaire": "Declare the cancellation: {offre}",

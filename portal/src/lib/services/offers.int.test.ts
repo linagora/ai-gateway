@@ -38,7 +38,7 @@ describe("offres d'abonnement au catalogue (ticket #53)", () => {
     expect(await listOffersForAdmin(deps, admin)).toEqual([expect.objectContaining({ id, name: "Claude Max 5x", monthlyPriceEur: 120, visible: false })]);
   });
 
-  test("les offres se présentent par fournisseur, puis par prix croissant : les gammes d'un fournisseur se lisent dans l'ordre", async () => {
+  test("les offres se présentent par fournisseur, puis par prix croissant : celles d'un fournisseur se lisent de la moins chère à la plus chère", async () => {
     for (const [supplier, name, monthlyPriceEur] of [
       ["OpenAI", "ChatGPT Plus", 23],
       ["Anthropic", "Claude Max 20x", 216],
