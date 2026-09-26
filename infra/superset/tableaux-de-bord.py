@@ -1,5 +1,5 @@
-"""Crée ou met à jour les tableaux de bord « Consommation » (admins et lecteurs du reporting) et
-« Pilotage » (admins) : libellés et métriques des jeux de données, graphiques, disposition, filtres,
+"""Crée ou met à jour les tableaux de bord « Consommation » (admins et lecteurs du reporting), « Pilotage »
+et « Par salarié » (admins) : libellés et métriques des jeux de données, graphiques, disposition, filtres,
 droits. Idempotent (identifiants stables). À lancer après superset/init-reporting.py :
 
   cd /opt/linagora-ia && docker compose exec -T superset python3 - < superset/tableaux-de-bord.py
@@ -25,7 +25,8 @@ LIBELLES = {
                      "spend": "Dépense (€)", "budget_used": "Budget consommé", "expires": "Expiration", "created_at": "Création",
                      "last_used": "Dernière utilisation", "days_inactive": "Jours sans utilisation", "status": "Statut"},
     "v_daily_user": {"day": "Jour", "user_id": "Uid", "user_email": "Courriel", "key_alias": "Clé", "team_alias": "Équipe",
-                     "key_data_level": "Niveau déclaré", "model_name": "Modèle", "provider": "Fournisseur"},
+                     "key_data_level": "Niveau déclaré", "model_name": "Modèle", "provider": "Fournisseur",
+                     "key_level": "Niveau déclaré de la clé"},
     "v_requests": {"started_at": "Début", "model_name": "Modèle", "provider": "Fournisseur", "status": "Statut", "team_alias": "Équipe"},
     "v_check_pricing_eur": {"day": "Jour", "model_name": "Modèle", "provider": "Fournisseur", "requests": "Requêtes",
                             "spend_unreliable": "Dépense (non fiable)"},
@@ -189,7 +190,27 @@ def definitions():
               "Ces modèles ne peuvent pas être rendus visibles au catalogue")],
         ]),
     ]
-    return {"consommation": ("Consommation", consommation), "pilotage": ("Pilotage", pilotage)}
+    # Par salarié (spécification #51, ticket #52) : la dépense et les clés d'un salarié, choisi dans le filtre.
+    par_salarie = [
+        (None, [
+            [("Coût de la passerelle", j, kpi(j, "cout", EUROS), 4, 36, "Comparé à la période précédente de même durée"),
+             ("Requêtes", j, kpi(j, "requetes", NOMBRE), 4, 36, "Comparées à la période précédente de même durée"),
+             ("Jetons", j, kpi(j, "jetons", NOMBRE), 4, 36, None)],
+        ]),
+        ("Dépense de la passerelle", [
+            [("Coût par jour et par modèle", j, serie("echarts_timeseries_bar", j, ["cout"], EUROS, ["model_name"], empile=True, limite=10), 12, 50,
+              None)],
+            [("Coût par modèle", j, tableau(j, ["model_name", "provider"], ["cout", "requetes", "jetons"]), 6, 50, "Classés par coût sur la période"),
+             ("Coût par niveau déclaré", j, camembert(j, "key_level", "cout", EUROS), 6, 50, "Niveau déclaré dans la demande de clé")],
+            [("Coût par clé", j, tableau(j, ["key_alias", "team_alias", "key_level"], ["cout", "requetes", "jetons"], limite=50), 12, 44, None)],
+        ]),
+        ("Clés", [
+            [("Clés du salarié", k, liste(["key_alias", "team", "key_level", "status", "spend", "max_budget", "budget_used", "budget_duration",
+                                          "expires", "last_used"], "key_alias", formats=BUDGET, alertes=ALERTE_80, croissant=True), 12, 44,
+              "Part du budget consommée ; en rouge à partir de 80 %")],
+        ]),
+    ]
+    return {"consommation": ("Consommation", consommation), "pilotage": ("Pilotage", pilotage), "par-salarie": ("Par salarié", par_salarie)}
 
 
 app = create_app()
@@ -222,7 +243,7 @@ with app.app_context():
 
     proprietaires = [u for u in [sm.find_user(username="mmaudet")] if u]
     admin, lecteur = sm.find_role("Admin"), sm.find_role("Lecteur reporting")
-    droits = {"consommation": [admin, lecteur], "pilotage": [admin]}
+    droits = {"consommation": [admin, lecteur], "pilotage": [admin], "par-salarie": [admin]}
 
     for slug, (titre, sections) in definitions().items():
         graphiques, position = [], {
@@ -287,6 +308,17 @@ with app.app_context():
                                 "cascadeParentIds": [], "type": "NATIVE_FILTER", "description": "",
                                 "scope": {"rootPath": ["ROOT_ID"], "excluded": exclus},
                                 "chartsInScope": [i for i in tous if i not in exclus], "tabsInScope": []})
+        if slug == "par-salarie":
+            # Salarié obligatoire, un seul à la fois ; la liste vient des utilisateurs de la passerelle, et le filtre
+            # porte sur la colonne user_id de chaque jeu de données du tableau.
+            filtres.append({"id": f"NATIVE_FILTER-{slug}-salarie", "name": "Salarié (uid)", "filterType": "filter_select",
+                            "targets": [{"datasetId": jeux["v_users"].id, "column": {"name": "user_id"}}],
+                            "defaultDataMask": {"extraFormData": {}, "filterState": {}, "ownState": {}},
+                            "controlValues": {"enableEmptyFilter": True, "defaultToFirstItem": False, "multiSelect": False,
+                                              "searchAllOptions": True, "inverseSelection": False},
+                            "cascadeParentIds": [], "type": "NATIVE_FILTER",
+                            "description": "Obligatoire : les graphiques s'affichent une fois le salarié choisi",
+                            "scope": {"rootPath": ["ROOT_ID"], "excluded": []}, "chartsInScope": tous, "tabsInScope": []})
 
         u = uid(f"tableau/{slug}")
         tdb = db.session.query(Dashboard).filter_by(uuid=u).one_or_none() or Dashboard(uuid=u)

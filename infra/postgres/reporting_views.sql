@@ -109,13 +109,15 @@ LEFT JOIN reporting.v_teams  t ON t.team_id  = s.team_id
 LEFT JOIN reporting.v_users  u ON u.user_id  = s."user"
 LEFT JOIN reporting.v_models m ON m.model_id = s.model_id;
 
--- Agrégats journaliers (historique long, non purgé)
+-- Agrégats journaliers (historique long, non purgé). key_level, libellé du niveau déclaré de la clé, vient en dernier :
+-- CREATE OR REPLACE VIEW n'ajoute de colonnes qu'à la fin.
 CREATE OR REPLACE VIEW reporting.v_daily_user AS
 SELECT d.date::date AS day, d.user_id, u.user_email, k.key_alias, k.team_id, t.team_alias,
        k.project, k.data_level AS key_data_level,
        NULLIF(d.model_group, '') AS model_name, COALESCE(m.fournisseur, NULLIF(d.custom_llm_provider, '')) AS provider,
        d.prompt_tokens, d.completion_tokens, d.spend,
-       d.api_requests, d.successful_requests, d.failed_requests
+       d.api_requests, d.successful_requests, d.failed_requests,
+       reporting.libelle_niveau(k.data_level) AS key_level
 FROM "LiteLLM_DailyUserSpend" d
 LEFT JOIN reporting.v_keys  k ON k.key_hash = d.api_key
 LEFT JOIN reporting.v_teams t ON t.team_id  = k.team_id
