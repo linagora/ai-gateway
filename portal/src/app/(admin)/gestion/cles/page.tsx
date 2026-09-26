@@ -1,5 +1,9 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { PortalError } from "@/lib/errors";
 import { listActiveKeys, listKeyArchive, listKeysToPickUp } from "@/lib/services/keys";
+import { getTeamOverview } from "@/lib/services/teams";
 import { getDeps, requireGestionPage } from "@/lib/session";
 import { bloquerCleAction, debloquerCleAction, revoquerCleAdminAction } from "../../../actions";
 import { DepenseSurBudget, formats, Notice, PaginationArchive } from "../../../components";
@@ -8,7 +12,7 @@ import { AdminNav } from "../admin-nav";
 /**
  * F-43, tickets #19 et #42 : les clés approuvées qui attendent leur retrait, les clés actives avec la révocation, le
  * blocage et le déblocage (par un admin, ou par un responsable pour les clés de ses équipes), puis l'archive des clés
- * révoquées ou expirées, page par page.
+ * révoquées ou expirées, page par page. Avec `?equipe=`, la page se limite aux clés de cette équipe.
  */
 export default async function GestionClesPage(props: PageProps<"/gestion/cles">) {
   const admin = await requireGestionPage();
@@ -19,10 +23,18 @@ export default async function GestionClesPage(props: PageProps<"/gestion/cles">)
     getTranslations("domaine"),
     props.searchParams,
   ]);
+  const teamId = typeof searchParams.equipe === "string" ? searchParams.equipe : undefined;
+  // Une équipe inconnue, ou hors de l'autorité d'un responsable, est introuvable.
+  const equipe = teamId
+    ? await getTeamOverview(getDeps(), admin, teamId).catch((e: unknown) => {
+        if (e instanceof PortalError && e.code === "introuvable") notFound();
+        throw e;
+      })
+    : null;
   const [aRetirer, actives, archive] = await Promise.all([
-    listKeysToPickUp(getDeps(), admin),
-    listActiveKeys(getDeps(), admin),
-    listKeyArchive(getDeps(), admin, Number(searchParams.page) || 1),
+    listKeysToPickUp(getDeps(), admin, teamId),
+    listActiveKeys(getDeps(), admin, teamId),
+    listKeyArchive(getDeps(), admin, Number(searchParams.page) || 1, teamId),
   ]);
   const titulaire = (uid: string, email: string) => (
     <td>
@@ -36,6 +48,12 @@ export default async function GestionClesPage(props: PageProps<"/gestion/cles">)
     <>
       <AdminNav />
       <h1>{t("titre")}</h1>
+      {equipe && (
+        <p className="flex flex-wrap items-center gap-3">
+          <span>{t("filtreEquipe", { equipe: equipe.teamAlias })}</span>
+          <Link href="/gestion/cles">{t("toutesLesCles")}</Link>
+        </p>
+      )}
       <Notice searchParams={searchParams} />
 
       {aRetirer.length > 0 && (
@@ -163,7 +181,7 @@ export default async function GestionClesPage(props: PageProps<"/gestion/cles">)
         )}
         <PaginationArchive
           archive={archive}
-          lien={(page) => `/gestion/cles?page=${page}`}
+          lien={(page) => `/gestion/cles?${teamId ? `equipe=${encodeURIComponent(teamId)}&` : ""}page=${page}`}
           libelles={{
             pagination: t("archive.pagination"),
             position: t("archive.position", { page: archive.page, pages: archive.pages, total: archive.total }),

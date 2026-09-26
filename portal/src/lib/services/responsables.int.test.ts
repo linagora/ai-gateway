@@ -66,6 +66,8 @@ describe("gestion limitée du responsable d'équipe (ticket #40)", () => {
     await demande("jdupont", "equipe-data", "Data", "CLE_EMISE");
     expect((await listActiveKeys(deps, responsable)).map((k) => k.teamAlias)).toEqual(["R&D"]);
     expect((await listActiveKeys(deps, admin)).map((k) => k.teamAlias).sort()).toEqual(["Data", "R&D"]);
+    // Filtrées sur une équipe hors de son autorité, les clés restent invisibles au responsable.
+    expect(await listActiveKeys(deps, responsable, "equipe-data")).toEqual([]);
   });
 
   test("la pastille d'un responsable compte les demandes à valider de ses équipes, hors les siennes", async () => {

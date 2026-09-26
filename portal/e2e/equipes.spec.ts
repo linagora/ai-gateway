@@ -377,6 +377,14 @@ test("un responsable bloque, débloque et révoque la clé d'un membre de son é
   await expect(admin.getByRole("main").getByRole("alert")).toHaveText(
     "Cette équipe a encore des clés actives (1) ou des demandes en cours (0) : révoquez ses clés, y compris celles créées depuis la console de LiteLLM, et traitez ses demandes avant de la supprimer.",
   );
+  // Le nombre de clés actives mène à la gestion des clés, limitée à l'équipe.
+  await admin.getByRole("link", { name: "Voir la clé active de l'équipe" }).click();
+  await expect(admin.getByText(`Clés de l'équipe ${nom}`)).toBeVisible();
+  const clesActives = admin.getByRole("region", { name: "Clés actives" });
+  await expect(clesActives.getByRole("row")).toHaveCount(2);
+  await expect(clesActives.getByRole("row", { name: new RegExp(membre.uid) })).toBeVisible();
+  await expect(admin.getByRole("link", { name: "Toutes les clés" })).toBeVisible();
+  await admin.goto(pageEquipe);
 
   // Blocage puis déblocage depuis la gestion du responsable.
   await pageResponsable.goto("/gestion/cles");

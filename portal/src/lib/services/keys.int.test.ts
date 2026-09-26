@@ -339,6 +339,21 @@ describe("« Gestion — Clés » et révocation par un admin (ticket #19)", () 
     expect(await listActiveKeys(deps, admin)).toEqual([]);
   });
 
+  test("filtrées sur une équipe, les listes ne gardent que ses clés à retirer, actives et archivées", async () => {
+    const cle = (teamId: string, teamAlias: string, status: "APPROUVEE" | "CLE_EMISE" | "REVOQUEE", i: number) => ({
+      kind: "CLE" as const, status, requesterUid: `salarie-${i}`, requesterEmail: `salarie-${i}@linagora.com`, teamId, teamAlias, dataLevel: "N2" as const,
+      models: ["mistral-small"], approvedModels: ["mistral-small"], justification: "Essai", decidedAt: maintenant,
+      ...(status === "APPROUVEE" ? {} : { keyAlias: `cle-${i}`, keyIssuedAt: maintenant }),
+    });
+    await testDb.accessRequest.createMany({
+      data: [cle("equipe-rd", "R&D", "APPROUVEE", 1), cle("equipe-rd", "R&D", "CLE_EMISE", 2), cle("equipe-rd", "R&D", "REVOQUEE", 3), cle("equipe-data", "Data", "APPROUVEE", 4), cle("equipe-data", "Data", "CLE_EMISE", 5), cle("equipe-data", "Data", "REVOQUEE", 6)],
+    });
+    expect((await listKeysToPickUp(deps, admin, "equipe-rd")).map((k) => k.holderUid)).toEqual(["salarie-1"]);
+    expect((await listActiveKeys(deps, admin, "equipe-rd")).map((k) => k.alias)).toEqual(["cle-2"]);
+    expect((await listKeyArchive(deps, admin, 1, "equipe-rd")).elements.map((k) => k.alias)).toEqual(["cle-3"]);
+    expect((await listActiveKeys(deps, admin)).map((k) => k.alias).sort()).toEqual(["cle-2", "cle-5"]);
+  });
+
   test("un admin révoque la clé d'un salarié, avec le même effet ; le journal d'audit le nomme comme auteur", async () => {
     const id = await demandeApprouvee();
     const { key } = await pickUpKey(deps, titulaire, id);

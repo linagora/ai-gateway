@@ -473,6 +473,8 @@
     },
     "cles": {
       "titre": "Clés d'API",
+      "filtreEquipe": "Clés de l'équipe {equipe}",
+      "toutesLesCles": "Toutes les clés",
       "aucune": "Aucune clé n'a encore été retirée.",
       "colonnes": {
         "titulaire": "Titulaire",
@@ -541,6 +543,7 @@
         "budget": "Budget",
         "responsables": "Responsables"
       },
+      "voirCles": "{nombre, plural, =0 {Voir les clés de l'équipe} one {Voir la clé active de l'équipe} other {Voir les # clés actives de l'équipe}}",
       "toutes": "Toutes les équipes",
       "resume": "Résumé de l'équipe",
       "nom": "Nom de l'équipe",
