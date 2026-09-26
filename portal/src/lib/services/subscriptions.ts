@@ -67,6 +67,7 @@ export interface SubscriptionRequestDraft extends Omit<SubscriptionRequestInput,
   linked: "RENOUVELLEMENT" | "CHANGEMENT_OFFRE" | null;
 }
 
+/** Brouillon de la demande d'abonnement du salarié renvoyée pour complément ; null si elle n'est pas à compléter. */
 export async function subscriptionRequestDraft(deps: { db: Db }, user: SessionUser, id: string, language: Langue = "fr"): Promise<SubscriptionRequestDraft | null> {
   const r = await deps.db.accessRequest.findUnique({ where: { id }, include: { offer: true } });
   if (!r || r.requesterUid !== user.uid || r.kind !== "ABONNEMENT" || r.status !== "A_COMPLETER" || !r.offer || r.requestedDays === null) return null;

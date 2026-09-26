@@ -222,7 +222,10 @@ export async function listMyTeams(deps: RequestDeps, user: SessionUser): Promise
   return (await deps.litellm.getUser(user.uid))?.teams ?? [];
 }
 
-/** Pastilles du menu du salarié : ses clés approuvées à retirer, et ses demandes qu'un admin lui demande de compléter. */
+/**
+ * Pastilles du menu du salarié : ses clés approuvées à retirer, ses abonnements approuvés à déclarer (spécification #51),
+ * et ses demandes qu'un admin lui demande de compléter.
+ */
 export async function countMyPending(
   deps: RequestDeps,
   user: SessionUser,

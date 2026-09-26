@@ -68,8 +68,9 @@ export async function listPendingRequests(deps: AdminDeps, actor: SessionUser): 
 }
 
 /**
- * Pastilles du menu de gestion : demandes à valider, et clés approuvées que leur titulaire n'a pas retirées. Pour un
- * responsable, celles de ses équipes, hors ses propres demandes, qu'il ne valide pas.
+ * Pastilles du menu de gestion : demandes à valider, clés approuvées que leur titulaire n'a pas retirées, et abonnements
+ * approuvés qu'il n'a pas déclarés (spécification #51). Pour un responsable, celles de ses équipes, hors ses propres
+ * demandes, qu'il ne valide pas.
  */
 export async function countAdminPending(
   deps: AdminDeps,

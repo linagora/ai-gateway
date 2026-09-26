@@ -144,6 +144,7 @@ export async function declarerAbonnementAction(formData: FormData): Promise<void
   );
 }
 
+/** Ticket #57 : le titulaire corrige le montant mensuel de son abonnement, depuis « Mes abonnements ». */
 export async function corrigerMontantAbonnementAction(formData: FormData): Promise<void> {
   const user = await requireUser();
   await run(
