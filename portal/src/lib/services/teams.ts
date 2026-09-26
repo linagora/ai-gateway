@@ -90,6 +90,25 @@ export async function removeTeamMember(deps: TeamDeps, actor: SessionUser, input
   await notifyTeamChange(deps, { type: "membreSorti", teamId: team.teamId, equipe: team.teamAlias, membre: input.uid, auteur: actor });
 }
 
+/**
+ * F-53 : supprime une équipe. LiteLLM supprimant aussi ses clés, la suppression est refusée tant que l'équipe a des clés
+ * actives ou des demandes en cours (soumises, à compléter, approuvées sans clé retirée) ; l'historique des demandes reste.
+ */
+export async function deleteTeam(deps: TeamDeps, actor: SessionUser, teamId: string): Promise<void> {
+  requireAdmin(actor);
+  const team = await existingTeam(deps, teamId);
+  const [cles, demandes] = await Promise.all([
+    deps.db.accessRequest.count({ where: { teamId: team.teamId, kind: "CLE", status: "CLE_EMISE" } }),
+    deps.db.accessRequest.count({ where: { teamId: team.teamId, status: { in: ["SOUMISE", "A_COMPLETER", "APPROUVEE"] } } }),
+  ]);
+  if (cles + demandes > 0) {
+    throw new PortalError("equipe_non_vide", `L'équipe ${team.teamAlias} a encore des clés ou des demandes en cours.`, { cles: String(cles), demandes: String(demandes) });
+  }
+  await deps.litellm.deleteTeam(team.teamId);
+  await recordAudit(deps.db, { actorUid: actor.uid, action: "TEAM_DELETED", targetId: team.teamId, details: { equipe: team.teamAlias } });
+  await notifyTeamChange(deps, { type: "supprimee", teamId: team.teamId, equipe: team.teamAlias, auteur: actor });
+}
+
 /** F-53 : crée une équipe (nom unique sans tenir compte des majuscules), l'inscrit au journal et l'annonce aux admins. */
 export async function createTeam(deps: TeamDeps, actor: SessionUser, input: { name: string }): Promise<string> {
   requireAdmin(actor);

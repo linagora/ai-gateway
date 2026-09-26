@@ -9,6 +9,7 @@ export type PortalErrorCode =
   | "deja_membre"
   | "demande_en_cours"
   | "engagement_requis"
+  | "equipe_non_vide"
   | "interdit"
   | "membre_existant"
   | "introuvable"

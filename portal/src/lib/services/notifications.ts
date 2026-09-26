@@ -261,6 +261,7 @@ export async function notifyAdminKeyAction(
 export type TeamChange =
   | { type: "creee" }
   | { type: "renommee"; ancienNom: string }
+  | { type: "supprimee" }
   | { type: "membreAjoute"; membre: string }
   | { type: "membreSorti"; membre: string };
 
@@ -280,7 +281,8 @@ export async function notifyTeamChange(
       sujet: t(`courriels.equipe.${changement.type}.sujet`, valeurs),
       paragraphes: [t("courriels.bonjourAdmins"), t(`courriels.equipe.${changement.type}.corps`, valeurs)],
     }),
-    lienVers(deps, `/gestion/equipes/${changement.teamId}`),
+    // Une équipe supprimée n'a plus de page : le lien mène à la liste des équipes.
+    lienVers(deps, changement.type === "supprimee" ? "/gestion/equipes" : `/gestion/equipes/${changement.teamId}`),
   );
   await envoyer(deps, deps.adminEmails ?? [], message);
 }

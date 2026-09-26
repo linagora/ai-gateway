@@ -176,6 +176,16 @@ describe("équipes", () => {
     expect((await client.getTeam(teamId))?.memberUids).toEqual([]);
   });
 
+  test("supprimer une équipe supprime aussi ses clés", async () => {
+    const userId = await newUser();
+    const { teamId } = await newTeam(["dev-public"]);
+    await client.addTeamMember(teamId, userId);
+    const cle = await client.generateKey({ userId, teamId, models: ["dev-public"], maxBudget: 5, budgetDuration: "30d", duration: "30d", rpmLimit: null, tpmLimit: null, alias: uniqueId("alias"), metadata: {} });
+    await client.deleteTeam(teamId);
+    expect(await client.getTeam(teamId)).toBeNull();
+    expect(await client.getKeyInfo(cle.tokenId)).toBeNull();
+  });
+
   test("une équipe créée par le portail n'a ni modèles ni membres réels ; elle se renomme", async () => {
     const teamAlias = uniqueId("equipe");
     const teamId = await client.createTeam(teamAlias);

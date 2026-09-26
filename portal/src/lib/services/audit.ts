@@ -18,6 +18,7 @@ export type AuditAction =
   | "KEY_EXPIRED"
   | "TEAM_CREATED"
   | "TEAM_RENAMED"
+  | "TEAM_DELETED"
   | "MEMBER_ADDED"
   | "MEMBER_REMOVED";
 

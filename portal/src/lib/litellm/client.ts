@@ -139,6 +139,8 @@ export interface LiteLLMClient {
   createTeam(alias: string): Promise<string>;
   /** F-53 : renomme une équipe. */
   updateTeam(teamId: string, changes: { alias: string }): Promise<void>;
+  /** F-53 : supprime une équipe ; LiteLLM supprime aussi ses clés. */
+  deleteTeam(teamId: string): Promise<void>;
   /** F-40 : génère une clé ; l'alias doit être unique dans LiteLLM. */
   generateKey(params: KeyParams): Promise<GeneratedKey>;
   /** F-42 : informations d'une clé d'après son empreinte ; null si LiteLLM ne la connaît pas. */
@@ -316,6 +318,11 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
       const { status, data } = await call("POST", "/team/new", { team_alias: alias });
       if (status !== 200) fail("POST", "/team/new", status, data);
       return z.object({ team_id: z.string() }).parse(data).team_id;
+    },
+
+    async deleteTeam(teamId) {
+      const { status, data } = await call("POST", "/team/delete", { team_ids: [teamId] });
+      if (status !== 200) fail("POST", "/team/delete", status, data);
     },
 
     async updateTeam(teamId, { alias }) {

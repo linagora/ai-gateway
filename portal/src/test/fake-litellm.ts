@@ -86,6 +86,13 @@ export class FakeLiteLLM implements LiteLLMClient {
     return teamId;
   }
 
+  async deleteTeam(teamId: string): Promise<void> {
+    if (this.panne) throw new Error("LiteLLM injoignable");
+    if (!this.teams.delete(teamId)) throw new Error(`équipe inconnue : ${teamId}`);
+    // Comme LiteLLM 1.102.1 : les clés de l'équipe sont supprimées avec elle.
+    for (const [tokenId, cle] of this.keys) if (cle.teamId === teamId) this.keys.delete(tokenId);
+  }
+
   async updateTeam(teamId: string, { alias }: { alias: string }): Promise<void> {
     if (this.panne) throw new Error("LiteLLM injoignable");
     const team = this.teams.get(teamId);

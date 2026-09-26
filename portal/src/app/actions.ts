@@ -19,7 +19,7 @@ import { saveCatalogEntry } from "@/lib/services/catalog";
 import { blockKey, pickUpKey, replaceKey, revokeKey, unblockKey } from "@/lib/services/keys";
 import { cancelRequest, completeRequest, createKeyRequest, createTeamJoinRequest } from "@/lib/services/requests";
 import { saveSettings } from "@/lib/services/settings";
-import { addTeamMember, createTeam, removeTeamMember, renameTeam } from "@/lib/services/teams";
+import { addTeamMember, createTeam, deleteTeam, removeTeamMember, renameTeam } from "@/lib/services/teams";
 import { getDeps, requireUser } from "@/lib/session";
 
 /*
@@ -189,6 +189,13 @@ export async function faireSortirMembreAction(formData: FormData): Promise<void>
   await run(page, () => removeTeamMember(getDeps(), user, { teamId: text(formData, "id"), uid: text(formData, "uid") }), { path: page, message: "membreSorti" });
 }
 
+/** F-53 : suppression d'une équipe par un admin ; en cas de refus, la page de l'équipe en donne la raison. */
+export async function supprimerEquipeAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+  await run(page, () => deleteTeam(getDeps(), user, text(formData, "id")), { path: "/gestion/equipes", message: "equipeSupprimee" });
+}
+
 // --- outils ---
 
 /** F-43 : révocation d'une clé par son titulaire. */
@@ -266,7 +273,8 @@ type CleSucces =
   | "equipeCreee"
   | "equipeRenommee"
   | "membreAjoute"
-  | "membreSorti";
+  | "membreSorti"
+  | "equipeSupprimee";
 
 /** Exécute le cas d'usage ; en cas d'erreur métier, revient sur `errorPath` avec le message. */
 async function run(errorPath: string, action: () => Promise<unknown>, success: { path: string; message: CleSucces }): Promise<void> {

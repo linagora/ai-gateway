@@ -11,6 +11,33 @@ test.beforeAll(async ({ browser }) => {
   await context.close();
 });
 
+/** Le salarié (page ouverte) dépose une demande de clé N1 pour le modèle public dans une équipe dont il est membre. */
+async function deposerDemande(page: Page, equipe: string, motif: string): Promise<void> {
+  await page.goto("/demandes/nouvelle");
+  await page.getByLabel("Équipe").selectOption({ label: equipe });
+  await page.getByRole("radio", { name: /^N1 Public/ }).check();
+  await page.getByLabel(/Modèle public/).check();
+  await page.getByLabel("Motif").fill(motif);
+  await page.getByLabel(/Je m'engage/).check();
+  await page.getByRole("button", { name: "Envoyer la demande" }).click();
+  await expect(page.getByRole("status")).toHaveText("Demande envoyée aux administrateurs.");
+}
+
+/** Sur la page d'une équipe, l'admin fait sortir un membre, avec confirmation. */
+async function faireSortir(admin: Page, uid: string): Promise<void> {
+  const ligne = admin.getByRole("region", { name: "Membres" }).getByRole("row", { name: new RegExp(uid) });
+  await ligne.getByText("Faire sortir de l'équipe").click();
+  await ligne.getByRole("button", { name: "Confirmer la sortie" }).click();
+  await expect(admin.getByRole("status")).toHaveText("Le membre est sorti de l'équipe : ses clés de l'équipe sont révoquées.");
+}
+
+/** Sur la page d'une équipe, l'admin demande sa suppression, avec confirmation. */
+async function supprimerEquipe(admin: Page): Promise<void> {
+  const zone = admin.getByRole("region", { name: "Suppression de l'équipe" });
+  await zone.getByText("Supprimer l'équipe").click();
+  await zone.getByRole("button", { name: "Confirmer la suppression" }).click();
+}
+
 /** Un admin crée une équipe au nom unique et ouvre sa page. */
 async function nouvelleEquipe(admin: Page, nom: string): Promise<void> {
   await admin.goto("/gestion/equipes");
@@ -60,6 +87,10 @@ test("un admin crée puis renomme une équipe ; un nom déjà pris est refusé ;
   await expect(salarie.getByLabel("Équipe").locator("option", { hasText: nouveauNom })).toHaveCount(1);
   // La gestion des équipes est réservée aux admins.
   expect((await salarie.goto("/gestion/equipes"))?.status()).toBe(404);
+
+  // Sans membre ni demande, l'équipe d'essai se supprime.
+  await supprimerEquipe(admin);
+  await expect(admin.getByRole("status")).toHaveText("Équipe supprimée.");
 });
 
 test("un admin ajoute directement un salarié à une équipe, puis l'en fait sortir : sa clé de l'équipe est révoquée et refusée par la passerelle (ticket #37)", async ({ browser, request }) => {
@@ -85,25 +116,15 @@ test("un admin ajoute directement un salarié à une équipe, puis l'en fait sor
   const cle = await retirerCle(page);
   expect(await appel(request, cle)).toBe(200);
   // Une seconde demande reste en cours dans l'équipe.
-  await page.goto("/demandes/nouvelle");
-  await page.getByLabel("Équipe").selectOption({ label: nom });
-  await page.getByRole("radio", { name: /^N1 Public/ }).check();
-  await page.getByLabel(/Modèle public/).check();
-  await page.getByLabel("Motif").fill("Seconde demande");
-  await page.getByLabel(/Je m'engage/).check();
-  await page.getByRole("button", { name: "Envoyer la demande" }).click();
-  await expect(page.getByRole("status")).toHaveText("Demande envoyée aux administrateurs.");
+  await deposerDemande(page, nom, "Seconde demande");
 
   // Sortie de l'équipe : la clé est révoquée, la demande en cours annulée.
   await admin.reload();
-  const ligne = membres.getByRole("row", { name: new RegExp(salarie.uid) });
-  await ligne.getByText("Faire sortir de l'équipe").click();
-  await ligne.getByRole("button", { name: "Confirmer la sortie" }).click();
-  await expect(admin.getByRole("status")).toHaveText("Le membre est sorti de l'équipe : ses clés de l'équipe sont révoquées.");
+  await faireSortir(admin, salarie.uid);
   await expect(membres).toContainText("Aucun membre.");
   await expect.poll(() => appel(request, cle), { timeout: 15_000, intervals: [1_000] }).toBe(401);
   await page.goto("/demandes");
-  await expect(page.getByRole("row", { name: /Seconde demande|Clé d'API.*Annulée/ }).first()).toContainText("Annulée");
+  await expect(page.getByRole("row", { name: /Clé d'API.*Annulée/ })).toHaveCount(1);
   await page.goto("/cles");
   await expect(page.getByRole("region", { name: "Clés émises" }).getByRole("article").first()).toContainText("Révoquée");
 
@@ -114,4 +135,37 @@ test("un admin ajoute directement un salarié à une équipe, puis l'en fait sor
       `[AI GATEWAY] Vous ne faites plus partie de l'équipe ${nom} / You are no longer a member of the team ${nom}`,
     ]),
   );
+  await supprimerEquipe(admin);
+  await expect(admin.getByRole("status")).toHaveText("Équipe supprimée.");
+});
+
+test("une équipe qui a une demande en cours ne peut pas être supprimée ; vide, elle disparaît et l'historique garde son nom (ticket #38)", async ({ browser }) => {
+  const salarie = personne("suppression");
+  const page = await (await connecter(browser, salarie)).newPage();
+  const admin = await (await connecter(browser, ADMIN)).newPage();
+  const nom = `Équipe suppression ${suffixe}`;
+  await nouvelleEquipe(admin, nom);
+  await admin.getByLabel("Uid du salarié").fill(salarie.uid);
+  await admin.getByRole("button", { name: "Ajouter à l'équipe" }).click();
+  await expect(admin.getByRole("status")).toHaveText("Membre ajouté.");
+  await deposerDemande(page, nom, "Demande en cours");
+
+  // Refus : la demande est encore en cours.
+  await admin.reload();
+  await supprimerEquipe(admin);
+  await expect(admin.getByRole("main").getByRole("alert")).toHaveText(
+    "Cette équipe a encore des clés actives (0) ou des demandes en cours (1) : révoquez ses clés et traitez ses demandes avant de la supprimer.",
+  );
+
+  // Après la sortie du membre (sa demande est annulée), l'équipe se supprime.
+  await faireSortir(admin, salarie.uid);
+  await supprimerEquipe(admin);
+  await expect(admin.getByRole("status")).toHaveText("Équipe supprimée.");
+  await expect(admin).toHaveURL(/\/gestion\/equipes\?/);
+  await expect(admin.getByRole("link", { name: nom, exact: true })).toHaveCount(0);
+  await expect.poll(async () => (await courriels(suffixe)).map((c) => c.subject), { timeout: 15_000 }).toContain(`[AI GATEWAY] Équipe supprimée : ${nom} / Team deleted: ${nom}`);
+
+  // L'historique du salarié garde le nom de l'équipe.
+  await page.goto("/demandes");
+  await expect(page.getByRole("row", { name: new RegExp(`Clé d'API.*${nom}.*Annulée`) })).toHaveCount(1);
 });

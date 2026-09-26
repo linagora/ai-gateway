@@ -4,7 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { PortalError } from "@/lib/errors";
 import { getTeamPage } from "@/lib/services/teams";
 import { getDeps, requireAdminPage } from "@/lib/session";
-import { ajouterMembreAction, faireSortirMembreAction, renommerEquipeAction } from "../../../../actions";
+import { ajouterMembreAction, faireSortirMembreAction, renommerEquipeAction, supprimerEquipeAction } from "../../../../actions";
 import { Notice } from "../../../../components";
 import { AdminNav } from "../../admin-nav";
 
@@ -83,6 +83,18 @@ export default async function EquipePage(props: PageProps<"/gestion/equipes/[id]
           </label>
           <button type="submit">{t("ajouter")}</button>
         </form>
+      </section>
+
+      <section aria-labelledby="suppression" className="mt-10">
+        <h2 id="suppression">{t("suppression.titre")}</h2>
+        <details>
+          <summary className="cursor-pointer">{t("suppression.supprimer")}</summary>
+          <p className="text-sm">{t("suppression.avertissement")}</p>
+          <form action={supprimerEquipeAction}>
+            <input type="hidden" name="id" value={equipe.teamId} />
+            <button type="submit">{t("suppression.confirmer")}</button>
+          </form>
+        </details>
       </section>
     </>
   );

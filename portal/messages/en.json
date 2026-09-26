@@ -93,7 +93,8 @@
       "equipeCreee": "Team created.",
       "equipeRenommee": "Team renamed.",
       "membreAjoute": "Member added.",
-      "membreSorti": "The member has left the team: their keys of the team are revoked."
+      "membreSorti": "The member has left the team: their keys of the team are revoked.",
+      "equipeSupprimee": "Team deleted."
     },
     "erreurs": {
       "controles_en_echec": "The request does not comply with the model access policy. Failed checks: {controles}.",
@@ -114,7 +115,8 @@
       "nom_equipe_invalide": "Give the team a name (100 characters at most).",
       "nom_equipe_pris": "The name {nom} is already used by another team.",
       "salarie_inconnu": "No employee has signed in to the portal yet with the identifier {uid}.",
-      "membre_existant": "{uid} is already a member of the team {equipe}."
+      "membre_existant": "{uid} is already a member of the team {equipe}.",
+      "equipe_non_vide": "This team still has active keys ({cles}) or pending requests ({demandes}): revoke its keys and process its requests before deleting it."
     },
     "controles": {
       "membre_equipe": "The requester is a member of the team",
@@ -525,7 +527,13 @@
       "colonneMembre": "Member",
       "faireSortir": "Remove from the team",
       "avertissementSortie": "Their keys of this team will be revoked and their pending requests in the team cancelled.",
-      "confirmerSortie": "Confirm removal"
+      "confirmerSortie": "Confirm removal",
+      "suppression": {
+        "titre": "Team deletion",
+        "supprimer": "Delete the team",
+        "avertissement": "The team will disappear from the gateway; the history of its requests will remain available. A team with active keys or pending requests cannot be deleted.",
+        "confirmer": "Confirm deletion"
+      }
     }
   },
   "introuvable": {
@@ -696,6 +704,10 @@
       "membreSorti": {
         "sujet": "Member removed from the team {equipe}: {membre}",
         "corps": "{auteur} removed {membre} from the team {equipe}."
+      },
+      "supprimee": {
+        "sujet": "Team deleted: {equipe}",
+        "corps": "{auteur} deleted the team {equipe}."
       }
     },
     "ajoutMembre": {

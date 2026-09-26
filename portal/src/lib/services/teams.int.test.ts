@@ -3,7 +3,7 @@ import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
 import { FakeMailer } from "@/test/fake-mailer";
 import { listAudit } from "./audit";
-import { addTeamMember, createTeam, getTeamOverview, getTeamPage, listTeamOverviews, removeTeamMember, renameTeam } from "./teams";
+import { addTeamMember, createTeam, deleteTeam, getTeamOverview, getTeamPage, listTeamOverviews, removeTeamMember, renameTeam } from "./teams";
 
 const admin = { uid: "jdupont", email: "jdupont@linagora.com", name: "Jeanne Dupont", isAdmin: true };
 const salarie = { uid: "mmaudet", email: "mmaudet@linagora.com", name: "Michel-Marie Maudet", isAdmin: false };
@@ -140,5 +140,31 @@ describe("membres d'une équipe : ajout direct et sortie d'une équipe (ticket #
     await expect(addTeamMember(deps, salarie, { teamId: "equipe-rd", uid: "lbernard" })).rejects.toMatchObject({ code: "interdit" });
     await expect(removeTeamMember(deps, salarie, { teamId: "equipe-rd", uid: "pmartin" })).rejects.toMatchObject({ code: "interdit" });
     await expect(removeTeamMember(deps, admin, { teamId: "equipe-rd", uid: "lbernard" })).rejects.toMatchObject({ code: "introuvable" });
+  });
+});
+
+describe("supprimer une équipe (ticket #38)", () => {
+  test("la suppression est refusée tant que l'équipe a des clés actives ou des demandes en cours, clés approuvées non retirées comprises", async () => {
+    await cleEmise("mmaudet", "equipe-rd", "R&D", "mmaudet-r-d-cle-1");
+    for (const status of ["SOUMISE", "APPROUVEE"] as const) {
+      await testDb.accessRequest.create({ data: { kind: "CLE", status, requesterUid: "pmartin", requesterEmail: "pmartin@linagora.com", teamId: "equipe-rd", teamAlias: "R&D", dataLevel: "N1", models: ["mistral-small"], justification: "Essai" } });
+    }
+    await expect(deleteTeam(deps, admin, "equipe-rd")).rejects.toMatchObject({ code: "equipe_non_vide", params: { cles: "1", demandes: "2" } });
+    expect(litellm.teams.has("equipe-rd")).toBe(true);
+    expect(mailer.outbox).toEqual([]);
+  });
+
+  test("une équipe sans clé active ni demande en cours est supprimée de la passerelle ; ses demandes passées restent ; la suppression est inscrite et annoncée", async () => {
+    const passee = await testDb.accessRequest.create({ data: { kind: "CLE", status: "REVOQUEE", requesterUid: "mmaudet", requesterEmail: "mmaudet@linagora.com", teamId: "equipe-rd", teamAlias: "R&D", dataLevel: "N1", models: ["mistral-small"], justification: "Essai" } });
+    await deleteTeam(deps, admin, "equipe-rd");
+    expect(litellm.teams.has("equipe-rd")).toBe(false);
+    expect((await testDb.accessRequest.findUniqueOrThrow({ where: { id: passee.id } })).teamAlias).toBe("R&D");
+    expect((await listAudit(testDb)).at(-1)).toMatchObject({ action: "TEAM_DELETED", targetId: "equipe-rd", details: { equipe: "R&D" } });
+    expect(mailer.outbox.map((m) => [m.to, m.subject])).toEqual([[ADMINS, "[AI GATEWAY] Équipe supprimée : R&D / Team deleted: R&D"]]);
+    expect(mailer.outbox[0].text).toContain("Jeanne Dupont (jdupont) a supprimé l'équipe R&D.");
+  });
+
+  test("seul un admin supprime une équipe", async () => {
+    await expect(deleteTeam(deps, salarie, "equipe-rd")).rejects.toMatchObject({ code: "interdit" });
   });
 });

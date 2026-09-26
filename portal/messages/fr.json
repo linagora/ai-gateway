@@ -93,7 +93,8 @@
       "equipeCreee": "Équipe créée.",
       "equipeRenommee": "Équipe renommée.",
       "membreAjoute": "Membre ajouté.",
-      "membreSorti": "Le membre est sorti de l'équipe : ses clés de l'équipe sont révoquées."
+      "membreSorti": "Le membre est sorti de l'équipe : ses clés de l'équipe sont révoquées.",
+      "equipeSupprimee": "Équipe supprimée."
     },
     "erreurs": {
       "controles_en_echec": "La demande ne respecte pas la politique d'accès aux modèles. Contrôles en échec : {controles}.",
@@ -114,7 +115,8 @@
       "nom_equipe_invalide": "Donnez un nom à l'équipe (100 caractères au plus).",
       "nom_equipe_pris": "Le nom {nom} est déjà pris par une autre équipe.",
       "salarie_inconnu": "Aucun salarié ne s'est encore connecté au portail avec l'identifiant {uid}.",
-      "membre_existant": "{uid} est déjà membre de l'équipe {equipe}."
+      "membre_existant": "{uid} est déjà membre de l'équipe {equipe}.",
+      "equipe_non_vide": "Cette équipe a encore des clés actives ({cles}) ou des demandes en cours ({demandes}) : révoquez ses clés et traitez ses demandes avant de la supprimer."
     },
     "controles": {
       "membre_equipe": "Le demandeur est membre de l'équipe",
@@ -525,7 +527,13 @@
       "colonneMembre": "Membre",
       "faireSortir": "Faire sortir de l'équipe",
       "avertissementSortie": "Ses clés de cette équipe seront révoquées et ses demandes en cours dans l'équipe annulées.",
-      "confirmerSortie": "Confirmer la sortie"
+      "confirmerSortie": "Confirmer la sortie",
+      "suppression": {
+        "titre": "Suppression de l'équipe",
+        "supprimer": "Supprimer l'équipe",
+        "avertissement": "L'équipe disparaîtra de la passerelle ; l'historique de ses demandes restera consultable. Une équipe qui a des clés actives ou des demandes en cours ne peut pas être supprimée.",
+        "confirmer": "Confirmer la suppression"
+      }
     }
   },
   "introuvable": {
@@ -696,6 +704,10 @@
       "membreSorti": {
         "sujet": "Membre sorti de l'équipe {equipe} : {membre}",
         "corps": "{auteur} a fait sortir {membre} de l'équipe {equipe}."
+      },
+      "supprimee": {
+        "sujet": "Équipe supprimée : {equipe}",
+        "corps": "{auteur} a supprimé l'équipe {equipe}."
       }
     },
     "ajoutMembre": {
