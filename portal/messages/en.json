@@ -454,9 +454,7 @@
       "abonnements": "Subscriptions",
       "equipes": "Teams",
       "aValider": "{nombre, plural, one {# request to review} other {# requests to review}}",
-      "aRetirer": "{nombre, plural, one {# key to pick up} other {# keys to pick up}}",
-      "outils": "Tools",
-      "aDeclarer": "{nombre, plural, one {# subscription to declare} other {# subscriptions to declare}}"
+      "outils": "Tools"
     },
     "file": {
       "titre": "Requests awaiting validation",

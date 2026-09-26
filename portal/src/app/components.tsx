@@ -43,7 +43,7 @@ export async function UserMenu() {
   // Admins et responsables d'équipe ont une gestion ; celle d'un responsable se limite à ses équipes.
   const equipes = await equipesGerees(getDeps().db, user);
   const gestion = equipes === null || equipes.length > 0;
-  const aValider = gestion ? (await countAdminPending(getDeps(), user)).demandes : 0;
+  const aValider = gestion ? await countAdminPending(getDeps(), user) : 0;
   return (
     <div className="ml-auto flex items-center gap-4">
       {gestion && (

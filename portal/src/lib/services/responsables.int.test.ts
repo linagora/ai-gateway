@@ -75,8 +75,8 @@ describe("gestion limitée du responsable d'équipe (ticket #40)", () => {
     await demande("lbernard", "equipe-rd", "R&D");
     await demande("jdupont", "equipe-data", "Data");
     await demande("pmartin", "equipe-rd", "R&D", "APPROUVEE");
-    expect(await countAdminPending(deps, responsable)).toEqual({ demandes: 1, clesARetirer: 1, abonnementsADeclarer: 0 });
-    expect(await countAdminPending(deps, admin)).toEqual({ demandes: 3, clesARetirer: 1, abonnementsADeclarer: 0 });
+    expect(await countAdminPending(deps, responsable)).toBe(1);
+    expect(await countAdminPending(deps, admin)).toBe(3);
   });
 
   test("une demande ou une équipe hors de son autorité est introuvable pour un responsable ; un salarié sans rôle n'accède pas à la gestion", async () => {

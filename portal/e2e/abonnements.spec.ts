@@ -297,9 +297,10 @@ test("le responsable suit l'abonnement de son équipe : à déclarer dans l'ongl
   const situation = await abonnementApprouve(browser, "suivi");
   const { admin, pageResponsable, pageMembre, membre, equipe, pageEquipe, offre } = situation;
 
-  // Avant la déclaration, l'onglet « Abonnements » le signale, à déclarer.
+  // Avant la déclaration, l'onglet « Abonnements » le montre, à déclarer par le salarié ; sans pastille, car rien
+  // n'y attend le responsable.
   await pageResponsable.goto("/gestion/demandes");
-  await pageResponsable.getByRole("navigation", { name: "Administration" }).getByRole("link", { name: "Abonnements (1 abonnement à déclarer)" }).click();
+  await pageResponsable.getByRole("navigation", { name: "Administration" }).getByRole("link", { name: "Abonnements", exact: true }).click();
   await expect(pageResponsable.getByRole("heading", { level: 1 })).toHaveText("Abonnements");
   await expect(pageResponsable.getByRole("region", { name: "Abonnements approuvés, à déclarer par le salarié" }).getByRole("row", { name: new RegExp(membre.uid) })).toContainText(offre);
 

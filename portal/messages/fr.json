@@ -454,9 +454,7 @@
       "abonnements": "Abonnements",
       "equipes": "Équipes",
       "aValider": "{nombre, plural, one {# demande à valider} other {# demandes à valider}}",
-      "aRetirer": "{nombre, plural, one {# clé à retirer} other {# clés à retirer}}",
-      "outils": "Outils",
-      "aDeclarer": "{nombre, plural, one {# abonnement à déclarer} other {# abonnements à déclarer}}"
+      "outils": "Outils"
     },
     "file": {
       "titre": "Demandes en attente de validation",

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { ADMIN, connecter, demandeApprouvee, enrichirModele } from "./outils";
 
-/* Tableau de bord des admins : pastilles de ce qui attend, archives de ce qui est traité (retours de recette du 2026-09-25). */
+/* Tableau de bord des admins : pastille de ce qui les attend, archives de ce qui est traité (retours de recette du 2026-09-25). */
 const suffixe = Date.now().toString(36);
 const personne = (n: string) => ({ uid: `gestion-${n}-${suffixe}`, email: `gestion-${n}-${suffixe}@example.org`, name: `Personne ${n} ${suffixe}` });
 
@@ -11,7 +11,7 @@ test.beforeAll(async ({ browser }) => {
   await context.close();
 });
 
-test("le menu signale les demandes à valider et les clés à retirer ; les pages gardent l'archive de ce qui est traité", async ({ browser }) => {
+test("le menu signale les demandes à valider, pas les clés que le salarié doit retirer ; les pages gardent l'archive de ce qui est traité", async ({ browser }) => {
   const salarie = personne("pastilles");
   const page = await (await connecter(browser, salarie)).newPage();
   await demandeApprouvee(browser, page, salarie, "Essai pastilles");
@@ -26,7 +26,8 @@ test("le menu signale les demandes à valider et les clés à retirer ; les page
   await admin.goto("/gestion/demandes");
   const menu = admin.getByRole("navigation", { name: "Administration" });
   await expect(menu.getByRole("link", { name: /^Demandes \(\d+ demandes? à valider\)$/ })).toBeVisible();
-  await expect(menu.getByRole("link", { name: /^Clés \(\d+ clés? à retirer\)$/ })).toBeVisible();
+  // Une clé approuvée attend son titulaire, pas l'admin : l'onglet « Clés » n'a pas de pastille.
+  await expect(menu.getByRole("link", { name: "Clés", exact: true })).toBeVisible();
   await expect(admin.getByRole("banner").getByRole("link", { name: /^Gestion \(\d+ demandes? à valider\)$/ })).toBeVisible();
   const archive = admin.getByRole("region", { name: "Archive : demandes traitées" });
   await expect(archive.getByRole("row", { name: new RegExp(`${salarie.uid}.*Clé d'API.*Approuvée`) })).toBeVisible();
