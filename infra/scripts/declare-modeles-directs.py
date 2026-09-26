@@ -1,7 +1,7 @@
 """Déclare dans LiteLLM les modèles joints sans OpenRouter : Qwen3.8 (OVHcloud, N3) et JEV (Typesafe,
 niveau Expérimental). Idempotent : un modèle absent est déclaré ; un modèle présent reçoit les
-informations ci-dessous (toutes, pour ne rien réécrire de ce que LiteLLM dérive lui-même), ses
-paramètres d'appel et ses tarifs restant inchangés.
+informations ci-dessous (toutes, pour ne rien réécrire de ce que LiteLLM dérive lui-même) et sa
+route (litellm_params.model) ; son adresse, sa clé et ses tarifs restent inchangés.
 
   cd /opt/linagora-ia && docker compose exec -T litellm python3 - < scripts/declare-modeles-directs.py
 
@@ -19,7 +19,10 @@ MODELES = [
     {
         "model_name": "qwen3.8",
         "litellm_params": {
-            "model": "openai/Qwen3.8-27B",
+            # Fournisseur OVHcloud de LiteLLM, et non « openai/… » : avec cette route, LiteLLM traduit /v1/messages
+            # (format Anthropic, celui de Claude Code) vers l'API Responses et y ajoute
+            # include: ["reasoning.encrypted_content"], que le serveur d'OVH refuse (2026-09-26).
+            "model": "ovhcloud/Qwen3.8-27B",
             "api_base": "os.environ/OVH_QWEN_API_BASE",
             "api_key": "os.environ/OVH_QWEN_API_KEY",
             "input_cost_per_token": 0.0000004,  # 0,40 € HT par million de jetons (tarif public OVH, validé le 2026-09-24)
@@ -78,8 +81,10 @@ existants = {m["model_name"]: m for m in http("GET", "/model/info")["data"]}
 for modele in MODELES:
     nom = modele["model_name"]
     if nom in existants:
-        http("PATCH", f"/model/{existants[nom]['model_info']['id']}/update", {"model_info": modele["model_info"]})
-        print(f"• {nom} : informations complétées")
+        # PATCH : LiteLLM fusionne ; seule la route change parmi les paramètres d'appel.
+        route = modele["litellm_params"]["model"]
+        http("PATCH", f"/model/{existants[nom]['model_info']['id']}/update", {"model_info": modele["model_info"], "litellm_params": {"model": route}})
+        print(f"• {nom} : informations complétées, route {route}")
     else:
         http("POST", "/model/new", modele)
         print(f"• {nom} : déclaré")
