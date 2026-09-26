@@ -1,3 +1,4 @@
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { listPendingRequests, listProcessedRequests } from "@/lib/services/admin-requests";
@@ -87,16 +88,16 @@ export default async function PendingRequestsPage(props: PageProps<"/gestion/dem
         {archive.total > 0 && (
           <nav aria-label={t("archive.pagination")} className="mt-4 flex flex-wrap items-center gap-4">
             {archive.page > 1 && (
-              <Link href={`/gestion/demandes?page=${archive.page - 1}`}>
-                <span aria-hidden="true">← </span>
+              <Link href={`/gestion/demandes?page=${archive.page - 1}`} className="inline-flex items-center gap-1">
+                <ArrowLeft aria-hidden="true" className="size-4" />
                 {t("archive.plusRecentes")}
               </Link>
             )}
             <span>{t("archive.position", { page: archive.page, pages: archive.pages, total: archive.total })}</span>
             {archive.page < archive.pages && (
-              <Link href={`/gestion/demandes?page=${archive.page + 1}`}>
+              <Link href={`/gestion/demandes?page=${archive.page + 1}`} className="inline-flex items-center gap-1">
                 {t("archive.plusAnciennes")}
-                <span aria-hidden="true"> →</span>
+                <ArrowRight aria-hidden="true" className="size-4" />
               </Link>
             )}
           </nav>
