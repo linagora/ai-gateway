@@ -110,7 +110,8 @@ test.describe("vue d'ensemble des niveaux (ticket #5)", () => {
       const page = await context.newPage();
       await page.setViewportSize({ width: 1440, height: 900 });
       await page.goto("/catalogue");
-      const cartes = page.getByRole("main").getByRole("region");
+      // Les cartes des niveaux ; l'entrée « Abonnements », dessous, peut dépasser l'écran.
+      const cartes = page.getByRole("main").getByRole("region", { name: /^(N[123] |Exp)/ });
       await expect(cartes).toHaveCount(4);
       const boites = await cartes.evaluateAll((sections) => sections.map((s) => s.getBoundingClientRect()).map((r) => ({ haut: Math.round(r.top), bas: Math.round(r.bottom) })));
       expect(new Set(boites.map((b) => b.haut)).size).toBe(1);
