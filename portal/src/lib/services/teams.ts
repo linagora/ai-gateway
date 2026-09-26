@@ -1,8 +1,9 @@
+import { z } from "zod";
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
 import { PERIODE_BUDGET } from "@/lib/durees";
 import { PortalError } from "@/lib/errors";
-import type { LiteLLMClient, LiteLLMTeam } from "@/lib/litellm/client";
+import type { LiteLLMClient, LiteLLMTeam, LiteLLMUser } from "@/lib/litellm/client";
 import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
 import { managerEmails, requireAutorite, requireGestion } from "./autorite";
@@ -51,6 +52,17 @@ export interface TeamPage extends TeamOverview {
 
 /** Longueur maximale d'un nom d'équipe. */
 const NOM_MAX = 100;
+
+/*
+ * Saisies de la gestion des équipes, validées par zod comme toute entrée du portail ; un refus garde son code métier,
+ * pour un message qui dit quoi corriger.
+ */
+const nomEquipeSchema = z.string().trim().min(1).max(NOM_MAX);
+const uidSchema = z.string().trim().min(1);
+/** Budget d'équipe : positif ou nul (0 : sans limite) ; positif, il lui faut une période au format d'une clé (30d…). */
+const budgetEquipeSchema = z
+  .object({ budget: z.number().finite().nonnegative(), period: z.string().trim() })
+  .refine(({ budget, period }) => budget === 0 || PERIODE_BUDGET.test(period));
 
 /**
  * F-53 : les équipes (pour un responsable, les siennes), par ordre alphabétique, avec leurs membres réels, leurs clés
@@ -102,9 +114,7 @@ export async function approversByTeam(db: Db, teamIds: string[] | null): Promise
 export async function designateManager(deps: TeamDeps, actor: SessionUser, input: { teamId: string; uid: string }): Promise<void> {
   requireAdmin(actor);
   const team = await existingTeam(deps, input.teamId);
-  const uid = input.uid.trim();
-  const salarie = uid ? await deps.litellm.getUser(uid) : null;
-  if (!salarie) throw new PortalError("salarie_inconnu", `Salarié inconnu de la passerelle : ${uid}.`, { uid });
+  const { uid, salarie } = await salarieConnu(deps, input.uid);
   if (await deps.db.teamManager.findUnique({ where: { teamId_uid: { teamId: team.teamId, uid } } })) {
     throw new PortalError("responsable_existant", `${uid} est déjà responsable de ${team.teamAlias}.`, { uid, equipe: team.teamAlias });
   }
@@ -136,9 +146,7 @@ export async function removeManager(deps: TeamDeps, actor: SessionUser, input: {
 export async function addTeamMember(deps: TeamDeps, actor: SessionUser, input: { teamId: string; uid: string }): Promise<void> {
   requireAdmin(actor);
   const team = await existingTeam(deps, input.teamId);
-  const uid = input.uid.trim();
-  const salarie = uid ? await deps.litellm.getUser(uid) : null;
-  if (!salarie) throw new PortalError("salarie_inconnu", `Salarié inconnu de la passerelle : ${uid}.`, { uid });
+  const { uid, salarie } = await salarieConnu(deps, input.uid);
   if (team.memberUids.includes(uid)) throw new PortalError("membre_existant", `${uid} est déjà membre de ${team.teamAlias}.`, { uid, equipe: team.teamAlias });
   await deps.litellm.addTeamMember(team.teamId, uid);
   await recordAudit(deps.db, { actorUid: actor.uid, action: "MEMBER_ADDED", targetId: team.teamId, details: { membre: uid } });
@@ -215,11 +223,9 @@ export async function createTeam(deps: TeamDeps, actor: SessionUser, input: { na
  */
 export async function setTeamBudget(deps: TeamDeps, actor: SessionUser, input: { teamId: string; budget: number | null; period: string }): Promise<void> {
   requireAdmin(actor);
-  const { budget } = input;
-  const periode = input.period.trim();
-  if (budget === null || !Number.isFinite(budget) || budget < 0 || (budget > 0 && !PERIODE_BUDGET.test(periode))) {
-    throw new PortalError("budget_equipe_invalide", "Budget d'équipe négatif, ou positif sans période valide (30d, 12h…).");
-  }
+  const saisie = budgetEquipeSchema.safeParse({ budget: input.budget, period: input.period });
+  if (!saisie.success) throw new PortalError("budget_equipe_invalide", "Budget d'équipe négatif, ou positif sans période valide (30d, 12h…).");
+  const { budget, period: periode } = saisie.data;
   const team = await existingTeam(deps, input.teamId);
   // 0 : sans limite, transmis à LiteLLM comme l'absence de plafond et de période.
   const plafond = budget > 0 ? { montant: budget, periode } : null;
@@ -247,12 +253,21 @@ async function existingTeam(deps: TeamDeps, teamId: string): Promise<LiteLLMTeam
 
 /** Nom d'équipe valide et libre : non vide, sans espaces autour, pas déjà pris par une autre équipe aux majuscules près. */
 async function nomLibre(deps: TeamDeps, saisi: string, teamId: string | null): Promise<string> {
-  const nom = saisi.trim();
-  if (!nom || nom.length > NOM_MAX) throw new PortalError("nom_equipe_invalide", "Nom d'équipe vide ou trop long.");
+  const saisie = nomEquipeSchema.safeParse(saisi);
+  if (!saisie.success) throw new PortalError("nom_equipe_invalide", "Nom d'équipe vide ou trop long.");
+  const nom = saisie.data;
   const minuscules = nom.toLocaleLowerCase("fr");
   const homonyme = (await deps.litellm.listTeams()).find((t) => t.teamId !== teamId && t.teamAlias.toLocaleLowerCase("fr") === minuscules);
   if (homonyme) throw new PortalError("nom_equipe_pris", `Nom déjà pris : ${homonyme.teamAlias}.`, { nom: homonyme.teamAlias });
   return nom;
+}
+
+/** Salarié saisi par son uid, qui doit s'être connecté au portail : celui-ci l'a alors inscrit dans LiteLLM. */
+async function salarieConnu(deps: TeamDeps, saisi: string): Promise<{ uid: string; salarie: LiteLLMUser }> {
+  const saisie = uidSchema.safeParse(saisi);
+  const salarie = saisie.success ? await deps.litellm.getUser(saisie.data) : null;
+  if (!saisie.success || !salarie) throw new PortalError("salarie_inconnu", `Salarié inconnu de la passerelle : ${saisi.trim()}.`, { uid: saisi.trim() });
+  return { uid: saisie.data, salarie };
 }
 
 /** Clés émises par le portail et encore actives, par équipe. */
