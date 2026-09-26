@@ -50,6 +50,7 @@ test("la gestion souligne « Gestion » dans l'en-tête et, dans son menu, l'ong
     ["/gestion/abonnements", /^Abonnements$/],
     ["/gestion/equipes", /^Équipes$/],
     ["/gestion/collaborateurs", /^Collaborateurs$/],
+    ["/gestion/remboursements", /^Remboursements$/],
     ["/gestion/catalogue", /^Catalogue$/],
     ["/gestion/parametres", /^Valeurs par défaut$/],
     ["/gestion/outils", /^Outils$/],

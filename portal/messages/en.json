@@ -120,6 +120,7 @@
       "equipeSupprimee": "Team deleted.",
       "responsableDesigne": "Manager designated.",
       "responsableRetire": "Manager role removed.",
+      "prelevementsTransmis": "Charges sent: download the transmission's CSV file for accounting.",
       "offreEnregistree": "Offer saved.",
       "abonnementDeclare": "Subscription declared.",
       "montantCorrige": "Amount corrected: it applies from the next charge.",
@@ -134,7 +135,7 @@
       "renouvellement_trop_tot": "Renewal can be requested at the earliest one month before the subscription expires.",
       "engagement_requis": "Commit to not submitting data above the declared level.",
       "interdit": "Administrators only.",
-      "introuvable": "{objet, select, modele {Model {modele} is not declared in the gateway.} equipe {Team not found.} demande_adhesion {Access request not found.} demande_cle {Key request not found.} membre {Member not found in this team.} responsable {Manager not found in this team.} offre {Subscription offer not found.} demande_abonnement {Subscription request not found.} abonnement {Subscription not found.} collaborateur {Employee not found.} other {Request not found.}}",
+      "introuvable": "{objet, select, modele {Model {modele} is not declared in the gateway.} equipe {Team not found.} demande_adhesion {Access request not found.} demande_cle {Key request not found.} membre {Member not found in this team.} responsable {Manager not found in this team.} offre {Subscription offer not found.} demande_abonnement {Subscription request not found.} abonnement {Subscription not found.} transmission {Transmission not found.} collaborateur {Employee not found.} other {Request not found.}}",
       "motif_obligatoire": "A reason is required.",
       "parametre_manquant": "Budget, budget period and validity are required: enter them or configure default values.",
       "recommandation_hors_cas_usage": "A recommendation can only apply to a checked use case.",
@@ -147,6 +148,9 @@
       "nom_equipe_invalide": "Give the team a name (100 characters at most).",
       "nom_equipe_pris": "The name {nom} is already used by another team.",
       "salarie_inconnu": "No employee has signed in to the portal yet with the identifier {uid}.",
+      "mois_invalide": "Invalid month: choose a month in the YYYY-MM format.",
+      "liste_changee": "The list of charges changed in the meantime (another transmission or a new declaration): nothing was sent. Check the updated list, then try again.",
+      "rien_a_transmettre": "No charge to send.",
       "membre_existant": "{uid} is already a member of the team {equipe}.",
       "equipe_non_vide": "This team still has active keys ({cles}), pending requests ({demandes}) or subscriptions not cancelled ({abonnements}): revoke its keys, including those created from the LiteLLM console, process its requests, and have its subscriptions cancelled or attached to another team before deleting it.",
       "responsable_existant": "{uid} is already a manager of the team {equipe}.",
@@ -467,6 +471,39 @@
       "abonnements": "Subscriptions",
       "abonnementsADeclarer": "Approved subscriptions, to be declared by the employee"
     },
+    "remboursements": {
+      "titre": "Reimbursements",
+      "introduction": "Subscription charges, to be reimbursed to employees based on their declarations. The list shows those not yet sent to accounting up to the end of the chosen month, including charges from earlier months declared late; once sent, a charge no longer appears.",
+      "mois": "Month",
+      "afficher": "Show",
+      "aTransmettre": "To send, up to the end of {mois}",
+      "aucun": "No charge to send.",
+      "colonnes": {
+        "collaborateur": "Employee",
+        "offre": "Offer",
+        "equipe": "Team",
+        "preleveLe": "Charged on",
+        "montant": "Amount incl. VAT"
+      },
+      "retard": "from an earlier month (declared late)",
+      "totalCollaborateur": "Employee total",
+      "totalGeneral": "Total ({nombre, plural, one {# charge} other {# charges}})",
+      "transmettre": "Mark as sent to accounting",
+      "avertissementTransmission": "{nombre, plural, one {The charge shown will be marked} other {The # charges shown will be marked}} as sent ({total}): they will leave the list, and the transmission's CSV file will be available in the history.",
+      "confirmer": "Confirm the transmission",
+      "transmissions": {
+        "titre": "Transmissions to accounting",
+        "aucune": "No transmission yet.",
+        "colonnes": {
+          "date": "Sent on",
+          "par": "By",
+          "mois": "Up to the end of",
+          "nombre": "Charges",
+          "total": "Total"
+        },
+        "telecharger": "Download (CSV)"
+      }
+    },
     "nav": {
       "libelle": "Administration",
       "demandes": "Requests",
@@ -477,7 +514,8 @@
       "equipes": "Teams",
       "aValider": "{nombre, plural, one {# request to review} other {# requests to review}}",
       "outils": "Tools",
-      "collaborateurs": "Employees"
+      "collaborateurs": "Employees",
+      "remboursements": "Reimbursements"
     },
     "file": {
       "titre": "Requests awaiting validation",

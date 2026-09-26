@@ -267,7 +267,24 @@ model SubscriptionCharge {
   teamId         String
   teamAlias      String
   createdAt      DateTime     @default(now())
+  /// Transmission à la comptabilité qui l'a emporté, pour le remboursement du titulaire ; nulle tant qu'il reste à transmettre.
+  transmissionId String?
+  transmission   ChargeTransmission? @relation(fields: [transmissionId], references: [id])
 
   @@unique([subscriptionId, chargedOn])
   @@index([teamId])
+  @@index([transmissionId])
+}
+
+/// Transmission à la comptabilité (retours de l'utilisateur du 2026-09-26) : liste datée des prélèvements à rembourser
+/// aux collaborateurs, jusqu'à la fin d'un mois, sur la base de leurs déclarations ; un prélèvement n'est transmis qu'une fois.
+model ChargeTransmission {
+  id            String               @id @default(cuid())
+  /// Mois choisi (AAAA-MM) : la transmission emporte les prélèvements restants jusqu'à sa fin.
+  month         String
+  transmittedAt DateTime             @default(now())
+  transmittedBy String
+  chargeCount   Int
+  totalEur      Decimal
+  charges       SubscriptionCharge[]
 }
