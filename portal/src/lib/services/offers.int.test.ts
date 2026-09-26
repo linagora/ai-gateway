@@ -64,10 +64,12 @@ describe("offres d'abonnement au catalogue (ticket #53)", () => {
 
   test("chaque création, modification ou masquage d'une offre est inscrit au journal d'audit", async () => {
     const id = await saveOffer(deps, admin, claudeMax);
-    await saveOffer(deps, admin, { ...claudeMax, id, visible: false });
+    await saveOffer(deps, admin, { ...claudeMax, id, monthlyPriceEur: 120 });
+    await saveOffer(deps, admin, { ...claudeMax, id, monthlyPriceEur: 120, visible: false });
     expect((await listAudit(testDb)).map((e) => [e.actorUid, e.action, e.targetId, e.details])).toEqual([
       ["jdupont", "OFFER_CREATED", id, { fournisseur: "Anthropic", offre: "Claude Max 5x", prix: 108, niveau: "N1", visible: true }],
-      ["jdupont", "OFFER_UPDATED", id, { fournisseur: "Anthropic", offre: "Claude Max 5x", prix: 108, niveau: "N1", visible: false }],
+      ["jdupont", "OFFER_UPDATED", id, { fournisseur: "Anthropic", offre: "Claude Max 5x", prix: 120, niveau: "N1", visible: true }],
+      ["jdupont", "OFFER_HIDDEN", id, { fournisseur: "Anthropic", offre: "Claude Max 5x", prix: 120, niveau: "N1", visible: false }],
     ]);
   });
 });

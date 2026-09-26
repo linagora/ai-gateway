@@ -98,16 +98,17 @@ export async function listOffersForAdmin(deps: OfferDeps, actor: SessionUser): P
 
 /**
  * Crée ou modifie une offre d'abonnement (un admin seulement) ; la masquer, c'est la rendre invisible, sans la supprimer.
- * Chaque enregistrement est inscrit au journal d'audit. Rend l'identifiant de l'offre.
+ * Chaque création, modification ou masquage est inscrit au journal d'audit. Rend l'identifiant de l'offre.
  */
 export async function saveOffer(deps: OfferDeps, actor: SessionUser, input: OfferInput): Promise<string> {
   requireAdmin(actor);
   const { id, ...offre } = offerInputSchema.parse(input);
   const data = { ...offre, updatedBy: actor.uid };
+  const avant = id ? await deps.db.subscriptionOffer.findUnique({ where: { id } }) : null;
   const enregistree = id ? await deps.db.subscriptionOffer.update({ where: { id }, data }) : await deps.db.subscriptionOffer.create({ data });
   await recordAudit(deps.db, {
     actorUid: actor.uid,
-    action: id ? "OFFER_UPDATED" : "OFFER_CREATED",
+    action: !id ? "OFFER_CREATED" : avant?.visible && !offre.visible ? "OFFER_HIDDEN" : "OFFER_UPDATED",
     targetId: enregistree.id,
     details: { fournisseur: offre.supplier, offre: offre.name, prix: offre.monthlyPriceEur, niveau: offre.dataLevel, visible: offre.visible },
   });
