@@ -348,10 +348,10 @@ describe("onglet « Abonnements » de la gestion et résumé sur la page d'une �
 
   test("le filtre d'équipe limite les listes ; une équipe hors de l'autorité d'un responsable n'y retient rien ; un salarié n'y accède pas", async () => {
     const { rd, data } = await situation();
-    expect((await listSubscriptionsToDeclare(deps, admin, "equipe-data")).map((d) => d.requestId)).toEqual([data]);
-    expect(await listActiveSubscriptions(deps, admin, "equipe-data")).toEqual([]);
-    expect((await listActiveSubscriptions(deps, admin, "equipe-rd")).map((a) => a.id)).toEqual([rd]);
-    expect(await listSubscriptionsToDeclare(deps, responsable, "equipe-data")).toEqual([]);
+    expect((await listSubscriptionsToDeclare(deps, admin, { equipe: "equipe-data" })).map((d) => d.requestId)).toEqual([data]);
+    expect(await listActiveSubscriptions(deps, admin, { equipe: "equipe-data" })).toEqual([]);
+    expect((await listActiveSubscriptions(deps, admin, { equipe: "equipe-rd" })).map((a) => a.id)).toEqual([rd]);
+    expect(await listSubscriptionsToDeclare(deps, responsable, { equipe: "equipe-data" })).toEqual([]);
     await expect(listActiveSubscriptions(deps, membre)).rejects.toMatchObject({ code: "interdit" });
   });
 

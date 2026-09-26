@@ -348,9 +348,9 @@ describe("« Gestion — Clés » et révocation par un admin (ticket #19)", () 
     await testDb.accessRequest.createMany({
       data: [cle("equipe-rd", "R&D", "APPROUVEE", 1), cle("equipe-rd", "R&D", "CLE_EMISE", 2), cle("equipe-rd", "R&D", "REVOQUEE", 3), cle("equipe-data", "Data", "APPROUVEE", 4), cle("equipe-data", "Data", "CLE_EMISE", 5), cle("equipe-data", "Data", "REVOQUEE", 6)],
     });
-    expect((await listKeysToPickUp(deps, admin, "equipe-rd")).map((k) => k.holderUid)).toEqual(["salarie-1"]);
-    expect((await listActiveKeys(deps, admin, "equipe-rd")).map((k) => k.alias)).toEqual(["cle-2"]);
-    expect((await listKeyArchive(deps, admin, 1, "equipe-rd")).elements.map((k) => k.alias)).toEqual(["cle-3"]);
+    expect((await listKeysToPickUp(deps, admin, { equipe: "equipe-rd" })).map((k) => k.holderUid)).toEqual(["salarie-1"]);
+    expect((await listActiveKeys(deps, admin, { equipe: "equipe-rd" })).map((k) => k.alias)).toEqual(["cle-2"]);
+    expect((await listKeyArchive(deps, admin, 1, { equipe: "equipe-rd" })).elements.map((k) => k.alias)).toEqual(["cle-3"]);
     expect((await listActiveKeys(deps, admin)).map((k) => k.alias).sort()).toEqual(["cle-2", "cle-5"]);
   });
 

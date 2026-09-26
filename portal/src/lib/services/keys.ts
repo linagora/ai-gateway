@@ -8,7 +8,7 @@ import type { DataLevel, RequestStatus } from "@/lib/policy";
 import type { LimiteDeDebit } from "@/lib/limite-de-debit";
 import { type Page, tranche } from "@/lib/pagination";
 import { recordAudit } from "./audit";
-import { aAutorite, dansEquipes, managerEmails, requireGestion } from "./autorite";
+import { aAutorite, dansEquipes, type FiltreGestion, managerEmails, requireGestion } from "./autorite";
 import { pickupDeadline, readPickupDays } from "./delais";
 import { markExpired } from "./echeances";
 import { type NotificationDeps, notifyAdminKeyAction, notifyTeamChange } from "./notifications";
@@ -251,13 +251,13 @@ export interface AdminKeyToPickUp {
 
 /**
  * Clés approuvées que leur titulaire n'a pas encore retirées, de la plus ancienne approbation à la plus récente ; avec
- * `teamId`, celles de cette seule équipe.
+ * `filtre.equipe`, celles de cette seule équipe.
  */
-export async function listKeysToPickUp(deps: KeyDeps, actor: SessionUser, teamId?: string): Promise<AdminKeyToPickUp[]> {
+export async function listKeysToPickUp(deps: KeyDeps, actor: SessionUser, filtre: FiltreGestion = {}): Promise<AdminKeyToPickUp[]> {
   const equipes = await requireGestion(deps.db, actor);
   await markExpired(deps.db, deps.now?.() ?? new Date());
   const [rows, delai] = await Promise.all([
-    deps.db.accessRequest.findMany({ where: { kind: "CLE", status: "APPROUVEE", ...dansEquipes(equipes, teamId) }, orderBy: { decidedAt: "asc" } }),
+    deps.db.accessRequest.findMany({ where: { kind: "CLE", status: "APPROUVEE", ...dansEquipes(equipes, filtre.equipe) }, orderBy: { decidedAt: "asc" } }),
     readPickupDays(deps.db),
   ]);
   return rows.map((r) => ({
@@ -274,14 +274,14 @@ export async function listKeysToPickUp(deps: KeyDeps, actor: SessionUser, teamId
 }
 
 /**
- * F-43 : clés actives (pour un responsable, celles de ses équipes ; avec `teamId`, celles de cette seule équipe), les
- * plus récemment émises d'abord, avec leur dépense lue en direct.
+ * F-43 : clés actives (pour un responsable, celles de ses équipes ; avec `filtre.equipe`, celles de cette seule équipe),
+ * les plus récemment émises d'abord, avec leur dépense lue en direct.
  */
-export async function listActiveKeys(deps: KeyDeps, actor: SessionUser, teamId?: string): Promise<AdminKey[]> {
+export async function listActiveKeys(deps: KeyDeps, actor: SessionUser, filtre: FiltreGestion = {}): Promise<AdminKey[]> {
   const equipes = await requireGestion(deps.db, actor);
   await markExpired(deps.db, deps.now?.() ?? new Date());
   const rows = await deps.db.accessRequest.findMany({
-    where: { kind: "CLE", status: "CLE_EMISE", keyAlias: { not: null }, keyIssuedAt: { not: null }, ...dansEquipes(equipes, teamId) },
+    where: { kind: "CLE", status: "CLE_EMISE", keyAlias: { not: null }, keyIssuedAt: { not: null }, ...dansEquipes(equipes, filtre.equipe) },
     orderBy: [{ keyIssuedAt: "desc" }, { id: "desc" }],
   });
   return Promise.all(rows.map((r) => adminKey(deps.litellm, r)));
@@ -291,10 +291,10 @@ export async function listActiveKeys(deps: KeyDeps, actor: SessionUser, teamId?:
  * F-43 : archive des clés révoquées ou expirées (mêmes filtres que les clés actives), la plus récemment émise d'abord,
  * par pages de PAR_PAGE ; une page hors limites mène à la plus proche.
  */
-export async function listKeyArchive(deps: KeyDeps, actor: SessionUser, page = 1, teamId?: string): Promise<Page<AdminKey>> {
+export async function listKeyArchive(deps: KeyDeps, actor: SessionUser, page = 1, filtre: FiltreGestion = {}): Promise<Page<AdminKey>> {
   const equipes = await requireGestion(deps.db, actor);
   await markExpired(deps.db, deps.now?.() ?? new Date());
-  const where = { kind: "CLE" as const, status: { not: "CLE_EMISE" as const }, keyAlias: { not: null }, keyIssuedAt: { not: null }, ...dansEquipes(equipes, teamId) };
+  const where = { kind: "CLE" as const, status: { not: "CLE_EMISE" as const }, keyAlias: { not: null }, keyIssuedAt: { not: null }, ...dansEquipes(equipes, filtre.equipe) };
   const total = await deps.db.accessRequest.count({ where });
   const { page: courante, pages, skip, take } = tranche(total, page);
   const rows = await deps.db.accessRequest.findMany({ where, orderBy: [{ keyIssuedAt: "desc" }, { id: "desc" }], skip, take });

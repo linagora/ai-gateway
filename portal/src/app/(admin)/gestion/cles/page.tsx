@@ -32,9 +32,9 @@ export default async function GestionClesPage(props: PageProps<"/gestion/cles">)
       })
     : null;
   const [aRetirer, actives, archive] = await Promise.all([
-    listKeysToPickUp(getDeps(), admin, teamId),
-    listActiveKeys(getDeps(), admin, teamId),
-    listKeyArchive(getDeps(), admin, Number(searchParams.page) || 1, teamId),
+    listKeysToPickUp(getDeps(), admin, { equipe: teamId }),
+    listActiveKeys(getDeps(), admin, { equipe: teamId }),
+    listKeyArchive(getDeps(), admin, Number(searchParams.page) || 1, { equipe: teamId }),
   ]);
   const titulaire = (uid: string, email: string) => (
     <td>

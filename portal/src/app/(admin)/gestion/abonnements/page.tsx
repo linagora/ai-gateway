@@ -33,9 +33,9 @@ export default async function GestionAbonnementsPage(props: PageProps<"/gestion/
       })
     : null;
   const [aDeclarer, actifs, archive] = await Promise.all([
-    listSubscriptionsToDeclare(getDeps(), acteur, teamId),
-    listActiveSubscriptions(getDeps(), acteur, teamId),
-    listSubscriptionArchive(getDeps(), acteur, Number(searchParams.page) || 1, teamId),
+    listSubscriptionsToDeclare(getDeps(), acteur, { equipe: teamId }),
+    listActiveSubscriptions(getDeps(), acteur, { equipe: teamId }),
+    listSubscriptionArchive(getDeps(), acteur, Number(searchParams.page) || 1, { equipe: teamId }),
   ]);
   // Jour d'aujourd'hui (AAAA-MM-JJ) : date de résiliation proposée, et date maximale.
   const aujourdhui = new Date().toISOString().slice(0, 10);

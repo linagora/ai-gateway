@@ -20,6 +20,11 @@ export async function requireGestion(db: Db, actor: SessionUser): Promise<string
   return equipes;
 }
 
+/** Filtre des listes de la gestion : une seule équipe, sinon toutes celles de l'acteur. */
+export interface FiltreGestion {
+  equipe?: string;
+}
+
 /**
  * Filtre des demandes et des clés sur les équipes gérées (aucun pour un admin), restreint à une équipe quand elle est
  * demandée : une équipe hors de l'autorité de l'acteur n'y retient rien.
