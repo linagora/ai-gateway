@@ -16,6 +16,8 @@ TEMPS = {"v_usage_daily": "day", "v_daily_user": "day", "v_requests": "started_a
 # Coûts mensuels (abonnements et passerelle) : colonne de temps au mois, hors du filtre de période des tableaux, sur les
 # douze derniers mois.
 MOIS = {"v_team_monthly_cost": "month", "v_user_monthly_cost": "month"}
+# Jeux de données qui ont une colonne « team » : le filtre Équipe de « Consommation » s'applique à leurs graphiques.
+JEUX_PAR_EQUIPE = {"v_usage_daily", "v_team_budget", "v_team_subscriptions", "v_team_monthly_cost"}
 EUROS, NOMBRE, POURCENT, MS = "$,.2f", ",d", ".1%", ",.0f"
 
 LIBELLES = {
@@ -340,7 +342,7 @@ with app.app_context():
                     position[rid]["children"].append(cid)
                     if jeu not in TEMPS:
                         sans_temps.append(slc.id)
-                    if jeu not in ("v_usage_daily", "v_team_budget", "v_team_subscriptions", "v_team_monthly_cost"):
+                    if jeu not in JEUX_PAR_EQUIPE:
                         hors_equipe.append(slc.id)
                     if jeu != "v_usage_daily":
                         hors_niveau.append(slc.id)
