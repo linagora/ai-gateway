@@ -149,10 +149,14 @@ test("un admin crée une offre, que les salariés voient au catalogue en frança
     lien: "https://claude.com/pricing",
   });
 
-  // Le catalogue mène aux abonnements, à part des niveaux.
+  // Le haut du catalogue présente les deux voies, la passerelle d'abord, et mène aux abonnements.
   const salarie = await (await connecter(browser, personne("catalogue"))).newPage();
   await salarie.goto("/catalogue");
-  await salarie.getByRole("region", { name: "Abonnements" }).getByRole("link", { name: "Voir les offres" }).click();
+  await expect(salarie.getByRole("main")).toContainText("Modèles de la passerelle, la solution privilégiée");
+  await expect(salarie.getByRole("main")).toContainText(
+    "Abonnement individuel (ChatGPT, Claude, Kimi…) : délivré seulement après un contrôle renforcé et sur justification détaillée ; ce n'est pas la solution que nous privilégions par défaut.",
+  );
+  await salarie.getByRole("main").getByRole("link", { name: "Voir les offres d'abonnement" }).click();
   await expect(salarie.getByRole("heading", { level: 1 })).toHaveText("Abonnements");
   const carte = salarie.getByRole("article", { name: nom });
   await expect(carte).toContainText("Anthropic");

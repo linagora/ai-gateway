@@ -247,7 +247,11 @@
   },
   "catalogue": {
     "titre": "Catalogue des modèles",
-    "introduction": "Choisissez d'abord le niveau de confidentialité des données que vous allez confier à un modèle : chaque niveau ouvre ses propres modèles.",
+    "voies": {
+      "passerelle": "<fort>Modèles de la passerelle</fort>, la solution privilégiée : choisissez ci-dessous le niveau de confidentialité des données que vous allez confier à un modèle ; chaque niveau ouvre ses propres modèles.",
+      "abonnement": "<fort>Abonnement individuel</fort> (ChatGPT, Claude, Kimi…) : délivré seulement après un contrôle renforcé et sur justification détaillée ; ce n'est pas la solution que nous privilégions par défaut.",
+      "lienAbonnements": "Voir les offres d'abonnement"
+    },
     "confier": "Vous pouvez y confier",
     "jamais": "Jamais",
     "garanties": "Garanties",
@@ -311,11 +315,6 @@
       }
     },
     "abonnements": {
-      "entree": {
-        "titre": "Abonnements",
-        "texte": "Des abonnements individuels chez des fournisseurs d'IA (ChatGPT, Claude, Kimi…), à demander pour votre équipe, puis à souscrire vous-même.",
-        "lien": "Voir les offres"
-      },
       "titre": "Abonnements",
       "introduction": "Ces offres se souscrivent individuellement chez leur fournisseur. Demandez-en une pour votre équipe : une fois votre demande validée, vous souscrivez vous-même, puis vous déclarez l'abonnement dans le portail.",
       "aucune": "Aucune offre d'abonnement pour l'instant.",
