@@ -203,6 +203,16 @@ describe("le responsable gère les clés et les membres de ses équipes (ticket 
     expect((await testDb.accessRequest.findUniqueOrThrow({ where: { id: cle.id } })).status).toBe("CLE_EMISE");
   });
 
+  test("il ne fait sortir de l'équipe ni un autre responsable ni lui-même : le rôle de responsable ne se retire que par un admin", async () => {
+    await testDb.teamManager.create({ data: { teamId: "equipe-rd", uid: "pmartin", email: "pmartin@linagora.com", designatedBy: "jdupont" } });
+    await expect(removeTeamMember(deps, responsable, { teamId: "equipe-rd", uid: "pmartin" })).rejects.toMatchObject({ code: "interdit" });
+    await expect(removeTeamMember(deps, responsable, { teamId: "equipe-rd", uid: "lbernard" })).rejects.toMatchObject({ code: "interdit" });
+    const equipe = await getTeamPage(deps, admin, "equipe-rd");
+    expect([equipe.members, equipe.managers.map((m) => m.uid)]).toEqual([["lbernard", "pmartin"], ["lbernard", "pmartin"]]);
+    await removeTeamMember(deps, admin, { teamId: "equipe-rd", uid: "pmartin" });
+    expect((await getTeamPage(deps, admin, "equipe-rd")).members).toEqual(["lbernard"]);
+  });
+
   test("il fait sortir un membre de son équipe, avec révocation de ses clés de l'équipe ; ajout direct, désignation, renommage et suppression restent aux admins", async () => {
     const cle = await cleEmise("pmartin", "equipe-rd", "R&D");
     await removeTeamMember(deps, responsable, { teamId: "equipe-rd", uid: "pmartin" });

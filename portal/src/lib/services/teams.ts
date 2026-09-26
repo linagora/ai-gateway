@@ -147,13 +147,18 @@ export async function addTeamMember(deps: TeamDeps, actor: SessionUser, input: {
 }
 
 /**
- * F-54 : sortie d'une équipe, décidée par un admin ou un responsable de l'équipe. Ses clés de l'équipe sont révoquées d'abord (un échec laisse le membre en place), puis
- * ses demandes en cours dans l'équipe annulées, avant son retrait de l'équipe dans LiteLLM ; il en est prévenu.
+ * F-54 : sortie d'une équipe, décidée par un admin ou un responsable de l'équipe (un responsable n'en fait sortir ni un
+ * autre responsable ni lui-même). Ses clés de l'équipe sont révoquées d'abord (un échec laisse le membre en place),
+ * puis ses demandes en cours dans l'équipe annulées, avant sa sortie de l'équipe dans LiteLLM ; il en est prévenu.
  */
 export async function removeTeamMember(deps: TeamDeps, actor: SessionUser, input: { teamId: string; uid: string }): Promise<void> {
   await requireAutorite(deps.db, actor, input.teamId, "equipe");
   const team = await existingTeam(deps, input.teamId);
   if (!team.memberUids.includes(input.uid)) throw new PortalError("introuvable", `${input.uid} n'est pas membre de ${team.teamAlias}.`, { objet: "membre" });
+  // Faire sortir un responsable, c'est lui retirer son rôle : cela revient aux admins, comme sa désignation.
+  if (!actor.isAdmin && (await deps.db.teamManager.findUnique({ where: { teamId_uid: { teamId: team.teamId, uid: input.uid } } }))) {
+    throw new PortalError("interdit", `Seul un admin fait sortir un responsable de ${team.teamAlias}.`);
+  }
   const cles = await revokeMemberKeys(deps, actor, team.teamId, input.uid);
   const demandes = await cancelMemberRequests(deps.db, team.teamId, input.uid);
   await deps.litellm.removeTeamMember(team.teamId, input.uid);

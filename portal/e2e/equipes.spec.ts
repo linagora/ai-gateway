@@ -391,8 +391,9 @@ test("un responsable bloque, débloque et révoque la clé d'un membre de son é
     "Un responsable de votre équipe a révoqué votre clé d'API",
   );
 
-  // Le responsable fait sortir le membre de l'équipe.
+  // Le responsable fait sortir le membre de l'équipe ; pas lui-même, ce qui lui retirerait son rôle : c'est l'affaire d'un admin.
   await pageResponsable.goto(pageEquipe);
+  await expect(pageResponsable.getByRole("region", { name: "Membres" }).getByRole("row", { name: new RegExp(responsable.uid) }).getByText("Faire sortir de l'équipe")).toHaveCount(0);
   await faireSortir(pageResponsable, membre.uid);
   await expect(pageResponsable.getByRole("region", { name: "Membres" })).not.toContainText(membre.uid);
 
