@@ -591,9 +591,10 @@
       "nouvelOnglet": "new tab",
       "reporting": {
         "titre": "Reporting (Superset)",
-        "description": "Dashboards of the gateway's usage: costs, requests and tokens by team, model and level. The “Pilotage” (steering) dashboard is for admins only; reporting readers see “Consommation” (usage).",
+        "description": "Dashboards of the gateway's usage: costs, requests and tokens by team, model and level. The “Pilotage” (steering) and “Par salarié” (per employee) dashboards are for admins only; reporting readers see “Consommation” (usage).",
         "consommation": "“Consommation” dashboard (usage)",
         "pilotage": "“Pilotage” dashboard (steering)",
+        "parSalarie": "“Par salarié” dashboard (per employee)",
         "accueil": "Superset home"
       },
       "passerelle": {

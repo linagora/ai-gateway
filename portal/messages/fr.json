@@ -591,9 +591,10 @@
       "nouvelOnglet": "nouvel onglet",
       "reporting": {
         "titre": "Reporting (Superset)",
-        "description": "Tableaux de bord de la consommation de la passerelle : coûts, requêtes et jetons par équipe, par modèle et par niveau. « Pilotage » est réservé aux admins ; les lecteurs du reporting voient « Consommation ».",
+        "description": "Tableaux de bord de la consommation de la passerelle : coûts, requêtes et jetons par équipe, par modèle et par niveau. « Pilotage » et « Par salarié » sont réservés aux admins ; les lecteurs du reporting voient « Consommation ».",
         "consommation": "Tableau de bord « Consommation »",
         "pilotage": "Tableau de bord « Pilotage »",
+        "parSalarie": "Tableau de bord « Par salarié »",
         "accueil": "Accueil de Superset"
       },
       "passerelle": {
