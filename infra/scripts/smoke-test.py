@@ -2,8 +2,8 @@
 
 Crée une équipe et une clé de test limitées à un modèle, vérifie /v1/models (critère 1),
 une complétion, la dépense calculée au tarif EUR du modèle, un message au format Anthropic
-(/v1/messages, celui de Claude Code), puis révoque la clé (critère 7 : 401) et supprime l'équipe.
-N'affiche jamais la clé maître ni la clé de test.
+(/v1/messages, utilisé par des assistants de code), puis révoque la clé (critère 7 : 401) et
+supprime l'équipe. N'affiche jamais la clé maître ni la clé de test.
 
 Exécuté DANS le conteneur litellm (la clé maître y est déjà en variable d'environnement) :
   docker compose exec -T litellm python3 - <model_name> < scripts/smoke-test.py
@@ -108,8 +108,8 @@ try:
         else:
             step("/key/info → dépense toujours nulle après 100 s")
 
-    # Format Anthropic, celui de Claude Code : LiteLLM le traduit selon la route du modèle (2026-09-26 : la route
-    # openai/… de Qwen3.8 passait par l'API Responses, refusée par OVH, alors que chat/completions répondait).
+    # Format Anthropic, utilisé par des assistants de code : LiteLLM le traduit selon la route du modèle (2026-09-26 :
+    # la route openai/… de Qwen3.8 passait par l'API Responses, refusée par OVH, alors que chat/completions répondait).
     st, msg, _ = call(
         "POST",
         "/v1/messages",

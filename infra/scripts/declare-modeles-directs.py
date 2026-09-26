@@ -20,7 +20,7 @@ MODELES = [
         "model_name": "qwen3.8",
         "litellm_params": {
             # Fournisseur OVHcloud de LiteLLM, et non « openai/… » : avec cette route, LiteLLM traduit /v1/messages
-            # (format Anthropic, celui de Claude Code) vers l'API Responses et y ajoute
+            # (format Anthropic, utilisé par des assistants de code) vers l'API Responses et y ajoute
             # include: ["reasoning.encrypted_content"], que le serveur d'OVH refuse (2026-09-26).
             "model": "ovhcloud/Qwen3.8-27B",
             "api_base": "os.environ/OVH_QWEN_API_BASE",
