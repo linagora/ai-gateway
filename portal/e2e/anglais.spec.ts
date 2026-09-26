@@ -28,14 +28,20 @@ const AUTORISES = [
 const FRANCAIS =
   /[éèêëàâùûçôîïœ]|(?<!\p{L})(le|la|les|des|du|une|pour|avec|sans|votre|vous|est|sont|aucune?|niveaux?|modèles?|demandes?|équipes?|clés?|données|et|ou|par|dans|aux?|cette?|qui|que|pas|ne|leur)(?!\p{L})/iu;
 
-/** Le texte visible de la page et ses textes d'accessibilité ne contiennent aucun français. */
-async function sansFrancais(page: Page, etape: string): Promise<void> {
-  const textes = await page.evaluate(() => {
-    const attributs = [...document.querySelectorAll("[aria-label], [title], [placeholder], img[alt]")].flatMap((element) =>
-      ["aria-label", "title", "placeholder", "alt"].map((nom) => element.getAttribute(nom) ?? ""),
-    );
-    return [document.title, document.body.innerText, ...attributs].join("\n");
-  });
+/**
+ * Le texte visible de la page et ses textes d'accessibilité ne contiennent aucun français. Avec `lignesDe`, seules les
+ * lignes de tableau qui contiennent ce texte sont vérifiées : les autres portent ce que d'autres parcours ont saisi
+ * (noms d'équipes, motifs) dans l'environnement de dev partagé.
+ */
+async function sansFrancais(page: Page, etape: string, lignesDe?: string): Promise<void> {
+  const textes = await page.evaluate((lignesDe) => {
+    const autresLignes = lignesDe ? [...document.querySelectorAll<HTMLElement>("tbody tr")].filter((ligne) => !ligne.innerText.includes(lignesDe)) : [];
+    const attributs = [...document.querySelectorAll("[aria-label], [title], [placeholder], img[alt]")]
+      .filter((element) => !autresLignes.some((ligne) => ligne.contains(element)))
+      .flatMap((element) => ["aria-label", "title", "placeholder", "alt"].map((nom) => element.getAttribute(nom) ?? ""));
+    const visible = autresLignes.reduce((texte, ligne) => texte.replace(ligne.innerText, ""), document.body.innerText);
+    return [document.title, visible, ...attributs].join("\n");
+  }, lignesDe ?? null);
   const reste = AUTORISES.reduce((texte, autorise) => texte.replace(autorise, " "), textes);
   expect(
     reste.split("\n").filter((ligne) => FRANCAIS.test(ligne)),
@@ -97,13 +103,13 @@ test("un parcours complet en anglais, de la connexion à la validation admin, ne
 
   const admin = await (await connecter(browser, ADMIN, "en-US")).newPage();
   await admin.goto("/gestion/demandes");
-  await sansFrancais(admin, "file des demandes");
+  await sansFrancais(admin, "file des demandes", salarie.uid);
   await admin.getByRole("row", { name: new RegExp(`${salarie.uid}.*API key`) }).getByRole("link", { name: "Review" }).click();
   await expect(admin.getByRole("heading", { level: 1 })).toHaveText(`API key for ${salarie.uid}`);
   await sansFrancais(admin, "fiche de validation");
   await admin.getByRole("button", { name: "Approve", exact: true }).click();
   await expect(admin.getByRole("status")).toHaveText("Request approved.");
-  await sansFrancais(admin, "demande approuvée");
+  await sansFrancais(admin, "demande approuvée", salarie.uid);
   await admin.goto("/gestion/parametres");
   await sansFrancais(admin, "valeurs par défaut");
 });
