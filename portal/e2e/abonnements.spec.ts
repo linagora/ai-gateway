@@ -1,78 +1,26 @@
-import { type Browser, expect, type Locator, type Page, test } from "@playwright/test";
-import { ADMIN, ajouterMembre, connecter, courriels, designer, echapper, faireSortir, nouvelleEquipe, type Personne, supprimerEquipe } from "./outils";
+import { type Browser, expect, type Page, test } from "@playwright/test";
+import {
+  ADMIN,
+  ajouterMembre,
+  approuverDemande,
+  choisirOffre,
+  connecter,
+  courriels,
+  creerOffre,
+  declarer,
+  demanderOffre,
+  designer,
+  echapper,
+  faireSortir,
+  masquerOffre,
+  nouvelleEquipe,
+  type Personne,
+  supprimerEquipe,
+} from "./outils";
 
 /* Abonnements individuels aux offres des fournisseurs d'IA (spécification #51). */
 const suffixe = Date.now().toString(36);
 const personne = (n: string) => ({ uid: `abonnements-${n}-${suffixe}`, email: `abonnements-${n}-${suffixe}@example.org`, name: `Personne ${n} ${suffixe}` });
-
-/** Champs d'une offre saisis par un admin. */
-interface Offre {
-  fournisseur: string;
-  nom: string;
-  prix: string;
-  niveau: string;
-  reglesFr: string;
-  reglesEn?: string;
-  lien?: string;
-}
-
-/** Un admin crée une offre visible depuis la gestion du catalogue. */
-async function creerOffre(admin: Page, offre: Offre): Promise<void> {
-  await admin.goto("/gestion/catalogue");
-  const formulaire = admin.getByRole("region", { name: "Offres d'abonnement" }).getByRole("form", { name: "Nouvelle offre" });
-  await formulaire.getByLabel("Fournisseur").fill(offre.fournisseur);
-  await formulaire.getByLabel("Nom de l'offre").fill(offre.nom);
-  await formulaire.getByLabel("Prix mensuel TTC (€)").fill(offre.prix);
-  await formulaire.getByLabel("Niveau maximal").selectOption({ label: offre.niveau });
-  await formulaire.getByLabel("Règles d'usage (français)").fill(offre.reglesFr);
-  if (offre.reglesEn) await formulaire.getByLabel("Règles d'usage (anglais)").fill(offre.reglesEn);
-  if (offre.lien) await formulaire.getByLabel("Lien vers l'offre (https)").fill(offre.lien);
-  await formulaire.getByRole("button", { name: "Créer l'offre" }).click();
-  await expect(admin.getByRole("status")).toHaveText("Offre enregistrée.");
-}
-
-/** Un admin masque une offre depuis la gestion du catalogue : elle n'est plus proposée, sans être supprimée. */
-async function masquerOffre(admin: Page, fournisseur: string, nom: string): Promise<void> {
-  await admin.goto("/gestion/catalogue");
-  const formulaire = admin.getByRole("form", { name: `${fournisseur} · ${nom}` });
-  await formulaire.getByLabel("Visible au catalogue").uncheck();
-  await formulaire.getByRole("button", { name: "Enregistrer l'offre" }).click();
-  await expect(admin.getByRole("status")).toHaveText("Offre enregistrée.");
-}
-
-/**
- * Dans la carte d'un fournisseur de la page des abonnements, choisit une offre par son nom dans la liste, la seule de la
- * carte : trouvée par son rôle, quelle que soit la langue (l'étiquette englobe aussi le texte des offres).
- */
-async function choisirOffre(fournisseur: Locator, nom: string): Promise<void> {
-  const valeur = await fournisseur.getByRole("option", { name: new RegExp(`^${echapper(nom)} · `) }).getAttribute("value");
-  await fournisseur.getByRole("combobox").selectOption(valeur ?? "");
-}
-
-/**
- * Le membre (page ouverte) demande l'offre du fournisseur (Anthropic) pour l'équipe, pour la durée donnée (trois mois),
- * en prenant l'engagement.
- */
-async function demanderOffre(pageMembre: Page, offre: string, equipe: string, duree = "3 mois", fournisseur = "Anthropic"): Promise<void> {
-  await pageMembre.goto("/catalogue/abonnements");
-  const carte = pageMembre.getByRole("region", { name: fournisseur });
-  await choisirOffre(carte, offre);
-  await carte.getByRole("button", { name: "Demander cet abonnement" }).click();
-  await pageMembre.getByLabel("Équipe").selectOption({ label: equipe });
-  await pageMembre.getByLabel("Motif").fill("Usage quotidien pour le projet");
-  await pageMembre.getByLabel("Durée souhaitée").selectOption({ label: duree });
-  await pageMembre.getByLabel(/Je m'engage à ne confier à cet abonnement/).check();
-  await pageMembre.getByRole("button", { name: "Envoyer la demande" }).click();
-  await expect(pageMembre.getByRole("status")).toHaveText("Demande envoyée aux administrateurs.");
-}
-
-/** Le responsable (page ouverte) approuve, depuis sa file, la demande d'abonnement du membre. */
-async function approuverDemande(pageResponsable: Page, membre: Personne): Promise<void> {
-  await pageResponsable.goto("/gestion/demandes");
-  await pageResponsable.getByRole("row", { name: new RegExp(`${membre.uid}.*Abonnement`) }).first().getByRole("link", { name: "Examiner" }).click();
-  await pageResponsable.getByRole("button", { name: "Approuver", exact: true }).click();
-  await expect(pageResponsable.getByRole("status")).toHaveText("Demande approuvée.");
-}
 
 /** Situation d'un parcours d'abonnement : l'admin, le responsable et le membre, leur équipe et l'offre. */
 interface Situation {
@@ -106,16 +54,6 @@ async function abonnementApprouve(browser: Browser, nom: string, duree = "3 mois
   await demanderOffre(pageMembre, offre, equipe, duree);
   await approuverDemande(pageResponsable, membre);
   return { admin, pageResponsable, pageMembre, responsable, membre, equipe, pageEquipe, offre };
-}
-
-/** Le membre déclare dans « Mes abonnements » l'abonnement approuvé, au jour même, avec l'adresse et le montant donnés. */
-async function declarer(pageMembre: Page, offre: string, { montant, adresse }: { montant: string; adresse: string }): Promise<void> {
-  await pageMembre.goto("/abonnements");
-  const carte = pageMembre.getByRole("region", { name: "À déclarer" }).getByRole("article", { name: new RegExp(echapper(offre)) });
-  await carte.getByLabel("Montant mensuel prélevé (€ TTC)").fill(montant);
-  await carte.getByLabel("Adresse du compte chez le fournisseur").fill(adresse);
-  await carte.getByRole("button", { name: "Déclarer l'abonnement" }).click();
-  await expect(pageMembre.getByRole("status")).toHaveText("Abonnement déclaré.");
 }
 
 /**
