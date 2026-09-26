@@ -379,6 +379,22 @@ test.describe("filtres appliqués sans bouton (retours de recette du 2026-09-25)
     expect(new Set(positions.map((p) => p.y)).size).toBe(4);
     await context.close();
   });
+
+  test("les libellés de la recherche, du cas d'usage, des capacités et de « UE uniquement » sont alignés", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    await page.goto("/catalogue/n1");
+    const hauts = await page.evaluate(() =>
+      [
+        document.querySelector('input[name="q"]')?.closest("label"),
+        document.querySelector('select[name="cas"]')?.closest("label"),
+        document.querySelector("fieldset legend"),
+        document.querySelector('input[name="ue"]')?.closest("label"),
+      ].map((libelle) => (libelle ? Math.round(libelle.getBoundingClientRect().top) : null)),
+    );
+    expect(hauts.every((haut) => haut !== null && haut === hauts[0]), `hauts des libellés : ${hauts.join(", ")}`).toBe(true);
+    await context.close();
+  });
 });
 
 test.describe("détail d'un modèle (ticket #9)", () => {

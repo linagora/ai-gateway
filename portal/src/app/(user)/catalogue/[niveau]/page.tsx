@@ -61,47 +61,52 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
       {modelCount === 0 ? (
         <p className="mt-6 italic">{catalogue("aucunModele")}</p>
       ) : (
-        <form method="get" role="search" aria-label={t("filtres")} className="mt-6 flex flex-wrap items-end gap-x-6 gap-y-2">
-          <label>
-            {t("recherche")}
-            <input type="search" name="q" defaultValue={criteria.search} />
-          </label>
-          <label>
-            {t("casUsage")}
-            <select name="cas" defaultValue={criteria.useCase ?? ""}>
-              <option value="">{t("tousCasUsage")}</option>
-              {USE_CASES.map((u) => (
-                <option key={u} value={u}>
-                  {domaine(`casUsage.${u}`)}
-                </option>
+        <form method="get" role="search" aria-label={t("filtres")} className="mt-6">
+          {/* Critères alignés sur leur libellé ; tri et réinitialisation en dessous. */}
+          <div className="flex flex-wrap items-start gap-x-6 gap-y-2">
+            <label>
+              {t("recherche")}
+              <input type="search" name="q" defaultValue={criteria.search} />
+            </label>
+            <label>
+              {t("casUsage")}
+              <select name="cas" defaultValue={criteria.useCase ?? ""}>
+                <option value="">{t("tousCasUsage")}</option>
+                {USE_CASES.map((u) => (
+                  <option key={u} value={u}>
+                    {domaine(`casUsage.${u}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <fieldset className="flex flex-col">
+              <legend className="font-medium">{t("capacites")}</legend>
+              {CAPABILITIES.map((c) => (
+                <label key={c} className="mt-0 font-normal">
+                  <input type="checkbox" name="capacite" value={c} defaultChecked={criteria.capabilities?.includes(c)} /> <span aria-hidden="true">{ICONES[c]}</span>{" "}
+                  {domaine(`capacites.${c}`)}
+                </label>
               ))}
-            </select>
-          </label>
-          <fieldset className="flex flex-col">
-            <legend className="font-medium">{t("capacites")}</legend>
-            {CAPABILITIES.map((c) => (
-              <label key={c} className="mt-0 font-normal">
-                <input type="checkbox" name="capacite" value={c} defaultChecked={criteria.capabilities?.includes(c)} /> <span aria-hidden="true">{ICONES[c]}</span>{" "}
-                {domaine(`capacites.${c}`)}
-              </label>
-            ))}
-          </fieldset>
-          <label className="font-normal">
-            <input type="checkbox" name="ue" value="1" defaultChecked={criteria.euOnly} /> {t("ueUniquement")}
-          </label>
-          <label>
-            {t("tri")}
-            <select name="tri" defaultValue={sortParam(criteria.sort ?? "recommended")}>
-              {LEVEL_SORTS.map((s) => (
-                <option key={s} value={sortParam(s)}>
-                  {t(`tris.${s}`)}
-                </option>
-              ))}
-            </select>
-          </label>
-          {/* Les critères s'appliquent dès qu'ils changent ; la réinitialisation recharge la page pour décocher les cases. */}
-          <FiltrageAutomatique minimum={RECHERCHE_MINIMUM} />
-          <a href={pageSansCritere}>{t("reinitialiser")}</a>
+            </fieldset>
+            <label className="font-normal">
+              <input type="checkbox" name="ue" value="1" defaultChecked={criteria.euOnly} /> {t("ueUniquement")}
+            </label>
+          </div>
+          <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
+            <label>
+              {t("tri")}
+              <select name="tri" defaultValue={sortParam(criteria.sort ?? "recommended")}>
+                {LEVEL_SORTS.map((s) => (
+                  <option key={s} value={sortParam(s)}>
+                    {t(`tris.${s}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {/* Les critères s'appliquent dès qu'ils changent ; la réinitialisation recharge la page pour décocher les cases. */}
+            <FiltrageAutomatique minimum={RECHERCHE_MINIMUM} />
+            <a href={pageSansCritere}>{t("reinitialiser")}</a>
+          </div>
         </form>
       )}
       {modelCount > 0 && models.length === 0 && <p className="mt-6 italic">{t("aucunResultat")}</p>}
