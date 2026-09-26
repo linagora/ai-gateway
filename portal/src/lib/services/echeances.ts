@@ -106,7 +106,7 @@ export async function runDailyTask(deps: DailyTaskDeps): Promise<DailyTaskReport
       include: { offer: true },
     });
     for (const r of enAttente) {
-      const echeance = r.decidedAt && pickupDeadline(r.decidedAt, delai);
+      const echeance = pickupDeadline(r.decidedAt, delai);
       if (!echeance || calendarDaysUntil(maintenant, echeance) > RAPPEL_RETRAIT) continue;
       const { count } = await deps.db.accessRequest.updateMany({ where: { id: r.id, pickupReminderSentAt: null }, data: { pickupReminderSentAt: maintenant } });
       if (count === 0) continue;

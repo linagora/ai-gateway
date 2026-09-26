@@ -278,7 +278,7 @@ export async function approveKeyRequest(deps: AdminDeps, actor: SessionUser, id:
   });
   await recordAudit(deps.db, { actorUid: actor.uid, action: "REQUEST_APPROVED", targetId: request.id, details: { teamAlias: equipe.teamAlias } });
   const [approuvee, delai] = await Promise.all([deps.db.accessRequest.findUniqueOrThrow({ where: { id: request.id } }), readPickupDays(deps.db)]);
-  await notifyKeyApproved(deps, approuvee, delai !== null ? pickupDeadline(approuveeLe, delai) : null);
+  await notifyKeyApproved(deps, approuvee, pickupDeadline(approuveeLe, delai));
   await annoncerDecision(deps, actor, { ...request, ...equipe }, "approuvee");
 }
 
@@ -382,8 +382,7 @@ export async function approveSubscriptionRequest(deps: AdminDeps, actor: Session
   } else {
     await recordAudit(deps.db, { actorUid: actor.uid, action: "REQUEST_APPROVED", targetId: request.id, details: { kind: "ABONNEMENT", offre: libelleOffre(request.offer), jours: days } });
     const delai = await readPickupDays(deps.db);
-    const echeanceDeDeclaration = delai !== null ? pickupDeadline(approuveeLe, delai) : null;
-    await notifySubscriptionApproved(deps, { ...request, approvedDays: days }, request.offer, echeanceDeDeclaration, remplace && libelleOffre(remplace.offer));
+    await notifySubscriptionApproved(deps, { ...request, approvedDays: days }, request.offer, pickupDeadline(approuveeLe, delai), remplace && libelleOffre(remplace.offer));
   }
   await annoncerDecision(deps, actor, request, "abonnement");
 }

@@ -84,7 +84,7 @@ export async function enregistrerResiliation(db: Db, abonnement: Subscription, d
 /** Échéance de la déclaration d'une résiliation demandée : la date de la demande plus le délai de retrait, s'il est fixé. */
 async function echeanceDeDeclaration(db: Db, demandeeLe: Date): Promise<Date | null> {
   const delai = await readPickupDays(db);
-  return delai !== null ? pickupDeadline(demandeeLe, delai) : null;
+  return pickupDeadline(demandeeLe, delai);
 }
 
 /**

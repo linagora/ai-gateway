@@ -262,7 +262,7 @@ export async function listMySubscriptions(deps: SubscriptionDeps, user: SessionU
               offer: libelleOffre(d.offer),
               teamAlias: d.teamAlias,
               approvedDays: d.approvedDays ?? 0,
-              declarationDeadline: delai !== null && d.decidedAt ? pickupDeadline(d.decidedAt, delai) : null,
+              declarationDeadline: pickupDeadline(d.decidedAt, delai),
               suggestedAmountEur: d.offer.monthlyPriceEur.toNumber(),
             },
           ]
@@ -405,7 +405,7 @@ export async function listSubscriptionsToDeclare(deps: SubscriptionDeps, actor: 
             teamAlias: d.teamAlias,
             offer: libelleOffre(d.offer),
             approvedAt: d.decidedAt,
-            declarationDeadline: delai !== null && d.decidedAt ? pickupDeadline(d.decidedAt, delai) : null,
+            declarationDeadline: pickupDeadline(d.decidedAt, delai),
           },
         ]
       : [],

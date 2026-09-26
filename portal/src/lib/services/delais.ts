@@ -12,9 +12,12 @@ export async function readPickupDays(db: Db): Promise<number | null> {
   return delai ? Number(delai) : null;
 }
 
-/** Échéance de retrait : date d'approbation + délai de retrait. */
-export function pickupDeadline(decidedAt: Date, pickupDays: number): Date {
-  return new Date(decidedAt.getTime() + pickupDays * JOUR);
+/**
+ * Échéance du délai de retrait (retrait d'une clé, déclaration d'un abonnement ou de sa résiliation) : la date de départ
+ * plus le délai ; null sans délai configuré ou sans date de départ.
+ */
+export function pickupDeadline(depuis: Date | null, pickupDays: number | null): Date | null {
+  return depuis && pickupDays !== null ? new Date(depuis.getTime() + pickupDays * JOUR) : null;
 }
 
 const JOUR_A_PARIS = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit" });

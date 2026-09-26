@@ -90,7 +90,7 @@ export async function listMyKeys(deps: KeyDeps, user: SessionUser): Promise<MyKe
         dataLevel: r.dataLevel as DataLevel,
         models: r.approvedModels,
         project: r.project,
-        pickupDeadline: delai !== null && r.decidedAt ? pickupDeadline(r.decidedAt, delai) : null,
+        pickupDeadline: pickupDeadline(r.decidedAt, delai),
       })),
     keys: emises
       .map((k) => ({ ...k, examples: callExamples(k.models, typesApi) }))
@@ -269,7 +269,7 @@ export async function listKeysToPickUp(deps: KeyDeps, actor: SessionUser, teamId
     models: r.approvedModels,
     approvedAt: r.decidedAt,
     approvedBy: r.decidedBy,
-    pickupDeadline: delai !== null && r.decidedAt ? pickupDeadline(r.decidedAt, delai) : null,
+    pickupDeadline: pickupDeadline(r.decidedAt, delai),
   }));
 }
 
