@@ -159,6 +159,16 @@ test.describe("vue d'ensemble des niveaux (ticket #5)", () => {
     }
   });
 
+  test("en français, aucune ligne ne commence par « ; : ! ? » : l'espace qui les précède est insécable", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    await page.goto("/catalogue");
+    const texte = await carte(page, "N3 Confidentiel").evaluate((section) => section.textContent ?? "");
+    expect(texte).toContain("sous-traitance ; à terme");
+    expect(texte).not.toMatch(/ [;:!?]/);
+    await context.close();
+  });
+
   test("chaque carte donne le nombre de modèles du niveau et son prix de départ", async ({ browser }) => {
     const context = await connecter(browser, salarie);
     const page = await context.newPage();
