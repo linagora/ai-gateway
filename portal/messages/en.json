@@ -317,6 +317,10 @@
     "abonnements": {
       "titre": "Subscriptions",
       "introduction": "These offers are taken out individually with their supplier. Request one for your team: once your request is approved, you subscribe yourself, then declare the subscription in the portal.",
+      "reserve": "A subscription is granted only after an enhanced review and on detailed justification: it is not the solution we favour by default. For most uses, request an API key for the gateway models instead.",
+      "lienPasserelle": "See the gateway models",
+      "nombreOffres": "{nombre, plural, one {# offer} other {# offers}}",
+      "offre": "Offer",
       "aucune": "No subscription offer yet.",
       "prix": "{prix} incl. VAT per month",
       "niveau": "Maximum data level: {niveau}",

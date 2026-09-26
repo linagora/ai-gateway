@@ -317,6 +317,10 @@
     "abonnements": {
       "titre": "Abonnements",
       "introduction": "Ces offres se souscrivent individuellement chez leur fournisseur. Demandez-en une pour votre équipe : une fois votre demande validée, vous souscrivez vous-même, puis vous déclarez l'abonnement dans le portail.",
+      "reserve": "Un abonnement n'est délivré qu'après un contrôle renforcé et sur justification détaillée : ce n'est pas la solution que nous privilégions par défaut. Pour la plupart des usages, demandez plutôt une clé d'API pour les modèles de la passerelle.",
+      "lienPasserelle": "Voir les modèles de la passerelle",
+      "nombreOffres": "{nombre, plural, one {# offre} other {# offres}}",
+      "offre": "Offre",
       "aucune": "Aucune offre d'abonnement pour l'instant.",
       "prix": "{prix} TTC par mois",
       "niveau": "Niveau maximal des données : {niveau}",

@@ -1,4 +1,4 @@
-import { type Browser, expect, type Page, test } from "@playwright/test";
+import { type Browser, expect, type Locator, type Page, test } from "@playwright/test";
 import { ADMIN, ajouterMembre, connecter, courriels, designer, echapper, faireSortir, nouvelleEquipe, type Personne, supprimerEquipe } from "./outils";
 
 /* Abonnements individuels aux offres des fournisseurs d'IA (spécification #51). */
@@ -40,10 +40,21 @@ async function masquerOffre(admin: Page, fournisseur: string, nom: string): Prom
   await expect(admin.getByRole("status")).toHaveText("Offre enregistrée.");
 }
 
-/** Le membre (page ouverte) demande l'offre pour l'équipe, pour la durée donnée (trois mois), en prenant l'engagement. */
-async function demanderOffre(pageMembre: Page, offre: string, equipe: string, duree = "3 mois"): Promise<void> {
+/** Dans la carte d'un fournisseur de la page des abonnements, choisit une offre par son nom dans la liste. */
+async function choisirOffre(fournisseur: Locator, nom: string): Promise<void> {
+  const valeur = await fournisseur.getByRole("option", { name: new RegExp(`^${echapper(nom)} · `) }).getAttribute("value");
+  await fournisseur.getByLabel("Offre").selectOption(valeur ?? "");
+}
+
+/**
+ * Le membre (page ouverte) demande l'offre du fournisseur (Anthropic) pour l'équipe, pour la durée donnée (trois mois),
+ * en prenant l'engagement.
+ */
+async function demanderOffre(pageMembre: Page, offre: string, equipe: string, duree = "3 mois", fournisseur = "Anthropic"): Promise<void> {
   await pageMembre.goto("/catalogue/abonnements");
-  await pageMembre.getByRole("article", { name: offre }).getByRole("link", { name: "Demander cet abonnement" }).click();
+  const carte = pageMembre.getByRole("region", { name: fournisseur });
+  await choisirOffre(carte, offre);
+  await carte.getByRole("button", { name: "Demander cet abonnement" }).click();
   await pageMembre.getByLabel("Équipe").selectOption({ label: equipe });
   await pageMembre.getByLabel("Motif").fill("Usage quotidien pour le projet");
   await pageMembre.getByLabel("Durée souhaitée").selectOption({ label: duree });
@@ -158,8 +169,12 @@ test("un admin crée une offre, que les salariés voient au catalogue en frança
   );
   await salarie.getByRole("main").getByRole("link", { name: "Voir les offres d'abonnement" }).click();
   await expect(salarie.getByRole("heading", { level: 1 })).toHaveText("Abonnements");
-  const carte = salarie.getByRole("article", { name: nom });
-  await expect(carte).toContainText("Anthropic");
+  await expect(salarie.getByRole("main")).toContainText("Un abonnement n'est délivré qu'après un contrôle renforcé et sur justification détaillée");
+
+  // Les offres se présentent par fournisseur : l'offre choisie dans la liste montre son prix, son niveau et ses règles.
+  const carte = salarie.getByRole("region", { name: "Anthropic" });
+  await expect(carte.getByRole("img")).not.toHaveCount(0);
+  await choisirOffre(carte, nom);
   await expect(carte).toContainText(/108,00\s€ TTC par mois/);
   await expect(carte).toContainText(/Niveau maximal des données\s*:\s*N1 Public/);
   await expect(carte.getByRole("img", { name: /Classification NC/ })).toBeVisible();
@@ -171,7 +186,8 @@ test("un admin crée une offre, que les salariés voient au catalogue en frança
   const anglais = await (await connecter(browser, personne("anglais"), "en-US")).newPage();
   await anglais.goto("/catalogue/abonnements");
   await expect(anglais.getByRole("heading", { level: 1 })).toHaveText("Subscriptions");
-  const card = anglais.getByRole("article", { name: nom });
+  const card = anglais.getByRole("region", { name: "Anthropic" });
+  await choisirOffre(card, nom);
   await expect(card).toContainText(/€108\.00 incl\. VAT per month/);
   await expect(card).toContainText("Maximum data level: N1 Public");
   await expect(card).toContainText("Turn off training on your data in the privacy settings.");
@@ -180,7 +196,7 @@ test("un admin crée une offre, que les salariés voient au catalogue en frança
   await masquerOffre(admin, "Anthropic", nom);
   await expect(admin.getByRole("heading", { name: new RegExp(`Anthropic · ${nom}.*masquée`) })).toBeVisible();
   await salarie.reload();
-  await expect(salarie.getByRole("article", { name: nom })).toHaveCount(0);
+  await expect(salarie.getByRole("region", { name: "Anthropic" }).getByRole("option", { name: new RegExp(echapper(nom)) })).toHaveCount(0);
 });
 
 test("un membre demande une offre pour son équipe ; le responsable l'approuve, et le courriel explique comment souscrire puis déclarer (ticket #54)", async ({ browser }) => {
@@ -206,7 +222,9 @@ test("un membre demande une offre pour son équipe ; le responsable l'approuve, 
 
   // Le membre demande l'offre depuis le catalogue, pour son équipe, en voyant qui validera.
   await pageMembre.goto("/catalogue/abonnements");
-  await pageMembre.getByRole("article", { name: nomOffre }).getByRole("link", { name: "Demander cet abonnement" }).click();
+  const openai = pageMembre.getByRole("region", { name: "OpenAI" });
+  await choisirOffre(openai, nomOffre);
+  await openai.getByRole("button", { name: "Demander cet abonnement" }).click();
   await expect(pageMembre.getByRole("heading", { level: 1 })).toHaveText("Demander un abonnement");
   await expect(pageMembre.getByRole("region", { name: new RegExp(`Offre demandée.*${echapper(nomOffre)}`) })).toContainText(/23,00\s€ TTC par mois/);
   await pageMembre.getByLabel("Équipe").selectOption({ label: equipe });
