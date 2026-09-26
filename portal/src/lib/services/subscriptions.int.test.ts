@@ -8,8 +8,17 @@ import { approveSubscriptionRequest, getRequestReview, listPendingRequests, refu
 import { type OfferInput, saveOffer } from "./offers";
 import { cancelRequest, listMyRequests } from "./requests";
 import { saveSettings } from "./settings";
-import { deleteTeam, removeTeamMember } from "./teams";
-import { completeSubscriptionRequest, createSubscriptionRequest, declareSubscription, listMySubscriptions, type SubscriptionRequestInput } from "./subscriptions";
+import { deleteTeam, getTeamPage, removeTeamMember } from "./teams";
+import {
+  completeSubscriptionRequest,
+  createSubscriptionRequest,
+  declareSubscription,
+  listActiveSubscriptions,
+  listMySubscriptions,
+  listSubscriptionArchive,
+  listSubscriptionsToDeclare,
+  type SubscriptionRequestInput,
+} from "./subscriptions";
 
 /*
  * Abonnements individuels (spécification #51). Deux équipes : R&D, dont Léa Bernard est responsable et Paul Martin
@@ -272,3 +281,61 @@ describe("déclarer un abonnement et le suivre dans « Mes abonnements » (ticke
   });
 });
 
+describe("onglet « Abonnements » de la gestion et résumé sur la page d'une équipe (ticket #56)", () => {
+  /** Un abonnement de Paul Martin dans R&D, déclaré à l'adresse donnée, et une demande de Jeanne Dupont dans Data, approuvée mais pas déclarée. */
+  async function situation(adresse = "pmartin@linagora.com") {
+    const rd = await declareSubscription(deps, membre, await approuvee(), { subscribedAt: "2026-09-20", monthlyAmountEur: 108, accountEmail: adresse });
+    const { id: data } = await createSubscriptionRequest(deps, admin, demande({ teamId: "equipe-data" }));
+    await approveSubscriptionRequest(deps, admin, data, { days: 30 });
+    return { rd, data };
+  }
+
+  test("la gestion liste les abonnements à déclarer, les actifs et l'archive ; un responsable n'y voit que ses équipes", async () => {
+    const { rd, data } = await situation("paul.martin@gmail.com");
+    expect(await listSubscriptionsToDeclare(deps, admin)).toEqual([
+      {
+        requestId: data,
+        holderUid: "jdupont",
+        holderEmail: "jdupont@linagora.com",
+        teamAlias: "Data",
+        offer: "Anthropic · Claude Max 5x",
+        approvedAt: maintenant,
+        declarationDeadline: new Date("2026-10-15T09:00:00Z"),
+      },
+    ]);
+    expect(await listActiveSubscriptions(deps, admin)).toEqual([
+      {
+        id: rd,
+        holderUid: "pmartin",
+        holderEmail: "pmartin@linagora.com",
+        teamAlias: "R&D",
+        offer: "Anthropic · Claude Max 5x",
+        accountEmail: "paul.martin@gmail.com",
+        accountOutsideLinagora: true,
+        subscribedAt: new Date("2026-09-20T00:00:00Z"),
+        monthlyAmountEur: 108,
+        expiresAt: new Date("2026-12-30T00:00:00Z"),
+        status: "ACTIF",
+      },
+    ]);
+    expect(await listSubscriptionArchive(deps, admin)).toEqual({ elements: [], page: 1, pages: 1, total: 0 });
+    expect(await listSubscriptionsToDeclare(deps, responsable)).toEqual([]);
+    expect((await listActiveSubscriptions(deps, responsable)).map((a) => a.id)).toEqual([rd]);
+  });
+
+  test("le filtre d'équipe limite les listes ; une équipe hors de l'autorité d'un responsable n'y retient rien ; un salarié n'y accède pas", async () => {
+    const { rd, data } = await situation();
+    expect((await listSubscriptionsToDeclare(deps, admin, "equipe-data")).map((d) => d.requestId)).toEqual([data]);
+    expect(await listActiveSubscriptions(deps, admin, "equipe-data")).toEqual([]);
+    expect((await listActiveSubscriptions(deps, admin, "equipe-rd")).map((a) => a.id)).toEqual([rd]);
+    expect(await listSubscriptionsToDeclare(deps, responsable, "equipe-data")).toEqual([]);
+    await expect(listActiveSubscriptions(deps, membre)).rejects.toMatchObject({ code: "interdit" });
+  });
+
+  test("la page d'une équipe donne le nombre et le coût mensuel de ses abonnements actifs", async () => {
+    await situation();
+    await declareSubscription(deps, membre, await approuvee(), { subscribedAt: "2026-09-25", monthlyAmountEur: 23.5, accountEmail: "pmartin+2@linagora.com" });
+    expect((await getTeamPage(deps, responsable, "equipe-rd")).subscriptions).toEqual({ count: 2, monthlyTotalEur: 131.5 });
+    expect((await getTeamPage(deps, admin, "equipe-data")).subscriptions).toEqual({ count: 0, monthlyTotalEur: 0 });
+  });
+});

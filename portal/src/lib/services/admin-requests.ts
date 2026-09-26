@@ -67,15 +67,19 @@ export async function listPendingRequests(deps: AdminDeps, actor: SessionUser): 
  * Pastilles du menu de gestion : demandes à valider, et clés approuvées que leur titulaire n'a pas retirées. Pour un
  * responsable, celles de ses équipes, hors ses propres demandes, qu'il ne valide pas.
  */
-export async function countAdminPending(deps: AdminDeps, actor: SessionUser): Promise<{ demandes: number; clesARetirer: number }> {
+export async function countAdminPending(
+  deps: AdminDeps,
+  actor: SessionUser,
+): Promise<{ demandes: number; clesARetirer: number; abonnementsADeclarer: number }> {
   const equipes = await requireGestion(deps.db, actor);
   await markExpired(deps.db, deps.now?.() ?? new Date());
   const siennes = equipes === null ? {} : { requesterUid: { not: actor.uid } };
-  const [demandes, clesARetirer] = await Promise.all([
+  const [demandes, clesARetirer, abonnementsADeclarer] = await Promise.all([
     deps.db.accessRequest.count({ where: { status: "SOUMISE", ...dansEquipes(equipes), ...siennes } }),
     deps.db.accessRequest.count({ where: { kind: "CLE", status: "APPROUVEE", ...dansEquipes(equipes) } }),
+    deps.db.accessRequest.count({ where: { kind: "ABONNEMENT", status: "APPROUVEE", ...dansEquipes(equipes) } }),
   ]);
-  return { demandes, clesARetirer };
+  return { demandes, clesARetirer, abonnementsADeclarer };
 }
 
 /** Demande traitée, telle que l'archive la présente : avec la décision et son auteur. */

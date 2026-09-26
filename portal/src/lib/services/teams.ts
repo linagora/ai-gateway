@@ -44,10 +44,12 @@ export interface TeamManagerInfo {
   email: string;
 }
 
-/** Page d'une équipe : son résumé, ses membres réels et ses responsables, par ordre alphabétique. */
+/** Page d'une équipe : son résumé, ses membres réels et ses responsables, par ordre alphabétique, et ses abonnements actifs. */
 export interface TeamPage extends TeamOverview {
   members: string[];
   managers: TeamManagerInfo[];
+  /** Spécification #51 : nombre et coût mensuel TTC des abonnements non résiliés de l'équipe. */
+  subscriptions: { count: number; monthlyTotalEur: number };
 }
 
 /** Longueur maximale d'un nom d'équipe. */
@@ -88,11 +90,15 @@ export async function getTeamOverview(deps: TeamDeps, actor: SessionUser, teamId
 export async function getTeamPage(deps: TeamDeps, actor: SessionUser, teamId: string): Promise<TeamPage> {
   await requireAutorite(deps.db, actor, teamId, "equipe");
   const team = await existingTeam(deps, teamId);
-  const managers = await deps.db.teamManager.findMany({ where: { teamId: team.teamId }, orderBy: { uid: "asc" } });
+  const [managers, abonnements] = await Promise.all([
+    deps.db.teamManager.findMany({ where: { teamId: team.teamId }, orderBy: { uid: "asc" } }),
+    deps.db.subscription.aggregate({ where: { teamId: team.teamId, status: { not: "RESILIE" } }, _count: { _all: true }, _sum: { monthlyAmountEur: true } }),
+  ]);
   return {
     ...overview(team, await activeKeyCounts(deps.db), new Map([[team.teamId, managers.map((m) => m.uid)]])),
     members: [...team.memberUids].sort((a, b) => a.localeCompare(b, "fr")),
     managers: managers.map(({ uid, email }) => ({ uid, email })),
+    subscriptions: { count: abonnements._count._all, monthlyTotalEur: abonnements._sum.monthlyAmountEur?.toNumber() ?? 0 },
   };
 }
 

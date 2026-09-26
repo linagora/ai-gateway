@@ -26,7 +26,7 @@ import { AdminNav } from "../../admin-nav";
 export default async function EquipePage(props: PageProps<"/gestion/equipes/[id]">) {
   const acteur = await requireGestionPage();
   const estAdmin = acteur.isAdmin;
-  const [{ id }, t, searchParams, { date }] = await Promise.all([props.params, getTranslations("gestion.equipes"), props.searchParams, formats()]);
+  const [{ id }, t, searchParams, { date, euros }] = await Promise.all([props.params, getTranslations("gestion.equipes"), props.searchParams, formats()]);
   const equipe = await getTeamPage(getDeps(), acteur, decodeURIComponent(id)).catch((e: unknown) => {
     if (e instanceof PortalError && e.code === "introuvable") notFound();
     throw e;
@@ -50,6 +50,12 @@ export default async function EquipePage(props: PageProps<"/gestion/equipes/[id]
         <dd>
           <Link href={`/gestion/cles?equipe=${encodeURIComponent(equipe.teamId)}`} aria-label={t("voirCles", { nombre: equipe.activeKeyCount })}>
             {equipe.activeKeyCount}
+          </Link>
+        </dd>
+        <dt>{t("abonnements")}</dt>
+        <dd>
+          <Link href={`/gestion/abonnements?equipe=${encodeURIComponent(equipe.teamId)}`}>
+            {t("resumeAbonnements", { nombre: equipe.subscriptions.count, total: euros(equipe.subscriptions.monthlyTotalEur) })}
           </Link>
         </dd>
       </dl>

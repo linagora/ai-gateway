@@ -441,10 +441,12 @@
       "catalogue": "Catalogue",
       "parametres": "Valeurs par défaut",
       "cles": "Clés",
+      "abonnements": "Abonnements",
       "equipes": "Équipes",
       "aValider": "{nombre, plural, one {# demande à valider} other {# demandes à valider}}",
       "aRetirer": "{nombre, plural, one {# clé à retirer} other {# clés à retirer}}",
-      "outils": "Outils"
+      "outils": "Outils",
+      "aDeclarer": "{nombre, plural, one {# abonnement à déclarer} other {# abonnements à déclarer}}"
     },
     "file": {
       "titre": "Demandes en attente de validation",
@@ -643,7 +645,42 @@
       "retirerRole": "Retirer le rôle de responsable",
       "colonneResponsable": "Responsable",
       "colonneAdresse": "Adresse",
-      "aucun": "Aucun"
+      "aucun": "Aucun",
+      "abonnements": "Abonnements",
+      "resumeAbonnements": "{nombre, plural, =0 {Aucun abonnement} one {# abonnement actif, {total} TTC par mois} other {# abonnements actifs, {total} TTC par mois}}"
+    },
+    "abonnements": {
+      "titre": "Abonnements",
+      "filtreEquipe": "Abonnements de l'équipe {equipe}",
+      "tous": "Tous les abonnements",
+      "aDeclarer": {
+        "titre": "Abonnements approuvés, à déclarer par le salarié",
+        "approuve": "Approuvé le",
+        "avant": "À déclarer avant le"
+      },
+      "actifs": {
+        "titre": "Abonnements actifs",
+        "aucun": "Aucun abonnement actif."
+      },
+      "archive": {
+        "titre": "Archive : abonnements résiliés",
+        "aucune": "Aucun abonnement résilié.",
+        "pagination": "Pages de l'archive des abonnements",
+        "position": "Page {page} sur {pages} ({total, plural, one {# abonnement résilié} other {# abonnements résiliés}})",
+        "plusRecentes": "Abonnements plus récents",
+        "plusAnciennes": "Abonnements plus anciens"
+      },
+      "colonnes": {
+        "titulaire": "Titulaire",
+        "equipe": "Équipe",
+        "offre": "Offre",
+        "compte": "Compte",
+        "souscrit": "Souscrit le",
+        "montant": "Montant mensuel",
+        "echeance": "Échéance",
+        "statut": "Statut"
+      },
+      "horsLinagora": "adresse hors LINAGORA"
     }
   },
   "introuvable": {

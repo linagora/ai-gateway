@@ -1,11 +1,13 @@
 import { z } from "zod";
+import type { Subscription, SubscriptionOffer } from "@/generated/prisma/client";
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
 import { DUREES_ABONNEMENT } from "@/lib/durees";
 import { PortalError } from "@/lib/errors";
 import type { LiteLLMClient } from "@/lib/litellm/client";
+import { type Page, tranche } from "@/lib/pagination";
 import { recordAudit } from "./audit";
-import { managerEmails } from "./autorite";
+import { dansEquipes, managerEmails, requireGestion } from "./autorite";
 import { JOUR, markExpired, pickupDeadline, readPickupDays } from "./echeances";
 import { type NotificationDeps, notifyNewRequest } from "./notifications";
 import { libelleOffre } from "./offers";
@@ -115,11 +117,10 @@ export interface SubscriptionToDeclare {
   suggestedAmountEur: number;
 }
 
-/** Abonnement tel que le voit son titulaire. */
-export interface MySubscription {
+/** Ce que montre un abonnement, à son titulaire comme à la gestion. */
+interface SubscriptionView {
   id: string;
   offer: string;
-  supplier: string;
   teamAlias: string;
   accountEmail: string;
   accountOutsideLinagora: boolean;
@@ -128,6 +129,47 @@ export interface MySubscription {
   expiresAt: Date;
   status: "ACTIF" | "A_RESILIER" | "RESILIE";
 }
+
+/** Abonnement tel que le voit son titulaire, avec son fournisseur. */
+export interface MySubscription extends SubscriptionView {
+  supplier: string;
+}
+
+/** Abonnement tel que le voit la gestion, avec son titulaire. */
+export interface AdminSubscription extends SubscriptionView {
+  holderUid: string;
+  holderEmail: string;
+}
+
+/** Abonnement approuvé qui attend la déclaration de son titulaire, vu par la gestion. */
+export interface AdminSubscriptionToDeclare {
+  requestId: string;
+  holderUid: string;
+  holderEmail: string;
+  teamAlias: string;
+  offer: string;
+  approvedAt: Date | null;
+  declarationDeadline: Date | null;
+}
+
+type AbonnementAvecOffre = Subscription & { offer: Pick<SubscriptionOffer, "supplier" | "name"> };
+
+/** Vue commune d'un abonnement. */
+function vueAbonnement(a: AbonnementAvecOffre): SubscriptionView {
+  return {
+    id: a.id,
+    offer: libelleOffre(a.offer),
+    teamAlias: a.teamAlias,
+    accountEmail: a.accountEmail,
+    accountOutsideLinagora: horsLinagora(a.accountEmail),
+    subscribedAt: a.subscribedAt,
+    monthlyAmountEur: a.monthlyAmountEur.toNumber(),
+    expiresAt: a.expiresAt,
+    status: a.status,
+  };
+}
+
+const vueGestion = (a: AbonnementAvecOffre): AdminSubscription => ({ ...vueAbonnement(a), holderUid: a.holderUid, holderEmail: a.holderEmail });
 
 /** Minuit (UTC) du jour d'un instant : les dates d'un abonnement se comptent en jours. */
 const jourUtc = (instant: Date) => new Date(Date.UTC(instant.getUTCFullYear(), instant.getUTCMonth(), instant.getUTCDate()));
@@ -155,18 +197,7 @@ export async function listMySubscriptions(deps: SubscriptionDeps, user: SessionU
           ]
         : [],
     ),
-    abonnements: abonnements.map((a) => ({
-      id: a.id,
-      offer: libelleOffre(a.offer),
-      supplier: a.offer.supplier,
-      teamAlias: a.teamAlias,
-      accountEmail: a.accountEmail,
-      accountOutsideLinagora: horsLinagora(a.accountEmail),
-      subscribedAt: a.subscribedAt,
-      monthlyAmountEur: a.monthlyAmountEur.toNumber(),
-      expiresAt: a.expiresAt,
-      status: a.status,
-    })),
+    abonnements: abonnements.map((a) => ({ ...vueAbonnement(a), supplier: a.offer.supplier })),
   };
 }
 
@@ -217,4 +248,53 @@ export async function declareSubscription(deps: SubscriptionDeps, user: SessionU
     details: { offre: libelleOffre(offer), montant: data.monthlyAmountEur, compteHorsLinagora: horsLinagora(data.accountEmail) },
   });
   return abonnement.id;
+}
+
+/**
+ * Gestion (spécification #51) : abonnements approuvés en attente de déclaration, de la plus ancienne approbation à la
+ * plus récente ; pour un responsable, ceux de ses équipes ; avec `teamId`, ceux de cette seule équipe.
+ */
+export async function listSubscriptionsToDeclare(deps: SubscriptionDeps, actor: SessionUser, teamId?: string): Promise<AdminSubscriptionToDeclare[]> {
+  const equipes = await requireGestion(deps.db, actor);
+  await markExpired(deps.db, deps.now?.() ?? new Date());
+  const [demandes, delai] = await Promise.all([
+    deps.db.accessRequest.findMany({ where: { kind: "ABONNEMENT", status: "APPROUVEE", ...dansEquipes(equipes, teamId) }, include: { offer: true }, orderBy: { decidedAt: "asc" } }),
+    readPickupDays(deps.db),
+  ]);
+  return demandes.flatMap((d) =>
+    d.offer
+      ? [
+          {
+            requestId: d.id,
+            holderUid: d.requesterUid,
+            holderEmail: d.requesterEmail,
+            teamAlias: d.teamAlias,
+            offer: libelleOffre(d.offer),
+            approvedAt: d.decidedAt,
+            declarationDeadline: delai !== null && d.decidedAt ? pickupDeadline(d.decidedAt, delai) : null,
+          },
+        ]
+      : [],
+  );
+}
+
+/** Gestion : abonnements actifs ou à résilier (mêmes filtres), du plus récemment souscrit au plus ancien. */
+export async function listActiveSubscriptions(deps: SubscriptionDeps, actor: SessionUser, teamId?: string): Promise<AdminSubscription[]> {
+  const equipes = await requireGestion(deps.db, actor);
+  const abonnements = await deps.db.subscription.findMany({
+    where: { status: { not: "RESILIE" }, ...dansEquipes(equipes, teamId) },
+    include: { offer: true },
+    orderBy: [{ subscribedAt: "desc" }, { id: "desc" }],
+  });
+  return abonnements.map(vueGestion);
+}
+
+/** Gestion : archive des abonnements résiliés (mêmes filtres), par pages de PAR_PAGE, le plus récemment résilié d'abord. */
+export async function listSubscriptionArchive(deps: SubscriptionDeps, actor: SessionUser, page = 1, teamId?: string): Promise<Page<AdminSubscription>> {
+  const equipes = await requireGestion(deps.db, actor);
+  const where = { status: "RESILIE" as const, ...dansEquipes(equipes, teamId) };
+  const total = await deps.db.subscription.count({ where });
+  const { page: courante, pages, skip, take } = tranche(total, page);
+  const rows = await deps.db.subscription.findMany({ where, include: { offer: true }, orderBy: [{ updatedAt: "desc" }, { id: "desc" }], skip, take });
+  return { elements: rows.map(vueGestion), page: courante, pages, total };
 }

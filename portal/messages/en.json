@@ -441,10 +441,12 @@
       "catalogue": "Catalog",
       "parametres": "Default values",
       "cles": "Keys",
+      "abonnements": "Subscriptions",
       "equipes": "Teams",
       "aValider": "{nombre, plural, one {# request to review} other {# requests to review}}",
       "aRetirer": "{nombre, plural, one {# key to pick up} other {# keys to pick up}}",
-      "outils": "Tools"
+      "outils": "Tools",
+      "aDeclarer": "{nombre, plural, one {# subscription to declare} other {# subscriptions to declare}}"
     },
     "file": {
       "titre": "Requests awaiting validation",
@@ -643,7 +645,42 @@
       "retirerRole": "Remove the manager role",
       "colonneResponsable": "Manager",
       "colonneAdresse": "Address",
-      "aucun": "None"
+      "aucun": "None",
+      "abonnements": "Subscriptions",
+      "resumeAbonnements": "{nombre, plural, =0 {No subscription} one {# active subscription, {total} incl. VAT per month} other {# active subscriptions, {total} incl. VAT per month}}"
+    },
+    "abonnements": {
+      "titre": "Subscriptions",
+      "filtreEquipe": "Subscriptions of the team {equipe}",
+      "tous": "All subscriptions",
+      "aDeclarer": {
+        "titre": "Approved subscriptions, to be declared by the employee",
+        "approuve": "Approved on",
+        "avant": "To declare before"
+      },
+      "actifs": {
+        "titre": "Active subscriptions",
+        "aucun": "No active subscription."
+      },
+      "archive": {
+        "titre": "Archive: cancelled subscriptions",
+        "aucune": "No cancelled subscription.",
+        "pagination": "Subscription archive pages",
+        "position": "Page {page} of {pages} ({total, plural, one {# cancelled subscription} other {# cancelled subscriptions}})",
+        "plusRecentes": "More recent subscriptions",
+        "plusAnciennes": "Older subscriptions"
+      },
+      "colonnes": {
+        "titulaire": "Holder",
+        "equipe": "Team",
+        "offre": "Offer",
+        "compte": "Account",
+        "souscrit": "Subscribed on",
+        "montant": "Monthly amount",
+        "echeance": "Expiry",
+        "statut": "Status"
+      },
+      "horsLinagora": "address outside LINAGORA"
     }
   },
   "introuvable": {

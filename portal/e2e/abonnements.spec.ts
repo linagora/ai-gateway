@@ -245,3 +245,31 @@ test("le titulaire déclare l'abonnement approuvé, qui apparaît dans « Mes ab
 
   await nettoyer(situation);
 });
+
+test("le responsable suit l'abonnement de son équipe : à déclarer dans l'onglet, puis actif depuis la page de l'équipe et l'onglet filtré (ticket #56)", async ({ browser }) => {
+  const situation = await abonnementApprouve(browser, "suivi");
+  const { admin, pageResponsable, pageMembre, membre, equipe, pageEquipe, offre } = situation;
+
+  // Avant la déclaration, l'onglet « Abonnements » le signale, à déclarer.
+  await pageResponsable.goto("/gestion/demandes");
+  await pageResponsable.getByRole("navigation", { name: "Administration" }).getByRole("link", { name: "Abonnements (1 abonnement à déclarer)" }).click();
+  await expect(pageResponsable.getByRole("heading", { level: 1 })).toHaveText("Abonnements");
+  await expect(pageResponsable.getByRole("region", { name: "Abonnements approuvés, à déclarer par le salarié" }).getByRole("row", { name: new RegExp(membre.uid) })).toContainText(offre);
+
+  // Déclaré, il apparaît dans le résumé de la page de l'équipe, qui mène à l'onglet filtré sur l'équipe.
+  await declarer(pageMembre, offre, { montant: "108", adresse: `${membre.uid}@gmail.com` });
+  await pageResponsable.goto(pageEquipe);
+  await pageResponsable.getByRole("link", { name: /^1 abonnement actif, 108,00\s€ TTC par mois$/ }).click();
+  await expect(pageResponsable.getByText(`Abonnements de l'équipe ${equipe}`)).toBeVisible();
+  const actifs = pageResponsable.getByRole("region", { name: "Abonnements actifs" });
+  await expect(actifs.getByRole("row")).toHaveCount(2);
+  await expect(actifs.getByRole("row", { name: new RegExp(membre.uid) })).toContainText("adresse hors LINAGORA");
+  await expect(pageResponsable.getByRole("region", { name: "Archive : abonnements résiliés" })).toContainText("Aucun abonnement résilié.");
+  await expect(pageResponsable.getByRole("link", { name: "Tous les abonnements" })).toBeVisible();
+
+  // L'admin le retrouve parmi tous les abonnements.
+  await admin.goto("/gestion/abonnements");
+  await expect(admin.getByRole("region", { name: "Abonnements actifs" }).getByRole("row", { name: new RegExp(membre.uid) })).toContainText(equipe);
+
+  await nettoyer(situation);
+});
