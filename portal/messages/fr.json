@@ -415,7 +415,11 @@
           "statut": "Statut",
           "decision": "Décision"
         },
-        "voir": "Voir"
+        "voir": "Voir",
+        "pagination": "Pages de l'archive",
+        "position": "Page {page} sur {pages} ({total, plural, one {# demande traitée} other {# demandes traitées}})",
+        "plusRecentes": "Demandes plus récentes",
+        "plusAnciennes": "Demandes plus anciennes"
       }
     },
     "fiche": {

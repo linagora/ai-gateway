@@ -1,3 +1,4 @@
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { listPendingRequests, listProcessedRequests } from "@/lib/services/admin-requests";
@@ -5,11 +6,11 @@ import { getDeps, requireGestionPage } from "@/lib/session";
 import { Notice, formats } from "../../../components";
 import { AdminNav } from "../admin-nav";
 
-/** F-30 : demandes en attente, de la plus ancienne à la plus récente, puis l'archive des demandes traitées. */
+/** F-30 : demandes en attente, de la plus ancienne à la plus récente, puis l'archive des demandes traitées, page par page. */
 export default async function PendingRequestsPage(props: PageProps<"/gestion/demandes">) {
   const admin = await requireGestionPage();
   const [{ date }, t, domaine, searchParams] = await Promise.all([formats(), getTranslations("gestion.file"), getTranslations("domaine"), props.searchParams]);
-  const [pending, traitees] = await Promise.all([listPendingRequests(getDeps(), admin), listProcessedRequests(getDeps(), admin)]);
+  const [pending, archive] = await Promise.all([listPendingRequests(getDeps(), admin), listProcessedRequests(getDeps(), admin, Number(searchParams.page) || 1)]);
 
   return (
     <>
@@ -50,7 +51,7 @@ export default async function PendingRequestsPage(props: PageProps<"/gestion/dem
 
       <section aria-labelledby="archive" className="mt-10">
         <h2 id="archive">{t("archive.titre")}</h2>
-        {traitees.length === 0 ? (
+        {archive.total === 0 ? (
           <p>{t("archive.aucune")}</p>
         ) : (
           <table>
@@ -67,7 +68,7 @@ export default async function PendingRequestsPage(props: PageProps<"/gestion/dem
               </tr>
             </thead>
             <tbody>
-              {traitees.map((r) => (
+              {archive.demandes.map((r) => (
                 <tr key={r.id}>
                   <td>{date(r.updatedAt)}</td>
                   <td>{r.requesterUid}</td>
@@ -83,6 +84,23 @@ export default async function PendingRequestsPage(props: PageProps<"/gestion/dem
               ))}
             </tbody>
           </table>
+        )}
+        {archive.total > 0 && (
+          <nav aria-label={t("archive.pagination")} className="mt-4 flex flex-wrap items-center gap-4">
+            {archive.page > 1 && (
+              <Link href={`/gestion/demandes?page=${archive.page - 1}`} className="inline-flex items-center gap-1">
+                <ArrowLeft aria-hidden="true" className="size-4" />
+                {t("archive.plusRecentes")}
+              </Link>
+            )}
+            <span>{t("archive.position", { page: archive.page, pages: archive.pages, total: archive.total })}</span>
+            {archive.page < archive.pages && (
+              <Link href={`/gestion/demandes?page=${archive.page + 1}`} className="inline-flex items-center gap-1">
+                {t("archive.plusAnciennes")}
+                <ArrowRight aria-hidden="true" className="size-4" />
+              </Link>
+            )}
+          </nav>
         )}
       </section>
     </>

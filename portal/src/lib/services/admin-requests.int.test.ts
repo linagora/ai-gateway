@@ -75,13 +75,32 @@ describe("file de validation (F-30)", () => {
     await refuseRequest(deps, admin, refusee.id, "Hors périmètre");
     const annulee = await createKeyRequest(deps, demandeur, { ...demande, project: "abandon" });
     await cancelRequest(deps, demandeur, annulee.id);
-    const archive = await listProcessedRequests(deps, admin);
+    const { demandes: archive } = await listProcessedRequests(deps, admin);
     expect(archive.map((r) => [r.id, r.status])).toEqual([
       [annulee.id, "ANNULEE"],
       [refusee.id, "REFUSEE"],
     ]);
     expect(archive.find((r) => r.id === refusee.id)).toMatchObject({ decidedBy: "jdupont", decisionComment: "Hors périmètre", requesterUid: "pmartin" });
     expect(archive.map((r) => r.id)).not.toContain(enAttente.id);
+  });
+
+  test("l'archive se lit par pages de 50, la plus récente d'abord ; une page hors limites mène à la plus proche", async () => {
+    expect(await listProcessedRequests(deps, admin)).toEqual({ demandes: [], page: 1, pages: 1, total: 0 });
+    const debut = Date.parse("2026-09-01T08:00:00Z");
+    await testDb.accessRequest.createMany({
+      data: Array.from({ length: 120 }, (_, i) => ({
+        kind: "CLE" as const, status: "REFUSEE" as const, requesterUid: `salarie-${i}`, requesterEmail: `salarie-${i}@linagora.com`, teamId: "equipe-rd", teamAlias: "R&D",
+        dataLevel: "N1" as const, models: ["mistral-small"], justification: "Essai", updatedAt: new Date(debut + i * 60_000),
+      })),
+    });
+    const premiere = await listProcessedRequests(deps, admin);
+    expect(premiere).toMatchObject({ page: 1, pages: 3, total: 120 });
+    expect(premiere.demandes).toHaveLength(50);
+    expect(premiere.demandes.slice(0, 2).map((r) => r.requesterUid)).toEqual(["salarie-119", "salarie-118"]);
+    const derniere = await listProcessedRequests(deps, admin, 3);
+    expect(derniere.demandes.map((r) => r.requesterUid)).toEqual(Array.from({ length: 20 }, (_, i) => `salarie-${19 - i}`));
+    expect(await listProcessedRequests(deps, admin, 99)).toMatchObject({ page: 3 });
+    expect(await listProcessedRequests(deps, admin, 0)).toMatchObject({ page: 1 });
   });
 });
 
