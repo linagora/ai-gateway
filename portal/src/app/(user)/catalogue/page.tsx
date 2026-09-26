@@ -20,7 +20,9 @@ const PUCE = "mt-0.5 size-3.5 shrink-0";
 
 /**
  * Ticket #5 : vue d'ensemble des niveaux de confidentialité, point d'entrée du catalogue. Les quatre cartes tiennent
- * sur une rangée et sans défilement sur un écran d'ordinateur (retours de recette du 2026-09-25).
+ * sur une rangée et sans défilement sur un écran d'ordinateur (retours de recette du 2026-09-25). En tête, les deux voies
+ * (retours du 2026-09-26) : les modèles de la passerelle, solution privilégiée, et l'abonnement individuel, sur
+ * justification ; texte serré pour que les cartes tiennent toujours à l'écran.
  */
 export default async function CataloguePage(props: PageProps<"/catalogue">) {
   await requireUser();
@@ -35,10 +37,22 @@ export default async function CataloguePage(props: PageProps<"/catalogue">) {
 
   return (
     <>
-      <h1>{t("titre")}</h1>
-      <p>{t("introduction")}</p>
+      <h1 className="mb-2">{t("titre")}</h1>
+      <div className="grid gap-x-6 gap-y-2 text-[13px] leading-snug md:grid-cols-2">
+        <p className="border-l-4 border-linagora pl-3">{t.rich("voies.passerelle", { fort: (texte) => <strong>{texte}</strong> })}</p>
+        {offres.length > 0 && (
+          <p className="border-l-4 border-neutral-300 pl-3">
+            {t.rich("voies.abonnement", { fort: (texte) => <strong>{texte}</strong> })}{" "}
+            <Link href="/catalogue/abonnements" className="font-medium text-linagora no-underline hover:underline">
+              {t("voies.lienAbonnements")}
+              {" "}
+              <ArrowRight aria-hidden="true" className="inline size-3.5 align-[-0.125em]" />
+            </Link>
+          </p>
+        )}
+      </div>
       <Notice searchParams={searchParams} />
-      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:-mx-16">
+      <div className="mt-3 grid gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:-mx-16">
         {niveaux.map(({ level, modelCount, startingPricePerMillion }) => (
           <section
             key={level}
@@ -100,23 +114,6 @@ export default async function CataloguePage(props: PageProps<"/catalogue">) {
           </section>
         ))}
       </div>
-      {/* Spécification #51 : les abonnements, à part des niveaux, dès qu'une offre est proposée. */}
-      {offres.length > 0 && (
-        <section aria-labelledby="abonnements" className="mt-6 rounded-lg border border-neutral-200 bg-white p-4 shadow-sm 2xl:-mx-16">
-          <h2 id="abonnements" className="mt-0 mb-1 text-lg">
-            {t("abonnements.entree.titre")}
-          </h2>
-          <p className={`${TEXTE} text-neutral-600`}>{t("abonnements.entree.texte")}</p>
-          <p className="mt-3">
-            <Link
-              href="/catalogue/abonnements"
-              className="inline-block rounded bg-linagora px-3 py-1.5 text-sm font-medium text-white no-underline hover:bg-linagora-fonce"
-            >
-              {t("abonnements.entree.lien")}
-            </Link>
-          </p>
-        </section>
-      )}
     </>
   );
 }
