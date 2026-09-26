@@ -166,3 +166,20 @@ model TeamBudgetAlert {
   level   Int
   sentAt  DateTime
 }
+
+/// Offre d'abonnement (spécification #51) : produit payant d'un fournisseur, à souscrire individuellement, présenté au
+/// catalogue avec son prix mensuel TTC et son niveau maximal. Tenue par le portail : LiteLLM n'en sait rien.
+model SubscriptionOffer {
+  id              String    @id @default(cuid())
+  supplier        String
+  name            String
+  monthlyPriceEur Decimal
+  dataLevel       DataLevel
+  rulesFr         String
+  rulesEn         String?
+  url             String?
+  visible         Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  updatedBy       String
+}

@@ -32,6 +32,12 @@
       "N3": "N3 Confidentiel",
       "EXP": "Expérimental (bêta)"
     },
+    "niveauxOffre": {
+      "N1": "N1 Public",
+      "N2": "N2 Interne",
+      "N3": "N3 Confidentiel",
+      "EXP": "Données publiques uniquement"
+    },
     "classifications": {
       "NC": "Classification NC · Public",
       "C1": "Classification C1 · Interne",
@@ -103,7 +109,8 @@
       "membreSorti": "Le membre est sorti de l'équipe : ses clés de l'équipe sont révoquées.",
       "equipeSupprimee": "Équipe supprimée.",
       "responsableDesigne": "Responsable désigné.",
-      "responsableRetire": "Rôle de responsable retiré."
+      "responsableRetire": "Rôle de responsable retiré.",
+      "offreEnregistree": "Offre enregistrée."
     },
     "erreurs": {
       "controles_en_echec": "La demande ne respecte pas la politique d'accès aux modèles. Contrôles en échec : {controles}.",
@@ -200,7 +207,24 @@
     "niveau": "Niveau maximal",
     "visible": "Visible des salariés",
     "enregistrer": "Enregistrer",
-    "aucunModele": "Aucun modèle n'est déclaré dans la passerelle."
+    "aucunModele": "Aucun modèle n'est déclaré dans la passerelle.",
+    "offres": {
+      "titre": "Offres d'abonnement",
+      "introduction": "Offres que les salariés peuvent demander pour leur équipe, puis souscrire eux-mêmes chez le fournisseur. Une offre masquée n'est plus proposée, sans être supprimée.",
+      "aucune": "Aucune offre pour l'instant.",
+      "fournisseur": "Fournisseur",
+      "nom": "Nom de l'offre",
+      "prix": "Prix mensuel TTC (€)",
+      "niveau": "Niveau maximal",
+      "reglesFr": "Règles d'usage (français)",
+      "reglesEn": "Règles d'usage (anglais)",
+      "lien": "Lien vers l'offre (https)",
+      "visible": "Visible au catalogue",
+      "masquee": "masquée",
+      "enregistrer": "Enregistrer l'offre",
+      "nouvelle": "Nouvelle offre",
+      "creer": "Créer l'offre"
+    }
   },
   "catalogue": {
     "titre": "Catalogue des modèles",
@@ -266,6 +290,20 @@
         ],
         "garanties": "Service en bêta, sans garantie : un modèle peut changer ou être retiré sans préavis. Clé dédiée, limitée aux modèles expérimentaux."
       }
+    },
+    "abonnements": {
+      "entree": {
+        "titre": "Abonnements",
+        "texte": "Des abonnements individuels chez des fournisseurs d'IA (ChatGPT, Claude, Kimi…), à demander pour votre équipe, puis à souscrire vous-même.",
+        "lien": "Voir les offres"
+      },
+      "titre": "Abonnements",
+      "introduction": "Ces offres se souscrivent individuellement chez leur fournisseur. Demandez-en une pour votre équipe : une fois votre demande validée, vous souscrivez vous-même, puis vous déclarez l'abonnement dans le portail.",
+      "aucune": "Aucune offre d'abonnement pour l'instant.",
+      "prix": "{prix} TTC par mois",
+      "niveau": "Niveau maximal des données : {niveau}",
+      "regles": "Règles d'usage",
+      "lienFournisseur": "Voir l'offre chez {fournisseur}"
     }
   },
   "niveau": {

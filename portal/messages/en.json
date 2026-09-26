@@ -32,6 +32,12 @@
       "N3": "N3 Confidential",
       "EXP": "Experimental (beta)"
     },
+    "niveauxOffre": {
+      "N1": "N1 Public",
+      "N2": "N2 Internal",
+      "N3": "N3 Confidential",
+      "EXP": "Public data only"
+    },
     "classifications": {
       "NC": "Classification NC · Public",
       "C1": "Classification C1 · Internal",
@@ -103,7 +109,8 @@
       "membreSorti": "The member has left the team: their keys of the team are revoked.",
       "equipeSupprimee": "Team deleted.",
       "responsableDesigne": "Manager designated.",
-      "responsableRetire": "Manager role removed."
+      "responsableRetire": "Manager role removed.",
+      "offreEnregistree": "Offer saved."
     },
     "erreurs": {
       "controles_en_echec": "The request does not comply with the model access policy. Failed checks: {controles}.",
@@ -200,7 +207,24 @@
     "niveau": "Maximum level",
     "visible": "Visible to employees",
     "enregistrer": "Save",
-    "aucunModele": "No model is declared in the gateway."
+    "aucunModele": "No model is declared in the gateway.",
+    "offres": {
+      "titre": "Subscription offers",
+      "introduction": "Offers that employees can request for their team, then take out themselves with the supplier. A hidden offer is no longer offered, without being deleted.",
+      "aucune": "No offer yet.",
+      "fournisseur": "Supplier",
+      "nom": "Offer name",
+      "prix": "Monthly price incl. VAT (€)",
+      "niveau": "Maximum level",
+      "reglesFr": "Usage rules (French)",
+      "reglesEn": "Usage rules (English)",
+      "lien": "Link to the offer (https)",
+      "visible": "Visible in the catalog",
+      "masquee": "hidden",
+      "enregistrer": "Save the offer",
+      "nouvelle": "New offer",
+      "creer": "Create the offer"
+    }
   },
   "catalogue": {
     "titre": "Model catalog",
@@ -266,6 +290,20 @@
         ],
         "garanties": "Beta service without guarantee: a model may change or be withdrawn without notice. Dedicated key, limited to experimental models."
       }
+    },
+    "abonnements": {
+      "entree": {
+        "titre": "Subscriptions",
+        "texte": "Individual subscriptions with AI suppliers (ChatGPT, Claude, Kimi…), requested for your team, then taken out by yourself.",
+        "lien": "See the offers"
+      },
+      "titre": "Subscriptions",
+      "introduction": "These offers are taken out individually with their supplier. Request one for your team: once your request is approved, you subscribe yourself, then declare the subscription in the portal.",
+      "aucune": "No subscription offer yet.",
+      "prix": "{prix} incl. VAT per month",
+      "niveau": "Maximum data level: {niveau}",
+      "regles": "Usage rules",
+      "lienFournisseur": "See the offer at {fournisseur}"
     }
   },
   "niveau": {

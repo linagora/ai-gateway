@@ -16,6 +16,7 @@ import {
   requestCompletion,
 } from "@/lib/services/admin-requests";
 import { saveCatalogEntry } from "@/lib/services/catalog";
+import { saveOffer } from "@/lib/services/offers";
 import { blockKey, pickUpKey, replaceKey, revokeKey, unblockKey } from "@/lib/services/keys";
 import { cancelRequest, completeRequest, createKeyRequest, createTeamJoinRequest } from "@/lib/services/requests";
 import { saveSettings } from "@/lib/services/settings";
@@ -106,6 +107,27 @@ export async function saveCatalogEntryAction(formData: FormData): Promise<void> 
         visible: formData.get("visible") === "on",
       }),
     { path: "/gestion/catalogue", message: "catalogueMisAJour" },
+  );
+}
+
+/** Spécification #51, ticket #53 : création ou modification d'une offre d'abonnement par un admin. */
+export async function enregistrerOffreAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  await run(
+    "/gestion/catalogue",
+    () =>
+      saveOffer(getDeps(), user, {
+        id: optionalText(formData, "id") ?? undefined,
+        supplier: text(formData, "supplier"),
+        name: text(formData, "name"),
+        monthlyPriceEur: optionalNumber(formData, "monthlyPriceEur") ?? Number.NaN,
+        dataLevel: text(formData, "dataLevel") as DataLevel,
+        rulesFr: text(formData, "rulesFr"),
+        rulesEn: optionalText(formData, "rulesEn"),
+        url: optionalText(formData, "url"),
+        visible: formData.get("visible") === "on",
+      }),
+    { path: "/gestion/catalogue", message: "offreEnregistree" },
   );
 }
 
@@ -287,6 +309,7 @@ type CleSucces =
   | "adhesionEnvoyee"
   | "demandeAnnulee"
   | "catalogueMisAJour"
+  | "offreEnregistree"
   | "demandeApprouvee"
   | "adhesionApprouvee"
   | "demandeRefusee"

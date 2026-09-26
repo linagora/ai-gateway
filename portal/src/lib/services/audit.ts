@@ -23,14 +23,16 @@ export type AuditAction =
   | "MEMBER_ADDED"
   | "MEMBER_REMOVED"
   | "MANAGER_DESIGNATED"
-  | "MANAGER_REMOVED";
+  | "MANAGER_REMOVED"
+  | "OFFER_CREATED"
+  | "OFFER_UPDATED";
 
 /** Entrée du journal d'audit : qui, quoi, sur quelle cible, avec quels détails. Jamais de secret. */
 export interface AuditEntry {
   actorUid: string;
   action: AuditAction;
   targetId: string | null;
-  details: Record<string, string | number | null>;
+  details: Record<string, string | number | boolean | null>;
 }
 
 export async function recordAudit(db: Db, entry: AuditEntry): Promise<void> {
