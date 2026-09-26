@@ -227,7 +227,7 @@ test("un responsable voit, dans une gestion limitée à son équipe, ses demande
   // Le responsable : lien « Gestion » avec la pastille de son équipe, onglets limités.
   await pageResponsable.goto("/");
   await pageResponsable.getByRole("link", { name: "Gestion (1 demande à valider)" }).click();
-  await expect(pageResponsable.getByRole("navigation", { name: "Administration" }).getByRole("link")).toHaveText([/^Demandes/, /^Clés/, /^Abonnements/, "Équipes"]);
+  await expect(pageResponsable.getByRole("navigation", { name: "Administration" }).getByRole("link")).toHaveText([/^Demandes/, /^Clés/, /^Abonnements/, "Équipes", "Salariés"]);
   await expect(pageResponsable.getByRole("table").first()).toContainText(membre.uid);
   await expect(pageResponsable.getByRole("main")).not.toContainText(etranger.uid);
   await pageResponsable.getByRole("row", { name: new RegExp(membre.uid) }).getByRole("link", { name: "Examiner" }).click();

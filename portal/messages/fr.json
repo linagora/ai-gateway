@@ -134,7 +134,7 @@
       "renouvellement_trop_tot": "Le renouvellement se demande au plus tôt un mois avant l'échéance de l'abonnement.",
       "engagement_requis": "Engagez-vous à ne pas soumettre de données d'un niveau supérieur à celui déclaré.",
       "interdit": "Action réservée aux administrateurs.",
-      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} membre {Membre introuvable dans cette équipe.} responsable {Responsable introuvable dans cette équipe.} offre {Offre d'abonnement introuvable.} demande_abonnement {Demande d'abonnement introuvable.} abonnement {Abonnement introuvable.} other {Demande introuvable.}}",
+      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} membre {Membre introuvable dans cette équipe.} responsable {Responsable introuvable dans cette équipe.} offre {Offre d'abonnement introuvable.} demande_abonnement {Demande d'abonnement introuvable.} abonnement {Abonnement introuvable.} salarie {Salarié introuvable.} other {Demande introuvable.}}",
       "motif_obligatoire": "Un motif est obligatoire.",
       "parametre_manquant": "Budget, période du budget et durée de validité sont obligatoires : saisissez-les ou configurez des valeurs par défaut.",
       "recommandation_hors_cas_usage": "Une recommandation ne peut porter que sur un cas d'usage coché.",
@@ -445,6 +445,28 @@
     "retour": "Retour au portail"
   },
   "gestion": {
+    "salaries": {
+      "titre": "Salariés",
+      "tous": "Tous les salariés",
+      "filtreEquipe": "Salariés de l'équipe {equipe}",
+      "recherche": "Rechercher un salarié (uid ou adresse)",
+      "rechercher": "Rechercher",
+      "aucun": "Aucun salarié.",
+      "aucunResultat": "Aucun salarié ne correspond à « {recherche} ».",
+      "colonnes": {
+        "salarie": "Salarié",
+        "equipes": "Équipes",
+        "cles": "Clés actives",
+        "abonnements": "Abonnements actifs"
+      },
+      "equipes": "Équipes",
+      "aucuneEquipe": "Membre d'aucune équipe.",
+      "responsable": "responsable",
+      "cles": "Clés d'API",
+      "clesARetirer": "Clés approuvées, à retirer par le salarié",
+      "abonnements": "Abonnements",
+      "abonnementsADeclarer": "Abonnements approuvés, à déclarer par le salarié"
+    },
     "nav": {
       "libelle": "Administration",
       "demandes": "Demandes",
@@ -454,7 +476,8 @@
       "abonnements": "Abonnements",
       "equipes": "Équipes",
       "aValider": "{nombre, plural, one {# demande à valider} other {# demandes à valider}}",
-      "outils": "Outils"
+      "outils": "Outils",
+      "salaries": "Salariés"
     },
     "file": {
       "titre": "Demandes en attente de validation",
@@ -618,6 +641,7 @@
         "budget": "Budget",
         "responsables": "Responsables"
       },
+      "voirMembres": "{nombre, plural, =0 {Voir les salariés de l'équipe} one {Voir le membre de l'équipe} other {Voir les # membres de l'équipe}}",
       "voirCles": "{nombre, plural, =0 {Voir les clés de l'équipe} one {Voir la clé active de l'équipe} other {Voir les # clés actives de l'équipe}}",
       "toutes": "Toutes les équipes",
       "resume": "Résumé de l'équipe",

@@ -134,7 +134,7 @@
       "renouvellement_trop_tot": "Renewal can be requested at the earliest one month before the subscription expires.",
       "engagement_requis": "Commit to not submitting data above the declared level.",
       "interdit": "Administrators only.",
-      "introuvable": "{objet, select, modele {Model {modele} is not declared in the gateway.} equipe {Team not found.} demande_adhesion {Access request not found.} demande_cle {Key request not found.} membre {Member not found in this team.} responsable {Manager not found in this team.} offre {Subscription offer not found.} demande_abonnement {Subscription request not found.} abonnement {Subscription not found.} other {Request not found.}}",
+      "introuvable": "{objet, select, modele {Model {modele} is not declared in the gateway.} equipe {Team not found.} demande_adhesion {Access request not found.} demande_cle {Key request not found.} membre {Member not found in this team.} responsable {Manager not found in this team.} offre {Subscription offer not found.} demande_abonnement {Subscription request not found.} abonnement {Subscription not found.} salarie {Employee not found.} other {Request not found.}}",
       "motif_obligatoire": "A reason is required.",
       "parametre_manquant": "Budget, budget period and validity are required: enter them or configure default values.",
       "recommandation_hors_cas_usage": "A recommendation can only apply to a checked use case.",
@@ -445,6 +445,28 @@
     "retour": "Back to the portal"
   },
   "gestion": {
+    "salaries": {
+      "titre": "Employees",
+      "tous": "All employees",
+      "filtreEquipe": "Employees of team {equipe}",
+      "recherche": "Search for an employee (uid or address)",
+      "rechercher": "Search",
+      "aucun": "No employees.",
+      "aucunResultat": "No employee matches “{recherche}”.",
+      "colonnes": {
+        "salarie": "Employee",
+        "equipes": "Teams",
+        "cles": "Active keys",
+        "abonnements": "Active subscriptions"
+      },
+      "equipes": "Teams",
+      "aucuneEquipe": "Not a member of any team.",
+      "responsable": "manager",
+      "cles": "API keys",
+      "clesARetirer": "Approved keys, to be picked up by the employee",
+      "abonnements": "Subscriptions",
+      "abonnementsADeclarer": "Approved subscriptions, to be declared by the employee"
+    },
     "nav": {
       "libelle": "Administration",
       "demandes": "Requests",
@@ -454,7 +476,8 @@
       "abonnements": "Subscriptions",
       "equipes": "Teams",
       "aValider": "{nombre, plural, one {# request to review} other {# requests to review}}",
-      "outils": "Tools"
+      "outils": "Tools",
+      "salaries": "Employees"
     },
     "file": {
       "titre": "Requests awaiting validation",
@@ -618,6 +641,7 @@
         "budget": "Budget",
         "responsables": "Managers"
       },
+      "voirMembres": "{nombre, plural, =0 {See the team's employees} one {See the team's member} other {See the team's # members}}",
       "voirCles": "{nombre, plural, =0 {See the team's keys} one {See the team's active key} other {See the team's # active keys}}",
       "toutes": "All teams",
       "resume": "Team summary",

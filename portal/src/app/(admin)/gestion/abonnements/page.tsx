@@ -5,10 +5,10 @@ import { PortalError } from "@/lib/errors";
 import { type AdminSubscription, listActiveSubscriptions, listSubscriptionArchive, listSubscriptionsToDeclare } from "@/lib/services/subscriptions";
 import { getTeamOverview } from "@/lib/services/teams";
 import { getDeps, requireGestionPage } from "@/lib/session";
-import { declarerResiliationGestionAction, demanderResiliationAction } from "../../../actions";
 import { formats, Notice, PaginationArchive } from "../../../components";
-import { Obligatoire } from "../../../obligatoire";
+import { ActionsAbonnement } from "../actions-gestion";
 import { AdminNav } from "../admin-nav";
+import { LienSalarie } from "../lien-salarie";
 
 /**
  * Spécification #51, ticket #56 : les abonnements approuvés en attente de déclaration, les abonnements actifs, puis
@@ -33,15 +33,13 @@ export default async function GestionAbonnementsPage(props: PageProps<"/gestion/
       })
     : null;
   const [aDeclarer, actifs, archive] = await Promise.all([
-    listSubscriptionsToDeclare(getDeps(), acteur, teamId),
-    listActiveSubscriptions(getDeps(), acteur, teamId),
-    listSubscriptionArchive(getDeps(), acteur, Number(searchParams.page) || 1, teamId),
+    listSubscriptionsToDeclare(getDeps(), acteur, { equipe: teamId }),
+    listActiveSubscriptions(getDeps(), acteur, { equipe: teamId }),
+    listSubscriptionArchive(getDeps(), acteur, Number(searchParams.page) || 1, { equipe: teamId }),
   ]);
-  // Jour d'aujourd'hui (AAAA-MM-JJ) : date de résiliation proposée, et date maximale.
-  const aujourdhui = new Date().toISOString().slice(0, 10);
   const titulaire = (uid: string, email: string) => (
     <td>
-      {uid}
+      <LienSalarie uid={uid} />
       <br />
       <span className="text-xs text-neutral-600">{email}</span>
     </td>
@@ -49,37 +47,7 @@ export default async function GestionAbonnementsPage(props: PageProps<"/gestion/
   /** Demander la résiliation d'un abonnement actif ; pour un admin, déclarer la résiliation à la place du titulaire. */
   const actions = (a: AdminSubscription) => (
     <td className="space-y-1 text-sm">
-      {a.status === "ACTIF" && (
-        <details>
-          <summary>{t("resiliation.demander")}</summary>
-          <form action={demanderResiliationAction} aria-label={t("resiliation.formulaireDemande", { offre: a.offer, titulaire: a.holderUid })}>
-            <input type="hidden" name="subscriptionId" value={a.id} />
-            {teamId && <input type="hidden" name="equipe" value={teamId} />}
-            <label>
-              {t("resiliation.motif")}
-              <Obligatoire />
-              <textarea name="reason" required rows={2} />
-            </label>
-            <p className="text-xs text-neutral-600">{t("resiliation.aideDemande")}</p>
-            <button type="submit">{t("resiliation.envoyer")}</button>
-          </form>
-        </details>
-      )}
-      {acteur.isAdmin && (
-        <details>
-          <summary>{t("resiliation.declarer")}</summary>
-          <form action={declarerResiliationGestionAction} aria-label={t("resiliation.formulaireDeclaration", { offre: a.offer, titulaire: a.holderUid })}>
-            <input type="hidden" name="subscriptionId" value={a.id} />
-            {teamId && <input type="hidden" name="equipe" value={teamId} />}
-            <label>
-              {t("resiliation.date")}
-              <input type="date" name="terminatedOn" required min={a.subscribedAt.toISOString().slice(0, 10)} max={aujourdhui} defaultValue={aujourdhui} />
-            </label>
-            <p className="text-xs text-neutral-600">{t("resiliation.aideDeclaration")}</p>
-            <button type="submit">{t("resiliation.enregistrer")}</button>
-          </form>
-        </details>
-      )}
+      <ActionsAbonnement abonnement={a} acteur={acteur} retour={{ equipe: teamId }} />
     </td>
   );
   /** Ligne d'un abonnement ; celles des abonnements actifs ou à résilier ont leurs actions. */
