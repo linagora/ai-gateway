@@ -1,6 +1,6 @@
 {
   "metadonnees": {
-    "titre": "Portail IA Linagora",
+    "titre": "Portail IA LINAGORA",
     "description": "Catalogue des modèles d'IA et demandes de clés d'API"
   },
   "entete": {
@@ -19,7 +19,7 @@
   },
   "accueil": {
     "bonjour": "Bonjour {nom}",
-    "presentation": "Ce portail donne accès aux modèles d'IA de Linagora par une API compatible OpenAI. Chaque clé d'API est validée par un administrateur et limitée aux modèles compatibles avec le niveau de confidentialité de vos données.",
+    "presentation": "Ce portail donne accès aux modèles d'IA de LINAGORA par une API compatible OpenAI. Chaque clé d'API est validée par un administrateur et limitée aux modèles compatibles avec le niveau de confidentialité de vos données.",
     "catalogue": "Consulter le catalogue des modèles",
     "demander": "Demander une clé d'API",
     "suivre": "Suivre mes demandes",
@@ -243,7 +243,7 @@
           "Informations classifiées (Diffusion Restreinte et au-delà)",
           "Données qu'un contrat interdit de confier à un tiers"
         ],
-        "garanties": "Modèles hébergés en France chez OVHcloud, sous contrat de sous-traitance ; à terme, chez Linagora ou un hébergeur souverain."
+        "garanties": "Modèles hébergés en France chez OVHcloud, sous contrat de sous-traitance ; à terme, chez LINAGORA ou un hébergeur souverain."
       },
       "EXP": {
         "definition": "Modèles récents en bêta, à essayer avec des données publiques uniquement.",
@@ -365,7 +365,7 @@
   },
   "connexion": {
     "titre": "Connexion au Portail IA",
-    "explication": "Le portail utilise votre compte Linagora : connectez-vous avec le SSO de l'entreprise.",
+    "explication": "Le portail utilise votre compte LINAGORA : connectez-vous avec le SSO de l'entreprise.",
     "bouton": "Se connecter avec LemonLDAP::NG",
     "echec": "La connexion a échoué. Réessayez ; si le problème persiste, contactez un administrateur du portail."
   },

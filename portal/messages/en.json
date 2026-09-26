@@ -1,6 +1,6 @@
 {
   "metadonnees": {
-    "titre": "Linagora AI Portal",
+    "titre": "LINAGORA AI Portal",
     "description": "AI model catalog and API key requests"
   },
   "entete": {
@@ -19,7 +19,7 @@
   },
   "accueil": {
     "bonjour": "Hello {nom}",
-    "presentation": "This portal gives access to Linagora's AI models through an OpenAI-compatible API. Each API key is approved by an administrator and limited to the models compatible with the confidentiality level of your data.",
+    "presentation": "This portal gives access to LINAGORA's AI models through an OpenAI-compatible API. Each API key is approved by an administrator and limited to the models compatible with the confidentiality level of your data.",
     "catalogue": "Browse the model catalog",
     "demander": "Request an API key",
     "suivre": "Track my requests",
@@ -243,7 +243,7 @@
           "Classified information (Restricted and above)",
           "Data that a contract forbids entrusting to a third party"
         ],
-        "garanties": "Models hosted in France by OVHcloud, under a data processing agreement; eventually by Linagora or a sovereign host."
+        "garanties": "Models hosted in France by OVHcloud, under a data processing agreement; eventually by LINAGORA or a sovereign host."
       },
       "EXP": {
         "definition": "Recent models in beta, to try with public data only.",
@@ -365,7 +365,7 @@
   },
   "connexion": {
     "titre": "Sign in to the AI Portal",
-    "explication": "The portal uses your Linagora account: sign in with the company SSO.",
+    "explication": "The portal uses your LINAGORA account: sign in with the company SSO.",
     "bouton": "Sign in with LemonLDAP::NG",
     "echec": "Sign-in failed. Try again; if the problem persists, contact a portal administrator."
   },
