@@ -12,7 +12,7 @@ export async function AdminNav() {
   const admin = await requireGestionPage();
   const [t, demandes] = await Promise.all([getTranslations("gestion.nav"), countAdminPending(getDeps(), admin)]);
   return (
-    <nav className="mb-4 flex gap-4 text-sm" aria-label={t("libelle")}>
+    <nav className="mb-4 flex gap-4 text-sm print:hidden" aria-label={t("libelle")}>
       <Onglets
         onglets={[
           {

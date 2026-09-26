@@ -1,7 +1,8 @@
+import { strFromU8, unzipSync } from "fflate";
 import { beforeEach, describe, expect, test } from "vitest";
 import { resetDb, testDb } from "@/test/db";
 import { listAudit } from "./audit";
-import { listChargesToReimburse, listTransmissions, transmissionCsv, transmitCharges } from "./remboursements";
+import { exportChargesToReimburse, listChargesToReimburse, listTransmissions, transmissionCsv, transmitCharges } from "./remboursements";
 
 /*
  * Remboursements (retours de l'utilisateur du 2026-09-26) : les prélèvements des abonnements, à rembourser aux
@@ -53,27 +54,28 @@ const situation = async () => ({
 const jour = (j: string) => new Date(`${j}T00:00:00Z`);
 
 describe("remboursements", () => {
-  test("la liste d'un mois réunit, par collaborateur, les prélèvements non transmis jusqu'à la fin du mois, retards compris", async () => {
+  test("la liste d'un mois réunit, par collaborateur, les prélèvements non transmis jusqu'à la fin du mois, retards compris, en TTC et hors taxe (TVA 20 %)", async () => {
     const { paul, lea, zeta } = await situation();
     expect(await listChargesToReimburse(deps, admin, "2026-09")).toEqual({
       month: "2026-09",
       count: 4,
       totalEur: 84.19,
+      totalHtEur: 70.16,
       employees: [
         {
-          uid: "lbernard", name: "Léa Bernard", email: "lbernard@linagora.com", totalEur: 22.99,
-          charges: [{ id: lea[0], chargedOn: jour("2026-09-05"), amountEur: 22.99, offer: "Anthropic · ChatGPT Plus", teamAlias: "R&D", late: false }],
+          uid: "lbernard", name: "Léa Bernard", email: "lbernard@linagora.com", totalEur: 22.99, totalHtEur: 19.16,
+          charges: [{ id: lea[0], chargedOn: jour("2026-09-05"), amountEur: 22.99, amountHtEur: 19.16, offer: "Anthropic · ChatGPT Plus", teamAlias: "R&D", late: false }],
         },
         {
-          uid: "pmartin", name: "Paul Martin", email: "pmartin@linagora.com", totalEur: 43.2,
+          uid: "pmartin", name: "Paul Martin", email: "pmartin@linagora.com", totalEur: 43.2, totalHtEur: 36,
           charges: [
-            { id: paul[0], chargedOn: jour("2026-08-20"), amountEur: 21.6, offer: "Anthropic · Claude Pro", teamAlias: "R&D", late: true },
-            { id: paul[1], chargedOn: jour("2026-09-20"), amountEur: 21.6, offer: "Anthropic · Claude Pro", teamAlias: "R&D", late: false },
+            { id: paul[0], chargedOn: jour("2026-08-20"), amountEur: 21.6, amountHtEur: 18, offer: "Anthropic · Claude Pro", teamAlias: "R&D", late: true },
+            { id: paul[1], chargedOn: jour("2026-09-20"), amountEur: 21.6, amountHtEur: 18, offer: "Anthropic · Claude Pro", teamAlias: "R&D", late: false },
           ],
         },
         {
-          uid: "zeta", name: null, email: "zeta@linagora.com", totalEur: 18,
-          charges: [{ id: zeta[0], chargedOn: jour("2026-09-30"), amountEur: 18, offer: "Anthropic · Kimi", teamAlias: "R&D", late: false }],
+          uid: "zeta", name: null, email: "zeta@linagora.com", totalEur: 18, totalHtEur: 15,
+          charges: [{ id: zeta[0], chargedOn: jour("2026-09-30"), amountEur: 18, amountHtEur: 15, offer: "Anthropic · Kimi", teamAlias: "R&D", late: false }],
         },
       ],
     });
@@ -84,9 +86,9 @@ describe("remboursements", () => {
     const ids = (await listChargesToReimburse(deps, admin, "2026-09")).employees.flatMap((e) => e.charges.map((c) => c.id));
     const id = await transmitCharges(deps, admin, { month: "2026-09", chargeIds: ids });
 
-    expect(await listChargesToReimburse(deps, admin, "2026-09")).toEqual({ month: "2026-09", count: 0, totalEur: 0, employees: [] });
+    expect(await listChargesToReimburse(deps, admin, "2026-09")).toEqual({ month: "2026-09", count: 0, totalEur: 0, totalHtEur: 0, employees: [] });
     expect(await listTransmissions(deps, admin)).toEqual([
-      { id, month: "2026-09", transmittedAt: new Date("2026-10-02T09:00:00Z"), transmittedBy: "jdupont", chargeCount: 4, totalEur: 84.19 },
+      { id, month: "2026-09", transmittedAt: new Date("2026-10-02T09:00:00Z"), transmittedBy: "jdupont", chargeCount: 4, totalEur: 84.19, totalHtEur: 70.16 },
     ]);
     expect((await listAudit(testDb)).find((e) => e.action === "CHARGES_TRANSMITTED")).toMatchObject({
       actorUid: "jdupont", targetId: id, details: { mois: "2026-09", nombre: 4, total: 84.19 },
@@ -120,12 +122,27 @@ describe("remboursements", () => {
       content:
         "﻿" +
         [
-          "Collaborateur;Identifiant;Adresse;Offre;Équipe;Date du prélèvement;Montant TTC (€)",
-          "\"'=HYPERLINK(\"\"x\"\")\";piege;piege@linagora.com;\"Anthropic · Offre ; spéciale\";R&D;10/09/2026;10,00",
-          "Léa Bernard;lbernard;lbernard@linagora.com;Anthropic · ChatGPT Plus;R&D;05/09/2026;22,99",
+          "Collaborateur;Identifiant;Adresse;Offre;Équipe;Date du prélèvement;Montant HT (€);Montant TTC (€)",
+          "\"'=HYPERLINK(\"\"x\"\")\";piege;piege@linagora.com;\"Anthropic · Offre ; spéciale\";R&D;10/09/2026;8,33;10,00",
+          "Léa Bernard;lbernard;lbernard@linagora.com;Anthropic · ChatGPT Plus;R&D;05/09/2026;19,16;22,99",
         ].join("\r\n") +
         "\r\n",
     });
+  });
+
+  test("l'export Excel de la liste à transmettre, sans rien transmettre : une feuille des prélèvements et une feuille par collaborateur, en HT et TTC", async () => {
+    await situation();
+    const { fileName, content } = await exportChargesToReimburse(deps, admin, "2026-09");
+    expect(fileName).toBe("remboursements-a-transmettre-2026-09.xlsx");
+    const fichiers = unzipSync(new Uint8Array(content));
+    const xml = Object.fromEntries(Object.entries(fichiers).map(([nom, octets]) => [nom, strFromU8(octets)]));
+    expect(xml["xl/workbook.xml"]).toMatch(/name="Prélèvements"[\s\S]*name="Par collaborateur"/);
+    const tout = Object.values(xml).join("\n");
+    for (const texte of ["Léa Bernard", "pmartin", "zeta@linagora.com", "Anthropic · Claude Pro", "Montant HT (€)", "Montant TTC (€)", "Total"]) expect(tout).toContain(texte);
+    // Paul Martin : 43,20 € TTC, 36 € HT ; total général : 84,19 € TTC, 70,16 € HT.
+    for (const nombre of ["43.2", "36", "84.19", "70.16"]) expect(tout).toContain(`<v>${nombre}</v>`);
+    expect(await listTransmissions(deps, admin)).toEqual([]);
+    expect((await listChargesToReimburse(deps, admin, "2026-09")).count).toBe(4);
   });
 
   test("réservé aux admins ; un mois mal formé et une transmission inconnue sont refusés", async () => {
@@ -133,6 +150,7 @@ describe("remboursements", () => {
     await expect(transmitCharges(deps, collaborateur, { month: "2026-09", chargeIds: ["x"] })).rejects.toMatchObject({ code: "interdit" });
     await expect(listTransmissions(deps, collaborateur)).rejects.toMatchObject({ code: "interdit" });
     await expect(transmissionCsv(deps, collaborateur, "x")).rejects.toMatchObject({ code: "interdit" });
+    await expect(exportChargesToReimburse(deps, collaborateur, "2026-09")).rejects.toMatchObject({ code: "interdit" });
     await expect(listChargesToReimburse(deps, admin, "2026-13")).rejects.toMatchObject({ code: "mois_invalide" });
     await expect(transmissionCsv(deps, admin, "inconnue")).rejects.toMatchObject({ code: "introuvable" });
   });

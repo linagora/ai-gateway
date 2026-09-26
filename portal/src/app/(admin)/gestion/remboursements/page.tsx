@@ -1,17 +1,19 @@
-import { Download } from "lucide-react";
+import { Download, FileSpreadsheet } from "lucide-react";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { listChargesToReimburse, listTransmissions } from "@/lib/services/remboursements";
 import { getDeps, requireAdminPage } from "@/lib/session";
 import { transmettreRemboursementsAction } from "../../../actions";
 import { formats, Notice } from "../../../components";
 import { AdminNav } from "../admin-nav";
-import { LienCollaborateur } from "../lien-collaborateur";
+import { BoutonImprimer } from "./bouton-imprimer";
+import { GroupeCollaborateur } from "./groupe-collaborateur";
 
 /**
  * Remboursements (retours de l'utilisateur du 2026-09-26), réservés aux admins : les prélèvements des abonnements qui
  * restent à transmettre à la comptabilité jusqu'à la fin du mois choisi (par défaut le mois écoulé), retards compris,
- * par collaborateur avec leurs totaux ; « Marquer comme transmis » enregistre exactement la liste affichée. L'historique
- * des transmissions donne le fichier CSV de chacune, pour la comptabilité.
+ * par collaborateur avec leurs totaux HT et TTC, le détail de chacun se dépliant d'un chevron ; la liste s'exporte en
+ * Excel ou s'imprime (ou s'enregistre en PDF) sans rien transmettre. « Marquer comme transmis » enregistre exactement la
+ * liste affichée ; l'historique des transmissions donne le fichier CSV de chacune, pour la comptabilité.
  */
 export default async function RemboursementsPage(props: PageProps<"/gestion/remboursements">) {
   const acteur = await requireAdminPage();
@@ -33,9 +35,9 @@ export default async function RemboursementsPage(props: PageProps<"/gestion/remb
     <>
       <AdminNav />
       <h1>{t("titre")}</h1>
-      <p className="max-w-3xl">{t("introduction")}</p>
+      <p className="max-w-3xl print:hidden">{t("introduction")}</p>
       <Notice searchParams={searchParams} />
-      <form className="mt-4 mb-2 flex flex-wrap items-end gap-3">
+      <form className="mt-4 mb-2 flex flex-wrap items-end gap-3 print:hidden">
         <label>
           {t("mois")}
           <input type="month" name="mois" defaultValue={mois} max={moisCourant} required />
@@ -49,54 +51,55 @@ export default async function RemboursementsPage(props: PageProps<"/gestion/remb
           <p>{t("aucun")}</p>
         ) : (
           <>
-            <table>
+            <p className="flex flex-wrap items-center gap-x-6 gap-y-2 print:hidden">
+              <a href={`/gestion/remboursements/export?mois=${mois}`} download className="inline-flex items-center gap-1">
+                <FileSpreadsheet aria-hidden="true" className="size-4" />
+                {t("exporterExcel")}
+              </a>
+              <BoutonImprimer libelle={t("imprimer")} />
+            </p>
+            <table className="mt-3">
               <thead>
                 <tr>
                   <th>{t("colonnes.collaborateur")}</th>
                   <th>{t("colonnes.offre")}</th>
                   <th>{t("colonnes.equipe")}</th>
                   <th>{t("colonnes.preleveLe")}</th>
+                  <th className="text-right">{t("colonnes.montantHt")}</th>
                   <th className="text-right">{t("colonnes.montant")}</th>
                 </tr>
               </thead>
               {liste.employees.map((e) => (
-                <tbody key={e.uid} aria-label={e.name ?? e.uid}>
-                  {e.charges.map((c, i) => (
-                    <tr key={c.id}>
-                      {i === 0 && (
-                        <td rowSpan={e.charges.length + 1} className="align-top">
-                          {e.name && <span className="block">{e.name}</span>}
-                          <LienCollaborateur uid={e.uid} />
-                          <span className="block text-xs text-neutral-600">{e.email}</span>
-                        </td>
-                      )}
-                      <td>{c.offer}</td>
-                      <td>{c.teamAlias}</td>
-                      <td>
-                        {jour(c.chargedOn)}
-                        {c.late && <span className="block text-xs text-amber-800">{t("retard")}</span>}
-                      </td>
-                      <td className="text-right">{euros(c.amountEur)}</td>
-                    </tr>
-                  ))}
-                  <tr>
-                    <td colSpan={3} className="text-right text-sm">
-                      {t("totalCollaborateur")}
-                    </td>
-                    <td className="text-right font-semibold">{euros(e.totalEur)}</td>
-                  </tr>
-                </tbody>
+                <GroupeCollaborateur
+                  key={e.uid}
+                  uid={e.uid}
+                  nom={e.name}
+                  adresse={e.email}
+                  resume={t("resume", { nombre: e.charges.length, retards: e.charges.filter((c) => c.late).length })}
+                  totalHt={euros(e.totalHtEur)}
+                  totalTtc={euros(e.totalEur)}
+                  prelevements={e.charges.map((c) => ({
+                    id: c.id,
+                    offre: c.offer,
+                    equipe: c.teamAlias,
+                    date: jour(c.chargedOn),
+                    retard: c.late ? t("retard") : null,
+                    ht: euros(c.amountHtEur),
+                    ttc: euros(c.amountEur),
+                  }))}
+                />
               ))}
               <tfoot>
                 <tr>
                   <th colSpan={4} scope="row" className="text-right">
                     {t("totalGeneral", { nombre: liste.count })}
                   </th>
+                  <td className="text-right font-semibold">{euros(liste.totalHtEur)}</td>
                   <td className="text-right font-semibold">{euros(liste.totalEur)}</td>
                 </tr>
               </tfoot>
             </table>
-            <details className="mt-4">
+            <details className="mt-4 print:hidden">
               <summary className="cursor-pointer">{t("transmettre")}</summary>
               <p className="text-sm">{t("avertissementTransmission", { nombre: liste.count, total: euros(liste.totalEur) })}</p>
               <form action={transmettreRemboursementsAction}>
@@ -109,7 +112,7 @@ export default async function RemboursementsPage(props: PageProps<"/gestion/remb
         )}
       </section>
 
-      <section aria-labelledby="transmissions" className="mt-10">
+      <section aria-labelledby="transmissions" className="mt-10 print:hidden">
         <h2 id="transmissions">{t("transmissions.titre")}</h2>
         {transmissions.length === 0 ? (
           <p>{t("transmissions.aucune")}</p>
@@ -121,6 +124,7 @@ export default async function RemboursementsPage(props: PageProps<"/gestion/remb
                 <th>{t("transmissions.colonnes.par")}</th>
                 <th>{t("transmissions.colonnes.mois")}</th>
                 <th className="text-right">{t("transmissions.colonnes.nombre")}</th>
+                <th className="text-right">{t("transmissions.colonnes.totalHt")}</th>
                 <th className="text-right">{t("transmissions.colonnes.total")}</th>
                 <th />
               </tr>
@@ -132,6 +136,7 @@ export default async function RemboursementsPage(props: PageProps<"/gestion/remb
                   <td>{tr.transmittedBy}</td>
                   <td>{nomDuMois(tr.month)}</td>
                   <td className="text-right">{tr.chargeCount}</td>
+                  <td className="text-right">{euros(tr.totalHtEur)}</td>
                   <td className="text-right">{euros(tr.totalEur)}</td>
                   <td>
                     <a href={`/gestion/remboursements/transmissions/${encodeURIComponent(tr.id)}/csv`} download className="inline-flex items-center gap-1">
