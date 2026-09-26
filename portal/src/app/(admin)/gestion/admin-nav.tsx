@@ -1,7 +1,7 @@
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { countAdminPending } from "@/lib/services/admin-requests";
 import { getDeps, requireGestionPage } from "@/lib/session";
+import { Onglets } from "../../onglets";
 import { Pastille } from "../../pastille";
 
 /**
@@ -13,20 +13,29 @@ export async function AdminNav() {
   const [t, demandes] = await Promise.all([getTranslations("gestion.nav"), countAdminPending(getDeps(), admin)]);
   return (
     <nav className="mb-4 flex gap-4 text-sm" aria-label={t("libelle")}>
-      <Link href="/gestion/demandes">
-        {t("demandes")}
-        <Pastille nombre={demandes} libelle={t("aValider", { nombre: demandes })} />
-      </Link>
-      <Link href="/gestion/cles">{t("cles")}</Link>
-      <Link href="/gestion/abonnements">{t("abonnements")}</Link>
-      <Link href="/gestion/equipes">{t("equipes")}</Link>
-      {admin.isAdmin && (
-        <>
-          <Link href="/gestion/catalogue">{t("catalogue")}</Link>
-          <Link href="/gestion/parametres">{t("parametres")}</Link>
-          <Link href="/gestion/outils">{t("outils")}</Link>
-        </>
-      )}
+      <Onglets
+        onglets={[
+          {
+            href: "/gestion/demandes",
+            contenu: (
+              <>
+                {t("demandes")}
+                <Pastille nombre={demandes} libelle={t("aValider", { nombre: demandes })} />
+              </>
+            ),
+          },
+          { href: "/gestion/cles", contenu: t("cles") },
+          { href: "/gestion/abonnements", contenu: t("abonnements") },
+          { href: "/gestion/equipes", contenu: t("equipes") },
+          ...(admin.isAdmin
+            ? [
+                { href: "/gestion/catalogue", contenu: t("catalogue") },
+                { href: "/gestion/parametres", contenu: t("parametres") },
+                { href: "/gestion/outils", contenu: t("outils") },
+              ]
+            : []),
+        ]}
+      />
     </nav>
   );
 }

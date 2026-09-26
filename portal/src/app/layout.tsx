@@ -7,6 +7,7 @@ import { Suspense } from "react";
 import { countMyPending } from "@/lib/services/requests";
 import { getCurrentUser, getDeps } from "@/lib/session";
 import { SelecteurLangue, UserMenu } from "./components";
+import { Onglets } from "./onglets";
 import { Pastille } from "./pastille";
 import "./globals.css";
 
@@ -32,20 +33,40 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             </Link>
             {user && (
               <nav className="flex flex-wrap gap-x-4" aria-label={t("navigation")}>
-                <Link href="/catalogue">{t("catalogue")}</Link>
-                <Link href="/demandes">
-                  {t("mesDemandes")}
-                  <Pastille nombre={enAttente?.demandesACompleter ?? 0} libelle={t("aCompleter", { nombre: enAttente?.demandesACompleter ?? 0 })} />
-                </Link>
-                <Link href="/cles">
-                  {t("mesCles")}
-                  <Pastille nombre={enAttente?.clesARetirer ?? 0} libelle={t("aRetirer", { nombre: enAttente?.clesARetirer ?? 0 })} />
-                </Link>
-                <Link href="/abonnements">
-                  {t("mesAbonnements")}
-                  <Pastille nombre={enAttente?.abonnementsADeclarer ?? 0} libelle={t("aDeclarer", { nombre: enAttente?.abonnementsADeclarer ?? 0 })} />
-                </Link>
-                <Link href="/demandes/nouvelle">{t("nouvelleDemande")}</Link>
+                <Onglets
+                  onglets={[
+                    { href: "/catalogue", contenu: t("catalogue") },
+                    {
+                      href: "/demandes",
+                      contenu: (
+                        <>
+                          {t("mesDemandes")}
+                          <Pastille nombre={enAttente?.demandesACompleter ?? 0} libelle={t("aCompleter", { nombre: enAttente?.demandesACompleter ?? 0 })} />
+                        </>
+                      ),
+                    },
+                    {
+                      href: "/cles",
+                      contenu: (
+                        <>
+                          {t("mesCles")}
+                          <Pastille nombre={enAttente?.clesARetirer ?? 0} libelle={t("aRetirer", { nombre: enAttente?.clesARetirer ?? 0 })} />
+                        </>
+                      ),
+                    },
+                    {
+                      href: "/abonnements",
+                      contenu: (
+                        <>
+                          {t("mesAbonnements")}
+                          <Pastille nombre={enAttente?.abonnementsADeclarer ?? 0} libelle={t("aDeclarer", { nombre: enAttente?.abonnementsADeclarer ?? 0 })} />
+                        </>
+                      ),
+                    },
+                    // Les formulaires de demande (clé, abonnement, adhésion à une équipe) relèvent tous de cet onglet.
+                    { href: "/demandes/nouvelle", contenu: t("nouvelleDemande"), sections: ["/demandes/nouvelle", "/demandes/abonnement", "/demandes/adhesion"] },
+                  ]}
+                />
               </nav>
             )}
             <Suspense fallback={null}>

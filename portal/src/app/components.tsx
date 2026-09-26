@@ -9,6 +9,7 @@ import { approversByTeam } from "@/lib/services/teams";
 import { getCurrentUser, getDeps } from "@/lib/session";
 import { changerLangueAction, signOutAction } from "./actions";
 import type { EquipeProposee } from "./choix-equipe";
+import { Onglets } from "./onglets";
 import { Pastille } from "./pastille";
 
 /** Sélecteur FR | EN : chaque langue est nommée dans sa propre langue. */
@@ -47,10 +48,20 @@ export async function UserMenu() {
   return (
     <div className="ml-auto flex items-center gap-4">
       {gestion && (
-        <Link href="/gestion/demandes">
-          {t("gestion")}
-          <Pastille nombre={aValider} libelle={t("aValider", { nombre: aValider })} />
-        </Link>
+        <Onglets
+          onglets={[
+            {
+              href: "/gestion/demandes",
+              sections: ["/gestion"],
+              contenu: (
+                <>
+                  {t("gestion")}
+                  <Pastille nombre={aValider} libelle={t("aValider", { nombre: aValider })} />
+                </>
+              ),
+            },
+          ]}
+        />
       )}
       <span>{user.name}</span>
       <form action={signOutAction}>
