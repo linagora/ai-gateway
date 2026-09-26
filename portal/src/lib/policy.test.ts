@@ -26,6 +26,10 @@ describe("checkTransition", () => {
     expect(checkTransition("APPROUVEE", "SOUMISE")).toEqual({ ok: false, reason: "transition_interdite" });
   });
 
+  test("une demande approuvée dont la clé n'est pas retirée peut être annulée (sortie d'une équipe, F-54)", () => {
+    expect(checkTransition("APPROUVEE", "ANNULEE")).toEqual({ ok: true });
+  });
+
   test("une clé révoquée est un état final", () => {
     expect(checkTransition("REVOQUEE", "CLE_EMISE")).toEqual({ ok: false, reason: "transition_interdite" });
   });

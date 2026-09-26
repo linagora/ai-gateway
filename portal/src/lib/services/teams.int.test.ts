@@ -136,6 +136,16 @@ describe("membres d'une équipe : ajout direct et sortie d'une équipe (ticket #
     expect((await listAudit(testDb)).map((e) => e.action)).toEqual(["KEY_REVOKED", "MEMBER_REMOVED"]);
   });
 
+  test("la sortie d'une équipe laisse acceptée la demande d'accès qui y avait fait entrer le membre", async () => {
+    litellm.users.set("pmartin", { email: "pmartin@linagora.com" });
+    const acceptee = await testDb.accessRequest.create({
+      data: { kind: "ADHESION_EQUIPE", status: "APPROUVEE", requesterUid: "pmartin", requesterEmail: "pmartin@linagora.com", teamId: "equipe-rd", teamAlias: "R&D", models: [], justification: "Rejoindre l'équipe" },
+    });
+    await removeTeamMember(deps, admin, { teamId: "equipe-rd", uid: "pmartin" });
+    expect((await testDb.accessRequest.findUniqueOrThrow({ where: { id: acceptee.id } })).status).toBe("APPROUVEE");
+    expect(mailer.outbox[0].text).not.toContain("Demandes annulées");
+  });
+
   test("seul un admin ajoute ou fait sortir un membre ; faire sortir un non-membre est refusé", async () => {
     await expect(addTeamMember(deps, salarie, { teamId: "equipe-rd", uid: "lbernard" })).rejects.toMatchObject({ code: "interdit" });
     await expect(removeTeamMember(deps, salarie, { teamId: "equipe-rd", uid: "pmartin" })).rejects.toMatchObject({ code: "interdit" });
@@ -162,6 +172,15 @@ describe("supprimer une équipe (ticket #38)", () => {
     expect((await listAudit(testDb)).at(-1)).toMatchObject({ action: "TEAM_DELETED", targetId: "equipe-rd", details: { equipe: "R&D" } });
     expect(mailer.outbox.map((m) => [m.to, m.subject])).toEqual([[ADMINS, "[AI GATEWAY] Équipe supprimée : R&D / Team deleted: R&D"]]);
     expect(mailer.outbox[0].text).toContain("Jeanne Dupont (jdupont) a supprimé l'équipe R&D.");
+  });
+
+  test("une demande d'accès acceptée n'est plus en cours : elle ne bloque pas la suppression et reste acceptée", async () => {
+    const acceptee = await testDb.accessRequest.create({
+      data: { kind: "ADHESION_EQUIPE", status: "APPROUVEE", requesterUid: "pmartin", requesterEmail: "pmartin@linagora.com", teamId: "equipe-rd", teamAlias: "R&D", models: [], justification: "Rejoindre l'équipe" },
+    });
+    await deleteTeam(deps, admin, "equipe-rd");
+    expect(litellm.teams.has("equipe-rd")).toBe(false);
+    expect((await testDb.accessRequest.findUniqueOrThrow({ where: { id: acceptee.id } })).status).toBe("APPROUVEE");
   });
 
   test("seul un admin supprime une équipe", async () => {
