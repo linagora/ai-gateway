@@ -91,7 +91,9 @@
       "cleBloquee": "Key blocked.",
       "cleDebloquee": "Key unblocked.",
       "equipeCreee": "Team created.",
-      "equipeRenommee": "Team renamed."
+      "equipeRenommee": "Team renamed.",
+      "membreAjoute": "Member added.",
+      "membreSorti": "The member has left the team: their keys of the team are revoked."
     },
     "erreurs": {
       "controles_en_echec": "The request does not comply with the model access policy. Failed checks: {controles}.",
@@ -99,7 +101,7 @@
       "demande_en_cours": "You already have a pending access request for the {equipe} team.",
       "engagement_requis": "Commit to not submitting data above the declared level.",
       "interdit": "Administrators only.",
-      "introuvable": "{objet, select, modele {Model {modele} is not declared in the gateway.} equipe {Team not found.} demande_adhesion {Access request not found.} demande_cle {Key request not found.} other {Request not found.}}",
+      "introuvable": "{objet, select, modele {Model {modele} is not declared in the gateway.} equipe {Team not found.} demande_adhesion {Access request not found.} demande_cle {Key request not found.} membre {Member not found in this team.} other {Request not found.}}",
       "motif_obligatoire": "A reason is required.",
       "parametre_manquant": "Budget, budget period and validity are required: enter them or configure default values.",
       "recommandation_hors_cas_usage": "A recommendation can only apply to a checked use case.",
@@ -110,7 +112,9 @@
       "passerelle_indisponible": "The gateway is not responding: try again in a few moments.",
       "trop_de_generations": "Too many keys generated in a short time: try again in a few minutes.",
       "nom_equipe_invalide": "Give the team a name (100 characters at most).",
-      "nom_equipe_pris": "The name {nom} is already used by another team."
+      "nom_equipe_pris": "The name {nom} is already used by another team.",
+      "salarie_inconnu": "No employee has signed in to the portal yet with the identifier {uid}.",
+      "membre_existant": "{uid} is already a member of the team {equipe}."
     },
     "controles": {
       "membre_equipe": "The requester is a member of the team",
@@ -513,7 +517,15 @@
       "toutes": "All teams",
       "resume": "Team summary",
       "nom": "Team name",
-      "renommer": "Rename"
+      "renommer": "Rename",
+      "membres": "Members",
+      "aucunMembre": "No member.",
+      "uid": "Employee uid",
+      "ajouter": "Add to the team",
+      "colonneMembre": "Member",
+      "faireSortir": "Remove from the team",
+      "avertissementSortie": "Their keys of this team will be revoked and their pending requests in the team cancelled.",
+      "confirmerSortie": "Confirm removal"
     }
   },
   "introuvable": {
@@ -676,7 +688,25 @@
       "renommee": {
         "sujet": "Team renamed: {equipe}",
         "corps": "{auteur} renamed the team {ancienNom} to {equipe}."
+      },
+      "membreAjoute": {
+        "sujet": "Member added to the team {equipe}: {membre}",
+        "corps": "{auteur} added {membre} to the team {equipe}."
+      },
+      "membreSorti": {
+        "sujet": "Member removed from the team {equipe}: {membre}",
+        "corps": "{auteur} removed {membre} from the team {equipe}."
       }
+    },
+    "ajoutMembre": {
+      "sujet": "You are a member of the team {equipe}",
+      "corps": "{auteur} added you to the team {equipe}: you can request an API key there."
+    },
+    "sortieMembre": {
+      "sujet": "You are no longer a member of the team {equipe}",
+      "corps": "{auteur} removed you from the team {equipe}.",
+      "cles": "Revoked keys: {cles}.",
+      "demandes": "Cancelled requests: {nombre}."
     }
   }
 }

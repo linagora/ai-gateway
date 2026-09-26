@@ -58,6 +58,13 @@ export class FakeLiteLLM implements LiteLLMClient {
     team.memberUids.push(userId);
   }
 
+  async removeTeamMember(teamId: string, userId: string): Promise<void> {
+    if (this.panne) throw new Error("LiteLLM injoignable");
+    const team = this.teams.get(teamId);
+    if (!team) throw new Error(`équipe inconnue : ${teamId}`);
+    team.memberUids = team.memberUids.filter((uid) => uid !== userId);
+  }
+
   async getTeam(teamId: string): Promise<LiteLLMTeam | null> {
     const team = this.teams.get(teamId);
     return team ? { ...team, models: [...team.models], memberUids: [...team.memberUids] } : null;

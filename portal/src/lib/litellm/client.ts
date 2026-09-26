@@ -127,6 +127,8 @@ export interface LiteLLMClient {
   createUser(input: { userId: string; email: string }): Promise<void>;
   /** F-22 : ajoute l'utilisateur à l'équipe avec le rôle « user ». */
   addTeamMember(teamId: string, userId: string): Promise<void>;
+  /** F-53 : retire un membre d'une équipe (sortie d'une équipe). */
+  removeTeamMember(teamId: string, userId: string): Promise<void>;
   /** Équipe avec ses modèles et ses membres (règle 3) ; null si elle n'existe pas. */
   getTeam(teamId: string): Promise<LiteLLMTeam | null>;
   /** F-10 : modèles déclarés dans LiteLLM (GET /model/info). */
@@ -266,6 +268,11 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
       const body = { team_id: teamId, member: { user_id: userId, role: "user" } };
       const { status, data } = await call("POST", "/team/member_add", body);
       if (status !== 200) fail("POST", "/team/member_add", status, data);
+    },
+
+    async removeTeamMember(teamId, userId) {
+      const { status, data } = await call("POST", "/team/member_delete", { team_id: teamId, user_id: userId });
+      if (status !== 200) fail("POST", "/team/member_delete", status, data);
     },
 
     async getTeam(teamId) {

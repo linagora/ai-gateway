@@ -19,7 +19,7 @@ import { saveCatalogEntry } from "@/lib/services/catalog";
 import { blockKey, pickUpKey, replaceKey, revokeKey, unblockKey } from "@/lib/services/keys";
 import { cancelRequest, completeRequest, createKeyRequest, createTeamJoinRequest } from "@/lib/services/requests";
 import { saveSettings } from "@/lib/services/settings";
-import { createTeam, renameTeam } from "@/lib/services/teams";
+import { addTeamMember, createTeam, removeTeamMember, renameTeam } from "@/lib/services/teams";
 import { getDeps, requireUser } from "@/lib/session";
 
 /*
@@ -175,6 +175,20 @@ export async function renommerEquipeAction(formData: FormData): Promise<void> {
   await run(page, () => renameTeam(getDeps(), user, { teamId: text(formData, "id"), name: text(formData, "nom") }), { path: page, message: "equipeRenommee" });
 }
 
+/** F-53 : ajout direct d'un salarié à une équipe par un admin. */
+export async function ajouterMembreAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+  await run(page, () => addTeamMember(getDeps(), user, { teamId: text(formData, "id"), uid: text(formData, "uid") }), { path: page, message: "membreAjoute" });
+}
+
+/** F-54 : sortie d'une équipe, décidée par un admin. */
+export async function faireSortirMembreAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+  await run(page, () => removeTeamMember(getDeps(), user, { teamId: text(formData, "id"), uid: text(formData, "uid") }), { path: page, message: "membreSorti" });
+}
+
 // --- outils ---
 
 /** F-43 : révocation d'une clé par son titulaire. */
@@ -250,7 +264,9 @@ type CleSucces =
   | "cleBloquee"
   | "cleDebloquee"
   | "equipeCreee"
-  | "equipeRenommee";
+  | "equipeRenommee"
+  | "membreAjoute"
+  | "membreSorti";
 
 /** Exécute le cas d'usage ; en cas d'erreur métier, revient sur `errorPath` avec le message. */
 async function run(errorPath: string, action: () => Promise<unknown>, success: { path: string; message: CleSucces }): Promise<void> {

@@ -10,6 +10,7 @@ export type PortalErrorCode =
   | "demande_en_cours"
   | "engagement_requis"
   | "interdit"
+  | "membre_existant"
   | "introuvable"
   | "motif_obligatoire"
   | "nom_equipe_invalide"
@@ -17,6 +18,7 @@ export type PortalErrorCode =
   | "parametre_manquant"
   | "passerelle_indisponible"
   | "recommandation_hors_cas_usage"
+  | "salarie_inconnu"
   | "tarif_eur_manquant"
   | "transition_interdite"
   | "trop_de_generations";

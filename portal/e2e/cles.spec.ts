@@ -1,10 +1,9 @@
-import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
-import { ADMIN, ajouterAEquipe, connecter, demandeApprouvee, enrichirModele } from "./outils";
+import { expect, test } from "@playwright/test";
+import { ADMIN, ajouterAEquipe, appel, connecter, demandeApprouvee, enrichirModele, PASSERELLE, retirerCle } from "./outils";
 
 /* Chantier « Mes clés » (spécification #14). La passerelle de développement répond par des modèles simulés. */
 const suffixe = Date.now().toString(36);
 const personne = (n: string) => ({ uid: `cles-${n}-${suffixe}`, email: `cles-${n}-${suffixe}@example.org`, name: `Personne ${n} ${suffixe}` });
-const PASSERELLE = "http://127.0.0.1:54400/admin/v1/chat/completions";
 
 test.beforeAll(async ({ browser }) => {
   const context = await connecter(browser, ADMIN);
@@ -66,22 +65,6 @@ test("le titulaire retire sa clé, la voit une seule fois, et elle fonctionne au
 });
 
 /** Retire la clé de la seule demande approuvée du salarié ; rend la clé affichée une fois. */
-async function retirerCle(page: Page): Promise<string> {
-  await page.goto("/cles");
-  await page.getByRole("region", { name: "À retirer" }).getByRole("button", { name: "Générer ma clé" }).click();
-  const panneau = page.getByRole("region", { name: /Votre nouvelle clé/ });
-  const cle = ((await panneau.locator("code").textContent()) ?? "").trim();
-  await panneau.getByRole("button", { name: "J'ai copié ma clé" }).click();
-  await expect(panneau).toHaveCount(0);
-  return cle;
-}
-
-/** Statut HTTP d'un appel à la passerelle de développement avec une clé. */
-async function appel(request: APIRequestContext, cle: string): Promise<number> {
-  const reponse = await request.post(PASSERELLE, { headers: { Authorization: `Bearer ${cle}` }, data: { model: "dev-public", messages: [{ role: "user", content: "Bonjour" }] } });
-  return reponse.status();
-}
-
 test("le titulaire révoque sa clé : la passerelle la refuse en quelques secondes (ticket #17)", async ({ browser, request }) => {
   const salarie = personne("revocation");
   const page = await (await connecter(browser, salarie)).newPage();

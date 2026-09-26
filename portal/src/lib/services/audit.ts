@@ -17,7 +17,9 @@ export type AuditAction =
   | "REQUEST_EXPIRED"
   | "KEY_EXPIRED"
   | "TEAM_CREATED"
-  | "TEAM_RENAMED";
+  | "TEAM_RENAMED"
+  | "MEMBER_ADDED"
+  | "MEMBER_REMOVED";
 
 /** Entrée du journal d'audit : qui, quoi, sur quelle cible, avec quels détails. Jamais de secret. */
 export interface AuditEntry {

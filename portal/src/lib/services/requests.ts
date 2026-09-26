@@ -143,6 +143,16 @@ export async function cancelRequest(deps: RequestDeps, user: SessionUser, id: st
 }
 
 /**
+ * F-54 : sortie d'une équipe. Annule les demandes en cours d'un membre dans cette équipe (soumises, à compléter,
+ * approuvées sans clé retirée), pour qu'il ne puisse plus y obtenir de clé ; rend leur nombre.
+ */
+export async function cancelMemberRequests(db: Db, teamId: string, uid: string): Promise<number> {
+  const enCours = await db.accessRequest.findMany({ where: { teamId, requesterUid: uid, status: { in: ["SOUMISE", "A_COMPLETER", "APPROUVEE"] } } });
+  for (const demande of enCours) await transitionRequest(db, demande, "ANNULEE");
+  return enCours.length;
+}
+
+/**
  * Règle 5 : applique une transition de statut autorisée. La mise à jour est conditionnée au statut
  * lu (verrou optimiste) : une décision concurrente fait échouer la seconde au lieu de l'écraser.
  */

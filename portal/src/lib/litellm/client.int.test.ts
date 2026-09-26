@@ -168,6 +168,14 @@ describe("équipes", () => {
     expect(await client.listTeams()).toContainEqual({ teamId, teamAlias, models: ["modele-a"], memberUids: [userId] });
   });
 
+  test("un membre retiré d'une équipe n'en fait plus partie", async () => {
+    const userId = await newUser();
+    const { teamId } = await newTeam([]);
+    await client.addTeamMember(teamId, userId);
+    await client.removeTeamMember(teamId, userId);
+    expect((await client.getTeam(teamId))?.memberUids).toEqual([]);
+  });
+
   test("une équipe créée par le portail n'a ni modèles ni membres réels ; elle se renomme", async () => {
     const teamAlias = uniqueId("equipe");
     const teamId = await client.createTeam(teamAlias);

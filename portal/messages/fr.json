@@ -91,7 +91,9 @@
       "cleBloquee": "Clé bloquée.",
       "cleDebloquee": "Clé débloquée.",
       "equipeCreee": "Équipe créée.",
-      "equipeRenommee": "Équipe renommée."
+      "equipeRenommee": "Équipe renommée.",
+      "membreAjoute": "Membre ajouté.",
+      "membreSorti": "Le membre est sorti de l'équipe : ses clés de l'équipe sont révoquées."
     },
     "erreurs": {
       "controles_en_echec": "La demande ne respecte pas la politique d'accès aux modèles. Contrôles en échec : {controles}.",
@@ -99,7 +101,7 @@
       "demande_en_cours": "Vous avez déjà une demande d'accès en cours pour l'équipe {equipe}.",
       "engagement_requis": "Engagez-vous à ne pas soumettre de données d'un niveau supérieur à celui déclaré.",
       "interdit": "Action réservée aux administrateurs.",
-      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} other {Demande introuvable.}}",
+      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} membre {Membre introuvable dans cette équipe.} other {Demande introuvable.}}",
       "motif_obligatoire": "Un motif est obligatoire.",
       "parametre_manquant": "Budget, période du budget et durée de validité sont obligatoires : saisissez-les ou configurez des valeurs par défaut.",
       "recommandation_hors_cas_usage": "Une recommandation ne peut porter que sur un cas d'usage coché.",
@@ -110,7 +112,9 @@
       "passerelle_indisponible": "La passerelle ne répond pas : réessayez dans quelques instants.",
       "trop_de_generations": "Trop de clés générées en peu de temps : réessayez dans quelques minutes.",
       "nom_equipe_invalide": "Donnez un nom à l'équipe (100 caractères au plus).",
-      "nom_equipe_pris": "Le nom {nom} est déjà pris par une autre équipe."
+      "nom_equipe_pris": "Le nom {nom} est déjà pris par une autre équipe.",
+      "salarie_inconnu": "Aucun salarié ne s'est encore connecté au portail avec l'identifiant {uid}.",
+      "membre_existant": "{uid} est déjà membre de l'équipe {equipe}."
     },
     "controles": {
       "membre_equipe": "Le demandeur est membre de l'équipe",
@@ -513,7 +517,15 @@
       "toutes": "Toutes les équipes",
       "resume": "Résumé de l'équipe",
       "nom": "Nom de l'équipe",
-      "renommer": "Renommer"
+      "renommer": "Renommer",
+      "membres": "Membres",
+      "aucunMembre": "Aucun membre.",
+      "uid": "Uid du salarié",
+      "ajouter": "Ajouter à l'équipe",
+      "colonneMembre": "Membre",
+      "faireSortir": "Faire sortir de l'équipe",
+      "avertissementSortie": "Ses clés de cette équipe seront révoquées et ses demandes en cours dans l'équipe annulées.",
+      "confirmerSortie": "Confirmer la sortie"
     }
   },
   "introuvable": {
@@ -676,7 +688,25 @@
       "renommee": {
         "sujet": "Équipe renommée : {equipe}",
         "corps": "{auteur} a renommé l'équipe {ancienNom} en {equipe}."
+      },
+      "membreAjoute": {
+        "sujet": "Membre ajouté à l'équipe {equipe} : {membre}",
+        "corps": "{auteur} a ajouté {membre} à l'équipe {equipe}."
+      },
+      "membreSorti": {
+        "sujet": "Membre sorti de l'équipe {equipe} : {membre}",
+        "corps": "{auteur} a fait sortir {membre} de l'équipe {equipe}."
       }
+    },
+    "ajoutMembre": {
+      "sujet": "Vous êtes membre de l'équipe {equipe}",
+      "corps": "{auteur} vous a ajouté à l'équipe {equipe} : vous pouvez y demander une clé d'API."
+    },
+    "sortieMembre": {
+      "sujet": "Vous ne faites plus partie de l'équipe {equipe}",
+      "corps": "{auteur} vous a fait sortir de l'équipe {equipe}.",
+      "cles": "Clés révoquées : {cles}.",
+      "demandes": "Demandes annulées : {nombre}."
     }
   }
 }

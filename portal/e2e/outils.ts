@@ -1,4 +1,4 @@
-import { type Browser, type BrowserContext, expect, type Page } from "@playwright/test";
+import { type APIRequestContext, type Browser, type BrowserContext, expect, type Page } from "@playwright/test";
 
 export interface Personne {
   uid: string;
@@ -69,8 +69,16 @@ export async function ajouterAEquipe(uid: string, equipe: string): Promise<void>
  */
 export async function demandeApprouvee(browser: Browser, page: Page, salarie: Personne, projet: string): Promise<void> {
   await ajouterAEquipe(salarie.uid, "R&D");
+  await demanderEtApprouver(browser, page, salarie, { equipe: "R&D", projet });
+}
+
+/**
+ * Le salarié, déjà membre de l'équipe (page ouverte), y demande une clé N1 pour le modèle public ; un admin l'approuve
+ * avec un budget de 5 € par 30 jours, valable 30 jours.
+ */
+export async function demanderEtApprouver(browser: Browser, page: Page, salarie: Personne, { equipe, projet }: { equipe: string; projet: string }): Promise<void> {
   await page.goto("/demandes/nouvelle");
-  await page.getByLabel("Équipe").selectOption({ label: "R&D" });
+  await page.getByLabel("Équipe").selectOption({ label: equipe });
   await page.getByRole("radio", { name: /^N1 Public/ }).check();
   await page.getByLabel(/Modèle public/).check();
   await page.getByLabel("Motif").fill("Essai des clés");
@@ -81,7 +89,7 @@ export async function demandeApprouvee(browser: Browser, page: Page, salarie: Pe
 
   const admin = await (await connecter(browser, ADMIN)).newPage();
   await admin.goto("/gestion/demandes");
-  await admin.getByRole("row", { name: new RegExp(`${salarie.uid}.*Clé d'API`) }).getByRole("link", { name: "Examiner" }).click();
+  await admin.getByRole("row", { name: new RegExp(`${salarie.uid}.*Clé d'API.*${echapper(equipe)}`) }).getByRole("link", { name: "Examiner" }).click();
   await admin.getByLabel("Budget (€)").fill("5");
   await admin.getByLabel("Période du budget (ex. 30d)").fill("30d");
   await admin.getByLabel("Durée de validité").selectOption({ label: "1 mois" });
@@ -109,4 +117,27 @@ export async function courriels(recherche: string): Promise<CourrielRecu[]> {
       return { to: m.To.map((t) => t.Address), subject: m.Subject, text: Text };
     }),
   );
+}
+
+/** Échappe un texte pour l'insérer tel quel dans une expression régulière. */
+export const echapper = (texte: string) => texte.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Point d'accès de la passerelle de développement, pour les appels réels faits avec une clé. */
+export const PASSERELLE = "http://127.0.0.1:54400/admin/v1/chat/completions";
+
+/** Statut HTTP d'un appel réel au modèle public avec une clé. */
+export async function appel(request: APIRequestContext, cle: string): Promise<number> {
+  const reponse = await request.post(PASSERELLE, { headers: { Authorization: `Bearer ${cle}` }, data: { model: "dev-public", messages: [{ role: "user", content: "Bonjour" }] } });
+  return reponse.status();
+}
+
+/** Le titulaire retire sa clé approuvée depuis « Mes clés » et la rend, après avoir confirmé l'avoir copiée. */
+export async function retirerCle(page: Page): Promise<string> {
+  await page.goto("/cles");
+  await page.getByRole("region", { name: "À retirer" }).getByRole("button", { name: "Générer ma clé" }).click();
+  const panneau = page.getByRole("region", { name: /Votre nouvelle clé/ });
+  const cle = ((await panneau.locator("code").textContent()) ?? "").trim();
+  await panneau.getByRole("button", { name: "J'ai copié ma clé" }).click();
+  await expect(panneau).toHaveCount(0);
+  return cle;
 }

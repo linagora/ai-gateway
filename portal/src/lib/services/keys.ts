@@ -296,6 +296,22 @@ export async function revokeKey(deps: KeyDeps, user: SessionUser, requestId: str
 }
 
 /**
+ * F-54 : sortie d'une équipe. Révoque les clés émises d'un membre dans cette équipe, sans courriel par clé : le
+ * courriel de sortie les nomme. Appelée par le service des équipes, qui contrôle l'autorité de l'acteur. Rend leurs alias.
+ */
+export async function revokeMemberKeys(deps: KeyDeps, actor: SessionUser, teamId: string, uid: string): Promise<string[]> {
+  const cles = await deps.db.accessRequest.findMany({ where: { kind: "CLE", status: "CLE_EMISE", teamId, requesterUid: uid }, orderBy: { keyIssuedAt: "asc" } });
+  const alias: string[] = [];
+  for (const request of cles) {
+    if (request.keyTokenId) await deleteFromGateway(deps.litellm, request.keyTokenId);
+    await transitionRequest(deps.db, request, "REVOQUEE");
+    await recordAudit(deps.db, { actorUid: actor.uid, action: "KEY_REVOKED", targetId: request.id, details: { alias: request.keyAlias, motif: "sortie_equipe" } });
+    if (request.keyAlias) alias.push(request.keyAlias);
+  }
+  return alias;
+}
+
+/**
  * F-41 : remplacement d'une clé perdue. La nouvelle clé reprend les paramètres de l'ancienne et expire à la
  * même date ; son alias porte le rang du remplacement (-2, -3…). L'ancienne est supprimée ; si elle ne peut
  * pas l'être, la nouvelle est retirée aussitôt et rien ne change : une clé perdue ne reste jamais active

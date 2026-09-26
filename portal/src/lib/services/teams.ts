@@ -4,7 +4,9 @@ import { PortalError } from "@/lib/errors";
 import type { LiteLLMClient, LiteLLMTeam } from "@/lib/litellm/client";
 import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
-import { type NotificationDeps, notifyTeamChange } from "./notifications";
+import { revokeMemberKeys } from "./keys";
+import { type NotificationDeps, notifyMemberAdded, notifyMemberRemoved, notifyTeamChange } from "./notifications";
+import { cancelMemberRequests } from "./requests";
 
 /** Dépendances du service des équipes (F-53) : LiteLLM, source de vérité des équipes, et la base du portail. */
 export interface TeamDeps extends NotificationDeps {
@@ -18,6 +20,11 @@ export interface TeamOverview {
   teamAlias: string;
   memberCount: number;
   activeKeyCount: number;
+}
+
+/** Page d'une équipe : son résumé et ses membres réels, par ordre alphabétique. */
+export interface TeamPage extends TeamOverview {
+  members: string[];
 }
 
 /** Longueur maximale d'un nom d'équipe. */
@@ -35,6 +42,52 @@ export async function listTeamOverviews(deps: TeamDeps, actor: SessionUser): Pro
 export async function getTeamOverview(deps: TeamDeps, actor: SessionUser, teamId: string): Promise<TeamOverview> {
   requireAdmin(actor);
   return overview(await existingTeam(deps, teamId), await activeKeyCounts(deps.db));
+}
+
+/** F-53 : page d'une équipe ; introuvable si LiteLLM ne la connaît pas. */
+export async function getTeamPage(deps: TeamDeps, actor: SessionUser, teamId: string): Promise<TeamPage> {
+  requireAdmin(actor);
+  const team = await existingTeam(deps, teamId);
+  return { ...overview(team, await activeKeyCounts(deps.db)), members: [...team.memberUids].sort((a, b) => a.localeCompare(b, "fr")) };
+}
+
+/**
+ * F-53 : ajout direct d'un salarié à une équipe par un admin (affectation initiale, sans demande d'accès). Le salarié
+ * doit s'être connecté au moins une fois au portail, qui l'a alors inscrit dans LiteLLM.
+ */
+export async function addTeamMember(deps: TeamDeps, actor: SessionUser, input: { teamId: string; uid: string }): Promise<void> {
+  requireAdmin(actor);
+  const team = await existingTeam(deps, input.teamId);
+  const uid = input.uid.trim();
+  const salarie = uid ? await deps.litellm.getUser(uid) : null;
+  if (!salarie) throw new PortalError("salarie_inconnu", `Salarié inconnu de la passerelle : ${uid}.`, { uid });
+  if (team.memberUids.includes(uid)) throw new PortalError("membre_existant", `${uid} est déjà membre de ${team.teamAlias}.`, { uid, equipe: team.teamAlias });
+  await deps.litellm.addTeamMember(team.teamId, uid);
+  await recordAudit(deps.db, { actorUid: actor.uid, action: "MEMBER_ADDED", targetId: team.teamId, details: { membre: uid } });
+  if (salarie.email) await notifyMemberAdded(deps, { email: salarie.email, equipe: team.teamAlias, auteur: actor });
+  await notifyTeamChange(deps, { type: "membreAjoute", teamId: team.teamId, equipe: team.teamAlias, membre: uid, auteur: actor });
+}
+
+/**
+ * F-54 : sortie d'une équipe. Ses clés de l'équipe sont révoquées d'abord (un échec laisse le membre en place), puis
+ * ses demandes en cours dans l'équipe annulées, avant son retrait de l'équipe dans LiteLLM ; il en est prévenu.
+ */
+export async function removeTeamMember(deps: TeamDeps, actor: SessionUser, input: { teamId: string; uid: string }): Promise<void> {
+  requireAdmin(actor);
+  const team = await existingTeam(deps, input.teamId);
+  if (!team.memberUids.includes(input.uid)) throw new PortalError("introuvable", `${input.uid} n'est pas membre de ${team.teamAlias}.`, { objet: "membre" });
+  const cles = await revokeMemberKeys(deps, actor, team.teamId, input.uid);
+  const demandes = await cancelMemberRequests(deps.db, team.teamId, input.uid);
+  await deps.litellm.removeTeamMember(team.teamId, input.uid);
+  await recordAudit(deps.db, {
+    actorUid: actor.uid,
+    action: "MEMBER_REMOVED",
+    targetId: team.teamId,
+    details: { membre: input.uid, clesRevoquees: cles.length, demandesAnnulees: demandes },
+  });
+  const email = (await deps.litellm.getUser(input.uid))?.email;
+  if (email) await notifyMemberRemoved(deps, { email, equipe: team.teamAlias, auteur: actor, cles, demandes });
+  await notifyTeamChange(deps, { type: "membreSorti", teamId: team.teamId, equipe: team.teamAlias, membre: input.uid, auteur: actor });
 }
 
 /** F-53 : crée une équipe (nom unique sans tenir compte des majuscules), l'inscrit au journal et l'annonce aux admins. */

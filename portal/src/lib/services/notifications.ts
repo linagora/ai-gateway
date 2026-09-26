@@ -258,14 +258,23 @@ export async function notifyAdminKeyAction(
 }
 
 /** Changement dans une équipe (F-53), annoncé aux admins. */
-export type TeamChange = { type: "creee" } | { type: "renommee"; ancienNom: string };
+export type TeamChange =
+  | { type: "creee" }
+  | { type: "renommee"; ancienNom: string }
+  | { type: "membreAjoute"; membre: string }
+  | { type: "membreSorti"; membre: string };
 
 /** F-53 : un changement dans une équipe est annoncé aux admins, avec son auteur et le lien vers la page de l'équipe. */
 export async function notifyTeamChange(
   deps: NotificationDeps,
   changement: TeamChange & { teamId: string; equipe: string; auteur: { uid: string; name: string } },
 ): Promise<void> {
-  const valeurs = { equipe: changement.equipe, auteur: `${changement.auteur.name} (${changement.auteur.uid})`, ...("ancienNom" in changement ? { ancienNom: changement.ancienNom } : {}) };
+  const valeurs = {
+    equipe: changement.equipe,
+    auteur: auteur(changement.auteur),
+    ...("ancienNom" in changement ? { ancienNom: changement.ancienNom } : {}),
+    ...("membre" in changement ? { membre: changement.membre } : {}),
+  };
   const message = bilingue(
     (t) => ({
       sujet: t(`courriels.equipe.${changement.type}.sujet`, valeurs),
@@ -274,4 +283,40 @@ export async function notifyTeamChange(
     lienVers(deps, `/gestion/equipes/${changement.teamId}`),
   );
   await envoyer(deps, deps.adminEmails ?? [], message);
+}
+
+/** Auteur d'une action, tel que le nomment les courriels : « Jeanne Dupont (jdupont) ». */
+const auteur = (a: { uid: string; name: string }) => `${a.name} (${a.uid})`;
+
+/** F-53 : le salarié ajouté directement à une équipe par un admin en est prévenu. */
+export async function notifyMemberAdded(deps: NotificationDeps, ajout: { email: string; equipe: string; auteur: { uid: string; name: string } }): Promise<void> {
+  const valeurs = { equipe: ajout.equipe, auteur: auteur(ajout.auteur) };
+  const message = bilingue(
+    (t) => ({ sujet: t("courriels.ajoutMembre.sujet", valeurs), paragraphes: [t("courriels.bonjourAdmins"), t("courriels.ajoutMembre.corps", valeurs)] }),
+    lienVers(deps, "/demandes/nouvelle"),
+  );
+  await envoyer(deps, [ajout.email], message);
+}
+
+/** F-54 : le salarié sorti d'une équipe en est prévenu, avec ses clés révoquées et le nombre de ses demandes annulées. */
+export async function notifyMemberRemoved(
+  deps: NotificationDeps,
+  sortie: { email: string; equipe: string; auteur: { uid: string; name: string }; cles: string[]; demandes: number },
+): Promise<void> {
+  const valeurs = { equipe: sortie.equipe, auteur: auteur(sortie.auteur) };
+  const message = bilingue(
+    (t) => ({
+      sujet: t("courriels.sortieMembre.sujet", valeurs),
+      paragraphes: [
+        t("courriels.bonjourAdmins"),
+        [
+          t("courriels.sortieMembre.corps", valeurs),
+          ...(sortie.cles.length > 0 ? [t("courriels.sortieMembre.cles", { cles: sortie.cles.join(", ") })] : []),
+          ...(sortie.demandes > 0 ? [t("courriels.sortieMembre.demandes", { nombre: sortie.demandes })] : []),
+        ].join(" "),
+      ],
+    }),
+    lienVers(deps, "/cles"),
+  );
+  await envoyer(deps, [sortie.email], message);
 }
