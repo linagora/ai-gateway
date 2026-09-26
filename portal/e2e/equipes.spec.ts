@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { ADMIN, ajouterAEquipe, appel, connecter, courriels, demanderEtApprouver, enrichirModele, retirerCle } from "./outils";
+import { ADMIN, ajouterAEquipe, appel, connecter, courriels, demanderEtApprouver, echapper, enrichirModele, retirerCle } from "./outils";
 
 /* Gestion des équipes par les admins et responsables d'équipe (spécification #35). Admins à notifier : admins-e2e@example.org (.env). */
 const suffixe = Date.now().toString(36);
@@ -72,7 +72,7 @@ test("un admin crée puis renomme une équipe ; un nom déjà pris est refusé ;
   await admin.getByLabel("Nom de la nouvelle équipe").fill(nom);
   await admin.getByRole("button", { name: "Créer l'équipe" }).click();
   await expect(admin.getByRole("status")).toHaveText("Équipe créée.");
-  await expect(admin.getByRole("row", { name: new RegExp(nom) }).getByRole("cell")).toHaveText([nom, "Aucun", "0", "0"]);
+  await expect(admin.getByRole("row", { name: new RegExp(nom) }).getByRole("cell")).toHaveText([nom, "Aucun", "0", "0", "Sans limite"]);
 
   // Un nom déjà pris, même avec d'autres majuscules, est refusé.
   await admin.getByLabel("Nom de la nouvelle équipe").fill(nom.toUpperCase());
@@ -202,7 +202,7 @@ test("un admin désigne un responsable, qui devient membre ; le formulaire de de
   await expect(admin.getByRole("region", { name: "Membres" }).getByRole("row", { name: new RegExp(responsable.uid) })).toBeVisible();
   await ajouterMembre(admin, membre.uid);
   await admin.goto("/gestion/equipes");
-  await expect(admin.getByRole("row", { name: new RegExp(nom) }).getByRole("cell")).toHaveText([nom, responsable.uid, "2", "0"]);
+  await expect(admin.getByRole("row", { name: new RegExp(nom) }).getByRole("cell")).toHaveText([nom, responsable.uid, "2", "0", "Sans limite"]);
 
   // Le formulaire de demande dit qui validera, selon l'équipe choisie.
   await ajouterAEquipe(membre.uid, "R&D");
@@ -398,6 +398,76 @@ test("un responsable bloque, débloque et révoque la clé d'un membre de son é
 
   // Nettoyage.
   await admin.goto(pageEquipe);
+  await faireSortir(admin, responsable.uid);
+  await supprimerEquipe(admin);
+  await expect(admin.getByRole("status")).toHaveText("Équipe supprimée.");
+});
+
+test("un admin fixe le budget d'une équipe, affiché avec la dépense de la période ; le responsable le voit sans pouvoir le changer ; 0 le retire (ticket #43)", async ({ browser, request }) => {
+  const responsable = personne("tresorier");
+  const membre = personne("depensier");
+  const pageResponsable = await (await connecter(browser, responsable)).newPage();
+  const pageMembre = await (await connecter(browser, membre)).newPage();
+  const admin = await (await connecter(browser, ADMIN)).newPage();
+  const nom = `Équipe budget ${suffixe}`;
+  await nouvelleEquipe(admin, nom);
+  await designer(admin, responsable.uid);
+  await ajouterMembre(admin, membre.uid);
+  const pageEquipe = admin.url();
+  const budget = admin.getByRole("region", { name: "Budget d'équipe" });
+  await expect(budget).toContainText("Sans limite");
+
+  // Un budget positif sans période est refusé.
+  await budget.getByLabel("Budget (€)").fill("50");
+  await budget.getByRole("button", { name: "Enregistrer le budget" }).click();
+  await expect(admin.getByRole("main").getByRole("alert")).toHaveText(
+    "Budget d'équipe invalide : saisissez un montant positif ou nul (0 : sans limite) et, pour un montant positif, une période au format 30d, 12h…",
+  );
+
+  // 50 € par période de 30 jours : la page donne le budget, la dépense de la période et sa remise à zéro.
+  await budget.getByLabel("Budget (€)").fill("50");
+  await budget.getByLabel("Période du budget (ex. 30d)").fill("30d");
+  await budget.getByRole("button", { name: "Enregistrer le budget" }).click();
+  await expect(admin.getByRole("status")).toHaveText("Budget de l'équipe enregistré.");
+  await expect(budget).toContainText(/50,00\s€ par période de 30 jours/);
+  await expect(budget).toContainText(/Dépense de la période\s*0,00\s€ sur 50,00\s€/);
+  await expect(budget).toContainText("Remise à zéro");
+
+  // Les admins et le responsable de l'équipe en sont prévenus.
+  const annonces = async () => (await courriels(suffixe)).filter((c) => c.subject.includes(`Budget de l'équipe ${nom}`));
+  await expect.poll(async () => (await annonces()).length, { timeout: 15_000 }).toBe(1);
+  const [annonce] = await annonces();
+  expect(annonce.to).toEqual(["admins-e2e@example.org", responsable.email]);
+  expect(annonce.subject).toMatch(new RegExp(`^\\[AI GATEWAY\\] Budget de l'équipe ${echapper(nom)} : 50,00\\s€ par période de 30 jours / Budget of the team ${echapper(nom)}: €50\\.00 every 30 days$`));
+
+  // La dépense d'un appel d'un membre, comptée par la passerelle pour l'équipe, apparaît dans la liste des équipes.
+  await demanderEtApprouver(browser, pageMembre, membre, { equipe: nom, projet: "Essai budget" });
+  const cle = await retirerCle(pageMembre);
+  expect(await appel(request, cle)).toBe(200);
+  await expect(async () => {
+    await admin.goto("/gestion/equipes");
+    await expect(admin.getByRole("row", { name: new RegExp(echapper(nom)) }).getByRole("cell").last()).toHaveText(/^moins de 0,01\s€ sur 50,00\s€$/, { timeout: 1_000 });
+  }).toPass({ timeout: 45_000 });
+
+  // Le responsable voit le budget de son équipe, sans pouvoir le changer.
+  await pageResponsable.goto(pageEquipe);
+  const budgetVuDuResponsable = pageResponsable.getByRole("region", { name: "Budget d'équipe" });
+  await expect(budgetVuDuResponsable).toContainText(/50,00\s€ par période de 30 jours/);
+  await expect(budgetVuDuResponsable.getByRole("button", { name: "Enregistrer le budget" })).toHaveCount(0);
+
+  // 0 retire le plafond.
+  await admin.goto(pageEquipe);
+  await budget.getByLabel("Budget (€)").fill("0");
+  await budget.getByRole("button", { name: "Enregistrer le budget" }).click();
+  await expect(admin.getByRole("status")).toHaveText("Budget de l'équipe enregistré.");
+  await expect(budget).toContainText("Sans limite");
+  await expect(budget).not.toContainText("Dépense de la période");
+  await expect.poll(async () => (await annonces()).map((c) => c.subject), { timeout: 15_000 }).toContain(
+    `[AI GATEWAY] Budget de l'équipe ${nom} : sans limite / Budget of the team ${nom}: no limit`,
+  );
+
+  // Nettoyage : la sortie du membre révoque sa clé, puis l'équipe se supprime.
+  await faireSortir(admin, membre.uid);
   await faireSortir(admin, responsable.uid);
   await supprimerEquipe(admin);
   await expect(admin.getByRole("status")).toHaveText("Équipe supprimée.");

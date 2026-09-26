@@ -34,9 +34,23 @@ export interface LiteLLMUser {
   teams: LiteLLMTeamSummary[];
 }
 
-/** Équipe avec ses membres réels : le membre technique que LiteLLM ajoute à chaque équipe n'en fait pas partie (ADR 0001). */
+/**
+ * Équipe avec ses membres réels (le membre technique que LiteLLM ajoute à chaque équipe n'en fait pas partie, ADR 0001)
+ * et son budget d'équipe : plafond et période (null : sans limite), dépense de la période et date de sa remise à zéro.
+ */
 export interface LiteLLMTeam extends LiteLLMTeamSummary {
   memberUids: string[];
+  maxBudget: number | null;
+  budgetDuration: string | null;
+  spend: number;
+  budgetResetAt: Date | null;
+}
+
+/** Changements d'une équipe : son nom, ou son budget (null : sans limite). */
+export interface TeamChanges {
+  alias?: string;
+  maxBudget?: number | null;
+  budgetDuration?: string | null;
 }
 
 /**
@@ -137,8 +151,8 @@ export interface LiteLLMClient {
   listTeams(): Promise<LiteLLMTeam[]>;
   /** F-53 : crée une équipe sans liste de modèles (tous les modèles, le portail contrôlant les niveaux) ; rend son identifiant. */
   createTeam(alias: string): Promise<string>;
-  /** F-53 : renomme une équipe. */
-  updateTeam(teamId: string, changes: { alias: string }): Promise<void>;
+  /** F-53 : renomme une équipe, ou fixe son budget d'équipe (null : sans limite). */
+  updateTeam(teamId: string, changes: TeamChanges): Promise<void>;
   /** F-53 : supprime une équipe ; LiteLLM supprime aussi ses clés. */
   deleteTeam(teamId: string): Promise<void>;
   /** F-40 : génère une clé ; l'alias doit être unique dans LiteLLM. */
@@ -161,8 +175,14 @@ const teamSummarySchema = z.object({
 
 const membersSchema = z.array(z.object({ user_id: z.string().nullish() })).nullish();
 
-/** Équipe telle que la liste LiteLLM (GET /team/list) : ses membres y figurent. */
-const teamListItemSchema = teamSummarySchema.extend({ members_with_roles: membersSchema });
+/** Équipe telle que la liste LiteLLM (GET /team/list) : ses membres et son budget y figurent. */
+const teamListItemSchema = teamSummarySchema.extend({
+  members_with_roles: membersSchema,
+  max_budget: z.number().nullish(),
+  budget_duration: z.string().nullish(),
+  spend: z.number().nullish(),
+  budget_reset_at: z.string().nullish(),
+});
 
 const userInfoSchema = z.object({
   user_id: z.string(),
@@ -176,6 +196,10 @@ const teamInfoSchema = z.object({
     team_alias: z.string().nullish(),
     models: z.array(z.string()).nullish(),
     members_with_roles: membersSchema,
+    max_budget: z.number().nullish(),
+    budget_duration: z.string().nullish(),
+    spend: z.number().nullish(),
+    budget_reset_at: z.string().nullish(),
   }),
 });
 
@@ -325,8 +349,14 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
       if (status !== 200) fail("POST", "/team/delete", status, data);
     },
 
-    async updateTeam(teamId, { alias }) {
-      const { status, data } = await call("POST", "/team/update", { team_id: teamId, team_alias: alias });
+    async updateTeam(teamId, changes) {
+      const body = {
+        team_id: teamId,
+        ...(changes.alias !== undefined ? { team_alias: changes.alias } : {}),
+        ...(changes.maxBudget !== undefined ? { max_budget: changes.maxBudget } : {}),
+        ...(changes.budgetDuration !== undefined ? { budget_duration: changes.budgetDuration } : {}),
+      };
+      const { status, data } = await call("POST", "/team/update", body);
       if (status !== 200) fail("POST", "/team/update", status, data);
     },
 
@@ -391,5 +421,12 @@ function toTeamSummary(t: z.infer<typeof teamSummarySchema>): LiteLLMTeamSummary
 /** Équipe avec ses membres réels, sans le membre technique. */
 function toTeam(t: z.infer<typeof teamListItemSchema>): LiteLLMTeam {
   const memberUids = (t.members_with_roles ?? []).flatMap((m) => (m.user_id && m.user_id !== MEMBRE_TECHNIQUE ? [m.user_id] : []));
-  return { ...toTeamSummary(t), memberUids };
+  return {
+    ...toTeamSummary(t),
+    memberUids,
+    maxBudget: t.max_budget ?? null,
+    budgetDuration: t.budget_duration ?? null,
+    spend: t.spend ?? 0,
+    budgetResetAt: t.budget_reset_at ? new Date(t.budget_reset_at) : null,
+  };
 }

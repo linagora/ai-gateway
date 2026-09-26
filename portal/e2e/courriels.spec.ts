@@ -73,7 +73,7 @@ test("la tâche quotidienne rappelle au titulaire le retrait de sa clé avant l'
     await demandeApprouvee(browser, page, salarie, "Essai rappel");
     const reponse = await request.post("/api/taches/quotidienne", { headers: { Authorization: "Bearer dev-task-token" } });
     expect(reponse.status()).toBe(200);
-    expect(await reponse.json()).toMatchObject({ rappelsRetrait: expect.any(Number), clesExpirees: expect.any(Number) });
+    expect(await reponse.json()).toMatchObject({ rappelsRetrait: expect.any(Number), clesExpirees: expect.any(Number), alertesBudget: expect.any(Number) });
 
     await expect.poll(async () => (await courriels(`to:${salarie.email} subject:Rappel`)).length, { timeout: 15_000 }).toBe(1);
     const [rappel] = await courriels(`to:${salarie.email} subject:Rappel`);

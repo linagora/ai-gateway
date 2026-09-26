@@ -1,5 +1,6 @@
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
+import { PERIODE_BUDGET } from "@/lib/durees";
 import { PortalError } from "@/lib/errors";
 import type { LiteLLMClient, LiteLLMTeam } from "@/lib/litellm/client";
 import { requireAdmin } from "@/lib/rbac";
@@ -15,13 +16,25 @@ export interface TeamDeps extends NotificationDeps {
   litellm: LiteLLMClient;
 }
 
-/** Équipe telle que la présente la gestion : ses membres réels, ses clés actives émises par le portail, ses responsables. */
+/**
+ * Budget d'équipe (F-43), lu dans LiteLLM : plafond (null : sans limite), période au format LiteLLM, dépense de la
+ * période en cours et date de sa remise à zéro.
+ */
+export interface TeamBudget {
+  max: number | null;
+  period: string | null;
+  spend: number;
+  resetAt: Date | null;
+}
+
+/** Équipe telle que la présente la gestion : ses membres réels, ses clés actives émises par le portail, ses responsables, son budget. */
 export interface TeamOverview {
   teamId: string;
   teamAlias: string;
   memberCount: number;
   activeKeyCount: number;
   managerUids: string[];
+  budget: TeamBudget;
 }
 
 /** Responsable d'une équipe, avec l'adresse à laquelle le portail le prévient. */
@@ -175,6 +188,7 @@ export async function deleteTeam(deps: TeamDeps, actor: SessionUser, teamId: str
   const destinataires = await managerEmails(deps.db, team.teamId, [actor.uid]);
   await deps.litellm.deleteTeam(team.teamId);
   await deps.db.teamManager.deleteMany({ where: { teamId: team.teamId } });
+  await deps.db.teamBudgetAlert.deleteMany({ where: { teamId: team.teamId } });
   await recordAudit(deps.db, { actorUid: actor.uid, action: "TEAM_DELETED", targetId: team.teamId, details: { equipe: team.teamAlias } });
   await notifyTeamChange(deps, { type: "supprimee", teamId: team.teamId, equipe: team.teamAlias, auteur: actor }, destinataires);
 }
@@ -187,6 +201,26 @@ export async function createTeam(deps: TeamDeps, actor: SessionUser, input: { na
   await recordAudit(deps.db, { actorUid: actor.uid, action: "TEAM_CREATED", targetId: teamId, details: { equipe: nom } });
   await notifyTeamChange(deps, { type: "creee", teamId, equipe: nom, auteur: actor });
   return teamId;
+}
+
+/**
+ * F-43 : budget d'équipe fixé par un admin, avec sa période au format d'une clé (30d…) ; 0 retire le plafond. LiteLLM
+ * plafonne alors la dépense de toutes les clés de l'équipe, qu'il refuse une fois le budget atteint jusqu'à la période
+ * suivante.
+ */
+export async function setTeamBudget(deps: TeamDeps, actor: SessionUser, input: { teamId: string; budget: number | null; period: string }): Promise<void> {
+  requireAdmin(actor);
+  const { budget } = input;
+  const periode = input.period.trim();
+  if (budget === null || !Number.isFinite(budget) || budget < 0 || (budget > 0 && !PERIODE_BUDGET.test(periode))) {
+    throw new PortalError("budget_equipe_invalide", "Budget d'équipe négatif, ou positif sans période valide (30d, 12h…).");
+  }
+  const team = await existingTeam(deps, input.teamId);
+  // 0 : sans limite, transmis à LiteLLM comme l'absence de plafond et de période.
+  const plafond = budget > 0 ? { montant: budget, periode } : null;
+  await deps.litellm.updateTeam(team.teamId, { maxBudget: plafond?.montant ?? null, budgetDuration: plafond?.periode ?? null });
+  await recordAudit(deps.db, { actorUid: actor.uid, action: "TEAM_BUDGET_SET", targetId: team.teamId, details: { budget, periode: plafond?.periode ?? null } });
+  await notifyTeamChange(deps, { type: "budget", teamId: team.teamId, equipe: team.teamAlias, plafond, auteur: actor }, await managerEmails(deps.db, team.teamId, [actor.uid]));
 }
 
 /** F-53 : renomme une équipe ; les clés gardent leur alias et l'historique des demandes l'ancien nom. */
@@ -229,5 +263,6 @@ function overview(team: LiteLLMTeam, cles: Map<string, number>, responsables: Ma
     memberCount: team.memberUids.length,
     activeKeyCount: cles.get(team.teamId) ?? 0,
     managerUids: responsables.get(team.teamId) ?? [],
+    budget: { max: team.maxBudget, period: team.budgetDuration, spend: team.spend, resetAt: team.budgetResetAt },
   };
 }

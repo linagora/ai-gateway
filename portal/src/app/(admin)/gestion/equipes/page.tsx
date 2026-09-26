@@ -3,10 +3,13 @@ import { getTranslations } from "next-intl/server";
 import { listTeamOverviews } from "@/lib/services/teams";
 import { getDeps, requireGestionPage } from "@/lib/session";
 import { creerEquipeAction } from "../../../actions";
-import { Notice } from "../../../components";
+import { DepenseSurBudget, Notice } from "../../../components";
 import { AdminNav } from "../admin-nav";
 
-/** F-53 : les équipes de la passerelle, avec leurs membres réels et leurs clés actives, et la création d'une équipe. */
+/**
+ * F-53 : les équipes de la passerelle, avec leurs responsables, leurs membres réels, leurs clés actives et la dépense de
+ * la période sur leur budget (F-43) ; la création d'une équipe est réservée aux admins.
+ */
 export default async function EquipesPage(props: PageProps<"/gestion/equipes">) {
   const admin = await requireGestionPage();
   const [t, searchParams, equipes] = await Promise.all([getTranslations("gestion.equipes"), props.searchParams, listTeamOverviews(getDeps(), admin)]);
@@ -35,6 +38,7 @@ export default async function EquipesPage(props: PageProps<"/gestion/equipes">) 
               <th>{t("colonnes.responsables")}</th>
               <th>{t("colonnes.membres")}</th>
               <th>{t("colonnes.cles")}</th>
+              <th>{t("colonnes.budget")}</th>
             </tr>
           </thead>
           <tbody>
@@ -46,6 +50,7 @@ export default async function EquipesPage(props: PageProps<"/gestion/equipes">) 
                 <td>{e.managerUids.join(", ") || t("aucun")}</td>
                 <td>{e.memberCount}</td>
                 <td>{e.activeKeyCount}</td>
+                <td>{e.budget.max === null ? t("budget.sansLimite") : <DepenseSurBudget spend={e.budget.spend} maxBudget={e.budget.max} />}</td>
               </tr>
             ))}
           </tbody>

@@ -5,6 +5,7 @@ import type { PolicyCheck } from "./policy";
  * et ses paramètres (dictionnaires, espace « avis.erreurs ») ; le message reste pour les journaux.
  */
 export type PortalErrorCode =
+  | "budget_equipe_invalide"
   | "controles_en_echec"
   | "deja_membre"
   | "demande_en_cours"

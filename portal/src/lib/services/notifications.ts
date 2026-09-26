@@ -1,7 +1,7 @@
 import { createTranslator } from "next-intl";
 import type { AccessRequest } from "@/generated/prisma/client";
 import type { Mailer, Message } from "@/lib/courriel";
-import { DUREES_VALIDITE } from "@/lib/durees";
+import { DUREES_VALIDITE, joursDePeriode } from "@/lib/durees";
 import en from "../../../messages/en.json";
 import fr from "../../../messages/fr.json";
 
@@ -66,8 +66,8 @@ function duree(t: Traducteur, jours: number): string {
 
 /** Période de budget au format LiteLLM (30d…), en jours quand c'est possible. */
 function periode(t: Traducteur, budgetDuration: string): string {
-  const jours = /^(\d+)d$/.exec(budgetDuration);
-  return jours ? t("domaine.dureeEnJours", { nombre: Number(jours[1]) }) : budgetDuration;
+  const jours = joursDePeriode(budgetDuration);
+  return jours !== null ? t("domaine.dureeEnJours", { nombre: jours }) : budgetDuration;
 }
 
 /** Libellés des lignes d'un récapitulatif (dictionnaires, espace « courriels.recap »). */
@@ -270,6 +270,7 @@ export type TeamChange =
   | { type: "membreSorti"; membre: string }
   | { type: "responsableDesigne"; responsable: string }
   | { type: "responsableRetire"; responsable: string }
+  | { type: "budget"; plafond: { montant: number; periode: string } | null }
   | { type: "decision"; decision: "approuvee" | "refusee" | "complement" | "adhesion"; demandeur: string; demandeId: string }
   | { type: "cle"; action: "revocation" | "blocage" | "deblocage"; alias: string; titulaire: string };
 
@@ -282,7 +283,7 @@ export async function notifyTeamChange(
   changement: TeamChange & { teamId: string; equipe: string; auteur: { uid: string; name: string } },
   responsables: string[] = [],
 ): Promise<void> {
-  const valeurs = {
+  const valeurs = (t: Traducteur) => ({
     equipe: changement.equipe,
     auteur: auteur(changement.auteur),
     ...("ancienNom" in changement ? { ancienNom: changement.ancienNom } : {}),
@@ -290,11 +291,12 @@ export async function notifyTeamChange(
     ...("responsable" in changement ? { responsable: changement.responsable } : {}),
     ...(changement.type === "decision" ? { decision: changement.decision, demandeur: changement.demandeur } : {}),
     ...(changement.type === "cle" ? { action: changement.action, alias: changement.alias, titulaire: changement.titulaire } : {}),
-  };
+    ...(changement.type === "budget" ? { plafond: changement.plafond ? "oui" : "non", budget: budgetEquipe(t, changement.plafond) } : {}),
+  });
   const message = bilingue(
     (t) => ({
-      sujet: t(`courriels.equipe.${changement.type}.sujet`, valeurs),
-      paragraphes: [t("courriels.bonjourAdmins"), t(`courriels.equipe.${changement.type}.corps`, valeurs)],
+      sujet: t(`courriels.equipe.${changement.type}.sujet`, valeurs(t)),
+      paragraphes: [t("courriels.bonjourAdmins"), t(`courriels.equipe.${changement.type}.corps`, valeurs(t))],
     }),
     // Une équipe supprimée n'a plus de page : le lien mène à la liste des équipes.
     lienVers(
@@ -308,6 +310,39 @@ export async function notifyTeamChange(
             : `/gestion/equipes/${changement.teamId}`,
     ),
   );
+  await envoyer(deps, [...new Set([...(deps.adminEmails ?? []), ...responsables])], message);
+}
+
+/** Budget d'équipe tel que le nomment les courriels : « 100,00 € par période de 30 jours », ou « sans limite ». */
+function budgetEquipe(t: Traducteur, plafond: { montant: number; periode: string } | null): string {
+  return plafond
+    ? t("courriels.recap.budgetValeur", { montant: plafond.montant, periode: periode(t, plafond.periode) })
+    : t("courriels.equipe.budget.sansLimite");
+}
+
+/**
+ * F-43 : alerte de budget d'équipe, à 80 % puis à 100 %, aux admins et aux responsables de l'équipe désignés par la
+ * tâche quotidienne : la dépense de la période, la fin de celle-ci et ce qu'il advient des clés de l'équipe.
+ */
+export async function notifyTeamBudgetAlert(
+  deps: NotificationDeps,
+  alerte: { teamId: string; equipe: string; seuil: number; depense: number; budget: number; fin: Date | null },
+  responsables: string[],
+): Promise<void> {
+  const message = bilingue((t) => {
+    const valeurs = {
+      equipe: alerte.equipe,
+      seuil: alerte.seuil,
+      depense: alerte.depense,
+      budget: alerte.budget,
+      fin: alerte.fin ? t("courriels.recap.date", { date: alerte.fin }) : "aucune",
+      niveau: alerte.seuil >= 100 ? "atteint" : "alerte",
+    };
+    return {
+      sujet: t("courriels.alerteBudget.sujet", valeurs),
+      paragraphes: [t("courriels.bonjourAdmins"), [t("courriels.alerteBudget.corps", valeurs), t("courriels.alerteBudget.suite", valeurs)].join(" ")],
+    };
+  }, lienVers(deps, `/gestion/equipes/${alerte.teamId}`));
   await envoyer(deps, [...new Set([...(deps.adminEmails ?? []), ...responsables])], message);
 }
 

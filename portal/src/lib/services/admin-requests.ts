@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
+import { PERIODE_BUDGET } from "@/lib/durees";
 import { PolicyViolationError, PortalError } from "@/lib/errors";
 import type { LiteLLMClient } from "@/lib/litellm/client";
 import type { DataLevel, PolicyCheck, RequestStatus } from "@/lib/policy";
@@ -166,7 +167,7 @@ export const approvalInputSchema = z.object({
   teamId: z.string().min(1).optional(),
   models: z.array(z.string().min(1)),
   budget: z.number().positive().nullable(),
-  budgetDuration: z.string().regex(/^\d+[smhd]$/).nullable(),
+  budgetDuration: z.string().regex(PERIODE_BUDGET).nullable(),
   /** Durée de validité en jours ; SANS_EXPIRATION (0) : la clé n'expire jamais. */
   days: z.number().int().nonnegative().nullable(),
   rpmLimit: z.number().int().positive().nullable(),

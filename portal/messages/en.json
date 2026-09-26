@@ -92,6 +92,7 @@
       "cleDebloquee": "Key unblocked.",
       "equipeCreee": "Team created.",
       "equipeRenommee": "Team renamed.",
+      "budgetFixe": "Team budget saved.",
       "membreAjoute": "Member added.",
       "membreSorti": "The member has left the team: their keys of the team are revoked.",
       "equipeSupprimee": "Team deleted.",
@@ -120,7 +121,8 @@
       "membre_existant": "{uid} is already a member of the team {equipe}.",
       "equipe_non_vide": "This team still has active keys ({cles}) or pending requests ({demandes}): revoke its keys and process its requests before deleting it.",
       "responsable_existant": "{uid} is already a manager of the team {equipe}.",
-      "quatre_yeux": "You cannot decide on your own request: another manager of the team or an administrator will handle it."
+      "quatre_yeux": "You cannot decide on your own request: another manager of the team or an administrator will handle it.",
+      "budget_equipe_invalide": "Invalid team budget: enter an amount of zero or more (0: no limit) and, for a positive amount, a period such as 30d, 12h…"
     },
     "controles": {
       "membre_equipe": "The requester is a member of the team",
@@ -520,12 +522,25 @@
         "equipe": "Team",
         "membres": "Members",
         "cles": "Active keys",
+        "budget": "Budget",
         "responsables": "Managers"
       },
       "toutes": "All teams",
       "resume": "Team summary",
       "nom": "Team name",
       "renommer": "Rename",
+      "budget": {
+        "titre": "Team budget",
+        "plafond": "Budget",
+        "sansLimite": "No limit",
+        "valeur": "{montant, number, ::currency/EUR} every {periode}",
+        "depense": "Spend this period",
+        "remiseAZero": "Reset on",
+        "montant": "Budget (€)",
+        "periode": "Budget period (e.g. 30d)",
+        "aide": "0: no limit. Once the budget is reached, the gateway refuses all the team's keys until the next period.",
+        "enregistrer": "Save the budget"
+      },
       "membres": "Members",
       "aucunMembre": "No member.",
       "uid": "Employee uid",
@@ -711,6 +726,11 @@
         "sujet": "Team renamed: {equipe}",
         "corps": "{auteur} renamed the team {ancienNom} to {equipe}."
       },
+      "budget": {
+        "sujet": "Budget of the team {equipe}: {budget}",
+        "corps": "{plafond, select, oui {{auteur} set the budget of the team {equipe} to {budget}. Once it is reached, the gateway refuses the team's keys until the next period.} other {{auteur} removed the budget cap of the team {equipe}: its spend is no longer limited.}}",
+        "sansLimite": "no limit"
+      },
       "membreAjoute": {
         "sujet": "Member added to the team {equipe}: {membre}",
         "corps": "{auteur} added {membre} to the team {equipe}."
@@ -739,6 +759,11 @@
         "sujet": "Action on a key of the team {equipe}: {alias}",
         "corps": "{auteur} {action, select, revocation {revoked} blocage {blocked} other {unblocked}} the key {alias} of {titulaire}."
       }
+    },
+    "alerteBudget": {
+      "sujet": "Budget of the team {equipe} {seuil}% used",
+      "corps": "The team {equipe} has spent {depense, number, ::currency/EUR} of its budget of {budget, number, ::currency/EUR}{fin, select, aucune {} other { for the period ending on {fin}}}.",
+      "suite": "{niveau, select, atteint {The gateway refuses its keys} other {Once this budget is reached, the gateway will refuse its keys}} {fin, select, aucune {until it is raised} other {until that date}}."
     },
     "ajoutMembre": {
       "sujet": "You are a member of the team {equipe}",

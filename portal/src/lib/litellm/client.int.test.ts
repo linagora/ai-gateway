@@ -142,6 +142,9 @@ async function newTeam(models: string[]): Promise<{ teamId: string; teamAlias: s
   return { teamId, teamAlias };
 }
 
+/** Équipe sans budget d'équipe : ni plafond, ni période, aucune dépense. */
+const SANS_BUDGET = { maxBudget: null, budgetDuration: null, spend: 0, budgetResetAt: null };
+
 describe("équipes", () => {
   test("un membre ajouté à une équipe la retrouve dans ses équipes, avec ses modèles", async () => {
     const userId = await newUser();
@@ -154,7 +157,7 @@ describe("équipes", () => {
     const userId = await newUser();
     const { teamId, teamAlias } = await newTeam(["modele-a"]);
     await client.addTeamMember(teamId, userId);
-    expect(await client.getTeam(teamId)).toEqual({ teamId, teamAlias, models: ["modele-a"], memberUids: [userId] });
+    expect(await client.getTeam(teamId)).toEqual({ teamId, teamAlias, models: ["modele-a"], memberUids: [userId], ...SANS_BUDGET });
   });
 
   test("une équipe inconnue n'est pas trouvée", async () => {
@@ -165,7 +168,7 @@ describe("équipes", () => {
     const userId = await newUser();
     const { teamId, teamAlias } = await newTeam(["modele-a"]);
     await client.addTeamMember(teamId, userId);
-    expect(await client.listTeams()).toContainEqual({ teamId, teamAlias, models: ["modele-a"], memberUids: [userId] });
+    expect(await client.listTeams()).toContainEqual({ teamId, teamAlias, models: ["modele-a"], memberUids: [userId], ...SANS_BUDGET });
   });
 
   test("un membre retiré d'une équipe n'en fait plus partie", async () => {
@@ -174,6 +177,15 @@ describe("équipes", () => {
     await client.addTeamMember(teamId, userId);
     await client.removeTeamMember(teamId, userId);
     expect((await client.getTeam(teamId))?.memberUids).toEqual([]);
+  });
+
+  test("une équipe reçoit un budget par période, avec sa date de remise à zéro ; un budget retiré (null) ne plafonne plus rien", async () => {
+    const { teamId } = await newTeam([]);
+    await client.updateTeam(teamId, { maxBudget: 10, budgetDuration: "30d" });
+    expect(await client.getTeam(teamId)).toMatchObject({ maxBudget: 10, budgetDuration: "30d", spend: 0, budgetResetAt: expect.any(Date) });
+    expect((await client.listTeams()).find((t) => t.teamId === teamId)).toMatchObject({ maxBudget: 10, budgetDuration: "30d" });
+    await client.updateTeam(teamId, { maxBudget: null, budgetDuration: null });
+    expect(await client.getTeam(teamId)).toMatchObject(SANS_BUDGET);
   });
 
   test("supprimer une équipe supprime aussi ses clés", async () => {
@@ -190,7 +202,7 @@ describe("équipes", () => {
     const teamAlias = uniqueId("equipe");
     const teamId = await client.createTeam(teamAlias);
     createdTeams.push(teamId);
-    expect(await client.getTeam(teamId)).toEqual({ teamId, teamAlias, models: [], memberUids: [] });
+    expect(await client.getTeam(teamId)).toEqual({ teamId, teamAlias, models: [], memberUids: [], ...SANS_BUDGET });
     await client.updateTeam(teamId, { alias: `${teamAlias}-renommee` });
     expect((await client.getTeam(teamId))?.teamAlias).toBe(`${teamAlias}-renommee`);
     expect((await client.listTeams()).find((t) => t.teamId === teamId)?.teamAlias).toBe(`${teamAlias}-renommee`);

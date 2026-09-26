@@ -19,7 +19,7 @@ import { saveCatalogEntry } from "@/lib/services/catalog";
 import { blockKey, pickUpKey, replaceKey, revokeKey, unblockKey } from "@/lib/services/keys";
 import { cancelRequest, completeRequest, createKeyRequest, createTeamJoinRequest } from "@/lib/services/requests";
 import { saveSettings } from "@/lib/services/settings";
-import { addTeamMember, createTeam, deleteTeam, designateManager, removeManager, removeTeamMember, renameTeam } from "@/lib/services/teams";
+import { addTeamMember, createTeam, deleteTeam, designateManager, removeManager, removeTeamMember, renameTeam, setTeamBudget } from "@/lib/services/teams";
 import { getDeps, requireUser } from "@/lib/session";
 
 /*
@@ -175,6 +175,17 @@ export async function renommerEquipeAction(formData: FormData): Promise<void> {
   await run(page, () => renameTeam(getDeps(), user, { teamId: text(formData, "id"), name: text(formData, "nom") }), { path: page, message: "equipeRenommee" });
 }
 
+/** F-43 : budget d'équipe et sa période, fixés par un admin ; 0 : sans limite. */
+export async function fixerBudgetEquipeAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+  await run(
+    page,
+    () => setTeamBudget(getDeps(), user, { teamId: text(formData, "id"), budget: optionalNumber(formData, "budget"), period: text(formData, "periode") }),
+    { path: page, message: "budgetFixe" },
+  );
+}
+
 /** F-53 : ajout direct d'un salarié à une équipe par un admin. */
 export async function ajouterMembreAction(formData: FormData): Promise<void> {
   const user = await requireUser();
@@ -286,6 +297,7 @@ type CleSucces =
   | "cleDebloquee"
   | "equipeCreee"
   | "equipeRenommee"
+  | "budgetFixe"
   | "membreAjoute"
   | "membreSorti"
   | "equipeSupprimee"

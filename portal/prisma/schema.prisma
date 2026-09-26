@@ -155,3 +155,14 @@ model TeamManager {
   @@id([teamId, uid])
   @@index([uid])
 }
+
+/// Alerte de budget d'équipe (F-43) : seuil déjà annoncé (80 ou 100 %) pour la période en cours, repérée par la date
+/// de remise à zéro du budget dans LiteLLM et par le budget lui-même ; une nouvelle période, ou un nouveau budget,
+/// fait repartir les alertes.
+model TeamBudgetAlert {
+  teamId  String    @id
+  resetAt DateTime?
+  budget  Decimal
+  level   Int
+  sentAt  DateTime
+}
