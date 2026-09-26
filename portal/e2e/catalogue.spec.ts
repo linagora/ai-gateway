@@ -119,6 +119,46 @@ test.describe("vue d'ensemble des niveaux (ticket #5)", () => {
     }
   });
 
+  test("chaque carte montre, centrées au-dessus du nom du niveau, les pastilles des classifications qu'il accepte, en français et en anglais", async ({ browser }) => {
+    for (const [langue, pastilles] of [
+      [
+        "fr-FR",
+        {
+          "N1 Public": ["Classification NC · Public", "Classification C1 · Interne"],
+          "N2 Interne": ["Classification C2 · Restreint"],
+          "N3 Confidentiel": ["Classification C3 · Secret"],
+          "Expérimental (bêta)": [],
+        },
+      ],
+      [
+        "en-US",
+        {
+          "N1 Public": ["Classification NC · Public", "Classification C1 · Internal"],
+          "N2 Internal": ["Classification C2 · Restricted"],
+          "N3 Confidential": ["Classification C3 · Secret"],
+          "Experimental (beta)": [],
+        },
+      ],
+    ] as const) {
+      const context = await connecter(browser, salarie, langue);
+      const page = await context.newPage();
+      await page.goto("/catalogue");
+      for (const [niveau, attendues] of Object.entries(pastilles)) {
+        const images = carte(page, niveau).getByRole("img");
+        await expect(images).toHaveCount(attendues.length);
+        const titre = await carte(page, niveau).getByRole("heading", { level: 2 }).boundingBox();
+        for (const [i, nom] of attendues.entries()) {
+          await expect(images.nth(i)).toHaveAccessibleName(nom);
+          expect(await images.nth(i).evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0), `${nom} chargée`).toBe(true);
+          const pastille = await images.nth(i).boundingBox();
+          expect(Math.abs(pastille!.x + pastille!.width / 2 - (titre!.x + titre!.width / 2)), `${nom} centrée`).toBeLessThanOrEqual(1);
+          expect(pastille!.y + pastille!.height, `${nom} au-dessus du nom du niveau`).toBeLessThanOrEqual(titre!.y);
+        }
+      }
+      await context.close();
+    }
+  });
+
   test("chaque carte donne le nombre de modèles du niveau et son prix de départ", async ({ browser }) => {
     const context = await connecter(browser, salarie);
     const page = await context.newPage();

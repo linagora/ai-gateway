@@ -32,6 +32,12 @@
       "N3": "N3 Confidential",
       "EXP": "Experimental (beta)"
     },
+    "classifications": {
+      "NC": "Classification NC · Public",
+      "C1": "Classification C1 · Internal",
+      "C2": "Classification C2 · Restricted",
+      "C3": "Classification C3 · Secret"
+    },
     "zones": {
       "UE": "EU",
       "HORS_UE": "Outside the EU"
