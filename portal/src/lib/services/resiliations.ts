@@ -6,7 +6,7 @@ import { PortalError } from "@/lib/errors";
 import type { LiteLLMClient } from "@/lib/litellm/client";
 import { recordAudit } from "./audit";
 import { managerEmails, requireAutorite } from "./autorite";
-import { pickupDeadline, readPickupDays } from "./echeances";
+import { pickupDeadline, readPickupDays } from "./delais";
 import { type NotificationDeps, notifyTeamChange, notifyTerminationDeclaredByAdmin, notifyTerminationRequested } from "./notifications";
 import { libelleOffre } from "./offers";
 import { enregistrerPrelevements, jourUtc } from "./prelevements";

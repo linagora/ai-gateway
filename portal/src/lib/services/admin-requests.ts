@@ -9,7 +9,8 @@ import { type Page, tranche } from "@/lib/pagination";
 import type { DataLevel, PolicyCheck, RequestStatus } from "@/lib/policy";
 import { recordAudit } from "./audit";
 import { dansEquipes, managerEmails, requireAutorite, requireGestion } from "./autorite";
-import { markExpired, pickupDeadline, readPickupDays } from "./echeances";
+import { pickupDeadline, readPickupDays } from "./delais";
+import { markExpired } from "./echeances";
 import {
   type NotificationDeps,
   notifyCompletionRequested,
