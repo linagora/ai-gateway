@@ -6,7 +6,9 @@ import {
   connecter,
   creerOffre,
   declarer,
+  demandeApprouvee,
   demanderEtApprouver,
+  designer,
   demanderOffre,
   echapper,
   enrichirModele,
@@ -127,6 +129,54 @@ test("onglet « Collaborateurs » : le nombre de membres d'une équipe y mène, 
   // Nettoyage.
   await admin.goto(pageEquipe);
   await faireSortir(admin, membre.uid);
+  await supprimerEquipe(admin);
+  await expect(admin.getByRole("status")).toHaveText("Équipe supprimée.");
+});
+
+test("un responsable voit, dans l'onglet et sur la fiche, les membres de son équipe limités à celle-ci, et agit sur leurs clés", async ({ browser }) => {
+  const responsable = personne("responsable");
+  const membre = personne("membre");
+  const pageResponsable = await (await connecter(browser, responsable)).newPage();
+  const pageMembre = await (await connecter(browser, membre)).newPage();
+  const admin = await (await connecter(browser, ADMIN)).newPage();
+  const equipe = `Équipe responsable ${suffixe}`;
+  await nouvelleEquipe(admin, equipe);
+  await designer(admin, responsable.uid);
+  await ajouterMembre(admin, membre.uid);
+  const pageEquipe = admin.url();
+  // Une clé émise dans son équipe ; une clé approuvée dans R&D, hors de l'autorité du responsable.
+  await demanderEtApprouver(browser, pageMembre, membre, { equipe, projet: "Responsable" });
+  await retirerCle(pageMembre);
+  await demandeApprouvee(browser, pageMembre, membre, "Hors équipe");
+
+  // Son onglet « Collaborateurs » liste le membre avec son équipe seule ; la fiche ne montre que ce qui la concerne.
+  await pageResponsable.goto("/gestion/collaborateurs");
+  const ligneListe = pageResponsable.getByRole("table").getByRole("row", { name: new RegExp(echapper(membre.uid)) });
+  await expect(ligneListe).toContainText(equipe);
+  await expect(ligneListe).not.toContainText("R&D");
+  await ligneListe.getByRole("link", { name: membre.uid, exact: true }).click();
+  await expect(pageResponsable.getByRole("heading", { level: 1 })).toHaveText(membre.uid);
+  await expect(pageResponsable.getByRole("region", { name: "Équipes" })).not.toContainText("R&D");
+  const cles = pageResponsable.getByRole("region", { name: "Clés d'API" });
+  const ligneCle = cles.getByRole("row", { name: new RegExp(echapper(equipe)) });
+  await expect(ligneCle).toContainText("Clé émise");
+  await expect(cles).not.toContainText("R&D");
+
+  // Il bloque puis débloque la clé du membre depuis la fiche.
+  await ligneCle.getByRole("button", { name: "Bloquer" }).click();
+  await expect(pageResponsable.getByRole("status")).toHaveText("Clé bloquée.");
+  await expect(ligneCle).toContainText("bloquée");
+  await ligneCle.getByRole("button", { name: "Débloquer" }).click();
+  await expect(pageResponsable.getByRole("status")).toHaveText("Clé débloquée.");
+
+  // Un collaborateur hors de ses équipes lui est introuvable.
+  await pageResponsable.goto(`/gestion/collaborateurs/${ADMIN.uid}`);
+  await expect(pageResponsable.getByRole("heading", { level: 1 })).toHaveText("Page introuvable");
+
+  // Nettoyage.
+  await admin.goto(pageEquipe);
+  await faireSortir(admin, membre.uid);
+  await faireSortir(admin, responsable.uid);
   await supprimerEquipe(admin);
   await expect(admin.getByRole("status")).toHaveText("Équipe supprimée.");
 });
