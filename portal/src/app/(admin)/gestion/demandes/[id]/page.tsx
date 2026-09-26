@@ -1,3 +1,4 @@
+import { CircleCheck, CircleX } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { PortalError } from "@/lib/errors";
@@ -18,7 +19,7 @@ import { ChoixDuree, ExplicationObligatoires, libelleDuree, Notice, formats } fr
 import { Obligatoire } from "../../../../obligatoire";
 import { AdminNav } from "../../admin-nav";
 
-/** F-31 / F-32 : fiche d'une demande, contrôles de politique ✔/✘ et décisions. */
+/** F-31 / F-32 : fiche d'une demande, contrôles de politique réussis ou en échec, et décisions. */
 export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id]">) {
   const admin = await requireGestionPage();
   const [{ date, euros }, t, domaine, avis, language] = await Promise.all([
@@ -117,9 +118,17 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
           <h2>{t("controles")}</h2>
           <ul>
             {review.checks.map((c) => (
-              <li key={c.id}>
-                {c.ok ? "✔" : "✘"} {avis(`controles.${c.id}`)}
-                {c.offending.length > 0 && ` : ${c.offending.join(", ")}`}
+              <li key={c.id} className="flex items-start gap-2">
+                {c.ok ? (
+                  <CircleCheck aria-hidden="true" className="mt-1 size-4 shrink-0 text-green-700" />
+                ) : (
+                  <CircleX aria-hidden="true" className="mt-1 size-4 shrink-0 text-red-700" />
+                )}
+                <span>
+                  <span className="sr-only">{t(c.ok ? "controleReussi" : "controleEchoue")} : </span>
+                  {avis(`controles.${c.id}`)}
+                  {c.offending.length > 0 && ` : ${c.offending.join(", ")}`}
+                </span>
               </li>
             ))}
           </ul>

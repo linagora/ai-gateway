@@ -1,3 +1,4 @@
+import { ExternalLink } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { requireAdminPage } from "@/lib/session";
 import { AdminNav } from "../admin-nav";
@@ -13,7 +14,9 @@ export default async function OutilsPage() {
   const lien = (adresse: string, libelle: string) => (
     <li>
       <a href={adresse} target="_blank" rel="noopener">
-        {libelle} <span aria-hidden="true">↗</span>
+        {libelle}
+        {" "}
+        <ExternalLink aria-hidden="true" className="inline size-3.5 align-[-0.125em]" />
         <span className="sr-only"> ({t("nouvelOnglet")})</span>
       </a>
     </li>

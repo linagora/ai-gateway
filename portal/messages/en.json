@@ -269,7 +269,7 @@
     }
   },
   "niveau": {
-    "tousLesNiveaux": "← All levels",
+    "tousLesNiveaux": "All levels",
     "accepteJusqua": "Accepts up to {niveau}",
     "capacites": "Capabilities",
     "repere": {
@@ -435,6 +435,8 @@
       "motif": "Reason",
       "dernierCommentaire": "Last comment",
       "controles": "Policy checks (current state)",
+      "controleReussi": "Check passed",
+      "controleEchoue": "Check failed",
       "approuverCle": "Approve (key parameters)",
       "modelesAccordes": "Granted models",
       "budget": "Budget (€)",
