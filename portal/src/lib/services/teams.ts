@@ -186,15 +186,19 @@ export async function removeTeamMember(deps: TeamDeps, actor: SessionUser, input
 
 /**
  * F-53 : supprime une équipe. LiteLLM supprimant aussi ses clés, la suppression est refusée tant que l'équipe a des clés
- * actives ou des demandes en cours (DEMANDES_EN_COURS) ; l'historique des demandes reste.
+ * actives, émises par le portail ou créées depuis la console de LiteLLM, ou des demandes en cours (DEMANDES_EN_COURS) ;
+ * l'historique des demandes reste.
  */
 export async function deleteTeam(deps: TeamDeps, actor: SessionUser, teamId: string): Promise<void> {
   requireAdmin(actor);
   const team = await existingTeam(deps, teamId);
-  const [cles, demandes] = await Promise.all([
+  const [clesPortail, clesPasserelle, demandes] = await Promise.all([
     deps.db.accessRequest.count({ where: { teamId: team.teamId, kind: "CLE", status: "CLE_EMISE" } }),
+    // LiteLLM supprimerait aussi les clés de l'équipe créées depuis sa console : elles comptent.
+    deps.litellm.countActiveTeamKeys(team.teamId),
     deps.db.accessRequest.count({ where: { teamId: team.teamId, ...DEMANDES_EN_COURS } }),
   ]);
+  const cles = Math.max(clesPortail, clesPasserelle);
   if (cles + demandes > 0) {
     throw new PortalError("equipe_non_vide", `L'équipe ${team.teamAlias} a encore des clés ou des demandes en cours.`, { cles: String(cles), demandes: String(demandes) });
   }

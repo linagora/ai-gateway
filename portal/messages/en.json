@@ -125,7 +125,7 @@
       "nom_equipe_pris": "The name {nom} is already used by another team.",
       "salarie_inconnu": "No employee has signed in to the portal yet with the identifier {uid}.",
       "membre_existant": "{uid} is already a member of the team {equipe}.",
-      "equipe_non_vide": "This team still has active keys ({cles}) or pending requests ({demandes}): revoke its keys and process its requests before deleting it.",
+      "equipe_non_vide": "This team still has active keys ({cles}) or pending requests ({demandes}): revoke its keys, including those created from the LiteLLM console, and process its requests before deleting it.",
       "responsable_existant": "{uid} is already a manager of the team {equipe}.",
       "quatre_yeux": "{cas, select, cle {You cannot block or unblock your own key: another manager of the team or an administrator will handle it.} other {You cannot decide on your own request: another manager of the team or an administrator will handle it.}}",
       "budget_equipe_invalide": "Invalid team budget: enter an amount of zero or more (0: no limit) and, for a positive amount, a period such as 30d, 12h…"

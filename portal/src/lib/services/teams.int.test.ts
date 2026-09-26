@@ -172,6 +172,14 @@ describe("supprimer une équipe (ticket #38)", () => {
     expect(mailer.outbox).toEqual([]);
   });
 
+  test("une clé de l'équipe créée depuis la console de LiteLLM, que LiteLLM supprimerait avec elle, bloque aussi la suppression ; une clé expirée ne la bloque pas", async () => {
+    await litellm.generateKey({ userId: "pmartin", teamId: "equipe-rd", models: [], maxBudget: 5, budgetDuration: "30d", duration: "1d", rpmLimit: null, tpmLimit: null, alias: "cle-console", metadata: {} });
+    await expect(deleteTeam(deps, admin, "equipe-rd")).rejects.toMatchObject({ code: "equipe_non_vide", params: { cles: "1", demandes: "0" } });
+    litellm.horloge = () => new Date(Date.now() + 2 * 86_400_000);
+    await deleteTeam(deps, admin, "equipe-rd");
+    expect(litellm.teams.has("equipe-rd")).toBe(false);
+  });
+
   test("une équipe sans clé active ni demande en cours est supprimée de la passerelle ; ses demandes passées restent ; la suppression est inscrite et annoncée", async () => {
     const passee = await testDb.accessRequest.create({ data: { kind: "CLE", status: "REVOQUEE", requesterUid: "mmaudet", requesterEmail: "mmaudet@linagora.com", teamId: "equipe-rd", teamAlias: "R&D", dataLevel: "N1", models: ["mistral-small"], justification: "Essai" } });
     await deleteTeam(deps, admin, "equipe-rd");

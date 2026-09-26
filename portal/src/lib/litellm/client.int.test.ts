@@ -188,6 +188,21 @@ describe("équipes", () => {
     expect(await client.getTeam(teamId)).toMatchObject(SANS_BUDGET);
   });
 
+  test("une équipe compte ses clés non expirées, qu'elles viennent du portail ou de la console de LiteLLM ; une clé supprimée ne compte plus", async () => {
+    const userId = await newUser();
+    const { teamId } = await newTeam(["dev-public"]);
+    await client.addTeamMember(teamId, userId);
+    expect(await client.countActiveTeamKeys(teamId)).toBe(0);
+    const cle = await client.generateKey({ userId, teamId, models: ["dev-public"], maxBudget: 5, budgetDuration: "30d", duration: "30d", rpmLimit: null, tpmLimit: null, alias: uniqueId("alias"), metadata: {} });
+    // Comme depuis la console : une clé d'équipe sans titulaire, et une clé déjà expirée (durée d'une seconde).
+    await admin("POST", "/key/generate", { team_id: teamId, key_alias: uniqueId("console") });
+    await admin("POST", "/key/generate", { team_id: teamId, key_alias: uniqueId("expiree"), duration: "1s" });
+    await new Promise((fin) => setTimeout(fin, 1_500));
+    expect(await client.countActiveTeamKeys(teamId)).toBe(2);
+    await client.deleteKey(cle.tokenId);
+    expect(await client.countActiveTeamKeys(teamId)).toBe(1);
+  });
+
   test("supprimer une équipe supprime aussi ses clés", async () => {
     const userId = await newUser();
     const { teamId } = await newTeam(["dev-public"]);

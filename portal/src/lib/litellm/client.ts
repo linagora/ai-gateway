@@ -155,6 +155,8 @@ export interface LiteLLMClient {
   updateTeam(teamId: string, changes: TeamChanges): Promise<void>;
   /** F-53 : supprime une équipe ; LiteLLM supprime aussi ses clés. */
   deleteTeam(teamId: string): Promise<void>;
+  /** F-53 : clés non expirées d'une équipe, émises par le portail ou créées depuis la console : sa suppression les emporterait. */
+  countActiveTeamKeys(teamId: string): Promise<number>;
   /** F-40 : génère une clé ; l'alias doit être unique dans LiteLLM. */
   generateKey(params: KeyParams): Promise<GeneratedKey>;
   /** F-42 : informations d'une clé d'après son empreinte ; null si LiteLLM ne la connaît pas. */
@@ -189,6 +191,9 @@ const userInfoSchema = z.object({
   user_info: z.object({ user_email: z.string().nullish() }).nullish(),
   teams: z.array(teamSummarySchema).nullish(),
 });
+
+/** Clés d'une équipe, telles que les liste GET /team/info. */
+const teamKeysSchema = z.object({ keys: z.array(z.object({ expires: z.string().nullish() })).nullish() });
 
 const teamInfoSchema = z.object({
   team_id: z.string(),
@@ -308,6 +313,14 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
       if (status !== 200) fail("GET", path, status, data);
       const { team_id, team_info } = teamInfoSchema.parse(data);
       return toTeam({ team_id, ...team_info });
+    },
+
+    async countActiveTeamKeys(teamId) {
+      const path = `/team/info?team_id=${encodeURIComponent(teamId)}`;
+      const { status, data } = await call("GET", path);
+      if (status !== 200) fail("GET", path, status, data);
+      const maintenant = Date.now();
+      return (teamKeysSchema.parse(data).keys ?? []).filter((k) => !k.expires || new Date(k.expires).getTime() > maintenant).length;
     },
 
     async listModels() {

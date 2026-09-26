@@ -168,7 +168,7 @@ test("une équipe qui a une demande en cours ne peut pas être supprimée ; vide
   await admin.reload();
   await supprimerEquipe(admin);
   await expect(admin.getByRole("main").getByRole("alert")).toHaveText(
-    "Cette équipe a encore des clés actives (0) ou des demandes en cours (1) : révoquez ses clés et traitez ses demandes avant de la supprimer.",
+    "Cette équipe a encore des clés actives (0) ou des demandes en cours (1) : révoquez ses clés, y compris celles créées depuis la console de LiteLLM, et traitez ses demandes avant de la supprimer.",
   );
 
   // Après la sortie du membre (sa demande est annulée), l'équipe se supprime.
@@ -375,7 +375,7 @@ test("un responsable bloque, débloque et révoque la clé d'un membre de son é
   // Tant qu'elle a une clé active, l'équipe ne peut pas être supprimée : LiteLLM supprimerait la clé avec elle.
   await supprimerEquipe(admin);
   await expect(admin.getByRole("main").getByRole("alert")).toHaveText(
-    "Cette équipe a encore des clés actives (1) ou des demandes en cours (0) : révoquez ses clés et traitez ses demandes avant de la supprimer.",
+    "Cette équipe a encore des clés actives (1) ou des demandes en cours (0) : révoquez ses clés, y compris celles créées depuis la console de LiteLLM, et traitez ses demandes avant de la supprimer.",
   );
 
   // Blocage puis déblocage depuis la gestion du responsable.

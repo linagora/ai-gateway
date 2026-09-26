@@ -97,6 +97,12 @@ export class FakeLiteLLM implements LiteLLMClient {
     for (const [tokenId, cle] of this.keys) if (cle.teamId === teamId) this.keys.delete(tokenId);
   }
 
+  async countActiveTeamKeys(teamId: string): Promise<number> {
+    if (this.panne) throw new Error("LiteLLM injoignable");
+    const maintenant = this.horloge().getTime();
+    return [...this.keys.values()].filter((k) => k.teamId === teamId && (k.expiresAt === null || k.expiresAt.getTime() > maintenant)).length;
+  }
+
   async updateTeam(teamId: string, changes: TeamChanges): Promise<void> {
     if (this.panne) throw new Error("LiteLLM injoignable");
     const team = this.teams.get(teamId);
