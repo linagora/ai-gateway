@@ -256,3 +256,22 @@ export async function notifyAdminKeyAction(
   );
   await envoyer(deps, [demande.requesterEmail], message);
 }
+
+/** Changement dans une équipe (F-53), annoncé aux admins. */
+export type TeamChange = { type: "creee" } | { type: "renommee"; ancienNom: string };
+
+/** F-53 : un changement dans une équipe est annoncé aux admins, avec son auteur et le lien vers la page de l'équipe. */
+export async function notifyTeamChange(
+  deps: NotificationDeps,
+  changement: TeamChange & { teamId: string; equipe: string; auteur: { uid: string; name: string } },
+): Promise<void> {
+  const valeurs = { equipe: changement.equipe, auteur: `${changement.auteur.name} (${changement.auteur.uid})`, ...("ancienNom" in changement ? { ancienNom: changement.ancienNom } : {}) };
+  const message = bilingue(
+    (t) => ({
+      sujet: t(`courriels.equipe.${changement.type}.sujet`, valeurs),
+      paragraphes: [t("courriels.bonjourAdmins"), t(`courriels.equipe.${changement.type}.corps`, valeurs)],
+    }),
+    lienVers(deps, `/gestion/equipes/${changement.teamId}`),
+  );
+  await envoyer(deps, deps.adminEmails ?? [], message);
+}

@@ -12,6 +12,8 @@ export type PortalErrorCode =
   | "interdit"
   | "introuvable"
   | "motif_obligatoire"
+  | "nom_equipe_invalide"
+  | "nom_equipe_pris"
   | "parametre_manquant"
   | "passerelle_indisponible"
   | "recommandation_hors_cas_usage"

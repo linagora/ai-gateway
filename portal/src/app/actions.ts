@@ -19,6 +19,7 @@ import { saveCatalogEntry } from "@/lib/services/catalog";
 import { blockKey, pickUpKey, replaceKey, revokeKey, unblockKey } from "@/lib/services/keys";
 import { cancelRequest, completeRequest, createKeyRequest, createTeamJoinRequest } from "@/lib/services/requests";
 import { saveSettings } from "@/lib/services/settings";
+import { createTeam, renameTeam } from "@/lib/services/teams";
 import { getDeps, requireUser } from "@/lib/session";
 
 /*
@@ -161,6 +162,19 @@ export async function saveSettingsAction(formData: FormData): Promise<void> {
   await run("/gestion/parametres", () => saveSettings(getDeps(), user, values), { path: "/gestion/parametres", message: "parametresEnregistres" });
 }
 
+/** F-53 : création d'une équipe par un admin. */
+export async function creerEquipeAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  await run("/gestion/equipes", () => createTeam(getDeps(), user, { name: text(formData, "nom") }), { path: "/gestion/equipes", message: "equipeCreee" });
+}
+
+/** F-53 : renommage d'une équipe par un admin. */
+export async function renommerEquipeAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+  await run(page, () => renameTeam(getDeps(), user, { teamId: text(formData, "id"), name: text(formData, "nom") }), { path: page, message: "equipeRenommee" });
+}
+
 // --- outils ---
 
 /** F-43 : révocation d'une clé par son titulaire. */
@@ -234,7 +248,9 @@ type CleSucces =
   | "parametresEnregistres"
   | "cleRevoquee"
   | "cleBloquee"
-  | "cleDebloquee";
+  | "cleDebloquee"
+  | "equipeCreee"
+  | "equipeRenommee";
 
 /** Exécute le cas d'usage ; en cas d'erreur métier, revient sur `errorPath` avec le message. */
 async function run(errorPath: string, action: () => Promise<unknown>, success: { path: string; message: CleSucces }): Promise<void> {

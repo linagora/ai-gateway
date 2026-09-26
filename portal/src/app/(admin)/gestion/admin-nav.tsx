@@ -18,6 +18,7 @@ export async function AdminNav() {
         {t("cles")}
         <Pastille nombre={clesARetirer} libelle={t("aRetirer", { nombre: clesARetirer })} />
       </Link>
+      <Link href="/gestion/equipes">{t("equipes")}</Link>
       <Link href="/gestion/catalogue">{t("catalogue")}</Link>
       <Link href="/gestion/parametres">{t("parametres")}</Link>
       <Link href="/gestion/outils">{t("outils")}</Link>

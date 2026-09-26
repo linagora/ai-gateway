@@ -89,7 +89,9 @@
       "parametresEnregistres": "Paramètres enregistrés.",
       "cleRevoquee": "Clé révoquée.",
       "cleBloquee": "Clé bloquée.",
-      "cleDebloquee": "Clé débloquée."
+      "cleDebloquee": "Clé débloquée.",
+      "equipeCreee": "Équipe créée.",
+      "equipeRenommee": "Équipe renommée."
     },
     "erreurs": {
       "controles_en_echec": "La demande ne respecte pas la politique d'accès aux modèles. Contrôles en échec : {controles}.",
@@ -106,7 +108,9 @@
       "saisie_invalide": "Saisie invalide : vérifiez les champs {champs}.",
       "inconnue": "Une erreur est survenue.",
       "passerelle_indisponible": "La passerelle ne répond pas : réessayez dans quelques instants.",
-      "trop_de_generations": "Trop de clés générées en peu de temps : réessayez dans quelques minutes."
+      "trop_de_generations": "Trop de clés générées en peu de temps : réessayez dans quelques minutes.",
+      "nom_equipe_invalide": "Donnez un nom à l'équipe (100 caractères au plus).",
+      "nom_equipe_pris": "Le nom {nom} est déjà pris par une autre équipe."
     },
     "controles": {
       "membre_equipe": "Le demandeur est membre de l'équipe",
@@ -367,6 +371,7 @@
       "catalogue": "Catalogue",
       "parametres": "Valeurs par défaut",
       "cles": "Clés",
+      "equipes": "Équipes",
       "aValider": "{nombre, plural, one {# demande à valider} other {# demandes à valider}}",
       "aRetirer": "{nombre, plural, one {# clé à retirer} other {# clés à retirer}}",
       "outils": "Outils"
@@ -494,6 +499,21 @@
         "console": "Console LiteLLM",
         "openapi": "Schéma OpenAPI de l'API d'administration"
       }
+    },
+    "equipes": {
+      "titre": "Équipes",
+      "nouvelle": "Nom de la nouvelle équipe",
+      "creer": "Créer l'équipe",
+      "aucune": "Aucune équipe.",
+      "colonnes": {
+        "equipe": "Équipe",
+        "membres": "Membres",
+        "cles": "Clés actives"
+      },
+      "toutes": "Toutes les équipes",
+      "resume": "Résumé de l'équipe",
+      "nom": "Nom de l'équipe",
+      "renommer": "Renommer"
     }
   },
   "introuvable": {
@@ -647,6 +667,16 @@
     "cleDebloquee": {
       "sujet": "Votre clé {alias} est débloquée",
       "corps": "Un administrateur a débloqué votre clé d'API {alias} : elle fonctionne à nouveau."
+    },
+    "equipe": {
+      "creee": {
+        "sujet": "Équipe créée : {equipe}",
+        "corps": "{auteur} a créé l'équipe {equipe}."
+      },
+      "renommee": {
+        "sujet": "Équipe renommée : {equipe}",
+        "corps": "{auteur} a renommé l'équipe {ancienNom} en {equipe}."
+      }
     }
   }
 }

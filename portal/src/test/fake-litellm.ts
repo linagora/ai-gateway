@@ -67,8 +67,23 @@ export class FakeLiteLLM implements LiteLLMClient {
     return this.models.map((m) => ({ ...m }));
   }
 
-  async listTeams() {
-    return [...this.teams.values()].map(({ teamId, teamAlias, models }) => ({ teamId, teamAlias, models }));
+  async listTeams(): Promise<LiteLLMTeam[]> {
+    return [...this.teams.values()].map((t) => ({ ...t, models: [...t.models], memberUids: [...t.memberUids] }));
+  }
+
+  async createTeam(alias: string): Promise<string> {
+    if (this.panne) throw new Error("LiteLLM injoignable");
+    // Comme LiteLLM 1.102.1 : un nom déjà pris n'est pas refusé ; l'unicité est l'affaire du portail.
+    const teamId = `equipe-${randomBytes(4).toString("hex")}`;
+    this.teams.set(teamId, { teamId, teamAlias: alias, models: [], memberUids: [] });
+    return teamId;
+  }
+
+  async updateTeam(teamId: string, { alias }: { alias: string }): Promise<void> {
+    if (this.panne) throw new Error("LiteLLM injoignable");
+    const team = this.teams.get(teamId);
+    if (!team) throw new Error(`équipe inconnue : ${teamId}`);
+    team.teamAlias = alias;
   }
 
   async generateKey(params: KeyParams): Promise<GeneratedKey> {

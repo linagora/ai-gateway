@@ -150,20 +150,32 @@ describe("équipes", () => {
     expect((await client.getUser(userId))?.teams).toEqual([{ teamId, teamAlias, models: ["modele-a", "modele-b"] }]);
   });
 
-  test("une équipe expose ses modèles et ses membres", async () => {
+  test("une équipe expose ses modèles et ses membres, sans le membre technique que LiteLLM ajoute à chaque équipe", async () => {
     const userId = await newUser();
     const { teamId, teamAlias } = await newTeam(["modele-a"]);
     await client.addTeamMember(teamId, userId);
-    expect(await client.getTeam(teamId)).toEqual({ teamId, teamAlias, models: ["modele-a"], memberUids: expect.arrayContaining([userId]) });
+    expect(await client.getTeam(teamId)).toEqual({ teamId, teamAlias, models: ["modele-a"], memberUids: [userId] });
   });
 
   test("une équipe inconnue n'est pas trouvée", async () => {
     expect(await client.getTeam(uniqueId("equipe-inconnue"))).toBeNull();
   });
 
-  test("la liste des équipes contient les équipes existantes", async () => {
+  test("la liste des équipes contient les équipes existantes, avec leurs membres réels", async () => {
+    const userId = await newUser();
     const { teamId, teamAlias } = await newTeam(["modele-a"]);
-    expect(await client.listTeams()).toContainEqual({ teamId, teamAlias, models: ["modele-a"] });
+    await client.addTeamMember(teamId, userId);
+    expect(await client.listTeams()).toContainEqual({ teamId, teamAlias, models: ["modele-a"], memberUids: [userId] });
+  });
+
+  test("une équipe créée par le portail n'a ni modèles ni membres réels ; elle se renomme", async () => {
+    const teamAlias = uniqueId("equipe");
+    const teamId = await client.createTeam(teamAlias);
+    createdTeams.push(teamId);
+    expect(await client.getTeam(teamId)).toEqual({ teamId, teamAlias, models: [], memberUids: [] });
+    await client.updateTeam(teamId, { alias: `${teamAlias}-renommee` });
+    expect((await client.getTeam(teamId))?.teamAlias).toBe(`${teamAlias}-renommee`);
+    expect((await client.listTeams()).find((t) => t.teamId === teamId)?.teamAlias).toBe(`${teamAlias}-renommee`);
   });
 });
 

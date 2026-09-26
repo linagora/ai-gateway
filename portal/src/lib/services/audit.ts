@@ -1,7 +1,7 @@
 import type { Prisma } from "@/generated/prisma/client";
 import type { Db } from "@/lib/db";
 
-/** Actions inscrites au journal d'audit (F-52) : décisions sur les demandes, actions sur les clés. */
+/** Actions inscrites au journal d'audit (F-52) : décisions sur les demandes, actions sur les clés et sur les équipes. */
 export type AuditAction =
   | "REQUEST_CREATED"
   | "RENEWAL_REQUESTED"
@@ -15,7 +15,9 @@ export type AuditAction =
   | "KEY_BLOCKED"
   | "KEY_UNBLOCKED"
   | "REQUEST_EXPIRED"
-  | "KEY_EXPIRED";
+  | "KEY_EXPIRED"
+  | "TEAM_CREATED"
+  | "TEAM_RENAMED";
 
 /** Entrée du journal d'audit : qui, quoi, sur quelle cible, avec quels détails. Jamais de secret. */
 export interface AuditEntry {

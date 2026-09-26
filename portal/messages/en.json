@@ -89,7 +89,9 @@
       "parametresEnregistres": "Settings saved.",
       "cleRevoquee": "Key revoked.",
       "cleBloquee": "Key blocked.",
-      "cleDebloquee": "Key unblocked."
+      "cleDebloquee": "Key unblocked.",
+      "equipeCreee": "Team created.",
+      "equipeRenommee": "Team renamed."
     },
     "erreurs": {
       "controles_en_echec": "The request does not comply with the model access policy. Failed checks: {controles}.",
@@ -106,7 +108,9 @@
       "saisie_invalide": "Invalid input: check the fields {champs}.",
       "inconnue": "An error occurred.",
       "passerelle_indisponible": "The gateway is not responding: try again in a few moments.",
-      "trop_de_generations": "Too many keys generated in a short time: try again in a few minutes."
+      "trop_de_generations": "Too many keys generated in a short time: try again in a few minutes.",
+      "nom_equipe_invalide": "Give the team a name (100 characters at most).",
+      "nom_equipe_pris": "The name {nom} is already used by another team."
     },
     "controles": {
       "membre_equipe": "The requester is a member of the team",
@@ -367,6 +371,7 @@
       "catalogue": "Catalog",
       "parametres": "Default values",
       "cles": "Keys",
+      "equipes": "Teams",
       "aValider": "{nombre, plural, one {# request to review} other {# requests to review}}",
       "aRetirer": "{nombre, plural, one {# key to pick up} other {# keys to pick up}}",
       "outils": "Tools"
@@ -494,6 +499,21 @@
         "console": "LiteLLM console",
         "openapi": "OpenAPI schema of the admin API"
       }
+    },
+    "equipes": {
+      "titre": "Teams",
+      "nouvelle": "New team name",
+      "creer": "Create team",
+      "aucune": "No team.",
+      "colonnes": {
+        "equipe": "Team",
+        "membres": "Members",
+        "cles": "Active keys"
+      },
+      "toutes": "All teams",
+      "resume": "Team summary",
+      "nom": "Team name",
+      "renommer": "Rename"
     }
   },
   "introuvable": {
@@ -647,6 +667,16 @@
     "cleDebloquee": {
       "sujet": "Your key {alias} is unblocked",
       "corps": "An administrator unblocked your API key {alias}: it works again."
+    },
+    "equipe": {
+      "creee": {
+        "sujet": "Team created: {equipe}",
+        "corps": "{auteur} created the team {equipe}."
+      },
+      "renommee": {
+        "sujet": "Team renamed: {equipe}",
+        "corps": "{auteur} renamed the team {ancienNom} to {equipe}."
+      }
     }
   }
 }
