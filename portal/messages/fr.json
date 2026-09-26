@@ -269,7 +269,7 @@
     }
   },
   "niveau": {
-    "tousLesNiveaux": "← Tous les niveaux",
+    "tousLesNiveaux": "Tous les niveaux",
     "accepteJusqua": "Accepte jusqu'à {niveau}",
     "capacites": "Capacités",
     "repere": {
