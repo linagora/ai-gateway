@@ -171,14 +171,14 @@ export async function creerEquipeAction(formData: FormData): Promise<void> {
 /** F-53 : renommage d'une équipe par un admin. */
 export async function renommerEquipeAction(formData: FormData): Promise<void> {
   const user = await requireUser();
-  const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+  const page = pageEquipe(formData);
   await run(page, () => renameTeam(getDeps(), user, { teamId: text(formData, "id"), name: text(formData, "nom") }), { path: page, message: "equipeRenommee" });
 }
 
 /** F-53 : budget d'équipe et sa période, fixés par un admin ; 0 : sans limite. */
 export async function fixerBudgetEquipeAction(formData: FormData): Promise<void> {
   const user = await requireUser();
-  const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+  const page = pageEquipe(formData);
   await run(
     page,
     () => setTeamBudget(getDeps(), user, { teamId: text(formData, "id"), budget: optionalNumber(formData, "budget"), period: text(formData, "periode") }),
@@ -189,35 +189,35 @@ export async function fixerBudgetEquipeAction(formData: FormData): Promise<void>
 /** F-53 : ajout direct d'un salarié à une équipe par un admin. */
 export async function ajouterMembreAction(formData: FormData): Promise<void> {
   const user = await requireUser();
-  const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+  const page = pageEquipe(formData);
   await run(page, () => addTeamMember(getDeps(), user, { teamId: text(formData, "id"), uid: text(formData, "uid") }), { path: page, message: "membreAjoute" });
 }
 
 /** F-54 : sortie d'une équipe, décidée par un admin ou un responsable de l'équipe. */
 export async function faireSortirMembreAction(formData: FormData): Promise<void> {
   const user = await requireUser();
-  const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+  const page = pageEquipe(formData);
   await run(page, () => removeTeamMember(getDeps(), user, { teamId: text(formData, "id"), uid: text(formData, "uid") }), { path: page, message: "membreSorti" });
 }
 
 /** F-53 : suppression d'une équipe par un admin ; en cas de refus, la page de l'équipe en donne la raison. */
 export async function supprimerEquipeAction(formData: FormData): Promise<void> {
   const user = await requireUser();
-  const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+  const page = pageEquipe(formData);
   await run(page, () => deleteTeam(getDeps(), user, text(formData, "id")), { path: "/gestion/equipes", message: "equipeSupprimee" });
 }
 
 /** F-54 : désignation d'un responsable d'équipe par un admin. */
 export async function designerResponsableAction(formData: FormData): Promise<void> {
   const user = await requireUser();
-  const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+  const page = pageEquipe(formData);
   await run(page, () => designateManager(getDeps(), user, { teamId: text(formData, "id"), uid: text(formData, "uid") }), { path: page, message: "responsableDesigne" });
 }
 
 /** F-54 : retrait du rôle de responsable par un admin. */
 export async function retirerResponsableAction(formData: FormData): Promise<void> {
   const user = await requireUser();
-  const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+  const page = pageEquipe(formData);
   await run(page, () => removeManager(getDeps(), user, { teamId: text(formData, "id"), uid: text(formData, "uid") }), { path: page, message: "responsableRetire" });
 }
 
@@ -342,6 +342,11 @@ function keyRequestFromForm(formData: FormData) {
     commitment: formData.get("commitment") === "on",
     renewsRequestId: optionalText(formData, "renewsRequestId"),
   };
+}
+
+/** Page de l'équipe visée par un formulaire de la gestion des équipes (champ « id »). */
+function pageEquipe(formData: FormData): string {
+  return `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
 }
 
 function text(formData: FormData, name: string): string {
