@@ -45,7 +45,7 @@ function bilingue(contenu: (t: Traducteur, langue: Langue) => Contenu, lien: str
   });
   return {
     subject: `${PREFIXE_OBJET} ${francais.sujet} / ${anglais.sujet}`,
-    text: [francais.corps, "* * *", anglais.corps, "Portail IA LINAGORA / LINAGORA AI Portal"].join("\n\n"),
+    text: [francais.corps, "* * *", anglais.corps, "LINAGORA AI Gateway"].join("\n\n"),
   };
 }
 

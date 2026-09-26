@@ -1,10 +1,10 @@
 {
   "metadonnees": {
-    "titre": "Portail IA LINAGORA",
+    "titre": "LINAGORA AI Gateway",
     "description": "Catalogue des modèles d'IA et demandes de clés d'API"
   },
   "entete": {
-    "portail": "Portail IA",
+    "portail": "AI Gateway",
     "langue": "Langue",
     "navigation": "Navigation principale",
     "catalogue": "Catalogue",
@@ -438,7 +438,7 @@
     "envoyer": "Envoyer la demande"
   },
   "connexion": {
-    "titre": "Connexion au Portail IA",
+    "titre": "Connexion à AI Gateway",
     "explication": "Le portail utilise votre compte LINAGORA : connectez-vous avec le SSO de l'entreprise.",
     "bouton": "Se connecter avec LemonLDAP::NG",
     "echec": "La connexion a échoué. Réessayez ; si le problème persiste, contactez un administrateur du portail."
@@ -483,13 +483,16 @@
         "offre": "Offre",
         "equipe": "Équipe",
         "preleveLe": "Prélevé le",
+        "montantHt": "Montant HT",
         "montant": "Montant TTC"
       },
       "retard": "d'un mois antérieur (déclaré en retard)",
-      "totalCollaborateur": "Total du collaborateur",
+      "resume": "{nombre, plural, one {# prélèvement} other {# prélèvements}}{retards, plural, =0 {} one {, dont # d'un mois antérieur} other {, dont # d'un mois antérieur}}",
+      "exporterExcel": "Exporter (Excel)",
+      "imprimer": "Imprimer ou enregistrer en PDF",
       "totalGeneral": "Total ({nombre, plural, one {# prélèvement} other {# prélèvements}})",
       "transmettre": "Marquer comme transmis à la comptabilité",
-      "avertissementTransmission": "{nombre, plural, one {Le prélèvement affiché sera marqué} other {Les # prélèvements affichés seront marqués}} comme transmis ({total}) : ils sortiront de la liste, et le fichier CSV de la transmission sera à télécharger dans l'historique.",
+      "avertissementTransmission": "{nombre, plural, one {Le prélèvement affiché sera marqué} other {Les # prélèvements affichés seront marqués}} comme transmis ({total} TTC) : ils sortiront de la liste, et le fichier CSV de la transmission sera à télécharger dans l'historique.",
       "confirmer": "Confirmer la transmission",
       "transmissions": {
         "titre": "Transmissions à la comptabilité",
@@ -499,7 +502,8 @@
           "par": "Par",
           "mois": "Jusqu'à fin",
           "nombre": "Prélèvements",
-          "total": "Total"
+          "totalHt": "Total HT",
+          "total": "Total TTC"
         },
         "telecharger": "Télécharger (CSV)"
       }

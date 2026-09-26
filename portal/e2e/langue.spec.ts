@@ -24,12 +24,12 @@ test("un navigateur ni en français ni en anglais arrive en anglais", async ({ b
 
 test("un navigateur qui préfère le français à l'anglais arrive en français, même avec une autre langue en tête", async ({ request }) => {
   const reponse = await request.get("/connexion", { headers: { "Accept-Language": "de-DE,de;q=0.9,fr;q=0.8,en;q=0.7" } });
-  expect(await reponse.text()).toContain("Connexion au Portail IA");
+  expect(await reponse.text()).toContain("Connexion à AI Gateway");
 });
 
 test("sans langue indiquée par le navigateur, le portail s'affiche en français", async ({ request }) => {
   const reponse = await request.get("/connexion", { headers: { "Accept-Language": "" } });
-  expect(await reponse.text()).toContain("Connexion au Portail IA");
+  expect(await reponse.text()).toContain("Connexion à AI Gateway");
 });
 
 test("une même adresse s'affiche dans la langue de celui qui l'ouvre", async ({ browser }) => {

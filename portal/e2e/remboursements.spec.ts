@@ -22,14 +22,26 @@ test("un admin transmet à la comptabilité les prélèvements du mois : ils sor
   await approuverDemande(admin, membre);
   await declarer(pageMembre, offre, { montant: "21.60", adresse: membre.email });
 
-  // L'onglet « Remboursements » montre, pour le mois choisi, le prélèvement du jour et le total du collaborateur.
+  // L'onglet « Remboursements » montre, pour le mois choisi, le collaborateur et ses totaux HT et TTC ; son chevron
+  // déplie le détail de ses prélèvements.
   await admin.goto("/gestion/remboursements");
   await admin.getByLabel("Mois").fill(moisCourant);
   await admin.getByRole("button", { name: "Afficher" }).click();
   const groupe = admin.getByRole("rowgroup", { name: membre.name });
-  await expect(groupe).toContainText(`Anthropic · ${offre}`);
-  await expect(groupe).toContainText(equipe);
-  await expect(groupe.getByRole("row").last()).toContainText("21,60");
+  await expect(groupe.getByRole("row").first()).toContainText("1 prélèvement");
+  await expect(groupe.getByRole("row").first()).toContainText(/18,00.*21,60/);
+  const detail = groupe.getByRole("row", { name: new RegExp(echapper(offre)) });
+  await expect(detail).toBeHidden();
+  await groupe.getByRole("button", { name: membre.name }).click();
+  await expect(detail).toBeVisible();
+  await expect(detail).toContainText(equipe);
+  await expect(detail).toContainText(/18,00.*21,60/);
+
+  // L'export Excel se télécharge sans rien transmettre.
+  const [excel] = await Promise.all([admin.waitForEvent("download"), admin.getByRole("link", { name: "Exporter (Excel)" }).click()]);
+  expect(excel.suggestedFilename()).toBe(`remboursements-a-transmettre-${moisCourant}.xlsx`);
+  expect((await readFile(await excel.path())).subarray(0, 2).toString()).toBe("PK");
+  await expect(admin.getByRole("rowgroup", { name: membre.name })).toHaveCount(1);
 
   // Marquée comme transmise, la liste ne le montre plus ; la transmission ouvre l'historique, avec son fichier CSV.
   await admin.getByText("Marquer comme transmis à la comptabilité").click();
@@ -41,7 +53,7 @@ test("un admin transmet à la comptabilité les prélèvements du mois : ils sor
   expect(telechargement.suggestedFilename()).toMatch(new RegExp(`^remboursements-${moisCourant}-transmis-le-\\d{4}-\\d{2}-\\d{2}\\.csv$`));
   const contenu = await readFile(await telechargement.path(), "utf8");
   expect(contenu).toContain(`${membre.name};${membre.uid};${membre.email};Anthropic · ${offre};${equipe};`);
-  expect(contenu).toMatch(new RegExp(`${echapper(membre.uid)};.*;21,60\\r\\n`));
+  expect(contenu).toMatch(new RegExp(`${echapper(membre.uid)};.*;18,00;21,60\\r\\n`));
 
   // Nettoyage : résiliation déclarée, sortie du membre, suppression de l'équipe, offre masquée.
   await admin.goto(`/gestion/collaborateurs/${membre.uid}`);

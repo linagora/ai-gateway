@@ -1,10 +1,10 @@
 {
   "metadonnees": {
-    "titre": "LINAGORA AI Portal",
+    "titre": "LINAGORA AI Gateway",
     "description": "AI model catalog and API key requests"
   },
   "entete": {
-    "portail": "AI Portal",
+    "portail": "AI Gateway",
     "langue": "Language",
     "navigation": "Main navigation",
     "catalogue": "Catalog",
@@ -438,7 +438,7 @@
     "envoyer": "Send request"
   },
   "connexion": {
-    "titre": "Sign in to the AI Portal",
+    "titre": "Sign in to AI Gateway",
     "explication": "The portal uses your LINAGORA account: sign in with the company SSO.",
     "bouton": "Sign in with LemonLDAP::NG",
     "echec": "Sign-in failed. Try again; if the problem persists, contact a portal administrator."
@@ -472,7 +472,7 @@
       "abonnementsADeclarer": "Approved subscriptions, to be declared by the employee"
     },
     "remboursements": {
-      "titre": "Reimbursements",
+      "titre": "Accounting",
       "introduction": "Subscription charges, to be reimbursed to employees based on their declarations. The list shows those not yet sent to accounting up to the end of the chosen month, including charges from earlier months declared late; once sent, a charge no longer appears.",
       "mois": "Month",
       "afficher": "Show",
@@ -483,13 +483,16 @@
         "offre": "Offer",
         "equipe": "Team",
         "preleveLe": "Charged on",
+        "montantHt": "Amount excl. VAT",
         "montant": "Amount incl. VAT"
       },
       "retard": "from an earlier month (declared late)",
-      "totalCollaborateur": "Employee total",
+      "resume": "{nombre, plural, one {# charge} other {# charges}}{retards, plural, =0 {} one {, # from an earlier month} other {, # from earlier months}}",
+      "exporterExcel": "Export (Excel)",
+      "imprimer": "Print or save as PDF",
       "totalGeneral": "Total ({nombre, plural, one {# charge} other {# charges}})",
       "transmettre": "Mark as sent to accounting",
-      "avertissementTransmission": "{nombre, plural, one {The charge shown will be marked} other {The # charges shown will be marked}} as sent ({total}): they will leave the list, and the transmission's CSV file will be available in the history.",
+      "avertissementTransmission": "{nombre, plural, one {The charge shown will be marked} other {The # charges shown will be marked}} as sent ({total} incl. VAT): they will leave the list, and the transmission's CSV file will be available in the history.",
       "confirmer": "Confirm the transmission",
       "transmissions": {
         "titre": "Transmissions to accounting",
@@ -499,7 +502,8 @@
           "par": "By",
           "mois": "Up to the end of",
           "nombre": "Charges",
-          "total": "Total"
+          "totalHt": "Total excl. VAT",
+          "total": "Total incl. VAT"
         },
         "telecharger": "Download (CSV)"
       }
@@ -515,7 +519,7 @@
       "aValider": "{nombre, plural, one {# request to review} other {# requests to review}}",
       "outils": "Tools",
       "collaborateurs": "Employees",
-      "remboursements": "Reimbursements"
+      "remboursements": "Accounting"
     },
     "file": {
       "titre": "Requests awaiting validation",
