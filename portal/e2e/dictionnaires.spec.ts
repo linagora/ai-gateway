@@ -30,3 +30,9 @@ test("la marque s'écrit toujours LINAGORA, en majuscules, dans les deux diction
   const fautives = [...fr, ...en].filter(([, v]) => (v.match(marque) ?? []).some((m) => m !== "LINAGORA")).map(([c]) => c);
   expect(fautives, "entrées où la marque n'est pas en majuscules").toEqual([]);
 });
+
+test("l'unité des prix ne se coupe pas : « par million de jetons » passe à la ligne d'un bloc", () => {
+  const [fr, en] = [lire("fr"), lire("en")];
+  const coupables = [...fr, ...en].filter(([, v]) => /par million de jetons|per million tokens/.test(v)).map(([c]) => c);
+  expect(coupables, "entrées où l'unité peut se couper (espaces ordinaires)").toEqual([]);
+});
