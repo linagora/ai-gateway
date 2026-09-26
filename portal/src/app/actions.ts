@@ -18,6 +18,7 @@ import {
 } from "@/lib/services/admin-requests";
 import { saveCatalogEntry } from "@/lib/services/catalog";
 import { saveOffer } from "@/lib/services/offers";
+import { transmitCharges } from "@/lib/services/remboursements";
 import { requestOfferChange, requestRenewal } from "@/lib/services/renouvellements";
 import { declareTermination, reattachSubscription, requestTermination } from "@/lib/services/resiliations";
 import { completeSubscriptionRequest, correctSubscriptionAmount, createSubscriptionRequest, declareSubscription } from "@/lib/services/subscriptions";
@@ -406,6 +407,15 @@ export async function debloquerCleAction(formData: FormData): Promise<void> {
   await run(page, () => unblockKey(getDeps(), user, text(formData, "id")), { path: page, message: "cleDebloquee" });
 }
 
+/** Remboursements : un admin marque comme transmis à la comptabilité les prélèvements de la liste affichée. */
+export async function transmettreRemboursementsAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const mois = text(formData, "mois");
+  const page = `/gestion/remboursements?mois=${encodeURIComponent(mois)}`;
+  const prelevements = formData.getAll("prelevements").filter((valeur): valeur is string => typeof valeur === "string");
+  await run(page, () => transmitCharges(getDeps(), user, { month: mois, chargeIds: prelevements }), { path: page, message: "prelevementsTransmis" });
+}
+
 /** Résultat du retrait d'une clé : la clé n'y figure qu'une fois, et nulle part ailleurs. */
 export type ResultatRetrait = { ok: true; cle: string; alias: string } | { ok: false; erreur: string; details: Record<string, string> };
 
@@ -467,7 +477,8 @@ type CleSucces =
   | "membreSorti"
   | "equipeSupprimee"
   | "responsableDesigne"
-  | "responsableRetire";
+  | "responsableRetire"
+  | "prelevementsTransmis";
 
 /** Exécute le cas d'usage ; en cas d'erreur métier, revient sur `errorPath` avec le message. */
 async function run(errorPath: string, action: () => Promise<unknown>, success: { path: string; message: CleSucces }): Promise<void> {

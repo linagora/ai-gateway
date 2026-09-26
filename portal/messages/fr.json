@@ -120,6 +120,7 @@
       "equipeSupprimee": "Équipe supprimée.",
       "responsableDesigne": "Responsable désigné.",
       "responsableRetire": "Rôle de responsable retiré.",
+      "prelevementsTransmis": "Prélèvements transmis : téléchargez le fichier CSV de la transmission pour la comptabilité.",
       "offreEnregistree": "Offre enregistrée.",
       "abonnementDeclare": "Abonnement déclaré.",
       "montantCorrige": "Montant corrigé : il vaut à partir du prochain prélèvement.",
@@ -134,7 +135,7 @@
       "renouvellement_trop_tot": "Le renouvellement se demande au plus tôt un mois avant l'échéance de l'abonnement.",
       "engagement_requis": "Engagez-vous à ne pas soumettre de données d'un niveau supérieur à celui déclaré.",
       "interdit": "Action réservée aux administrateurs.",
-      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} membre {Membre introuvable dans cette équipe.} responsable {Responsable introuvable dans cette équipe.} offre {Offre d'abonnement introuvable.} demande_abonnement {Demande d'abonnement introuvable.} abonnement {Abonnement introuvable.} collaborateur {Collaborateur introuvable.} other {Demande introuvable.}}",
+      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} membre {Membre introuvable dans cette équipe.} responsable {Responsable introuvable dans cette équipe.} offre {Offre d'abonnement introuvable.} demande_abonnement {Demande d'abonnement introuvable.} abonnement {Abonnement introuvable.} transmission {Transmission introuvable.} collaborateur {Collaborateur introuvable.} other {Demande introuvable.}}",
       "motif_obligatoire": "Un motif est obligatoire.",
       "parametre_manquant": "Budget, période du budget et durée de validité sont obligatoires : saisissez-les ou configurez des valeurs par défaut.",
       "recommandation_hors_cas_usage": "Une recommandation ne peut porter que sur un cas d'usage coché.",
@@ -147,6 +148,9 @@
       "nom_equipe_invalide": "Donnez un nom à l'équipe (100 caractères au plus).",
       "nom_equipe_pris": "Le nom {nom} est déjà pris par une autre équipe.",
       "salarie_inconnu": "Aucun collaborateur ne s'est encore connecté au portail avec l'identifiant {uid}.",
+      "mois_invalide": "Mois invalide : choisissez un mois au format AAAA-MM.",
+      "liste_changee": "La liste des prélèvements a changé entre-temps (autre transmission ou nouvelle déclaration) : rien n'a été transmis. Vérifiez la liste mise à jour, puis recommencez.",
+      "rien_a_transmettre": "Aucun prélèvement à transmettre.",
       "membre_existant": "{uid} est déjà membre de l'équipe {equipe}.",
       "equipe_non_vide": "Cette équipe a encore des clés actives ({cles}), des demandes en cours ({demandes}) ou des abonnements non résiliés ({abonnements}) : révoquez ses clés, y compris celles créées depuis la console de LiteLLM, traitez ses demandes, et faites résilier ou rattacher à une autre équipe ses abonnements avant de la supprimer.",
       "responsable_existant": "{uid} est déjà responsable de l'équipe {equipe}.",
@@ -467,6 +471,39 @@
       "abonnements": "Abonnements",
       "abonnementsADeclarer": "Abonnements approuvés, à déclarer par le collaborateur"
     },
+    "remboursements": {
+      "titre": "Remboursements",
+      "introduction": "Prélèvements des abonnements, à rembourser aux collaborateurs sur la base de leurs déclarations. La liste montre ceux qui restent à transmettre à la comptabilité jusqu'à la fin du mois choisi, y compris ceux d'un mois antérieur déclarés en retard ; une fois transmis, un prélèvement n'y revient plus.",
+      "mois": "Mois",
+      "afficher": "Afficher",
+      "aTransmettre": "À transmettre jusqu'à fin {mois}",
+      "aucun": "Aucun prélèvement à transmettre.",
+      "colonnes": {
+        "collaborateur": "Collaborateur",
+        "offre": "Offre",
+        "equipe": "Équipe",
+        "preleveLe": "Prélevé le",
+        "montant": "Montant TTC"
+      },
+      "retard": "d'un mois antérieur (déclaré en retard)",
+      "totalCollaborateur": "Total du collaborateur",
+      "totalGeneral": "Total ({nombre, plural, one {# prélèvement} other {# prélèvements}})",
+      "transmettre": "Marquer comme transmis à la comptabilité",
+      "avertissementTransmission": "{nombre, plural, one {Le prélèvement affiché sera marqué} other {Les # prélèvements affichés seront marqués}} comme transmis ({total}) : ils sortiront de la liste, et le fichier CSV de la transmission sera à télécharger dans l'historique.",
+      "confirmer": "Confirmer la transmission",
+      "transmissions": {
+        "titre": "Transmissions à la comptabilité",
+        "aucune": "Aucune transmission pour l'instant.",
+        "colonnes": {
+          "date": "Transmise le",
+          "par": "Par",
+          "mois": "Jusqu'à fin",
+          "nombre": "Prélèvements",
+          "total": "Total"
+        },
+        "telecharger": "Télécharger (CSV)"
+      }
+    },
     "nav": {
       "libelle": "Administration",
       "demandes": "Demandes",
@@ -477,7 +514,8 @@
       "equipes": "Équipes",
       "aValider": "{nombre, plural, one {# demande à valider} other {# demandes à valider}}",
       "outils": "Outils",
-      "collaborateurs": "Collaborateurs"
+      "collaborateurs": "Collaborateurs",
+      "remboursements": "Remboursements"
     },
     "file": {
       "titre": "Demandes en attente de validation",
