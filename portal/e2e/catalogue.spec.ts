@@ -286,6 +286,24 @@ test.describe("page d'un niveau (ticket #7)", () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await context.close();
   });
+
+  test("l'en-tête de chaque niveau montre ses pastilles de classification, comme la vue d'ensemble ; aucune page n'affiche d'emoji", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    for (const [chemin, pastilles] of [
+      ["/catalogue/n1", ["Classification NC · Public", "Classification C1 · Interne"]],
+      ["/catalogue/n2", ["Classification C2 · Restreint"]],
+      ["/catalogue/n3", ["Classification C3 · Secret"]],
+      ["/catalogue/experimental", ["Classification NC · Public"]],
+    ] as const) {
+      await page.goto(chemin);
+      const images = page.getByRole("main").locator("header").getByRole("img");
+      await expect(images).toHaveCount(pastilles.length);
+      for (const [i, nom] of pastilles.entries()) await expect(images.nth(i)).toHaveAccessibleName(nom);
+      expect(await page.evaluate(() => document.body.innerText.match(/\p{Extended_Pictographic}/gu)), `emoji sur ${chemin}`).toBeNull();
+    }
+    await context.close();
+  });
 });
 
 test.describe("filtres, tri et recommandations (ticket #8)", () => {
@@ -377,6 +395,22 @@ test.describe("filtres appliqués sans bouton (retours de recette du 2026-09-25)
     expect(new Set(positions.map((p) => p.x)).size).toBe(1);
     expect(positions.map((p) => p.y)).toEqual([...positions.map((p) => p.y)].sort((a, b) => a - b));
     expect(new Set(positions.map((p) => p.y)).size).toBe(4);
+    await context.close();
+  });
+
+  test("les libellés de la recherche, du cas d'usage, des capacités et de « UE uniquement » sont alignés", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    await page.goto("/catalogue/n1");
+    const hauts = await page.evaluate(() =>
+      [
+        document.querySelector('input[name="q"]')?.closest("label"),
+        document.querySelector('select[name="cas"]')?.closest("label"),
+        document.querySelector("fieldset legend"),
+        document.querySelector('input[name="ue"]')?.closest("label"),
+      ].map((libelle) => (libelle ? Math.round(libelle.getBoundingClientRect().top) : null)),
+    );
+    expect(hauts.every((haut) => haut !== null && haut === hauts[0]), `hauts des libellés : ${hauts.join(", ")}`).toBe(true);
     await context.close();
   });
 });

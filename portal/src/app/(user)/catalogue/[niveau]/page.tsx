@@ -1,3 +1,4 @@
+import { ArrowLeft, ArrowRight, Brain, Headphones, ImageIcon, Info, type LucideIcon, Star, WandSparkles, X } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -12,11 +13,15 @@ import { formats, Notice } from "../../../components";
 import { BoutonCopier } from "../../../bouton-copier";
 import { exemplesAppel } from "../../../exemples-appel";
 import { COULEURS_NIVEAUX } from "../couleurs";
+import { PastillesClassification } from "../pastilles-classification";
 import { BoutonSelection } from "./bouton-selection";
 import { FiltrageAutomatique } from "./filtrage-automatique";
 
-/** Icônes des capacités, toujours accompagnées de leur libellé. */
-const ICONES: Record<Capability, string> = { images: "🖼️", generation_images: "🎨", audio_video: "🎧", raisonnement: "🧠" };
+/** Pictogrammes des capacités (jeu Lucide, comme le reste du catalogue), toujours accompagnés de leur libellé. */
+const ICONES: Record<Capability, LucideIcon> = { images: ImageIcon, generation_images: WandSparkles, audio_video: Headphones, raisonnement: Brain };
+
+/** Pastille d'un fait sur un modèle (recommandation, niveau maximal, cas d'usage), arrondie comme les pastilles de classification. */
+const PASTILLE = "self-start rounded-xl px-2.5 text-sm";
 const REPERES: Record<PriceTier, "bas" | "moyen" | "eleve"> = { "€": "bas", "€€": "moyen", "€€€": "eleve" };
 
 /**
@@ -51,57 +56,73 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
   return (
     <>
       <p>
-        <Link href="/catalogue">{t("tousLesNiveaux")}</Link>
+        <Link href="/catalogue" className="inline-flex items-center gap-1">
+          <ArrowLeft aria-hidden="true" className="size-4" />
+          {t("tousLesNiveaux")}
+        </Link>
       </p>
+      {/* Même présentation que la carte du niveau dans la vue d'ensemble : couleur, nom, pastilles et définition. */}
       <header className={`mt-2 border-l-8 pl-4 ${COULEURS_NIVEAUX[level]}`}>
-        <h1 className="mb-1">{domaine(`niveaux.${level}`)}</h1>
-        <p>{catalogue(`niveaux.${level}.definition`)}</p>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <h1 className="my-0">{domaine(`niveaux.${level}`)}</h1>
+          <PastillesClassification level={level} className="flex flex-wrap gap-2" />
+        </div>
+        <p className="mt-1">{catalogue(`niveaux.${level}.definition`)}</p>
       </header>
       <Notice searchParams={searchParams} />
       {modelCount === 0 ? (
         <p className="mt-6 italic">{catalogue("aucunModele")}</p>
       ) : (
-        <form method="get" role="search" aria-label={t("filtres")} className="mt-6 flex flex-wrap items-end gap-x-6 gap-y-2">
-          <label>
-            {t("recherche")}
-            <input type="search" name="q" defaultValue={criteria.search} />
-          </label>
-          <label>
-            {t("casUsage")}
-            <select name="cas" defaultValue={criteria.useCase ?? ""}>
-              <option value="">{t("tousCasUsage")}</option>
-              {USE_CASES.map((u) => (
-                <option key={u} value={u}>
-                  {domaine(`casUsage.${u}`)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <fieldset className="flex flex-col">
-            <legend className="font-medium">{t("capacites")}</legend>
-            {CAPABILITIES.map((c) => (
-              <label key={c} className="mt-0 font-normal">
-                <input type="checkbox" name="capacite" value={c} defaultChecked={criteria.capabilities?.includes(c)} /> <span aria-hidden="true">{ICONES[c]}</span>{" "}
-                {domaine(`capacites.${c}`)}
-              </label>
-            ))}
-          </fieldset>
-          <label className="font-normal">
-            <input type="checkbox" name="ue" value="1" defaultChecked={criteria.euOnly} /> {t("ueUniquement")}
-          </label>
-          <label>
-            {t("tri")}
-            <select name="tri" defaultValue={sortParam(criteria.sort ?? "recommended")}>
-              {LEVEL_SORTS.map((s) => (
-                <option key={s} value={sortParam(s)}>
-                  {t(`tris.${s}`)}
-                </option>
-              ))}
-            </select>
-          </label>
-          {/* Les critères s'appliquent dès qu'ils changent ; la réinitialisation recharge la page pour décocher les cases. */}
-          <FiltrageAutomatique minimum={RECHERCHE_MINIMUM} />
-          <a href={pageSansCritere}>{t("reinitialiser")}</a>
+        <form method="get" role="search" aria-label={t("filtres")} className="mt-6">
+          {/* Critères alignés sur leur libellé ; tri et réinitialisation en dessous. */}
+          <div className="flex flex-wrap items-start gap-x-6 gap-y-2">
+            <label>
+              {t("recherche")}
+              <input type="search" name="q" defaultValue={criteria.search} />
+            </label>
+            <label>
+              {t("casUsage")}
+              <select name="cas" defaultValue={criteria.useCase ?? ""}>
+                <option value="">{t("tousCasUsage")}</option>
+                {USE_CASES.map((u) => (
+                  <option key={u} value={u}>
+                    {domaine(`casUsage.${u}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <fieldset className="flex flex-col">
+              <legend className="font-medium">{t("capacites")}</legend>
+              {CAPABILITIES.map((c) => {
+                const Icone = ICONES[c];
+                return (
+                  <label key={c} className="mt-0 flex items-center gap-1.5 font-normal">
+                    <input type="checkbox" name="capacite" value={c} defaultChecked={criteria.capabilities?.includes(c)} />
+                    <Icone aria-hidden="true" className="size-4 text-neutral-500" />
+                    {domaine(`capacites.${c}`)}
+                  </label>
+                );
+              })}
+            </fieldset>
+            <label className="font-normal">
+              <input type="checkbox" name="ue" value="1" defaultChecked={criteria.euOnly} /> {t("ueUniquement")}
+            </label>
+          </div>
+          <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
+            <label>
+              {t("tri")}
+              <select name="tri" defaultValue={sortParam(criteria.sort ?? "recommended")}>
+                {LEVEL_SORTS.map((s) => (
+                  <option key={s} value={sortParam(s)}>
+                    {t(`tris.${s}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {/* Les critères s'appliquent dès qu'ils changent ; la réinitialisation recharge la page pour décocher les cases. */}
+            <FiltrageAutomatique minimum={RECHERCHE_MINIMUM} />
+            <a href={pageSansCritere}>{t("reinitialiser")}</a>
+          </div>
         </form>
       )}
       {modelCount > 0 && models.length === 0 && <p className="mt-6 italic">{t("aucunResultat")}</p>}
@@ -113,7 +134,11 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
           </p>
           <div className="mt-2 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {models.map((m, index) => (
-              <article key={m.modelName} aria-labelledby={`modele-${index}`} className="flex flex-col gap-2 rounded border border-neutral-300 p-4">
+              <article
+                key={m.modelName}
+                aria-labelledby={`modele-${index}`}
+                className="flex flex-col gap-2 rounded-lg border border-neutral-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+              >
                 <h2 id={`modele-${index}`} className="my-0">
                   <Link href={levelPageHref(level, searchParams, m.modelName)} scroll={false}>
                     {m.displayName}
@@ -122,24 +147,26 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
                 <p className="text-sm">{editeurEtZone(m)}</p>
                 <code className="text-xs break-all text-neutral-600">{m.modelName}</code>
                 {m.recommendedFor.length > 0 && (
-                  <p className="self-start rounded bg-amber-100 px-2 text-sm font-medium">
-                    <span aria-hidden="true">★ </span>
+                  <p className={`${PASTILLE} flex items-start gap-1 bg-amber-100 font-medium`}>
+                    <Star aria-hidden="true" className="mt-[3px] size-3.5 shrink-0 fill-amber-500 text-amber-600" />
                     {t("notreChoix", { cas: m.recommendedFor.map((u) => domaine(`casUsage.${u}`)).join(", ") })}
                   </p>
                 )}
-                {m.acceptsUpTo && (
-                  <p className={`self-start rounded border-2 px-2 text-sm ${COULEURS_NIVEAUX[m.acceptsUpTo]}`}>{t("accepteJusqua", { niveau: m.acceptsUpTo })}</p>
-                )}
+                {m.acceptsUpTo && <p className={`${PASTILLE} border-2 ${COULEURS_NIVEAUX[m.acceptsUpTo]}`}>{t("accepteJusqua", { niveau: m.acceptsUpTo })}</p>}
                 <p className="line-clamp-2" title={m.shortDescription}>
                   {espacesInsecables(m.shortDescription)}
                 </p>
                 {m.capabilities.length > 0 && (
-                  <ul aria-label={t("capacites")} className="flex flex-wrap gap-x-3 text-sm">
-                    {m.capabilities.map((c) => (
-                      <li key={c}>
-                        <span aria-hidden="true">{ICONES[c]}</span> {domaine(`capacites.${c}`)}
-                      </li>
-                    ))}
+                  <ul aria-label={t("capacites")} className="flex flex-wrap gap-x-3 gap-y-1 text-sm">
+                    {m.capabilities.map((c) => {
+                      const Icone = ICONES[c];
+                      return (
+                        <li key={c} className="inline-flex items-center gap-1">
+                          <Icone aria-hidden="true" className="size-4 text-neutral-500" />
+                          {domaine(`capacites.${c}`)}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
                 {m.pricePerImage !== null ? (
@@ -147,9 +174,9 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
                   <p className="text-sm">{t("prixImage", { prix: euros(m.pricePerImage) })}</p>
                 ) : (
                   <>
-                    <p>
+                    <p className="leading-snug">
                       <span className="sr-only">{t(`repere.${REPERES[m.priceTier]}`)} : </span>
-                      <span aria-hidden="true" title={t(`repere.${REPERES[m.priceTier]}`)} className="text-lg font-semibold">
+                      <span aria-hidden="true" title={t(`repere.${REPERES[m.priceTier]}`)} className="text-lg leading-none font-semibold">
                         {m.priceTier}
                       </span>
                       <span className="text-xs text-neutral-600">
@@ -160,7 +187,8 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
                     <p className="text-sm">
                       {m.context ? (
                         <span title={t("hypothesePages")}>
-                          {t("contexte", { jetons: nombre(m.context.tokens), pages: nombre(m.context.pages) })} <span aria-hidden="true">ⓘ</span>
+                          {t("contexte", { jetons: nombre(m.context.tokens), pages: nombre(m.context.pages) })}{" "}
+                          <Info aria-hidden="true" className="inline size-3.5 align-[-0.125em] text-neutral-500" />
                         </span>
                       ) : (
                         t("contexteInconnu")
@@ -171,7 +199,7 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
                 {m.useCases.length > 0 && (
                   <ul aria-label={t("casUsage")} className="flex flex-wrap gap-2 text-sm">
                     {m.useCases.map((u) => (
-                      <li key={u} className="rounded bg-neutral-100 px-2">
+                      <li key={u} className={`${PASTILLE} bg-neutral-100`}>
                         {domaine(`casUsage.${u}`)}
                       </li>
                     ))}
@@ -184,8 +212,9 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
                     {t("selectionner")}
                   </label>
                   <Link href={levelPageHref(level, searchParams, m.modelName)} scroll={false} className="text-sm">
-                    {t.rich("voirFiche", { nom: m.displayName, masque: (texte) => <span className="sr-only">{texte}</span> })}{" "}
-                    <span aria-hidden="true">→</span>
+                    {t.rich("voirFiche", { nom: m.displayName, masque: (texte) => <span className="sr-only">{texte}</span> })}
+                    {" "}
+                    <ArrowRight aria-hidden="true" className="inline size-3.5 align-[-0.125em]" />
                   </Link>
                 </div>
               </article>
@@ -200,8 +229,8 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
           className="fixed inset-y-0 right-0 z-10 flex w-full max-w-2xl flex-col gap-2 overflow-y-auto border-l border-neutral-300 bg-white p-6 shadow-xl"
         >
           <p className="text-right">
-            <Link href={levelPageHref(level, searchParams, null)} scroll={false}>
-              <span aria-hidden="true">✕ </span>
+            <Link href={levelPageHref(level, searchParams, null)} scroll={false} className="inline-flex items-center gap-1">
+              <X aria-hidden="true" className="size-4" />
               {detailT("fermer")}
             </Link>
           </p>
@@ -211,7 +240,7 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
           <p className="text-sm">{editeurEtZone(detail)}</p>
           <code className="text-xs break-all text-neutral-600">{detail.modelName}</code>
           {detail.acceptsUpTo && (
-            <p className={`self-start rounded border-2 px-2 text-sm ${COULEURS_NIVEAUX[detail.acceptsUpTo]}`}>{t("accepteJusqua", { niveau: detail.acceptsUpTo })}</p>
+            <p className={`${PASTILLE} border-2 ${COULEURS_NIVEAUX[detail.acceptsUpTo]}`}>{t("accepteJusqua", { niveau: detail.acceptsUpTo })}</p>
           )}
           <h3 className="mt-3 font-medium">{detailT("description")}</h3>
           <p className="whitespace-pre-line">{espacesInsecables(detail.longDescription)}</p>

@@ -33,6 +33,8 @@ const LANGUES = [
       adhesionApprouvee: "Demande d'accès approuvée : le demandeur a été ajouté à l'équipe.",
       approuver: "Approuver",
       demandeApprouvee: "Demande approuvée.",
+      controleReussi: "Contrôle réussi",
+      controleEchoue: "Contrôle en échec",
     },
   },
   {
@@ -58,6 +60,8 @@ const LANGUES = [
       adhesionApprouvee: "Access request approved: the requester has been added to the team.",
       approuver: "Approve",
       demandeApprouvee: "Request approved.",
+      controleReussi: "Check passed",
+      controleEchoue: "Check failed",
     },
   },
 ];
@@ -154,7 +158,9 @@ for (const T of LANGUES) {
       const accordables = validation.locator('input[name="models"]');
       await expect(accordables).toHaveCount(2);
       expect((await accordables.evaluateAll((cases) => cases.map((c) => (c as HTMLInputElement).value))).sort()).toEqual(["dev-confidentiel", "dev-interne"]);
-      await expect(validation.getByText("✘")).toHaveCount(0);
+      // Tous les contrôles de politique passent : aucun en échec, et la liste en montre de réussis.
+      await expect(validation.getByText(T.admin.controleEchoue)).toHaveCount(0);
+      expect(await validation.getByText(T.admin.controleReussi).count()).toBeGreaterThan(0);
       await validation.getByRole("button", { name: T.admin.approuver, exact: true }).click();
       await expect(validation.getByRole("status")).toHaveText(T.admin.demandeApprouvee);
 

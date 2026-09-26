@@ -269,7 +269,7 @@
     }
   },
   "niveau": {
-    "tousLesNiveaux": "← Tous les niveaux",
+    "tousLesNiveaux": "Tous les niveaux",
     "accepteJusqua": "Accepte jusqu'à {niveau}",
     "capacites": "Capacités",
     "repere": {
@@ -431,6 +431,8 @@
       "motif": "Motif",
       "dernierCommentaire": "Dernier commentaire",
       "controles": "Contrôles de politique (état actuel)",
+      "controleReussi": "Contrôle réussi",
+      "controleEchoue": "Contrôle en échec",
       "approuverCle": "Approuver (paramètres de la clé)",
       "modelesAccordes": "Modèles accordés",
       "budget": "Budget (€)",
