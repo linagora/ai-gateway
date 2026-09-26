@@ -1,10 +1,10 @@
 {
   "metadonnees": {
-    "titre": "Portail IA LINAGORA",
+    "titre": "LINAGORA AI Gateway",
     "description": "Catalogue des modèles d'IA et demandes de clés d'API"
   },
   "entete": {
-    "portail": "Portail IA",
+    "portail": "AI Gateway",
     "langue": "Langue",
     "navigation": "Navigation principale",
     "catalogue": "Catalogue",
@@ -438,7 +438,7 @@
     "envoyer": "Envoyer la demande"
   },
   "connexion": {
-    "titre": "Connexion au Portail IA",
+    "titre": "Connexion à AI Gateway",
     "explication": "Le portail utilise votre compte LINAGORA : connectez-vous avec le SSO de l'entreprise.",
     "bouton": "Se connecter avec LemonLDAP::NG",
     "echec": "La connexion a échoué. Réessayez ; si le problème persiste, contactez un administrateur du portail."

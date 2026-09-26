@@ -1,10 +1,10 @@
 {
   "metadonnees": {
-    "titre": "LINAGORA AI Portal",
+    "titre": "LINAGORA AI Gateway",
     "description": "AI model catalog and API key requests"
   },
   "entete": {
-    "portail": "AI Portal",
+    "portail": "AI Gateway",
     "langue": "Language",
     "navigation": "Main navigation",
     "catalogue": "Catalog",
@@ -438,7 +438,7 @@
     "envoyer": "Send request"
   },
   "connexion": {
-    "titre": "Sign in to the AI Portal",
+    "titre": "Sign in to AI Gateway",
     "explication": "The portal uses your LINAGORA account: sign in with the company SSO.",
     "bouton": "Sign in with LemonLDAP::NG",
     "echec": "Sign-in failed. Try again; if the problem persists, contact a portal administrator."
@@ -472,7 +472,7 @@
       "abonnementsADeclarer": "Approved subscriptions, to be declared by the employee"
     },
     "remboursements": {
-      "titre": "Reimbursements",
+      "titre": "Accounting",
       "introduction": "Subscription charges, to be reimbursed to employees based on their declarations. The list shows those not yet sent to accounting up to the end of the chosen month, including charges from earlier months declared late; once sent, a charge no longer appears.",
       "mois": "Month",
       "afficher": "Show",
@@ -519,7 +519,7 @@
       "aValider": "{nombre, plural, one {# request to review} other {# requests to review}}",
       "outils": "Tools",
       "collaborateurs": "Employees",
-      "remboursements": "Reimbursements"
+      "remboursements": "Accounting"
     },
     "file": {
       "titre": "Requests awaiting validation",

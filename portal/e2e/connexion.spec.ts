@@ -4,8 +4,8 @@ import { expect, test } from "@playwright/test";
 const suffixe = Date.now().toString(36);
 
 for (const [navigateur, textes] of [
-  ["fr-FR", { titre: "Connexion au Portail IA", bouton: "Se connecter avec LemonLDAP::NG", arrivee: "Mes demandes" }],
-  ["en-US", { titre: "Sign in to the AI Portal", bouton: "Sign in with LemonLDAP::NG", arrivee: "My requests" }],
+  ["fr-FR", { titre: "Connexion à AI Gateway", bouton: "Se connecter avec LemonLDAP::NG", arrivee: "Mes demandes" }],
+  ["en-US", { titre: "Sign in to AI Gateway", bouton: "Sign in with LemonLDAP::NG", arrivee: "My requests" }],
 ] as const) {
   test(`sans session, une page du portail mène à la page de connexion traduite, puis au SSO et à la page demandée (${navigateur})`, async ({ browser }) => {
     const context = await browser.newContext({ locale: navigateur });
