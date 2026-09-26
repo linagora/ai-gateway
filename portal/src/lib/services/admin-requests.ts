@@ -68,23 +68,16 @@ export async function listPendingRequests(deps: AdminDeps, actor: SessionUser): 
 }
 
 /**
- * Pastilles du menu de gestion : demandes à valider, clés approuvées que leur titulaire n'a pas retirées, et abonnements
- * approuvés qu'il n'a pas déclarés (spécification #51). Pour un responsable, celles de ses équipes, hors ses propres
- * demandes, qu'il ne valide pas.
+ * Pastille de la gestion : le nombre de demandes à valider, seule action qui attend l'admin ou le responsable (retours
+ * de l'utilisateur du 2026-09-26). Une clé approuvée à retirer ou un abonnement approuvé à déclarer attend son
+ * titulaire : les onglets le montrent, sans pastille. Pour un responsable, les demandes de ses équipes, hors les
+ * siennes, qu'il ne valide pas.
  */
-export async function countAdminPending(
-  deps: AdminDeps,
-  actor: SessionUser,
-): Promise<{ demandes: number; clesARetirer: number; abonnementsADeclarer: number }> {
+export async function countAdminPending(deps: AdminDeps, actor: SessionUser): Promise<number> {
   const equipes = await requireGestion(deps.db, actor);
   await markExpired(deps.db, deps.now?.() ?? new Date());
   const siennes = equipes === null ? {} : { requesterUid: { not: actor.uid } };
-  const [demandes, clesARetirer, abonnementsADeclarer] = await Promise.all([
-    deps.db.accessRequest.count({ where: { status: "SOUMISE", ...dansEquipes(equipes), ...siennes } }),
-    deps.db.accessRequest.count({ where: { kind: "CLE", status: "APPROUVEE", ...dansEquipes(equipes) } }),
-    deps.db.accessRequest.count({ where: { kind: "ABONNEMENT", status: "APPROUVEE", ...dansEquipes(equipes) } }),
-  ]);
-  return { demandes, clesARetirer, abonnementsADeclarer };
+  return deps.db.accessRequest.count({ where: { status: "SOUMISE", ...dansEquipes(equipes), ...siennes } });
 }
 
 /** Demande traitée, telle que l'archive la présente : avec la décision et son auteur. */

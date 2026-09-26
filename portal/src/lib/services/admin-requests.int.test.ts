@@ -60,13 +60,13 @@ describe("file de validation (F-30)", () => {
     await expect(countAdminPending(deps, demandeur)).rejects.toMatchObject({ code: "interdit" });
   });
 
-  test("les pastilles du menu comptent les demandes à valider et les clés approuvées qui attendent leur retrait", async () => {
+  test("la pastille du menu ne compte que les demandes à valider : une clé approuvée attend son titulaire, pas l'admin", async () => {
     await createKeyRequest(deps, demandeur, demande);
     const approuvee = await createKeyRequest(deps, collegue, { ...demande, project: "veille" });
     await approveKeyRequest(deps, admin, approuvee.id, parametres);
     const refusee = await createKeyRequest(deps, collegue, { ...demande, project: "essai" });
     await refuseRequest(deps, admin, refusee.id, "Hors périmètre");
-    expect(await countAdminPending(deps, admin)).toEqual({ demandes: 1, clesARetirer: 1, abonnementsADeclarer: 0 });
+    expect(await countAdminPending(deps, admin)).toBe(1);
   });
 
   test("l'archive donne les demandes déjà traitées, la plus récente d'abord, avec la décision", async () => {
