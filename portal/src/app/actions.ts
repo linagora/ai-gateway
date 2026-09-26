@@ -18,6 +18,7 @@ import {
 } from "@/lib/services/admin-requests";
 import { saveCatalogEntry } from "@/lib/services/catalog";
 import { saveOffer } from "@/lib/services/offers";
+import { declareTermination, reattachSubscription, requestTermination } from "@/lib/services/resiliations";
 import { completeSubscriptionRequest, correctSubscriptionAmount, createSubscriptionRequest, declareSubscription } from "@/lib/services/subscriptions";
 import { blockKey, pickUpKey, replaceKey, revokeKey, unblockKey } from "@/lib/services/keys";
 import { cancelRequest, completeRequest, createKeyRequest, createTeamJoinRequest } from "@/lib/services/requests";
@@ -118,6 +119,47 @@ export async function corrigerMontantAbonnementAction(formData: FormData): Promi
     () => correctSubscriptionAmount(getDeps(), user, text(formData, "subscriptionId"), { monthlyAmountEur: optionalNumber(formData, "monthlyAmountEur") ?? Number.NaN }),
     { path: "/abonnements", message: "montantCorrige" },
   );
+}
+
+/** Ticket #58 : le titulaire déclare la résiliation de son abonnement depuis « Mes abonnements ». */
+export async function declarerResiliationAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  await run(
+    "/abonnements",
+    () => declareTermination(getDeps(), user, text(formData, "subscriptionId"), { terminatedOn: text(formData, "terminatedOn") }),
+    { path: "/abonnements", message: "resiliationDeclaree" },
+  );
+}
+
+/** Ticket #58 : un admin déclare la résiliation à la place du titulaire, depuis l'onglet « Abonnements » de la gestion. */
+export async function declarerResiliationGestionAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const page = pageAbonnements(formData);
+  await run(
+    page,
+    () => declareTermination(getDeps(), user, text(formData, "subscriptionId"), { terminatedOn: text(formData, "terminatedOn") }),
+    { path: page, message: "resiliationDeclaree" },
+  );
+}
+
+/** Ticket #58 : un responsable de l'équipe ou un admin demande la résiliation d'un abonnement, avec un motif. */
+export async function demanderResiliationAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const page = pageAbonnements(formData);
+  await run(page, () => requestTermination(getDeps(), user, text(formData, "subscriptionId"), { reason: text(formData, "reason") }), {
+    path: page,
+    message: "resiliationDemandee",
+  });
+}
+
+/** Ticket #58 : rattachement d'un abonnement à l'équipe dont la page est ouverte. */
+export async function rattacherAbonnementAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const page = pageEquipe(formData);
+  await run(page, () => reattachSubscription(getDeps(), user, text(formData, "subscriptionId"), { teamId: text(formData, "id") }), {
+    path: page,
+    message: "abonnementRattache",
+  });
 }
 
 export async function createTeamJoinRequestAction(formData: FormData): Promise<void> {
@@ -371,6 +413,9 @@ type CleSucces =
   | "offreEnregistree"
   | "abonnementDeclare"
   | "montantCorrige"
+  | "resiliationDeclaree"
+  | "resiliationDemandee"
+  | "abonnementRattache"
   | "demandeApprouvee"
   | "adhesionApprouvee"
   | "demandeRefusee"
@@ -398,8 +443,9 @@ async function run(errorPath: string, action: () => Promise<unknown>, success: {
   }
   // redirect() lève une exception de navigation : il doit rester hors du try/catch.
   if (erreur) redirect(`${errorPath}${errorPath.includes("?") ? "&" : "?"}${erreur}`);
-  revalidatePath(success.path);
-  redirect(`${success.path}?ok=${success.message}`);
+  // Une page filtrée (?equipe=) garde son filtre ; la revalidation porte sur son chemin seul.
+  revalidatePath(success.path.split("?")[0]);
+  redirect(`${success.path}${success.path.includes("?") ? "&" : "?"}ok=${success.message}`);
 }
 
 /** Erreur → paramètres d'adresse : code, paramètres (JSON) et, pour la politique, contrôles en échec. */
@@ -431,6 +477,12 @@ function keyRequestFromForm(formData: FormData) {
 /** Page de l'équipe visée par un formulaire de la gestion des équipes (champ « id »). */
 function pageEquipe(formData: FormData): string {
   return `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
+}
+
+/** Onglet « Abonnements » de la gestion, filtré sur l'équipe du formulaire quand il l'était. */
+function pageAbonnements(formData: FormData): string {
+  const equipe = text(formData, "equipe");
+  return equipe ? `/gestion/abonnements?equipe=${encodeURIComponent(equipe)}` : "/gestion/abonnements";
 }
 
 function text(formData: FormData, name: string): string {

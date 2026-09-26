@@ -1,5 +1,5 @@
 import { createTranslator } from "next-intl";
-import type { AccessRequest, SubscriptionOffer } from "@/generated/prisma/client";
+import type { AccessRequest, Subscription, SubscriptionOffer } from "@/generated/prisma/client";
 import type { Mailer, Message } from "@/lib/courriel";
 import { DUREES_VALIDITE, joursDePeriode } from "@/lib/durees";
 import type { Langue } from "@/lib/langue";
@@ -310,6 +310,77 @@ export async function notifyDeclarationReminder(deps: NotificationDeps, demande:
   await envoyer(deps, [demande.requesterEmail], message);
 }
 
+/** Titulaire d'un abonnement, tel que le salue un courriel ; les abonnements antérieurs à son nom n'ont que son identifiant. */
+const titulaire = (a: Pick<Subscription, "holderUid" | "holderName">) => a.holderName || a.holderUid;
+
+/**
+ * Ticket #58 : demande de résiliation, quelle qu'en soit l'origine (responsable, admin, sortie de l'équipe), annoncée au
+ * titulaire avec le motif éventuel et l'échéance de la déclaration de la résiliation.
+ */
+export async function notifyTerminationRequested(
+  deps: NotificationDeps,
+  abonnement: Pick<Subscription, "holderUid" | "holderName" | "holderEmail" | "teamAlias" | "terminationOrigin" | "terminationReason">,
+  offre: Pick<SubscriptionOffer, "supplier" | "name">,
+  echeance: Date | null,
+): Promise<void> {
+  const valeurs = { origine: abonnement.terminationOrigin ?? "ADMIN", offre: `${offre.supplier} · ${offre.name}`, equipe: abonnement.teamAlias };
+  const message = bilingue(
+    (t) => ({
+      sujet: t("courriels.demandeResiliation.sujet", valeurs),
+      paragraphes: [
+        t("courriels.bonjour", { nom: titulaire(abonnement) }),
+        t("courriels.demandeResiliation.corps", valeurs),
+        ...(abonnement.terminationReason ? [t("courriels.demandeResiliation.motif", { motif: abonnement.terminationReason })] : []),
+        echeance
+          ? t("courriels.demandeResiliation.suite", { fournisseur: offre.supplier, date: echeance })
+          : t("courriels.demandeResiliation.suiteSansEcheance", { fournisseur: offre.supplier }),
+      ],
+    }),
+    lienVers(deps, "/abonnements"),
+  );
+  await envoyer(deps, [abonnement.holderEmail], message);
+}
+
+/** Ticket #58 : un admin a déclaré la résiliation à la place du titulaire, qui en est prévenu à l'adresse donnée. */
+export async function notifyTerminationDeclaredByAdmin(
+  deps: NotificationDeps,
+  abonnement: Pick<Subscription, "holderUid" | "holderName" | "teamAlias">,
+  offre: Pick<SubscriptionOffer, "supplier" | "name">,
+  date: Date,
+  email: string,
+): Promise<void> {
+  const valeurs = { offre: `${offre.supplier} · ${offre.name}`, equipe: abonnement.teamAlias, date, fournisseur: offre.supplier };
+  const message = bilingue(
+    (t) => ({
+      sujet: t("courriels.resiliationParAdmin.sujet", valeurs),
+      paragraphes: [t("courriels.bonjour", { nom: titulaire(abonnement) }), t("courriels.resiliationParAdmin.corps", valeurs)],
+    }),
+    lienVers(deps, "/abonnements"),
+  );
+  await envoyer(deps, [email], message);
+}
+
+/**
+ * Ticket #58 : résiliation demandée, non déclarée dans le délai de retrait ; l'alerte, envoyée une seule fois par la
+ * tâche quotidienne, va aux admins et aux responsables de l'équipe désignés par elle.
+ */
+export async function notifyUndeclaredTermination(
+  deps: NotificationDeps,
+  abonnement: Pick<Subscription, "holderUid" | "teamId" | "teamAlias" | "terminationRequestedAt">,
+  offre: Pick<SubscriptionOffer, "supplier" | "name">,
+  responsables: string[],
+): Promise<void> {
+  const valeurs = { offre: `${offre.supplier} · ${offre.name}`, titulaire: abonnement.holderUid, equipe: abonnement.teamAlias, date: abonnement.terminationRequestedAt ?? new Date(0) };
+  const message = bilingue(
+    (t) => ({
+      sujet: t("courriels.alerteResiliation.sujet", valeurs),
+      paragraphes: [t("courriels.bonjourAdmins"), t("courriels.alerteResiliation.corps", valeurs)],
+    }),
+    lienVers(deps, `/gestion/abonnements?equipe=${encodeURIComponent(abonnement.teamId)}`),
+  );
+  await envoyer(deps, adminsEtResponsables(deps, responsables), message);
+}
+
 /** Rappel d'expiration (un mois, sept jours ou la veille) : son renouvellement se demande dans « Mes clés ». */
 export async function notifyExpiryReminder(deps: NotificationDeps, demande: AccessRequest & { keyAlias: string; keyExpiresAt: Date }, jours: number): Promise<void> {
   const message = bilingue(
@@ -360,13 +431,14 @@ export type TeamChange =
   | { type: "responsableRetire"; responsable: string }
   | { type: "budget"; plafond: { montant: number; periode: string } | null }
   | { type: "decision"; decision: "approuvee" | "refusee" | "complement" | "adhesion" | "abonnement"; demandeur: string; demandeId: string }
-  | { type: "cle"; action: "revocation" | "blocage" | "deblocage"; alias: string; titulaire: string };
+  | { type: "cle"; action: "revocation" | "blocage" | "deblocage"; alias: string; titulaire: string }
+  | { type: "resiliationDemandee"; titulaire: string; offre: string };
 
 /**
  * F-53 et F-54 : un changement dans une équipe est annoncé aux admins et aux responsables de l'équipe que le service
  * désigne (tous sauf l'auteur), avec son auteur et le lien vers la page de l'équipe. Les admins ne sont prévenus que des
- * décisions des responsables (récit 35) : la décision d'un admin sur une demande ou une clé ne va qu'aux responsables de
- * l'équipe (récit 36).
+ * décisions des responsables (récit 35) : la décision d'un admin sur une demande, une clé ou un abonnement (demande de
+ * résiliation) ne va qu'aux responsables de l'équipe (récit 36).
  */
 export async function notifyTeamChange(
   deps: NotificationDeps,
@@ -381,6 +453,7 @@ export async function notifyTeamChange(
     ...("responsable" in changement ? { responsable: changement.responsable } : {}),
     ...(changement.type === "decision" ? { decision: changement.decision, demandeur: changement.demandeur } : {}),
     ...(changement.type === "cle" ? { action: changement.action, alias: changement.alias, titulaire: changement.titulaire } : {}),
+    ...(changement.type === "resiliationDemandee" ? { titulaire: changement.titulaire, offre: changement.offre } : {}),
     ...(changement.type === "budget" ? { plafond: changement.plafond ? "oui" : "non", budget: budgetEquipe(t, changement.plafond) } : {}),
   });
   const message = bilingue(
@@ -397,10 +470,12 @@ export async function notifyTeamChange(
           ? `/gestion/demandes/${changement.demandeId}`
           : changement.type === "cle"
             ? "/gestion/cles"
-            : `/gestion/equipes/${changement.teamId}`,
+            : changement.type === "resiliationDemandee"
+              ? `/gestion/abonnements?equipe=${encodeURIComponent(changement.teamId)}`
+              : `/gestion/equipes/${changement.teamId}`,
     ),
   );
-  const decisionDUnAdmin = (changement.type === "decision" || changement.type === "cle") && changement.auteur.isAdmin;
+  const decisionDUnAdmin = (changement.type === "decision" || changement.type === "cle" || changement.type === "resiliationDemandee") && changement.auteur.isAdmin;
   await envoyer(deps, adminsEtResponsables(deps, responsables, !decisionDUnAdmin), message);
 }
 

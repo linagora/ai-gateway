@@ -10,11 +10,13 @@ import { managerEmails, requireAutorite, requireGestion } from "./autorite";
 import { revokeMemberKeys } from "./keys";
 import { type NotificationDeps, notifyManagerDesignated, notifyMemberAdded, notifyMemberRemoved, notifyTeamChange } from "./notifications";
 import { cancelMemberRequests, DEMANDES_EN_COURS } from "./requests";
+import { requestTerminationsOnExit, type SubscriptionToReattach, subscriptionsToReattach } from "./resiliations";
 
 /** Dépendances du service des équipes (F-53) : LiteLLM, source de vérité des équipes, et la base du portail. */
 export interface TeamDeps extends NotificationDeps {
   db: Db;
   litellm: LiteLLMClient;
+  now?: () => Date;
 }
 
 /**
@@ -50,6 +52,8 @@ export interface TeamPage extends TeamOverview {
   managers: TeamManagerInfo[];
   /** Spécification #51 : nombre et coût mensuel TTC des abonnements non résiliés de l'équipe. */
   subscriptions: { count: number; monthlyTotalEur: number };
+  /** Ticket #58 : abonnements de ses membres, à résilier depuis leur sortie d'une autre équipe, à rattacher à celle-ci. */
+  subscriptionsToReattach: SubscriptionToReattach[];
 }
 
 /** Longueur maximale d'un nom d'équipe. */
@@ -90,15 +94,17 @@ export async function getTeamOverview(deps: TeamDeps, actor: SessionUser, teamId
 export async function getTeamPage(deps: TeamDeps, actor: SessionUser, teamId: string): Promise<TeamPage> {
   await requireAutorite(deps.db, actor, teamId, "equipe");
   const team = await existingTeam(deps, teamId);
-  const [managers, abonnements] = await Promise.all([
+  const [managers, abonnements, aRattacher] = await Promise.all([
     deps.db.teamManager.findMany({ where: { teamId: team.teamId }, orderBy: { uid: "asc" } }),
     deps.db.subscription.aggregate({ where: { teamId: team.teamId, status: { not: "RESILIE" } }, _count: { _all: true }, _sum: { monthlyAmountEur: true } }),
+    subscriptionsToReattach(deps.db, team.teamId, team.memberUids),
   ]);
   return {
     ...overview(team, await activeKeyCounts(deps.db), new Map([[team.teamId, managers.map((m) => m.uid)]])),
     members: [...team.memberUids].sort((a, b) => a.localeCompare(b, "fr")),
     managers: managers.map(({ uid, email }) => ({ uid, email })),
     subscriptions: { count: abonnements._count._all, monthlyTotalEur: abonnements._sum.monthlyAmountEur?.toNumber() ?? 0 },
+    subscriptionsToReattach: aRattacher,
   };
 }
 
@@ -163,7 +169,8 @@ export async function addTeamMember(deps: TeamDeps, actor: SessionUser, input: {
 /**
  * F-54 : sortie d'une équipe, décidée par un admin ou un responsable de l'équipe (un responsable n'en fait sortir ni un
  * autre responsable ni lui-même). Ses clés de l'équipe sont révoquées d'abord (un échec laisse le membre en place),
- * puis ses demandes en cours dans l'équipe annulées, avant sa sortie de l'équipe dans LiteLLM ; il en est prévenu.
+ * puis ses demandes en cours dans l'équipe annulées, avant sa sortie de l'équipe dans LiteLLM ; il en est prévenu. Ses
+ * abonnements rattachés à l'équipe font chacun l'objet d'une demande de résiliation (ticket #58).
  */
 export async function removeTeamMember(deps: TeamDeps, actor: SessionUser, input: { teamId: string; uid: string }): Promise<void> {
   await requireAutorite(deps.db, actor, input.teamId, "equipe");
@@ -176,6 +183,7 @@ export async function removeTeamMember(deps: TeamDeps, actor: SessionUser, input
   const cles = await revokeMemberKeys(deps, actor, team.teamId, input.uid);
   const demandes = await cancelMemberRequests(deps.db, team.teamId, input.uid);
   await deps.litellm.removeTeamMember(team.teamId, input.uid);
+  await requestTerminationsOnExit(deps, actor, team.teamId, input.uid);
   // Sortir de l'équipe, c'est aussi perdre son rôle de responsable.
   const { count: role } = await deps.db.teamManager.deleteMany({ where: { teamId: team.teamId, uid: input.uid } });
   if (role > 0) await recordAudit(deps.db, { actorUid: actor.uid, action: "MANAGER_REMOVED", targetId: team.teamId, details: { responsable: input.uid, motif: "sortie_equipe" } });
@@ -193,20 +201,26 @@ export async function removeTeamMember(deps: TeamDeps, actor: SessionUser, input
 /**
  * F-53 : supprime une équipe. LiteLLM supprimant aussi ses clés, la suppression est refusée tant que l'équipe a des clés
  * actives, émises par le portail ou créées depuis la console de LiteLLM, ou des demandes en cours (DEMANDES_EN_COURS) ;
- * l'historique des demandes reste.
+ * de même tant qu'un abonnement non résilié lui est rattaché, pour que ses prélèvements aient toujours une équipe
+ * (ticket #58). L'historique des demandes reste.
  */
 export async function deleteTeam(deps: TeamDeps, actor: SessionUser, teamId: string): Promise<void> {
   requireAdmin(actor);
   const team = await existingTeam(deps, teamId);
-  const [clesPortail, clesPasserelle, demandes] = await Promise.all([
+  const [clesPortail, clesPasserelle, demandes, abonnements] = await Promise.all([
     deps.db.accessRequest.count({ where: { teamId: team.teamId, kind: "CLE", status: "CLE_EMISE" } }),
     // LiteLLM supprimerait aussi les clés de l'équipe créées depuis sa console : elles comptent.
     deps.litellm.countActiveTeamKeys(team.teamId),
     deps.db.accessRequest.count({ where: { teamId: team.teamId, ...DEMANDES_EN_COURS } }),
+    deps.db.subscription.count({ where: { teamId: team.teamId, status: { not: "RESILIE" } } }),
   ]);
   const cles = Math.max(clesPortail, clesPasserelle);
-  if (cles + demandes > 0) {
-    throw new PortalError("equipe_non_vide", `L'équipe ${team.teamAlias} a encore des clés ou des demandes en cours.`, { cles: String(cles), demandes: String(demandes) });
+  if (cles + demandes + abonnements > 0) {
+    throw new PortalError("equipe_non_vide", `L'équipe ${team.teamAlias} a encore des clés, des demandes en cours ou des abonnements non résiliés.`, {
+      cles: String(cles),
+      demandes: String(demandes),
+      abonnements: String(abonnements),
+    });
   }
   const destinataires = await managerEmails(deps.db, team.teamId, [actor.uid]);
   await deps.litellm.deleteTeam(team.teamId);

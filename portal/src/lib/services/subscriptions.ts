@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Subscription, SubscriptionCharge, SubscriptionOffer } from "@/generated/prisma/client";
+import type { Subscription, SubscriptionCharge, SubscriptionOffer, TerminationOrigin } from "@/generated/prisma/client";
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
 import { DUREES_ABONNEMENT } from "@/lib/durees";
@@ -118,6 +118,14 @@ export interface SubscriptionToDeclare {
   suggestedAmountEur: number;
 }
 
+/** Demande de résiliation d'un abonnement (ticket #58) : son origine, son auteur, sa date et son motif éventuel. */
+export interface TerminationRequest {
+  origin: TerminationOrigin;
+  requestedBy: string;
+  requestedAt: Date;
+  reason: string | null;
+}
+
 /** Ce que montre un abonnement, à son titulaire comme à la gestion. */
 interface SubscriptionView {
   id: string;
@@ -129,6 +137,10 @@ interface SubscriptionView {
   monthlyAmountEur: number;
   expiresAt: Date;
   status: "ACTIF" | "A_RESILIER" | "RESILIE";
+  /** Demande de résiliation, en cours (« à résilier ») ou qui a précédé la résiliation ; null sans demande. */
+  termination: TerminationRequest | null;
+  /** Date de résiliation, pour un abonnement résilié. */
+  terminatedOn: Date | null;
 }
 
 /** Abonnement tel que le voit son titulaire, avec son fournisseur. */
@@ -171,6 +183,11 @@ function vueAbonnement(a: AbonnementAvecOffre): SubscriptionView {
     monthlyAmountEur: a.monthlyAmountEur.toNumber(),
     expiresAt: a.expiresAt,
     status: a.status,
+    termination:
+      a.terminationOrigin && a.terminationRequestedBy && a.terminationRequestedAt
+        ? { origin: a.terminationOrigin, requestedBy: a.terminationRequestedBy, requestedAt: a.terminationRequestedAt, reason: a.terminationReason }
+        : null,
+    terminatedOn: a.terminatedOn,
   };
 }
 
@@ -330,6 +347,6 @@ export async function listSubscriptionArchive(deps: SubscriptionDeps, actor: Ses
   const where = { status: "RESILIE" as const, ...dansEquipes(equipes, teamId) };
   const total = await deps.db.subscription.count({ where });
   const { page: courante, pages, skip, take } = tranche(total, page);
-  const rows = await deps.db.subscription.findMany({ where, include: AVEC_PRELEVEMENTS, orderBy: [{ updatedAt: "desc" }, { id: "desc" }], skip, take });
+  const rows = await deps.db.subscription.findMany({ where, include: AVEC_PRELEVEMENTS, orderBy: [{ terminatedOn: "desc" }, { updatedAt: "desc" }, { id: "desc" }], skip, take });
   return { elements: rows.map(vueGestion), page: courante, pages, total };
 }

@@ -7,6 +7,7 @@ import { FakeMailer } from "@/test/fake-mailer";
 import { approveSubscriptionRequest, getRequestReview, listPendingRequests, refuseRequest, requestCompletion } from "./admin-requests";
 import { type OfferInput, saveOffer } from "./offers";
 import { cancelRequest, listMyRequests } from "./requests";
+import { declareTermination, reattachSubscription, requestTermination } from "./resiliations";
 import { saveSettings } from "./settings";
 import { deleteTeam, getTeamPage, removeTeamMember } from "./teams";
 import {
@@ -204,6 +205,8 @@ describe("déclarer un abonnement et le suivre dans « Mes abonnements » (ticke
           monthlyAmountEur: 108,
           expiresAt: new Date("2026-12-31T00:00:00Z"),
           status: "ACTIF",
+          termination: null,
+          terminatedOn: null,
         },
       ],
     });
@@ -317,6 +320,8 @@ describe("onglet « Abonnements » de la gestion et résumé sur la page d'une �
         monthlyAmountEur: 108,
         expiresAt: new Date("2026-12-30T00:00:00Z"),
         status: "ACTIF",
+        termination: null,
+        terminatedOn: null,
         charges: [{ chargedOn: new Date("2026-09-20T00:00:00Z"), amountEur: 108, teamAlias: "R&D" }],
       },
     ]);
@@ -397,3 +402,176 @@ describe("prélèvements aux dates anniversaires et correction du montant (ticke
   });
 });
 
+describe("résiliation, demandes de résiliation et rattachement (ticket #58)", () => {
+  /** Abonnement de Paul Martin dans R&D, souscrit le 31 juillet 2026 : prélevé les 31 juillet, 31 août et 30 septembre. */
+  async function abonnement(): Promise<string> {
+    return declareSubscription(deps, membre, await approuvee(), { subscribedAt: "2026-07-31", monthlyAmountEur: 108, accountEmail: "pmartin@linagora.com" });
+  }
+  const jours = (charges: { chargedOn: Date }[]) => charges.map((c) => c.chargedOn.toISOString().slice(0, 10));
+  const journal = async (action: string) => (await listAudit(testDb)).filter((e) => e.action === action).map((e) => [e.actorUid, e.targetId, e.details]);
+  const responsableData = { uid: "cmoreau", email: "cmoreau@linagora.com", name: "Chloé Moreau", isAdmin: false };
+  const DEMANDE_DE_RESILIATION =
+    "[AI GATEWAY] Demande de résiliation de votre abonnement Anthropic · Claude Max 5x / Cancellation request for your subscription Anthropic · Claude Max 5x";
+
+  test("le titulaire déclare la résiliation : l'abonnement passe dans l'archive avec sa date, sans courriel, et aucun prélèvement ne compte à partir de cette date", async () => {
+    const id = await abonnement();
+    mailer.outbox.length = 0;
+    await declareTermination(deps, membre, id, { terminatedOn: "2026-09-15" });
+    expect(mailer.outbox).toEqual([]);
+    expect(await listActiveSubscriptions(deps, admin)).toEqual([]);
+    const [archive] = (await listSubscriptionArchive(deps, admin)).elements;
+    expect(archive).toMatchObject({ id, status: "RESILIE", terminatedOn: new Date("2026-09-15T00:00:00Z") });
+    expect(jours(archive.charges)).toEqual(["2026-07-31", "2026-08-31"]);
+    expect(await runDailyTask({ ...deps, now: () => new Date("2026-12-01T05:00:00Z") })).toMatchObject({ prelevements: 0 });
+    expect((await listMySubscriptions(deps, membre)).abonnements).toEqual([expect.objectContaining({ id, status: "RESILIE", terminatedOn: new Date("2026-09-15T00:00:00Z") })]);
+    expect(await journal("SUBSCRIPTION_TERMINATED")).toEqual([["pmartin", id, { offre: "Anthropic · Claude Max 5x", equipe: "R&D", date: "2026-09-15" }]]);
+  });
+
+  test("la date de résiliation n'est ni future ni antérieure à la souscription ; seuls le titulaire et un admin la déclarent, une seule fois", async () => {
+    const id = await abonnement();
+    await expect(declareTermination(deps, membre, id, { terminatedOn: "2026-10-02" })).rejects.toMatchObject({ code: "date_future" });
+    await expect(declareTermination(deps, membre, id, { terminatedOn: "2026-07-30" })).rejects.toMatchObject({ code: "date_avant_souscription" });
+    await expect(declareTermination(deps, responsable, id, { terminatedOn: "2026-09-15" })).rejects.toMatchObject({ code: "introuvable" });
+    // Résilié le jour même de sa souscription, un abonnement n'a aucun prélèvement.
+    await declareTermination(deps, membre, id, { terminatedOn: "2026-07-31" });
+    expect((await listSubscriptionArchive(deps, admin)).elements).toEqual([expect.objectContaining({ id, charges: [] })]);
+    await expect(declareTermination(deps, admin, id, { terminatedOn: "2026-09-15" })).rejects.toMatchObject({ code: "transition_interdite" });
+  });
+
+  test("un admin déclare la résiliation à la place du titulaire : elle est inscrite à son nom, et le titulaire en est prévenu s'il est toujours là", async () => {
+    const id = await abonnement();
+    const autre = await abonnement();
+    mailer.outbox.length = 0;
+    await declareTermination(deps, admin, id, { terminatedOn: "2026-09-20" });
+    expect(mailer.outbox.map((m) => [m.to, m.subject])).toEqual([
+      [["pmartin@linagora.com"], "[AI GATEWAY] Résiliation de votre abonnement Anthropic · Claude Max 5x / Cancellation of your subscription Anthropic · Claude Max 5x"],
+    ]);
+    expect(mailer.outbox[0].text).toContain(
+      "Un administrateur a déclaré la résiliation de votre abonnement Anthropic · Claude Max 5x, rattaché à l'équipe R&D, au 20 septembre 2026 : aucun prélèvement ne lui est plus compté à partir de cette date. Si ce n'est déjà fait, résiliez-le chez Anthropic.",
+    );
+    // Parti de l'entreprise, le titulaire n'est plus prévenu.
+    litellm.users.delete("pmartin");
+    mailer.outbox.length = 0;
+    await declareTermination(deps, admin, autre, { terminatedOn: "2026-09-20" });
+    expect(mailer.outbox).toEqual([]);
+    expect((await journal("SUBSCRIPTION_TERMINATED")).map(([acteur, cible]) => [acteur, cible])).toEqual([
+      ["jdupont", id],
+      ["jdupont", autre],
+    ]);
+  });
+
+  test("un responsable demande la résiliation, avec un motif : le titulaire est prévenu, les admins l'apprennent comme un changement dans l'équipe, et la demande est au journal", async () => {
+    const id = await abonnement();
+    mailer.outbox.length = 0;
+    await requestTermination(deps, responsable, id, { reason: "Besoin disparu avec la fin du projet" });
+    expect(await listActiveSubscriptions(deps, admin)).toEqual([
+      expect.objectContaining({
+        id,
+        status: "A_RESILIER",
+        termination: { origin: "RESPONSABLE", requestedBy: "lbernard", requestedAt: maintenant, reason: "Besoin disparu avec la fin du projet" },
+      }),
+    ]);
+    expect(mailer.outbox.map((m) => [m.to, m.subject])).toEqual([
+      [["pmartin@linagora.com"], DEMANDE_DE_RESILIATION],
+      [ADMINS, "[AI GATEWAY] Résiliation demandée dans l'équipe R&D : pmartin / Cancellation requested in the team R&D: pmartin"],
+    ]);
+    const [demande, annonce] = mailer.outbox.map((m) => m.text);
+    expect(demande).toContain("Un responsable de votre équipe demande la résiliation de votre abonnement Anthropic · Claude Max 5x, rattaché à l'équipe R&D.");
+    expect(demande).toContain("Motif : Besoin disparu avec la fin du projet");
+    expect(demande).toContain("Résiliez-le chez Anthropic, puis déclarez la résiliation dans « Mes abonnements » avant le 15 octobre 2026.");
+    expect(demande).toContain("https://portail.test/abonnements");
+    expect(annonce).toContain("Léa Bernard (lbernard) a demandé la résiliation de l'abonnement Anthropic · Claude Max 5x de pmartin.");
+    expect(await journal("SUBSCRIPTION_TERMINATION_REQUESTED")).toEqual([
+      ["lbernard", id, { origine: "RESPONSABLE", offre: "Anthropic · Claude Max 5x", equipe: "R&D", motif: "Besoin disparu avec la fin du projet" }],
+    ]);
+  });
+
+  test("demandée par un admin, la résiliation est annoncée aux seuls responsables de l'équipe", async () => {
+    const id = await abonnement();
+    mailer.outbox.length = 0;
+    await requestTermination(deps, admin, id, { reason: "Coût" });
+    expect(mailer.outbox.map((m) => m.to)).toEqual([["pmartin@linagora.com"], ["lbernard@linagora.com"]]);
+    expect(mailer.outbox[0].text).toContain("Un administrateur demande la résiliation de votre abonnement Anthropic · Claude Max 5x, rattaché à l'équipe R&D.");
+    expect((await listActiveSubscriptions(deps, admin))[0].termination).toMatchObject({ origin: "ADMIN", requestedBy: "jdupont" });
+  });
+
+  test("seuls un admin et les responsables de l'équipe de l'abonnement demandent sa résiliation, avec un motif, une seule fois", async () => {
+    const id = await abonnement();
+    await testDb.teamManager.create({ data: { teamId: "equipe-data", uid: "cmoreau", email: "cmoreau@linagora.com", designatedBy: "jdupont" } });
+    await expect(requestTermination(deps, membre, id, { reason: "Coût" })).rejects.toMatchObject({ code: "interdit" });
+    await expect(requestTermination(deps, responsableData, id, { reason: "Coût" })).rejects.toMatchObject({ code: "introuvable" });
+    await expect(requestTermination(deps, responsable, id, { reason: "  " })).rejects.toMatchObject({ code: "motif_obligatoire" });
+    await requestTermination(deps, responsable, id, { reason: "Coût" });
+    await expect(requestTermination(deps, admin, id, { reason: "Coût" })).rejects.toMatchObject({ code: "transition_interdite" });
+  });
+
+  test("la sortie de l'équipe fait une demande de résiliation ; le rattachement à une autre équipe du titulaire la lève, et les prélèvements suivants vont à la nouvelle équipe", async () => {
+    const id = await declareSubscription(deps, membre, await approuvee(), { subscribedAt: "2026-10-01", monthlyAmountEur: 108, accountEmail: "pmartin@linagora.com" });
+    await litellm.addTeamMember("equipe-data", "pmartin");
+    mailer.outbox.length = 0;
+    await removeTeamMember(deps, responsable, { teamId: "equipe-rd", uid: "pmartin" });
+    expect(await listActiveSubscriptions(deps, admin)).toEqual([
+      expect.objectContaining({ id, status: "A_RESILIER", teamAlias: "R&D", termination: { origin: "SORTIE", requestedBy: "lbernard", requestedAt: maintenant, reason: null } }),
+    ]);
+    const demande = mailer.outbox.find((m) => m.subject === DEMANDE_DE_RESILIATION);
+    expect(demande?.to).toEqual(["pmartin@linagora.com"]);
+    expect(demande?.text).toContain(
+      "Après votre sortie de l'équipe R&D, votre abonnement Anthropic · Claude Max 5x, qui lui était rattaché, est à résilier, sauf si un admin ou un responsable d'une autre de vos équipes l'y rattache.",
+    );
+
+    // La page de l'équipe d'arrivée propose le rattachement.
+    expect((await getTeamPage(deps, admin, "equipe-data")).subscriptionsToReattach).toEqual([
+      { id, holderUid: "pmartin", offer: "Anthropic · Claude Max 5x", teamAlias: "R&D", requestedAt: maintenant },
+    ]);
+    await reattachSubscription(deps, admin, id, { teamId: "equipe-data" });
+    expect(await listActiveSubscriptions(deps, admin)).toEqual([expect.objectContaining({ id, status: "ACTIF", teamAlias: "Data", termination: null })]);
+    expect((await getTeamPage(deps, admin, "equipe-data")).subscriptionsToReattach).toEqual([]);
+    await runDailyTask({ ...deps, now: () => new Date("2026-11-02T05:00:00Z") });
+    expect((await listActiveSubscriptions(deps, admin))[0].charges.map((c) => [c.chargedOn.toISOString().slice(0, 10), c.teamAlias])).toEqual([
+      ["2026-10-01", "R&D"],
+      ["2026-11-01", "Data"],
+    ]);
+    expect(await journal("SUBSCRIPTION_TERMINATION_REQUESTED")).toEqual([["lbernard", id, { origine: "SORTIE", offre: "Anthropic · Claude Max 5x", equipe: "R&D", motif: null }]]);
+    expect(await journal("SUBSCRIPTION_REATTACHED")).toEqual([["jdupont", id, { offre: "Anthropic · Claude Max 5x", de: "R&D", vers: "Data", demandeLevee: true }]]);
+  });
+
+  test("seuls un admin et les responsables de l'équipe d'arrivée rattachent un abonnement, à une équipe dont le titulaire est membre", async () => {
+    const id = await abonnement();
+    await testDb.teamManager.create({ data: { teamId: "equipe-data", uid: "cmoreau", email: "cmoreau@linagora.com", designatedBy: "jdupont" } });
+    await expect(reattachSubscription(deps, responsable, id, { teamId: "equipe-data" })).rejects.toMatchObject({ code: "introuvable" });
+    await expect(reattachSubscription(deps, responsableData, id, { teamId: "equipe-data" })).rejects.toMatchObject({ code: "non_membre" });
+    await litellm.addTeamMember("equipe-data", "pmartin");
+    await reattachSubscription(deps, responsableData, id, { teamId: "equipe-data" });
+    expect((await listActiveSubscriptions(deps, admin))[0]).toMatchObject({ id, status: "ACTIF", teamAlias: "Data" });
+    // Une demande de résiliation d'un responsable n'est pas levée par un rattachement.
+    await requestTermination(deps, responsableData, id, { reason: "Coût" });
+    await reattachSubscription(deps, admin, id, { teamId: "equipe-rd" });
+    expect((await listActiveSubscriptions(deps, admin))[0]).toMatchObject({ status: "A_RESILIER", teamAlias: "R&D", termination: expect.objectContaining({ origin: "RESPONSABLE" }) });
+  });
+
+  test("sans résiliation déclarée dans le délai de retrait, une alerte part une seule fois aux responsables de l'équipe et aux admins", async () => {
+    const id = await abonnement();
+    await requestTermination(deps, responsable, id, { reason: "Coût" });
+    mailer.outbox.length = 0;
+    const tache = (date: string) => runDailyTask({ ...deps, now: () => new Date(date) });
+    expect(await tache("2026-10-14T05:00:00Z")).toMatchObject({ alertesResiliation: 0 });
+    expect(await tache("2026-10-16T05:00:00Z")).toMatchObject({ alertesResiliation: 1 });
+    expect(await tache("2026-10-17T05:00:00Z")).toMatchObject({ alertesResiliation: 0 });
+    expect(mailer.outbox.map((m) => [m.to, m.subject])).toEqual([
+      [[...ADMINS, "lbernard@linagora.com"], "[AI GATEWAY] Résiliation non déclarée : Anthropic · Claude Max 5x de pmartin / Undeclared cancellation: Anthropic · Claude Max 5x of pmartin"],
+    ]);
+    expect(mailer.outbox[0].text).toContain(
+      "La résiliation de l'abonnement Anthropic · Claude Max 5x de pmartin, rattaché à l'équipe R&D, a été demandée le 1 octobre 2026 ; elle n'est toujours pas déclarée.",
+    );
+    expect(mailer.outbox[0].text).toContain("https://portail.test/gestion/abonnements?equipe=equipe-rd");
+  });
+
+  test("une équipe ne se supprime pas tant qu'un abonnement non résilié lui est rattaché", async () => {
+    const id = await abonnement();
+    await removeTeamMember(deps, admin, { teamId: "equipe-rd", uid: "pmartin" });
+    await removeTeamMember(deps, admin, { teamId: "equipe-rd", uid: "lbernard" });
+    await expect(deleteTeam(deps, admin, "equipe-rd")).rejects.toMatchObject({ code: "equipe_non_vide", params: { abonnements: "1" } });
+    await declareTermination(deps, admin, id, { terminatedOn: "2026-09-30" });
+    await deleteTeam(deps, admin, "equipe-rd");
+  });
+});

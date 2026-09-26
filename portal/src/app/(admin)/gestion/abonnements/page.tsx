@@ -5,13 +5,16 @@ import { PortalError } from "@/lib/errors";
 import { type AdminSubscription, listActiveSubscriptions, listSubscriptionArchive, listSubscriptionsToDeclare } from "@/lib/services/subscriptions";
 import { getTeamOverview } from "@/lib/services/teams";
 import { getDeps, requireGestionPage } from "@/lib/session";
+import { declarerResiliationGestionAction, demanderResiliationAction } from "../../../actions";
 import { formats, Notice, PaginationArchive } from "../../../components";
+import { Obligatoire } from "../../../obligatoire";
 import { AdminNav } from "../admin-nav";
 
 /**
  * Spécification #51, ticket #56 : les abonnements approuvés en attente de déclaration, les abonnements actifs, puis
  * l'archive des abonnements résiliés, page par page ; pour un responsable, ceux de ses équipes. Avec `?equipe=`, la
- * page se limite aux abonnements de cette équipe. Chaque abonnement montre ses prélèvements (ticket #57).
+ * page se limite aux abonnements de cette équipe. Chaque abonnement montre ses prélèvements (ticket #57) ; un abonnement
+ * actif se voit demander sa résiliation, et un admin déclare une résiliation à la place du titulaire (ticket #58).
  */
 export default async function GestionAbonnementsPage(props: PageProps<"/gestion/abonnements">) {
   const acteur = await requireGestionPage();
@@ -34,6 +37,8 @@ export default async function GestionAbonnementsPage(props: PageProps<"/gestion/
     listActiveSubscriptions(getDeps(), acteur, teamId),
     listSubscriptionArchive(getDeps(), acteur, Number(searchParams.page) || 1, teamId),
   ]);
+  // Jour d'aujourd'hui (AAAA-MM-JJ) : date de résiliation proposée, et date maximale.
+  const aujourdhui = new Date().toISOString().slice(0, 10);
   const titulaire = (uid: string, email: string) => (
     <td>
       {uid}
@@ -41,7 +46,44 @@ export default async function GestionAbonnementsPage(props: PageProps<"/gestion/
       <span className="text-xs text-neutral-600">{email}</span>
     </td>
   );
-  const ligne = (a: AdminSubscription) => (
+  /** Demander la résiliation d'un abonnement actif ; pour un admin, déclarer la résiliation à la place du titulaire. */
+  const actions = (a: AdminSubscription) => (
+    <td className="space-y-1 text-sm">
+      {a.status === "ACTIF" && (
+        <details>
+          <summary>{t("resiliation.demander")}</summary>
+          <form action={demanderResiliationAction} aria-label={t("resiliation.formulaireDemande", { offre: a.offer, titulaire: a.holderUid })}>
+            <input type="hidden" name="subscriptionId" value={a.id} />
+            {teamId && <input type="hidden" name="equipe" value={teamId} />}
+            <label>
+              {t("resiliation.motif")}
+              <Obligatoire />
+              <textarea name="reason" required rows={2} />
+            </label>
+            <p className="text-xs text-neutral-600">{t("resiliation.aideDemande")}</p>
+            <button type="submit">{t("resiliation.envoyer")}</button>
+          </form>
+        </details>
+      )}
+      {acteur.isAdmin && (
+        <details>
+          <summary>{t("resiliation.declarer")}</summary>
+          <form action={declarerResiliationGestionAction} aria-label={t("resiliation.formulaireDeclaration", { offre: a.offer, titulaire: a.holderUid })}>
+            <input type="hidden" name="subscriptionId" value={a.id} />
+            {teamId && <input type="hidden" name="equipe" value={teamId} />}
+            <label>
+              {t("resiliation.date")}
+              <input type="date" name="terminatedOn" required min={a.subscribedAt.toISOString().slice(0, 10)} max={aujourdhui} defaultValue={aujourdhui} />
+            </label>
+            <p className="text-xs text-neutral-600">{t("resiliation.aideDeclaration")}</p>
+            <button type="submit">{t("resiliation.enregistrer")}</button>
+          </form>
+        </details>
+      )}
+    </td>
+  );
+  /** Ligne d'un abonnement ; celles des abonnements actifs ou à résilier ont leurs actions. */
+  const ligne = (a: AdminSubscription, avecActions: boolean) => (
     <tr key={a.id}>
       {titulaire(a.holderUid, a.holderEmail)}
       <td>{a.teamAlias}</td>
@@ -53,7 +95,15 @@ export default async function GestionAbonnementsPage(props: PageProps<"/gestion/
       <td>{jour(a.subscribedAt)}</td>
       <td>{euros(a.monthlyAmountEur)}</td>
       <td>{jour(a.expiresAt)}</td>
-      <td>{domaine(`statutsAbonnement.${a.status}`)}</td>
+      <td>
+        {a.status === "RESILIE" && a.terminatedOn ? t("resilieLe", { date: jour(a.terminatedOn) }) : domaine(`statutsAbonnement.${a.status}`)}
+        {a.status === "A_RESILIER" && a.termination && (
+          <span className="block text-xs text-amber-800">
+            {t("demande.origine", { origine: a.termination.origin, auteur: a.termination.requestedBy, date: jour(a.termination.requestedAt) })}
+            {a.termination.reason && <span className="block">{t("demande.motif", { motif: a.termination.reason })}</span>}
+          </span>
+        )}
+      </td>
       <td>
         {a.charges.length === 0 ? (
           t("prelevements.aucun")
@@ -68,9 +118,10 @@ export default async function GestionAbonnementsPage(props: PageProps<"/gestion/
           </details>
         )}
       </td>
+      {avecActions && actions(a)}
     </tr>
   );
-  const entetes = (
+  const entetes = (avecActions: boolean) => (
     <tr>
       <th>{t("colonnes.titulaire")}</th>
       <th>{t("colonnes.equipe")}</th>
@@ -81,6 +132,7 @@ export default async function GestionAbonnementsPage(props: PageProps<"/gestion/
       <th>{t("colonnes.echeance")}</th>
       <th>{t("colonnes.statut")}</th>
       <th>{t("colonnes.prelevements")}</th>
+      {avecActions && <th>{t("colonnes.actions")}</th>}
     </tr>
   );
 
@@ -130,8 +182,8 @@ export default async function GestionAbonnementsPage(props: PageProps<"/gestion/
           <p>{t("actifs.aucun")}</p>
         ) : (
           <table>
-            <thead>{entetes}</thead>
-            <tbody>{actifs.map(ligne)}</tbody>
+            <thead>{entetes(true)}</thead>
+            <tbody>{actifs.map((a) => ligne(a, true))}</tbody>
           </table>
         )}
       </section>
@@ -142,8 +194,8 @@ export default async function GestionAbonnementsPage(props: PageProps<"/gestion/
           <p>{t("archive.aucune")}</p>
         ) : (
           <table>
-            <thead>{entetes}</thead>
-            <tbody>{archive.elements.map(ligne)}</tbody>
+            <thead>{entetes(false)}</thead>
+            <tbody>{archive.elements.map((a) => ligne(a, false))}</tbody>
           </table>
         )}
         <PaginationArchive

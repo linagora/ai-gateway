@@ -22,10 +22,14 @@ export function datesDePrelevement(souscription: Date, jusqua: Date): Date[] {
 
 /**
  * Enregistre les prélèvements échus d'un abonnement, jusqu'au jour `jusqua` : chacun avec le montant alors en vigueur
- * et l'équipe de l'abonnement, une seule fois par date (rattrapage sans doublon). Rend le nombre de prélèvements créés.
+ * et l'équipe de l'abonnement, une seule fois par date (rattrapage sans doublon), et aucun à partir de la date de
+ * résiliation. Rend le nombre de prélèvements créés.
  */
 export async function enregistrerPrelevements(db: Db, abonnement: Subscription, jusqua: Date): Promise<number> {
-  const dates = datesDePrelevement(abonnement.subscribedAt, jourUtc(jusqua));
+  const jour = jourUtc(jusqua);
+  // Les dates sont à minuit : s'arrêter une milliseconde avant la résiliation ne garde que les dates antérieures.
+  const fin = abonnement.terminatedOn && abonnement.terminatedOn <= jour ? new Date(abonnement.terminatedOn.getTime() - 1) : jour;
+  const dates = datesDePrelevement(abonnement.subscribedAt, fin);
   if (dates.length === 0) return 0;
   const { count } = await db.subscriptionCharge.createMany({
     data: dates.map((chargedOn) => ({

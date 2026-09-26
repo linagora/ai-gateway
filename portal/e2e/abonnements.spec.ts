@@ -104,13 +104,35 @@ async function declarer(pageMembre: Page, offre: string, { montant, adresse }: {
   await expect(pageMembre.getByRole("status")).toHaveText("Abonnement déclaré.");
 }
 
-/** Nettoyage : sortie des membres (qui annule leurs demandes en cours), suppression de l'équipe, offre masquée. */
-async function nettoyer({ admin, pageEquipe, membre, responsable, offre }: Situation): Promise<void> {
+/**
+ * Un admin déclare, à la place de leurs titulaires, la résiliation des abonnements de l'équipe encore actifs ou à
+ * résilier : une équipe ne se supprime pas tant qu'il en reste.
+ */
+async function resilierAbonnementsDeLEquipe(admin: Page, pageEquipe: string): Promise<void> {
+  await admin.goto(`/gestion/abonnements?equipe=${new URL(pageEquipe).pathname.split("/").pop()}`);
+  const actifs = admin.getByRole("region", { name: "Abonnements actifs" });
+  // Une ligne d'en-tête, puis une ligne par abonnement.
+  while ((await actifs.getByRole("row").count()) > 1) {
+    const ligne = actifs.getByRole("row").nth(1);
+    await ligne.getByText("Déclarer la résiliation", { exact: true }).click();
+    await ligne.getByRole("button", { name: "Déclarer la résiliation à sa place" }).click();
+    await expect(admin.getByRole("status")).toHaveText("Résiliation déclarée.");
+  }
+}
+
+/** Nettoyage d'une équipe : sortie des membres donnés (qui annule leurs demandes en cours), résiliation de ses abonnements, suppression. */
+async function viderEtSupprimer(admin: Page, pageEquipe: string, uids: string[]): Promise<void> {
   await admin.goto(pageEquipe);
-  await faireSortir(admin, membre.uid);
-  await faireSortir(admin, responsable.uid);
+  for (const uid of uids) await faireSortir(admin, uid);
+  await resilierAbonnementsDeLEquipe(admin, pageEquipe);
+  await admin.goto(pageEquipe);
   await supprimerEquipe(admin);
   await expect(admin.getByRole("status")).toHaveText("Équipe supprimée.");
+}
+
+/** Nettoyage d'un parcours : son équipe, puis son offre, masquée. */
+async function nettoyer({ admin, pageEquipe, membre, responsable, offre }: Situation): Promise<void> {
+  await viderEtSupprimer(admin, pageEquipe, [membre.uid, responsable.uid]);
   await masquerOffre(admin, "Anthropic", offre);
 }
 
@@ -303,4 +325,86 @@ test("le titulaire corrige le montant de son abonnement ; la gestion montre le m
   await expect(ligne.getByText(/^1 prélèvement, 108,00\s€ au total$/)).toBeVisible();
 
   await nettoyer(situation);
+});
+
+test("le responsable demande la résiliation ; le titulaire, prévenu par courriel, la déclare, et l'abonnement passe dans l'archive (ticket #58)", async ({ browser }) => {
+  const situation = await abonnementApprouve(browser, "resiliation");
+  const { pageResponsable, pageMembre, responsable, membre, equipe, offre } = situation;
+  await declarer(pageMembre, offre, { montant: "108", adresse: membre.email });
+
+  // Le responsable demande la résiliation depuis l'onglet « Abonnements », avec un motif.
+  await pageResponsable.goto("/gestion/abonnements");
+  const ligne = pageResponsable.getByRole("region", { name: "Abonnements actifs" }).getByRole("row", { name: new RegExp(membre.uid) });
+  await ligne.getByText("Demander la résiliation", { exact: true }).click();
+  const demande = ligne.getByRole("form", { name: `Demander la résiliation : Anthropic · ${offre} de ${membre.uid}` });
+  await demande.getByLabel("Motif").fill("Besoin disparu avec la fin du projet");
+  await demande.getByRole("button", { name: "Envoyer la demande de résiliation" }).click();
+  await expect(pageResponsable.getByRole("status")).toHaveText("Demande de résiliation envoyée au titulaire.");
+  await expect(ligne).toContainText("À résilier");
+  await expect(ligne).toContainText(`demandée par ${responsable.uid} le`);
+  await expect(ligne).toContainText("Motif : Besoin disparu avec la fin du projet");
+
+  // Le titulaire en est prévenu par courriel.
+  const sujet = `[AI GATEWAY] Demande de résiliation de votre abonnement Anthropic · ${offre} / Cancellation request for your subscription Anthropic · ${offre}`;
+  await expect.poll(async () => (await courriels(membre.uid)).map((c) => c.subject), { timeout: 15_000 }).toContain(sujet);
+  const texte = (await courriels(membre.uid)).find((c) => c.subject === sujet)?.text ?? "";
+  expect(texte).toContain(`Un responsable de votre équipe demande la résiliation de votre abonnement Anthropic · ${offre}, rattaché à l'équipe ${equipe}.`);
+  expect(texte).toContain("Motif : Besoin disparu avec la fin du projet");
+  expect(texte).toContain("Résiliez-le chez Anthropic, puis déclarez la résiliation dans « Mes abonnements » avant le");
+
+  // Il déclare la résiliation dans « Mes abonnements ».
+  await pageMembre.goto("/abonnements");
+  const abonnement = pageMembre.getByRole("region", { name: "Abonnements déclarés" }).getByRole("row", { name: new RegExp(echapper(offre)) });
+  await expect(abonnement).toContainText("Résiliation demandée le");
+  await expect(abonnement).toContainText("Motif : Besoin disparu avec la fin du projet");
+  await abonnement.getByText("Déclarer la résiliation", { exact: true }).click();
+  const resiliation = abonnement.getByRole("form", { name: `Déclarer la résiliation : Anthropic · ${offre}` });
+  await expect(resiliation).toContainText("Résiliez d'abord l'abonnement chez Anthropic, puis déclarez-en ici la date : aucun prélèvement ne compte à partir de ce jour.");
+  await resiliation.getByRole("button", { name: "Confirmer la résiliation" }).click();
+  await expect(pageMembre.getByRole("status")).toHaveText("Résiliation déclarée.");
+  await expect(abonnement).toContainText("Résilié le");
+
+  // L'abonnement résilié passe dans l'archive de la gestion.
+  await pageResponsable.reload();
+  await expect(pageResponsable.getByRole("region", { name: "Abonnements actifs" })).toContainText("Aucun abonnement actif.");
+  await expect(pageResponsable.getByRole("region", { name: "Archive : abonnements résiliés" }).getByRole("row", { name: new RegExp(membre.uid) })).toContainText("Résilié le");
+
+  await nettoyer(situation);
+});
+
+test("la sortie d'une équipe rend l'abonnement à résilier ; le responsable de l'équipe d'arrivée le rattache depuis la page de son équipe (ticket #58)", async ({ browser }) => {
+  const situation = await abonnementApprouve(browser, "rattachement");
+  const { admin, pageMembre, membre, equipe, pageEquipe, offre } = situation;
+  await declarer(pageMembre, offre, { montant: "108", adresse: membre.email });
+
+  // Une autre équipe du membre, avec son responsable.
+  const responsableArrivee = personne("rattachement-arrivee");
+  const pageArrivee = await (await connecter(browser, responsableArrivee)).newPage();
+  const arrivee = `Équipe arrivée ${suffixe}`;
+  await nouvelleEquipe(admin, arrivee);
+  await designer(admin, responsableArrivee.uid);
+  await ajouterMembre(admin, membre.uid);
+  const pageEquipeArrivee = admin.url();
+
+  // Sorti de sa première équipe, le membre a un abonnement à résilier, que la page de l'équipe d'arrivée propose de rattacher.
+  await admin.goto(pageEquipe);
+  await faireSortir(admin, membre.uid);
+  await pageArrivee.goto(pageEquipeArrivee);
+  const aRattacher = pageArrivee.getByRole("region", { name: "Abonnements à rattacher" });
+  await expect(aRattacher.getByRole("row", { name: new RegExp(membre.uid) })).toContainText(equipe);
+  await aRattacher.getByRole("form", { name: `Rattacher à cette équipe : Anthropic · ${offre} de ${membre.uid}` }).getByRole("button", { name: "Rattacher à cette équipe" }).click();
+  await expect(pageArrivee.getByRole("status")).toHaveText("Abonnement rattaché à l'équipe.");
+  await expect(pageArrivee.getByRole("region", { name: "Abonnements à rattacher" })).toHaveCount(0);
+  await expect(pageArrivee.getByRole("link", { name: /^1 abonnement actif, 108,00\s€ TTC par mois$/ })).toBeVisible();
+
+  // Le titulaire le retrouve actif, rattaché à sa nouvelle équipe.
+  await pageMembre.goto("/abonnements");
+  const abonnement = pageMembre.getByRole("region", { name: "Abonnements déclarés" }).getByRole("row", { name: new RegExp(echapper(offre)) });
+  await expect(abonnement).toContainText(arrivee);
+  await expect(abonnement).toContainText("Actif");
+
+  // Nettoyage : l'équipe d'arrivée, puis la première, que le membre a déjà quittée, et l'offre.
+  await viderEtSupprimer(admin, pageEquipeArrivee, [membre.uid, responsableArrivee.uid]);
+  await viderEtSupprimer(admin, pageEquipe, [situation.responsable.uid]);
+  await masquerOffre(admin, "Anthropic", offre);
 });

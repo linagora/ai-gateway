@@ -129,7 +129,7 @@ test("une équipe qui a une demande en cours ne peut pas être supprimée ; vide
   await admin.reload();
   await supprimerEquipe(admin);
   await expect(admin.getByRole("main").getByRole("alert")).toHaveText(
-    "Cette équipe a encore des clés actives (0) ou des demandes en cours (1) : révoquez ses clés, y compris celles créées depuis la console de LiteLLM, et traitez ses demandes avant de la supprimer.",
+    "Cette équipe a encore des clés actives (0), des demandes en cours (1) ou des abonnements non résiliés (0) : révoquez ses clés, y compris celles créées depuis la console de LiteLLM, traitez ses demandes, et faites résilier ou rattacher à une autre équipe ses abonnements avant de la supprimer.",
   );
 
   // Après la sortie du membre (sa demande est annulée), l'équipe se supprime.
@@ -336,7 +336,7 @@ test("un responsable bloque, débloque et révoque la clé d'un membre de son é
   // Tant qu'elle a une clé active, l'équipe ne peut pas être supprimée : LiteLLM supprimerait la clé avec elle.
   await supprimerEquipe(admin);
   await expect(admin.getByRole("main").getByRole("alert")).toHaveText(
-    "Cette équipe a encore des clés actives (1) ou des demandes en cours (0) : révoquez ses clés, y compris celles créées depuis la console de LiteLLM, et traitez ses demandes avant de la supprimer.",
+    "Cette équipe a encore des clés actives (1), des demandes en cours (0) ou des abonnements non résiliés (0) : révoquez ses clés, y compris celles créées depuis la console de LiteLLM, traitez ses demandes, et faites résilier ou rattacher à une autre équipe ses abonnements avant de la supprimer.",
   );
   // Le nombre de clés actives mène à la gestion des clés, limitée à l'équipe.
   await admin.getByRole("link", { name: "Voir la clé active de l'équipe" }).click();

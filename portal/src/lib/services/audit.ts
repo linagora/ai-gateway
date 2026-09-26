@@ -27,7 +27,10 @@ export type AuditAction =
   | "OFFER_CREATED"
   | "OFFER_UPDATED"
   | "SUBSCRIPTION_DECLARED"
-  | "SUBSCRIPTION_AMOUNT_CORRECTED";
+  | "SUBSCRIPTION_AMOUNT_CORRECTED"
+  | "SUBSCRIPTION_TERMINATION_REQUESTED"
+  | "SUBSCRIPTION_TERMINATED"
+  | "SUBSCRIPTION_REATTACHED";
 
 /** Entrée du journal d'audit : qui, quoi, sur quelle cible, avec quels détails. Jamais de secret. */
 export interface AuditEntry {

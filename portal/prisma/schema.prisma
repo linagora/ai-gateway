@@ -200,6 +200,13 @@ enum SubscriptionStatus {
   RESILIE
 }
 
+/// Origine d'une demande de résiliation : un responsable de l'équipe, un admin, ou la sortie de l'équipe.
+enum TerminationOrigin {
+  RESPONSABLE
+  ADMIN
+  SORTIE
+}
+
 /// Abonnement (spécification #51) : offre souscrite par un salarié lui-même, après la validation de sa demande, puis
 /// déclarée dans le portail ; il est rattaché à l'une de ses équipes. L'échéance est celle de son autorisation.
 model Subscription {
@@ -219,6 +226,15 @@ model Subscription {
   monthlyAmountEur Decimal
   expiresAt        DateTime
   status           SubscriptionStatus @default(ACTIF)
+  /// Demande de résiliation (statut « à résilier ») : origine, auteur (uid), date et motif ; gardée après la résiliation.
+  terminationOrigin      TerminationOrigin?
+  terminationRequestedBy String?
+  terminationRequestedAt DateTime?
+  terminationReason      String?
+  /// Alerte unique aux responsables et aux admins : résiliation demandée, non déclarée dans le délai de retrait.
+  terminationAlertSentAt DateTime?
+  /// Date de résiliation (statut « résilié ») : aucun prélèvement à partir de ce jour.
+  terminatedOn     DateTime?
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
   charges          SubscriptionCharge[]
