@@ -20,9 +20,15 @@ export async function requireGestion(db: Db, actor: SessionUser): Promise<string
   return equipes;
 }
 
-/** Filtre des listes de la gestion : une seule équipe, sinon toutes celles de l'acteur. */
+/** Filtre des listes de la gestion : une seule équipe, sinon toutes celles de l'acteur ; un seul titulaire (uid). */
 export interface FiltreGestion {
   equipe?: string;
+  titulaire?: string;
+}
+
+/** Critère sur le titulaire, quand le filtre en nomme un : `requesterUid` d'une demande, `holderUid` d'un abonnement. */
+export function duTitulaire<C extends "requesterUid" | "holderUid">(filtre: FiltreGestion, colonne: C): Partial<Record<C, string>> {
+  return filtre.titulaire === undefined ? {} : ({ [colonne]: filtre.titulaire } as Partial<Record<C, string>>);
 }
 
 /**

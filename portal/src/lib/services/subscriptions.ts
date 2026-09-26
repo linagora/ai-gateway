@@ -8,7 +8,7 @@ import { PortalError } from "@/lib/errors";
 import type { LiteLLMClient } from "@/lib/litellm/client";
 import { type Page, tranche } from "@/lib/pagination";
 import { recordAudit } from "./audit";
-import { dansEquipes, type FiltreGestion, managerEmails, requireGestion } from "./autorite";
+import { dansEquipes, duTitulaire, type FiltreGestion, managerEmails, requireGestion } from "./autorite";
 import { JOUR, pickupDeadline, readPickupDays } from "./delais";
 import { markExpired } from "./echeances";
 import { type NotificationDeps, notifyNewRequest } from "./notifications";
@@ -391,7 +391,7 @@ export async function listSubscriptionsToDeclare(deps: SubscriptionDeps, actor: 
   const equipes = await requireGestion(deps.db, actor);
   await markExpired(deps.db, deps.now?.() ?? new Date());
   const [demandes, delai] = await Promise.all([
-    deps.db.accessRequest.findMany({ where: { kind: "ABONNEMENT", status: "APPROUVEE", ...dansEquipes(equipes, filtre.equipe) }, include: { offer: true }, orderBy: { decidedAt: "asc" } }),
+    deps.db.accessRequest.findMany({ where: { kind: "ABONNEMENT", status: "APPROUVEE", ...dansEquipes(equipes, filtre.equipe), ...duTitulaire(filtre, "requesterUid") }, include: { offer: true }, orderBy: { decidedAt: "asc" } }),
     readPickupDays(deps.db),
   ]);
   return demandes.flatMap((d) =>
@@ -415,7 +415,7 @@ export async function listSubscriptionsToDeclare(deps: SubscriptionDeps, actor: 
 export async function listActiveSubscriptions(deps: SubscriptionDeps, actor: SessionUser, filtre: FiltreGestion = {}): Promise<AdminSubscription[]> {
   const equipes = await requireGestion(deps.db, actor);
   const abonnements = await deps.db.subscription.findMany({
-    where: { status: { not: "RESILIE" }, ...dansEquipes(equipes, filtre.equipe) },
+    where: { status: { not: "RESILIE" }, ...dansEquipes(equipes, filtre.equipe), ...duTitulaire(filtre, "holderUid") },
     include: AVEC_PRELEVEMENTS,
     orderBy: [{ subscribedAt: "desc" }, { id: "desc" }],
   });
@@ -425,7 +425,7 @@ export async function listActiveSubscriptions(deps: SubscriptionDeps, actor: Ses
 /** Gestion : archive des abonnements résiliés (mêmes filtres), par pages de PAR_PAGE, le plus récemment résilié d'abord. */
 export async function listSubscriptionArchive(deps: SubscriptionDeps, actor: SessionUser, page = 1, filtre: FiltreGestion = {}): Promise<Page<AdminSubscription>> {
   const equipes = await requireGestion(deps.db, actor);
-  const where = { status: "RESILIE" as const, ...dansEquipes(equipes, filtre.equipe) };
+  const where = { status: "RESILIE" as const, ...dansEquipes(equipes, filtre.equipe), ...duTitulaire(filtre, "holderUid") };
   const total = await deps.db.subscription.count({ where });
   const { page: courante, pages, skip, take } = tranche(total, page);
   const rows = await deps.db.subscription.findMany({ where, include: AVEC_PRELEVEMENTS, orderBy: [{ terminatedOn: "desc" }, { updatedAt: "desc" }, { id: "desc" }], skip, take });

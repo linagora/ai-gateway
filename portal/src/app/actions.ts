@@ -385,22 +385,25 @@ export async function revoquerCleAction(formData: FormData): Promise<void> {
   await run("/cles", () => revokeKey(getDeps(), user, text(formData, "id")), { path: "/cles", message: "cleRevoquee" });
 }
 
-/** F-43 : révocation d'une clé par un admin ou un responsable de son équipe, depuis « Gestion — Clés ». */
+/** F-43 : révocation d'une clé par un admin ou un responsable de son équipe, depuis « Gestion — Clés » ou la fiche du titulaire. */
 export async function revoquerCleAdminAction(formData: FormData): Promise<void> {
   const user = await requireUser();
-  await run("/gestion/cles", () => revokeKey(getDeps(), user, text(formData, "id")), { path: "/gestion/cles", message: "cleRevoquee" });
+  const page = pageGestion(formData, "/gestion/cles");
+  await run(page, () => revokeKey(getDeps(), user, text(formData, "id")), { path: page, message: "cleRevoquee" });
 }
 
 /** F-43 : blocage d'une clé par un admin ou un responsable de son équipe (suspension temporaire et réversible). */
 export async function bloquerCleAction(formData: FormData): Promise<void> {
   const user = await requireUser();
-  await run("/gestion/cles", () => blockKey(getDeps(), user, text(formData, "id")), { path: "/gestion/cles", message: "cleBloquee" });
+  const page = pageGestion(formData, "/gestion/cles");
+  await run(page, () => blockKey(getDeps(), user, text(formData, "id")), { path: page, message: "cleBloquee" });
 }
 
 /** F-43 : déblocage d'une clé par un admin ou un responsable de son équipe. */
 export async function debloquerCleAction(formData: FormData): Promise<void> {
   const user = await requireUser();
-  await run("/gestion/cles", () => unblockKey(getDeps(), user, text(formData, "id")), { path: "/gestion/cles", message: "cleDebloquee" });
+  const page = pageGestion(formData, "/gestion/cles");
+  await run(page, () => unblockKey(getDeps(), user, text(formData, "id")), { path: page, message: "cleDebloquee" });
 }
 
 /** Résultat du retrait d'une clé : la clé n'y figure qu'une fois, et nulle part ailleurs. */
@@ -512,10 +515,16 @@ function pageEquipe(formData: FormData): string {
   return `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
 }
 
-/** Onglet « Abonnements » de la gestion, filtré sur l'équipe du formulaire quand il l'était. */
+/** Onglet « Abonnements » de la gestion, filtré sur l'équipe du formulaire quand il l'était, ou fiche du titulaire. */
 function pageAbonnements(formData: FormData): string {
   const equipe = text(formData, "equipe");
-  return equipe ? `/gestion/abonnements?equipe=${encodeURIComponent(equipe)}` : "/gestion/abonnements";
+  return pageGestion(formData, equipe ? `/gestion/abonnements?equipe=${encodeURIComponent(equipe)}` : "/gestion/abonnements");
+}
+
+/** Fiche du salarié que nomme le formulaire (champ « salarie »), d'où vient l'action ; sinon, la page par défaut. */
+function pageGestion(formData: FormData, parDefaut: string): string {
+  const salarie = text(formData, "salarie");
+  return salarie ? `/gestion/salaries/${encodeURIComponent(salarie)}` : parDefaut;
 }
 
 function text(formData: FormData, name: string): string {

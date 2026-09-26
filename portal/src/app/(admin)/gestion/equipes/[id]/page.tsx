@@ -18,6 +18,7 @@ import {
 } from "../../../../actions";
 import { DepenseSurBudget, formats, Notice } from "../../../../components";
 import { AdminNav } from "../../admin-nav";
+import { LienSalarie } from "../../lien-salarie";
 
 /**
  * F-53 et F-54 : page d'une équipe : son résumé, son renommage, son budget, ses responsables et ses membres
@@ -127,7 +128,9 @@ export default async function EquipePage(props: PageProps<"/gestion/equipes/[id]
             <tbody>
               {equipe.managers.map((m) => (
                 <tr key={m.uid}>
-                  <td>{m.uid}</td>
+                  <td>
+                    <LienSalarie uid={m.uid} />
+                  </td>
                   <td>{m.email}</td>
                   {estAdmin && (
                     <td>
@@ -172,7 +175,9 @@ export default async function EquipePage(props: PageProps<"/gestion/equipes/[id]
             <tbody>
               {equipe.members.map((uid) => (
                 <tr key={uid}>
-                  <td>{uid}</td>
+                  <td>
+                    <LienSalarie uid={uid} />
+                  </td>
                   {/* Un admin ou un responsable de l'équipe peut faire sortir un membre ; un responsable, seul un admin (F-54). */}
                   <td>
                     {(estAdmin || !equipe.managers.some((m) => m.uid === uid)) && (

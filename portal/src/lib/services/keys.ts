@@ -8,7 +8,7 @@ import type { DataLevel, RequestStatus } from "@/lib/policy";
 import type { LimiteDeDebit } from "@/lib/limite-de-debit";
 import { type Page, tranche } from "@/lib/pagination";
 import { recordAudit } from "./audit";
-import { aAutorite, dansEquipes, type FiltreGestion, managerEmails, requireGestion } from "./autorite";
+import { aAutorite, dansEquipes, duTitulaire, type FiltreGestion, managerEmails, requireGestion } from "./autorite";
 import { pickupDeadline, readPickupDays } from "./delais";
 import { markExpired } from "./echeances";
 import { type NotificationDeps, notifyAdminKeyAction, notifyTeamChange } from "./notifications";
@@ -257,7 +257,7 @@ export async function listKeysToPickUp(deps: KeyDeps, actor: SessionUser, filtre
   const equipes = await requireGestion(deps.db, actor);
   await markExpired(deps.db, deps.now?.() ?? new Date());
   const [rows, delai] = await Promise.all([
-    deps.db.accessRequest.findMany({ where: { kind: "CLE", status: "APPROUVEE", ...dansEquipes(equipes, filtre.equipe) }, orderBy: { decidedAt: "asc" } }),
+    deps.db.accessRequest.findMany({ where: { kind: "CLE", status: "APPROUVEE", ...dansEquipes(equipes, filtre.equipe), ...duTitulaire(filtre, "requesterUid") }, orderBy: { decidedAt: "asc" } }),
     readPickupDays(deps.db),
   ]);
   return rows.map((r) => ({
@@ -281,7 +281,14 @@ export async function listActiveKeys(deps: KeyDeps, actor: SessionUser, filtre: 
   const equipes = await requireGestion(deps.db, actor);
   await markExpired(deps.db, deps.now?.() ?? new Date());
   const rows = await deps.db.accessRequest.findMany({
-    where: { kind: "CLE", status: "CLE_EMISE", keyAlias: { not: null }, keyIssuedAt: { not: null }, ...dansEquipes(equipes, filtre.equipe) },
+    where: {
+      kind: "CLE",
+      status: "CLE_EMISE",
+      keyAlias: { not: null },
+      keyIssuedAt: { not: null },
+      ...dansEquipes(equipes, filtre.equipe),
+      ...duTitulaire(filtre, "requesterUid"),
+    },
     orderBy: [{ keyIssuedAt: "desc" }, { id: "desc" }],
   });
   return Promise.all(rows.map((r) => adminKey(deps.litellm, r)));
@@ -294,7 +301,7 @@ export async function listActiveKeys(deps: KeyDeps, actor: SessionUser, filtre: 
 export async function listKeyArchive(deps: KeyDeps, actor: SessionUser, page = 1, filtre: FiltreGestion = {}): Promise<Page<AdminKey>> {
   const equipes = await requireGestion(deps.db, actor);
   await markExpired(deps.db, deps.now?.() ?? new Date());
-  const where = { kind: "CLE" as const, status: { not: "CLE_EMISE" as const }, keyAlias: { not: null }, keyIssuedAt: { not: null }, ...dansEquipes(equipes, filtre.equipe) };
+  const where = { kind: "CLE" as const, status: { not: "CLE_EMISE" as const }, keyAlias: { not: null }, keyIssuedAt: { not: null }, ...dansEquipes(equipes, filtre.equipe), ...duTitulaire(filtre, "requesterUid") };
   const total = await deps.db.accessRequest.count({ where });
   const { page: courante, pages, skip, take } = tranche(total, page);
   const rows = await deps.db.accessRequest.findMany({ where, orderBy: [{ keyIssuedAt: "desc" }, { id: "desc" }], skip, take });
