@@ -5,7 +5,7 @@ import type { LiteLLMClient, LiteLLMTeam } from "@/lib/litellm/client";
 import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
 import { revokeMemberKeys } from "./keys";
-import { type NotificationDeps, notifyMemberAdded, notifyMemberRemoved, notifyTeamChange } from "./notifications";
+import { type NotificationDeps, notifyManagerDesignated, notifyMemberAdded, notifyMemberRemoved, notifyTeamChange } from "./notifications";
 import { cancelMemberRequests } from "./requests";
 
 /** Dépendances du service des équipes (F-53) : LiteLLM, source de vérité des équipes, et la base du portail. */
@@ -14,17 +14,25 @@ export interface TeamDeps extends NotificationDeps {
   litellm: LiteLLMClient;
 }
 
-/** Équipe telle que la présente la gestion : ses membres réels et ses clés actives émises par le portail. */
+/** Équipe telle que la présente la gestion : ses membres réels, ses clés actives émises par le portail, ses responsables. */
 export interface TeamOverview {
   teamId: string;
   teamAlias: string;
   memberCount: number;
   activeKeyCount: number;
+  managerUids: string[];
 }
 
-/** Page d'une équipe : son résumé et ses membres réels, par ordre alphabétique. */
+/** Responsable d'une équipe, avec l'adresse à laquelle le portail le prévient. */
+export interface TeamManagerInfo {
+  uid: string;
+  email: string;
+}
+
+/** Page d'une équipe : son résumé, ses membres réels et ses responsables, par ordre alphabétique. */
 export interface TeamPage extends TeamOverview {
   members: string[];
+  managers: TeamManagerInfo[];
 }
 
 /** Longueur maximale d'un nom d'équipe. */
@@ -33,22 +41,72 @@ const NOM_MAX = 100;
 /** F-53 : toutes les équipes, par ordre alphabétique, avec leurs membres réels et leurs clés actives. */
 export async function listTeamOverviews(deps: TeamDeps, actor: SessionUser): Promise<TeamOverview[]> {
   requireAdmin(actor);
-  const teams = await deps.litellm.listTeams();
-  const cles = await activeKeyCounts(deps.db);
-  return teams.map((t) => overview(t, cles)).sort((a, b) => a.teamAlias.localeCompare(b.teamAlias, "fr"));
+  const [teams, cles, responsables] = await Promise.all([deps.litellm.listTeams(), activeKeyCounts(deps.db), approversByTeam(deps.db, null)]);
+  return teams.map((t) => overview(t, cles, responsables)).sort((a, b) => a.teamAlias.localeCompare(b.teamAlias, "fr"));
 }
 
 /** F-53 : une équipe ; introuvable si LiteLLM ne la connaît pas. */
 export async function getTeamOverview(deps: TeamDeps, actor: SessionUser, teamId: string): Promise<TeamOverview> {
   requireAdmin(actor);
-  return overview(await existingTeam(deps, teamId), await activeKeyCounts(deps.db));
+  const team = await existingTeam(deps, teamId);
+  return overview(team, await activeKeyCounts(deps.db), await approversByTeam(deps.db, [team.teamId]));
 }
 
 /** F-53 : page d'une équipe ; introuvable si LiteLLM ne la connaît pas. */
 export async function getTeamPage(deps: TeamDeps, actor: SessionUser, teamId: string): Promise<TeamPage> {
   requireAdmin(actor);
   const team = await existingTeam(deps, teamId);
-  return { ...overview(team, await activeKeyCounts(deps.db)), members: [...team.memberUids].sort((a, b) => a.localeCompare(b, "fr")) };
+  const managers = await deps.db.teamManager.findMany({ where: { teamId: team.teamId }, orderBy: { uid: "asc" } });
+  return {
+    ...overview(team, await activeKeyCounts(deps.db), new Map([[team.teamId, managers.map((m) => m.uid)]])),
+    members: [...team.memberUids].sort((a, b) => a.localeCompare(b, "fr")),
+    managers: managers.map(({ uid, email }) => ({ uid, email })),
+  };
+}
+
+/**
+ * Valideurs de chaque équipe (F-22) : ses responsables, par ordre alphabétique ; une liste vide veut dire que les admins
+ * valident. `teamIds` null : toutes les équipes qui ont des responsables.
+ */
+export async function approversByTeam(db: Db, teamIds: string[] | null): Promise<Map<string, string[]>> {
+  const rows = await db.teamManager.findMany({ where: teamIds ? { teamId: { in: teamIds } } : {}, orderBy: { uid: "asc" } });
+  const valideurs = new Map((teamIds ?? []).map((id) => [id, [] as string[]]));
+  for (const { teamId, uid } of rows) valideurs.set(teamId, [...(valideurs.get(teamId) ?? []), uid]);
+  return valideurs;
+}
+
+/**
+ * F-54 : désignation d'un responsable d'équipe par un admin. Le salarié doit s'être connecté au portail ; il devient
+ * membre de l'équipe s'il ne l'était pas, et il est prévenu de sa désignation.
+ */
+export async function designateManager(deps: TeamDeps, actor: SessionUser, input: { teamId: string; uid: string }): Promise<void> {
+  requireAdmin(actor);
+  const team = await existingTeam(deps, input.teamId);
+  const uid = input.uid.trim();
+  const salarie = uid ? await deps.litellm.getUser(uid) : null;
+  if (!salarie) throw new PortalError("salarie_inconnu", `Salarié inconnu de la passerelle : ${uid}.`, { uid });
+  if (await deps.db.teamManager.findUnique({ where: { teamId_uid: { teamId: team.teamId, uid } } })) {
+    throw new PortalError("responsable_existant", `${uid} est déjà responsable de ${team.teamAlias}.`, { uid, equipe: team.teamAlias });
+  }
+  if (!team.memberUids.includes(uid)) {
+    await deps.litellm.addTeamMember(team.teamId, uid);
+    await recordAudit(deps.db, { actorUid: actor.uid, action: "MEMBER_ADDED", targetId: team.teamId, details: { membre: uid } });
+  }
+  await deps.db.teamManager.create({ data: { teamId: team.teamId, uid, email: salarie.email ?? "", designatedBy: actor.uid } });
+  await recordAudit(deps.db, { actorUid: actor.uid, action: "MANAGER_DESIGNATED", targetId: team.teamId, details: { responsable: uid } });
+  if (salarie.email) await notifyManagerDesignated(deps, { email: salarie.email, equipe: team.teamAlias, auteur: actor });
+  await notifyTeamChange(deps, { type: "responsableDesigne", teamId: team.teamId, equipe: team.teamAlias, responsable: uid, auteur: actor }, await autresResponsables(deps.db, team.teamId, [actor.uid, uid]));
+}
+
+/** F-54 : retrait du rôle de responsable par un admin ; le salarié reste membre de l'équipe, et il en est prévenu. */
+export async function removeManager(deps: TeamDeps, actor: SessionUser, input: { teamId: string; uid: string }): Promise<void> {
+  requireAdmin(actor);
+  const team = await existingTeam(deps, input.teamId);
+  const destinataires = await autresResponsables(deps.db, team.teamId, [actor.uid]);
+  const { count } = await deps.db.teamManager.deleteMany({ where: { teamId: team.teamId, uid: input.uid } });
+  if (count === 0) throw new PortalError("introuvable", `${input.uid} n'est pas responsable de ${team.teamAlias}.`, { objet: "responsable" });
+  await recordAudit(deps.db, { actorUid: actor.uid, action: "MANAGER_REMOVED", targetId: team.teamId, details: { responsable: input.uid } });
+  await notifyTeamChange(deps, { type: "responsableRetire", teamId: team.teamId, equipe: team.teamAlias, responsable: input.uid, auteur: actor }, destinataires);
 }
 
 /**
@@ -65,7 +123,7 @@ export async function addTeamMember(deps: TeamDeps, actor: SessionUser, input: {
   await deps.litellm.addTeamMember(team.teamId, uid);
   await recordAudit(deps.db, { actorUid: actor.uid, action: "MEMBER_ADDED", targetId: team.teamId, details: { membre: uid } });
   if (salarie.email) await notifyMemberAdded(deps, { email: salarie.email, equipe: team.teamAlias, auteur: actor });
-  await notifyTeamChange(deps, { type: "membreAjoute", teamId: team.teamId, equipe: team.teamAlias, membre: uid, auteur: actor });
+  await notifyTeamChange(deps, { type: "membreAjoute", teamId: team.teamId, equipe: team.teamAlias, membre: uid, auteur: actor }, await autresResponsables(deps.db, team.teamId, [actor.uid]));
 }
 
 /**
@@ -79,6 +137,9 @@ export async function removeTeamMember(deps: TeamDeps, actor: SessionUser, input
   const cles = await revokeMemberKeys(deps, actor, team.teamId, input.uid);
   const demandes = await cancelMemberRequests(deps.db, team.teamId, input.uid);
   await deps.litellm.removeTeamMember(team.teamId, input.uid);
+  // Sortir de l'équipe, c'est aussi perdre son rôle de responsable.
+  const { count: role } = await deps.db.teamManager.deleteMany({ where: { teamId: team.teamId, uid: input.uid } });
+  if (role > 0) await recordAudit(deps.db, { actorUid: actor.uid, action: "MANAGER_REMOVED", targetId: team.teamId, details: { responsable: input.uid, motif: "sortie_equipe" } });
   await recordAudit(deps.db, {
     actorUid: actor.uid,
     action: "MEMBER_REMOVED",
@@ -87,7 +148,7 @@ export async function removeTeamMember(deps: TeamDeps, actor: SessionUser, input
   });
   const email = (await deps.litellm.getUser(input.uid))?.email;
   if (email) await notifyMemberRemoved(deps, { email, equipe: team.teamAlias, auteur: actor, cles, demandes });
-  await notifyTeamChange(deps, { type: "membreSorti", teamId: team.teamId, equipe: team.teamAlias, membre: input.uid, auteur: actor });
+  await notifyTeamChange(deps, { type: "membreSorti", teamId: team.teamId, equipe: team.teamAlias, membre: input.uid, auteur: actor }, await autresResponsables(deps.db, team.teamId, [actor.uid]));
 }
 
 /**
@@ -104,9 +165,11 @@ export async function deleteTeam(deps: TeamDeps, actor: SessionUser, teamId: str
   if (cles + demandes > 0) {
     throw new PortalError("equipe_non_vide", `L'équipe ${team.teamAlias} a encore des clés ou des demandes en cours.`, { cles: String(cles), demandes: String(demandes) });
   }
+  const destinataires = await autresResponsables(deps.db, team.teamId, [actor.uid]);
   await deps.litellm.deleteTeam(team.teamId);
+  await deps.db.teamManager.deleteMany({ where: { teamId: team.teamId } });
   await recordAudit(deps.db, { actorUid: actor.uid, action: "TEAM_DELETED", targetId: team.teamId, details: { equipe: team.teamAlias } });
-  await notifyTeamChange(deps, { type: "supprimee", teamId: team.teamId, equipe: team.teamAlias, auteur: actor });
+  await notifyTeamChange(deps, { type: "supprimee", teamId: team.teamId, equipe: team.teamAlias, auteur: actor }, destinataires);
 }
 
 /** F-53 : crée une équipe (nom unique sans tenir compte des majuscules), l'inscrit au journal et l'annonce aux admins. */
@@ -127,7 +190,7 @@ export async function renameTeam(deps: TeamDeps, actor: SessionUser, input: { te
   if (nom === team.teamAlias) return;
   await deps.litellm.updateTeam(team.teamId, { alias: nom });
   await recordAudit(deps.db, { actorUid: actor.uid, action: "TEAM_RENAMED", targetId: team.teamId, details: { ancienNom: team.teamAlias, nouveauNom: nom } });
-  await notifyTeamChange(deps, { type: "renommee", teamId: team.teamId, equipe: nom, ancienNom: team.teamAlias, auteur: actor });
+  await notifyTeamChange(deps, { type: "renommee", teamId: team.teamId, equipe: nom, ancienNom: team.teamAlias, auteur: actor }, await autresResponsables(deps.db, team.teamId, [actor.uid]));
 }
 
 async function existingTeam(deps: TeamDeps, teamId: string): Promise<LiteLLMTeam> {
@@ -146,12 +209,24 @@ async function nomLibre(deps: TeamDeps, saisi: string, teamId: string | null): P
   return nom;
 }
 
+/** Adresses des responsables d'une équipe, hors ceux exclus (l'auteur d'un changement) : destinataires en plus des admins. */
+async function autresResponsables(db: Db, teamId: string, exclus: string[]): Promise<string[]> {
+  const rows = await db.teamManager.findMany({ where: { teamId, uid: { notIn: exclus } }, orderBy: { uid: "asc" } });
+  return rows.map((m) => m.email).filter(Boolean);
+}
+
 /** Clés émises par le portail et encore actives, par équipe. */
 async function activeKeyCounts(db: Db): Promise<Map<string, number>> {
   const groupes = await db.accessRequest.groupBy({ by: ["teamId"], where: { kind: "CLE", status: "CLE_EMISE" }, _count: { _all: true } });
   return new Map(groupes.map((g) => [g.teamId, g._count._all]));
 }
 
-function overview(team: LiteLLMTeam, cles: Map<string, number>): TeamOverview {
-  return { teamId: team.teamId, teamAlias: team.teamAlias, memberCount: team.memberUids.length, activeKeyCount: cles.get(team.teamId) ?? 0 };
+function overview(team: LiteLLMTeam, cles: Map<string, number>, responsables: Map<string, string[]>): TeamOverview {
+  return {
+    teamId: team.teamId,
+    teamAlias: team.teamAlias,
+    memberCount: team.memberUids.length,
+    activeKeyCount: cles.get(team.teamId) ?? 0,
+    managerUids: responsables.get(team.teamId) ?? [],
+  };
 }

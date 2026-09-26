@@ -8,7 +8,8 @@ import { listMyTeams } from "@/lib/services/requests";
 import { readSettings } from "@/lib/services/settings";
 import { getDeps, requireUser } from "@/lib/session";
 import { createKeyRequestAction } from "../../../actions";
-import { ChoixDuree, ExplicationObligatoires, Notice } from "../../../components";
+import { ChoixEquipe } from "../../../choix-equipe";
+import { ChoixDuree, equipesProposees, ExplicationObligatoires, Notice } from "../../../components";
 import { Obligatoire } from "../../../obligatoire";
 import { NiveauEtModeles } from "./niveau-et-modeles";
 
@@ -36,6 +37,7 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
   const preselected = renouvellement?.models ?? [searchParams.modeles].flat().filter((m): m is string => typeof m === "string");
   const [teams, catalog, settings] = await Promise.all([listMyTeams(deps, user), listCatalog(deps, language), readSettings(deps.db)]);
   const dureeParDefaut = settings.default_days ? Number(settings.default_days) : null;
+  const equipes = await equipesProposees(user, teams);
 
   return (
     <>
@@ -50,17 +52,10 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
           {completing && <input type="hidden" name="requestId" value={completing} />}
           {renouvellement && <input type="hidden" name="renewsRequestId" value={String(searchParams.renouvelle)} />}
           <ExplicationObligatoires />
-          <label>
+          <ChoixEquipe equipes={equipes} valeurInitiale={renouvellement?.teamId}>
             {t("equipe")}
             <Obligatoire />
-            <select name="teamId" required defaultValue={renouvellement?.teamId}>
-              {teams.map((team) => (
-                <option key={team.teamId} value={team.teamId}>
-                  {team.teamAlias}
-                </option>
-              ))}
-            </select>
-          </label>
+          </ChoixEquipe>
           <p className="text-sm">
             {t("equipeAbsente")} <Link href="/demandes/adhesion">{t("rejoindre")}</Link>
           </p>

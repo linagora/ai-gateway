@@ -19,6 +19,7 @@ export type PortalErrorCode =
   | "parametre_manquant"
   | "passerelle_indisponible"
   | "recommandation_hors_cas_usage"
+  | "responsable_existant"
   | "salarie_inconnu"
   | "tarif_eur_manquant"
   | "transition_interdite"

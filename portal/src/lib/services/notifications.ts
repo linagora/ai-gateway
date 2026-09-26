@@ -263,18 +263,25 @@ export type TeamChange =
   | { type: "renommee"; ancienNom: string }
   | { type: "supprimee" }
   | { type: "membreAjoute"; membre: string }
-  | { type: "membreSorti"; membre: string };
+  | { type: "membreSorti"; membre: string }
+  | { type: "responsableDesigne"; responsable: string }
+  | { type: "responsableRetire"; responsable: string };
 
-/** F-53 : un changement dans une équipe est annoncé aux admins, avec son auteur et le lien vers la page de l'équipe. */
+/**
+ * F-53 et F-54 : un changement dans une équipe est annoncé aux admins et aux responsables de l'équipe que le service
+ * désigne (tous sauf l'auteur), avec son auteur et le lien vers la page de l'équipe.
+ */
 export async function notifyTeamChange(
   deps: NotificationDeps,
   changement: TeamChange & { teamId: string; equipe: string; auteur: { uid: string; name: string } },
+  responsables: string[] = [],
 ): Promise<void> {
   const valeurs = {
     equipe: changement.equipe,
     auteur: auteur(changement.auteur),
     ...("ancienNom" in changement ? { ancienNom: changement.ancienNom } : {}),
     ...("membre" in changement ? { membre: changement.membre } : {}),
+    ...("responsable" in changement ? { responsable: changement.responsable } : {}),
   };
   const message = bilingue(
     (t) => ({
@@ -284,7 +291,7 @@ export async function notifyTeamChange(
     // Une équipe supprimée n'a plus de page : le lien mène à la liste des équipes.
     lienVers(deps, changement.type === "supprimee" ? "/gestion/equipes" : `/gestion/equipes/${changement.teamId}`),
   );
-  await envoyer(deps, deps.adminEmails ?? [], message);
+  await envoyer(deps, [...new Set([...(deps.adminEmails ?? []), ...responsables])], message);
 }
 
 /** Auteur d'une action, tel que le nomment les courriels : « Jeanne Dupont (jdupont) ». */
@@ -321,4 +328,14 @@ export async function notifyMemberRemoved(
     lienVers(deps, "/cles"),
   );
   await envoyer(deps, [sortie.email], message);
+}
+
+/** F-54 : le salarié désigné responsable d'une équipe en est prévenu. */
+export async function notifyManagerDesignated(deps: NotificationDeps, designation: { email: string; equipe: string; auteur: { uid: string; name: string } }): Promise<void> {
+  const valeurs = { equipe: designation.equipe, auteur: auteur(designation.auteur) };
+  const message = bilingue(
+    (t) => ({ sujet: t("courriels.designationResponsable.sujet", valeurs), paragraphes: [t("courriels.bonjourAdmins"), t("courriels.designationResponsable.corps", valeurs)] }),
+    lienVers(deps, "/gestion/demandes"),
+  );
+  await envoyer(deps, [designation.email], message);
 }

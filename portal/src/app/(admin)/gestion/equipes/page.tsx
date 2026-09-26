@@ -30,6 +30,7 @@ export default async function EquipesPage(props: PageProps<"/gestion/equipes">) 
           <thead>
             <tr>
               <th>{t("colonnes.equipe")}</th>
+              <th>{t("colonnes.responsables")}</th>
               <th>{t("colonnes.membres")}</th>
               <th>{t("colonnes.cles")}</th>
             </tr>
@@ -40,6 +41,7 @@ export default async function EquipesPage(props: PageProps<"/gestion/equipes">) 
                 <td>
                   <Link href={`/gestion/equipes/${encodeURIComponent(e.teamId)}`}>{e.teamAlias}</Link>
                 </td>
+                <td>{e.managerUids.join(", ") || t("aucun")}</td>
                 <td>{e.memberCount}</td>
                 <td>{e.activeKeyCount}</td>
               </tr>

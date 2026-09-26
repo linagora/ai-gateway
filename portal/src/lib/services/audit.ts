@@ -20,7 +20,9 @@ export type AuditAction =
   | "TEAM_RENAMED"
   | "TEAM_DELETED"
   | "MEMBER_ADDED"
-  | "MEMBER_REMOVED";
+  | "MEMBER_REMOVED"
+  | "MANAGER_DESIGNATED"
+  | "MANAGER_REMOVED";
 
 /** Entrée du journal d'audit : qui, quoi, sur quelle cible, avec quels détails. Jamais de secret. */
 export interface AuditEntry {

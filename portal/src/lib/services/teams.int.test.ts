@@ -3,7 +3,7 @@ import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
 import { FakeMailer } from "@/test/fake-mailer";
 import { listAudit } from "./audit";
-import { addTeamMember, createTeam, deleteTeam, getTeamOverview, getTeamPage, listTeamOverviews, removeTeamMember, renameTeam } from "./teams";
+import { addTeamMember, approversByTeam, createTeam, deleteTeam, designateManager, getTeamOverview, getTeamPage, listTeamOverviews, removeManager, removeTeamMember, renameTeam } from "./teams";
 
 const admin = { uid: "jdupont", email: "jdupont@linagora.com", name: "Jeanne Dupont", isAdmin: true };
 const salarie = { uid: "mmaudet", email: "mmaudet@linagora.com", name: "Michel-Marie Maudet", isAdmin: false };
@@ -23,7 +23,7 @@ beforeEach(async () => {
 describe("créer, renommer et lister les équipes (ticket #36)", () => {
   test("un admin crée une équipe : elle existe dans la passerelle, sans membre ni clé ; la création est inscrite au journal et annoncée aux admins", async () => {
     const teamId = await createTeam(deps, admin, { name: "  Data Science  " });
-    expect(await getTeamOverview(deps, admin, teamId)).toEqual({ teamId, teamAlias: "Data Science", memberCount: 0, activeKeyCount: 0 });
+    expect(await getTeamOverview(deps, admin, teamId)).toEqual({ teamId, teamAlias: "Data Science", memberCount: 0, activeKeyCount: 0, managerUids: [] });
     expect(await listAudit(testDb)).toEqual([expect.objectContaining({ actorUid: "jdupont", action: "TEAM_CREATED", targetId: teamId, details: { equipe: "Data Science" } })]);
     expect(mailer.outbox).toEqual([
       expect.objectContaining({ to: ADMINS, subject: "[AI GATEWAY] Équipe créée : Data Science / Team created: Data Science" }),
@@ -166,5 +166,73 @@ describe("supprimer une équipe (ticket #38)", () => {
 
   test("seul un admin supprime une équipe", async () => {
     await expect(deleteTeam(deps, salarie, "equipe-rd")).rejects.toMatchObject({ code: "interdit" });
+  });
+});
+
+describe("responsables d'équipe (ticket #39)", () => {
+  const connu = (uid: string) => litellm.users.set(uid, { email: `${uid}@linagora.com` });
+
+  test("un admin désigne un responsable : il devient membre s'il ne l'était pas et reçoit un courriel ; les admins sont prévenus ; la page et la liste le montrent", async () => {
+    connu("lbernard");
+    await designateManager(deps, admin, { teamId: "equipe-rd", uid: "lbernard" });
+    const page = await getTeamPage(deps, admin, "equipe-rd");
+    expect(page.members).toEqual(["lbernard", "mmaudet", "pmartin"]);
+    expect(page.managers).toEqual([{ uid: "lbernard", email: "lbernard@linagora.com" }]);
+    expect((await listTeamOverviews(deps, admin)).find((t) => t.teamId === "equipe-rd")?.managerUids).toEqual(["lbernard"]);
+    expect(mailer.outbox.map((m) => [m.to, m.subject])).toEqual([
+      [["lbernard@linagora.com"], "[AI GATEWAY] Vous êtes responsable de l'équipe R&D / You are a manager of the team R&D"],
+      [ADMINS, "[AI GATEWAY] Responsable désigné pour l'équipe R&D : lbernard / Manager designated for the team R&D: lbernard"],
+    ]);
+    expect((await listAudit(testDb)).map((e) => e.action)).toEqual(["MEMBER_ADDED", "MANAGER_DESIGNATED"]);
+  });
+
+  test("les changements dans une équipe sont aussi annoncés à ses responsables, sauf à leur auteur", async () => {
+    connu("mmaudet");
+    connu("pmartin");
+    await designateManager(deps, admin, { teamId: "equipe-rd", uid: "mmaudet" });
+    mailer.outbox.length = 0;
+    await designateManager(deps, admin, { teamId: "equipe-rd", uid: "pmartin" });
+    // Le nouveau responsable reçoit sa désignation ; le changement va aux admins et à l'autre responsable.
+    expect(mailer.outbox.map((m) => m.to)).toEqual([["pmartin@linagora.com"], [...ADMINS, "mmaudet@linagora.com"]]);
+    mailer.outbox.length = 0;
+    await renameTeam(deps, admin, { teamId: "equipe-rd", name: "Recherche" });
+    expect(mailer.outbox.map((m) => m.to)).toEqual([[...ADMINS, "mmaudet@linagora.com", "pmartin@linagora.com"]]);
+    mailer.outbox.length = 0;
+    // Un responsable auteur d'un changement ne s'en voit pas notifier.
+    await renameTeam(deps, { ...admin, uid: "mmaudet", email: "mmaudet@linagora.com", name: "Michel-Marie Maudet" }, { teamId: "equipe-rd", name: "R&D" });
+    expect(mailer.outbox.map((m) => m.to)).toEqual([[...ADMINS, "pmartin@linagora.com"]]);
+  });
+
+  test("le retrait du rôle laisse le responsable membre ; sa sortie de l'équipe lui retire le rôle ; une équipe supprimée n'a plus de responsable", async () => {
+    connu("mmaudet");
+    connu("pmartin");
+    await designateManager(deps, admin, { teamId: "equipe-rd", uid: "mmaudet" });
+    await designateManager(deps, admin, { teamId: "equipe-rd", uid: "pmartin" });
+    await removeManager(deps, admin, { teamId: "equipe-rd", uid: "mmaudet" });
+    expect((await getTeamPage(deps, admin, "equipe-rd")).managers.map((m) => m.uid)).toEqual(["pmartin"]);
+    expect((await getTeamPage(deps, admin, "equipe-rd")).members).toContain("mmaudet");
+    expect(mailer.outbox.at(-1)?.subject).toBe("[AI GATEWAY] Responsable retiré de l'équipe R&D : mmaudet / Manager removed from the team R&D: mmaudet");
+    expect(mailer.outbox.at(-1)?.to).toEqual([...ADMINS, "mmaudet@linagora.com", "pmartin@linagora.com"]);
+    await removeTeamMember(deps, admin, { teamId: "equipe-rd", uid: "pmartin" });
+    expect((await getTeamPage(deps, admin, "equipe-rd")).managers).toEqual([]);
+    await designateManager(deps, admin, { teamId: "equipe-rd", uid: "mmaudet" });
+    await deleteTeam(deps, admin, "equipe-rd");
+    expect(await testDb.teamManager.count()).toBe(0);
+  });
+
+  test("un uid inconnu, un responsable déjà désigné, ou le retrait d'un non-responsable sont refusés ; seul un admin désigne", async () => {
+    connu("mmaudet");
+    await expect(designateManager(deps, admin, { teamId: "equipe-rd", uid: "inconnu" })).rejects.toMatchObject({ code: "salarie_inconnu" });
+    await designateManager(deps, admin, { teamId: "equipe-rd", uid: "mmaudet" });
+    await expect(designateManager(deps, admin, { teamId: "equipe-rd", uid: "mmaudet" })).rejects.toMatchObject({ code: "responsable_existant", params: { uid: "mmaudet", equipe: "R&D" } });
+    await expect(removeManager(deps, admin, { teamId: "equipe-rd", uid: "pmartin" })).rejects.toMatchObject({ code: "introuvable" });
+    await expect(designateManager(deps, salarie, { teamId: "equipe-rd", uid: "pmartin" })).rejects.toMatchObject({ code: "interdit" });
+  });
+
+  test("les valideurs d'une équipe sont ses responsables, sinon personne (les admins valident)", async () => {
+    connu("mmaudet");
+    litellm.withTeam({ teamId: "equipe-data", teamAlias: "Data", models: [], memberUids: [] });
+    await designateManager(deps, admin, { teamId: "equipe-rd", uid: "mmaudet" });
+    expect(await approversByTeam(testDb, ["equipe-rd", "equipe-data"])).toEqual(new Map([["equipe-rd", ["mmaudet"]], ["equipe-data", []]]));
   });
 });

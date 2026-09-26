@@ -11,11 +11,14 @@ const suffixe = Date.now().toString(36);
 const salarie = { uid: `anglais-${suffixe}`, email: `anglais-${suffixe}@example.org`, name: `Employee ${suffixe}` };
 
 /**
- * Contenus saisis par l'admin, en français seulement ; nom de la langue française dans le sélecteur ; identifiants
- * techniques, en minuscules reliées par des tirets (uid « cles-sans-expiration-… », alias, noms de modèles).
+ * Contenus saisis par l'admin, en français seulement (noms des modèles et des équipes de démonstration, dont celles
+ * créées par les parcours des équipes : « Équipe membres <suffixe> »…) ; nom de la langue française dans le
+ * sélecteur ; identifiants techniques, en minuscules reliées par des tirets (uid « cles-sans-expiration-… », alias,
+ * noms de modèles).
  */
 const AUTORISES = [
   /Modèle (public|interne|confidentiel|expérimental)/g,
+  /Équipe \p{L}+ [a-z0-9]+/gu,
   /Modèle de démonstration (N1|N2|N3|EXP)(, à réponses simulées\.)?/g,
   /Français/g,
   /(?<!\p{L})[a-z0-9]+(?:-[a-z0-9]+)+(?!\p{L})/gu,

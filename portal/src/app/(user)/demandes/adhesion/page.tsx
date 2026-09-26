@@ -2,7 +2,8 @@ import { getTranslations } from "next-intl/server";
 import { listJoinableTeams } from "@/lib/services/requests";
 import { getDeps, requireUser } from "@/lib/session";
 import { createTeamJoinRequestAction } from "../../../actions";
-import { ExplicationObligatoires, Notice } from "../../../components";
+import { ChoixEquipe } from "../../../choix-equipe";
+import { equipesProposees, ExplicationObligatoires, Notice } from "../../../components";
 import { Obligatoire } from "../../../obligatoire";
 
 /** F-22 : demander à rejoindre une équipe existante ; un administrateur valide. */
@@ -10,6 +11,7 @@ export default async function TeamJoinPage(props: PageProps<"/demandes/adhesion"
   const user = await requireUser();
   const [t, searchParams] = await Promise.all([getTranslations("adhesion"), props.searchParams]);
   const teams = await listJoinableTeams(getDeps(), user);
+  const equipes = await equipesProposees(user, teams);
 
   return (
     <>
@@ -20,17 +22,10 @@ export default async function TeamJoinPage(props: PageProps<"/demandes/adhesion"
       ) : (
         <form action={createTeamJoinRequestAction}>
           <ExplicationObligatoires />
-          <label>
+          <ChoixEquipe equipes={equipes}>
             {t("equipe")}
             <Obligatoire />
-            <select name="teamId" required>
-              {teams.map((team) => (
-                <option key={team.teamId} value={team.teamId}>
-                  {team.teamAlias}
-                </option>
-              ))}
-            </select>
-          </label>
+          </ChoixEquipe>
           <label>
             {t("motif")}
             <Obligatoire />

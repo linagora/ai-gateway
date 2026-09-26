@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { ADMIN, appel, connecter, courriels, demanderEtApprouver, enrichirModele, retirerCle } from "./outils";
+import { ADMIN, ajouterAEquipe, appel, connecter, courriels, demanderEtApprouver, enrichirModele, retirerCle } from "./outils";
 
 /* Gestion des équipes par les admins et responsables d'équipe (spécification #35). Admins à notifier : admins-e2e@example.org (.env). */
 const suffixe = Date.now().toString(36);
@@ -31,6 +31,13 @@ async function faireSortir(admin: Page, uid: string): Promise<void> {
   await expect(admin.getByRole("status")).toHaveText("Le membre est sorti de l'équipe : ses clés de l'équipe sont révoquées.");
 }
 
+/** Sur la page d'une équipe, l'admin ajoute directement un salarié déjà connecté. */
+async function ajouterMembre(admin: Page, uid: string): Promise<void> {
+  await admin.getByLabel("Uid du salarié").fill(uid);
+  await admin.getByRole("button", { name: "Ajouter à l'équipe" }).click();
+  await expect(admin.getByRole("status")).toHaveText("Membre ajouté.");
+}
+
 /** Sur la page d'une équipe, l'admin demande sa suppression, avec confirmation. */
 async function supprimerEquipe(admin: Page): Promise<void> {
   const zone = admin.getByRole("region", { name: "Suppression de l'équipe" });
@@ -58,7 +65,7 @@ test("un admin crée puis renomme une équipe ; un nom déjà pris est refusé ;
   await admin.getByLabel("Nom de la nouvelle équipe").fill(nom);
   await admin.getByRole("button", { name: "Créer l'équipe" }).click();
   await expect(admin.getByRole("status")).toHaveText("Équipe créée.");
-  await expect(admin.getByRole("row", { name: new RegExp(nom) }).getByRole("cell")).toHaveText([nom, "0", "0"]);
+  await expect(admin.getByRole("row", { name: new RegExp(nom) }).getByRole("cell")).toHaveText([nom, "Aucun", "0", "0"]);
 
   // Un nom déjà pris, même avec d'autres majuscules, est refusé.
   await admin.getByLabel("Nom de la nouvelle équipe").fill(nom.toUpperCase());
@@ -168,4 +175,59 @@ test("une équipe qui a une demande en cours ne peut pas être supprimée ; vide
   // L'historique du salarié garde le nom de l'équipe.
   await page.goto("/demandes");
   await expect(page.getByRole("row", { name: new RegExp(`Clé d'API.*${nom}.*Annulée`) })).toHaveCount(1);
+});
+
+test("un admin désigne un responsable, qui devient membre ; le formulaire de demande dit qui validera ; le retrait du rôle le laisse membre (ticket #39)", async ({ browser }) => {
+  const responsable = personne("responsable");
+  const membre = personne("demandeur");
+  const pageResponsable = await (await connecter(browser, responsable)).newPage();
+  const pageMembre = await (await connecter(browser, membre)).newPage();
+  const admin = await (await connecter(browser, ADMIN)).newPage();
+  const nom = `Équipe responsables ${suffixe}`;
+  await nouvelleEquipe(admin, nom);
+  const responsables = admin.getByRole("region", { name: "Responsables" });
+  await expect(responsables).toContainText("Aucun responsable : les administrateurs valident les demandes de l'équipe.");
+
+  await admin.getByLabel("Uid du responsable").fill(responsable.uid);
+  await admin.getByRole("button", { name: "Désigner responsable" }).click();
+  await expect(admin.getByRole("status")).toHaveText("Responsable désigné.");
+  await expect(responsables.getByRole("row", { name: new RegExp(responsable.uid) })).toContainText(responsable.email);
+  await expect(admin.getByRole("region", { name: "Membres" }).getByRole("row", { name: new RegExp(responsable.uid) })).toBeVisible();
+  await ajouterMembre(admin, membre.uid);
+  await admin.goto("/gestion/equipes");
+  await expect(admin.getByRole("row", { name: new RegExp(nom) }).getByRole("cell")).toHaveText([nom, responsable.uid, "2", "0"]);
+
+  // Le formulaire de demande dit qui validera, selon l'équipe choisie.
+  await ajouterAEquipe(membre.uid, "R&D");
+  await pageMembre.goto("/demandes/nouvelle");
+  await pageMembre.getByLabel("Équipe").selectOption({ label: nom });
+  await expect(pageMembre.getByText(`Votre demande sera validée par : ${responsable.uid}.`)).toBeVisible();
+  await pageMembre.getByLabel("Équipe").selectOption({ label: "R&D" });
+  await expect(pageMembre.getByText("Votre demande sera validée par les administrateurs.")).toBeVisible();
+  // Le responsable ne valide pas ses propres demandes : elles iront aux administrateurs.
+  await pageResponsable.goto("/demandes/nouvelle");
+  await pageResponsable.getByLabel("Équipe").selectOption({ label: nom });
+  await expect(pageResponsable.getByText("Votre demande sera validée par les administrateurs.")).toBeVisible();
+  // Et en anglais.
+  const anglais = await (await connecter(browser, membre, "en-US")).newPage();
+  await anglais.goto("/demandes/nouvelle");
+  await anglais.getByLabel("Team").selectOption({ label: nom });
+  await expect(anglais.getByText(`Your request will be approved by: ${responsable.uid}.`)).toBeVisible();
+
+  await expect.poll(async () => (await courriels(responsable.uid)).map((c) => c.subject), { timeout: 15_000 }).toContain(
+    `[AI GATEWAY] Vous êtes responsable de l'équipe ${nom} / You are a manager of the team ${nom}`,
+  );
+
+  // Retrait du rôle : il reste membre.
+  await admin.getByRole("link", { name: nom, exact: true }).click();
+  await responsables.getByRole("row", { name: new RegExp(responsable.uid) }).getByRole("button", { name: "Retirer le rôle de responsable" }).click();
+  await expect(admin.getByRole("status")).toHaveText("Rôle de responsable retiré.");
+  await expect(responsables).toContainText("Aucun responsable");
+  await expect(admin.getByRole("region", { name: "Membres" }).getByRole("row", { name: new RegExp(responsable.uid) })).toBeVisible();
+
+  // Nettoyage.
+  await faireSortir(admin, responsable.uid);
+  await faireSortir(admin, membre.uid);
+  await supprimerEquipe(admin);
+  await expect(admin.getByRole("status")).toHaveText("Équipe supprimée.");
 });

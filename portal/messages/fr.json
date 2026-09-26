@@ -94,7 +94,9 @@
       "equipeRenommee": "Équipe renommée.",
       "membreAjoute": "Membre ajouté.",
       "membreSorti": "Le membre est sorti de l'équipe : ses clés de l'équipe sont révoquées.",
-      "equipeSupprimee": "Équipe supprimée."
+      "equipeSupprimee": "Équipe supprimée.",
+      "responsableDesigne": "Responsable désigné.",
+      "responsableRetire": "Rôle de responsable retiré."
     },
     "erreurs": {
       "controles_en_echec": "La demande ne respecte pas la politique d'accès aux modèles. Contrôles en échec : {controles}.",
@@ -102,7 +104,7 @@
       "demande_en_cours": "Vous avez déjà une demande d'accès en cours pour l'équipe {equipe}.",
       "engagement_requis": "Engagez-vous à ne pas soumettre de données d'un niveau supérieur à celui déclaré.",
       "interdit": "Action réservée aux administrateurs.",
-      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} membre {Membre introuvable dans cette équipe.} other {Demande introuvable.}}",
+      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} membre {Membre introuvable dans cette équipe.} responsable {Responsable introuvable dans cette équipe.} other {Demande introuvable.}}",
       "motif_obligatoire": "Un motif est obligatoire.",
       "parametre_manquant": "Budget, période du budget et durée de validité sont obligatoires : saisissez-les ou configurez des valeurs par défaut.",
       "recommandation_hors_cas_usage": "Une recommandation ne peut porter que sur un cas d'usage coché.",
@@ -116,7 +118,8 @@
       "nom_equipe_pris": "Le nom {nom} est déjà pris par une autre équipe.",
       "salarie_inconnu": "Aucun salarié ne s'est encore connecté au portail avec l'identifiant {uid}.",
       "membre_existant": "{uid} est déjà membre de l'équipe {equipe}.",
-      "equipe_non_vide": "Cette équipe a encore des clés actives ({cles}) ou des demandes en cours ({demandes}) : révoquez ses clés et traitez ses demandes avant de la supprimer."
+      "equipe_non_vide": "Cette équipe a encore des clés actives ({cles}) ou des demandes en cours ({demandes}) : révoquez ses clés et traitez ses demandes avant de la supprimer.",
+      "responsable_existant": "{uid} est déjà responsable de l'équipe {equipe}."
     },
     "controles": {
       "membre_equipe": "Le demandeur est membre de l'équipe",
@@ -514,7 +517,8 @@
       "colonnes": {
         "equipe": "Équipe",
         "membres": "Membres",
-        "cles": "Clés actives"
+        "cles": "Clés actives",
+        "responsables": "Responsables"
       },
       "toutes": "Toutes les équipes",
       "resume": "Résumé de l'équipe",
@@ -533,7 +537,15 @@
         "supprimer": "Supprimer l'équipe",
         "avertissement": "L'équipe disparaîtra de la passerelle ; l'historique de ses demandes restera consultable. Une équipe qui a des clés actives ou des demandes en cours ne peut pas être supprimée.",
         "confirmer": "Confirmer la suppression"
-      }
+      },
+      "responsables": "Responsables",
+      "aucunResponsable": "Aucun responsable : les administrateurs valident les demandes de l'équipe.",
+      "uidResponsable": "Uid du responsable",
+      "designer": "Désigner responsable",
+      "retirerRole": "Retirer le rôle de responsable",
+      "colonneResponsable": "Responsable",
+      "colonneAdresse": "Adresse",
+      "aucun": "Aucun"
     }
   },
   "introuvable": {
@@ -708,6 +720,14 @@
       "supprimee": {
         "sujet": "Équipe supprimée : {equipe}",
         "corps": "{auteur} a supprimé l'équipe {equipe}."
+      },
+      "responsableDesigne": {
+        "sujet": "Responsable désigné pour l'équipe {equipe} : {responsable}",
+        "corps": "{auteur} a désigné {responsable} responsable de l'équipe {equipe}."
+      },
+      "responsableRetire": {
+        "sujet": "Responsable retiré de l'équipe {equipe} : {responsable}",
+        "corps": "{auteur} a retiré à {responsable} son rôle de responsable de l'équipe {equipe}."
       }
     },
     "ajoutMembre": {
@@ -719,6 +739,14 @@
       "corps": "{auteur} vous a fait sortir de l'équipe {equipe}.",
       "cles": "Clés révoquées : {cles}.",
       "demandes": "Demandes annulées : {nombre}."
+    },
+    "designationResponsable": {
+      "sujet": "Vous êtes responsable de l'équipe {equipe}",
+      "corps": "{auteur} vous a désigné responsable de l'équipe {equipe} : vous validez ses demandes d'accès et de clé (sauf les vôtres), et gérez ses membres et ses clés depuis la gestion du portail."
     }
+  },
+  "validation": {
+    "valideePar": "Votre demande sera validée par : {valideurs}.",
+    "valideeParAdmins": "Votre demande sera validée par les administrateurs."
   }
 }
