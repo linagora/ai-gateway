@@ -133,6 +133,25 @@ describe("le responsable valide les demandes de ses équipes (ticket #41)", () =
     expect((await litellm.getTeam("equipe-rd"))?.memberUids).toContain("jdupont");
   });
 
+  test("la décision d'un admin dans une équipe qui a des responsables leur est annoncée, sans l'être aux admins", async () => {
+    const { id: acces } = await createTeamJoinRequest(deps, membre, { teamId: "equipe-data", justification: "Rejoindre Data" });
+    const { id: accesRd } = await createTeamJoinRequest(deps, admin, { teamId: "equipe-rd", justification: "Rejoindre R&D" });
+    const refusee = await demande("pmartin", "equipe-rd", "R&D");
+    const sienne = await demande("lbernard", "equipe-rd", "R&D");
+    mailer.outbox.length = 0;
+    // Data n'a pas de responsable : rien à annoncer.
+    await approveTeamJoinRequest(deps, admin, acces);
+    await approveTeamJoinRequest(deps, admin, accesRd);
+    await refuseRequest(deps, admin, refusee.id, "Hors du périmètre");
+    // Le responsable demandeur reçoit la décision sur sa demande, sans l'annonce faite aux responsables.
+    await refuseRequest(deps, admin, sienne.id, "Hors du périmètre");
+    expect(mailer.outbox.filter((m) => m.subject.includes("Demande traitée")).map((m) => [m.to, m.subject])).toEqual([
+      [["lbernard@linagora.com"], "[AI GATEWAY] Demande traitée dans l'équipe R&D : jdupont / Request processed in the team R&D: jdupont"],
+      [["lbernard@linagora.com"], "[AI GATEWAY] Demande traitée dans l'équipe R&D : pmartin / Request processed in the team R&D: pmartin"],
+    ]);
+    expect(mailer.outbox.find((m) => m.subject.includes("jdupont"))?.text).toContain("Jeanne Dupont (jdupont) a accepté la demande d'accès de jdupont.");
+  });
+
   test("il ne peut pas décider de ses propres demandes ; un autre responsable de l'équipe ou un admin le peut", async () => {
     const sienne = await demande("lbernard", "equipe-rd", "R&D");
     await expect(approveKeyRequest(deps, responsable, sienne.id, parametres)).rejects.toMatchObject({ code: "quatre_yeux" });
@@ -194,6 +213,16 @@ describe("le responsable gère les clés et les membres de ses équipes (ticket 
     await testDb.teamManager.create({ data: { teamId: "equipe-rd", uid: "pmartin", email: "pmartin@linagora.com", designatedBy: "jdupont" } });
     await unblockKey(deps, membre, sienne.id);
     expect(litellm.keys.get(sienne.keyTokenId!)?.blocked).toBe(false);
+  });
+
+  test("l'action d'un admin sur une clé d'une équipe qui a des responsables leur est annoncée, sans l'être aux admins", async () => {
+    const cle = await cleEmise("pmartin", "equipe-rd", "R&D");
+    await blockKey(deps, admin, cle.id);
+    expect(mailer.outbox.map((m) => [m.to, m.subject])).toEqual([
+      [["pmartin@linagora.com"], "[AI GATEWAY] Votre clé pmartin-equipe-rd-cle est bloquée / Your key pmartin-equipe-rd-cle is blocked"],
+      [["lbernard@linagora.com"], "[AI GATEWAY] Action sur une clé de l'équipe R&D : pmartin-equipe-rd-cle / Action on a key of the team R&D: pmartin-equipe-rd-cle"],
+    ]);
+    expect(mailer.outbox[1].text).toContain("Jeanne Dupont (jdupont) a bloqué la clé pmartin-equipe-rd-cle de pmartin.");
   });
 
   test("une clé d'une autre équipe lui reste introuvable", async () => {

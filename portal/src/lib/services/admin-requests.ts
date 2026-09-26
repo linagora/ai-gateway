@@ -324,17 +324,20 @@ async function requireDecision(deps: AdminDeps, actor: SessionUser, request: { t
   }
 }
 
-/** La décision d'un responsable d'équipe est annoncée aux admins et aux autres responsables de l'équipe (F-54). */
+/**
+ * Une décision est annoncée aux responsables de l'équipe, hors son auteur et le demandeur, et, celle d'un responsable,
+ * aux admins (F-54).
+ */
 async function annoncerDecision(
   deps: AdminDeps,
   actor: SessionUser,
   request: { id: string; teamId: string; teamAlias: string; requesterUid: string },
   decision: "approuvee" | "refusee" | "complement" | "adhesion",
 ): Promise<void> {
-  if (actor.isAdmin) return;
   await notifyTeamChange(
     deps,
     { type: "decision", decision, demandeur: request.requesterUid, demandeId: request.id, teamId: request.teamId, equipe: request.teamAlias, auteur: actor },
-    await managerEmails(deps.db, request.teamId, [actor.uid]),
+    // Le demandeur, fût-il responsable, reçoit déjà la décision sur sa demande.
+    await managerEmails(deps.db, request.teamId, [actor.uid, request.requesterUid]),
   );
 }

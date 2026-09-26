@@ -398,17 +398,17 @@ async function changeBlocking(deps: KeyDeps, actor: SessionUser, requestId: stri
 }
 
 /**
- * Action d'un admin ou d'un responsable d'équipe sur la clé d'un autre : le titulaire en est prévenu ; celle d'un
- * responsable est aussi annoncée aux admins et aux autres responsables de l'équipe (F-54).
+ * Action d'un admin ou d'un responsable d'équipe sur la clé d'un autre : le titulaire en est prévenu ; elle est annoncée
+ * aux responsables de l'équipe, hors son auteur et le titulaire, et, celle d'un responsable, aux admins (F-54).
  */
 async function prevenirActionSurCle(deps: KeyDeps, actor: SessionUser, request: AccessRequest, action: "revocation" | "blocage" | "deblocage"): Promise<void> {
   if (!request.keyAlias) return;
   await notifyAdminKeyAction(deps, { ...request, keyAlias: request.keyAlias }, action, actor.isAdmin ? "admin" : "responsable");
-  if (actor.isAdmin) return;
   await notifyTeamChange(
     deps,
     { type: "cle", action, alias: request.keyAlias, titulaire: request.requesterUid, teamId: request.teamId, equipe: request.teamAlias, auteur: actor },
-    await managerEmails(deps.db, request.teamId, [actor.uid]),
+    // Le titulaire, fût-il responsable, reçoit déjà son propre courriel.
+    await managerEmails(deps.db, request.teamId, [actor.uid, request.requesterUid]),
   );
 }
 

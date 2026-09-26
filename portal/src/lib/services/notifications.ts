@@ -276,11 +276,13 @@ export type TeamChange =
 
 /**
  * F-53 et F-54 : un changement dans une équipe est annoncé aux admins et aux responsables de l'équipe que le service
- * désigne (tous sauf l'auteur), avec son auteur et le lien vers la page de l'équipe.
+ * désigne (tous sauf l'auteur), avec son auteur et le lien vers la page de l'équipe. Les admins ne sont prévenus que des
+ * décisions des responsables (récit 35) : la décision d'un admin sur une demande ou une clé ne va qu'aux responsables de
+ * l'équipe (récit 36).
  */
 export async function notifyTeamChange(
   deps: NotificationDeps,
-  changement: TeamChange & { teamId: string; equipe: string; auteur: { uid: string; name: string } },
+  changement: TeamChange & { teamId: string; equipe: string; auteur: { uid: string; name: string; isAdmin: boolean } },
   responsables: string[] = [],
 ): Promise<void> {
   const valeurs = (t: Traducteur) => ({
@@ -310,7 +312,8 @@ export async function notifyTeamChange(
             : `/gestion/equipes/${changement.teamId}`,
     ),
   );
-  await envoyer(deps, [...new Set([...(deps.adminEmails ?? []), ...responsables])], message);
+  const decisionDUnAdmin = (changement.type === "decision" || changement.type === "cle") && changement.auteur.isAdmin;
+  await envoyer(deps, [...new Set([...(decisionDUnAdmin ? [] : (deps.adminEmails ?? [])), ...responsables])], message);
 }
 
 /** Budget d'équipe tel que le nomment les courriels : « 100,00 € par période de 30 jours », ou « sans limite ». */
