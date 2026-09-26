@@ -17,7 +17,7 @@ export const SYSTEME = "systeme";
 const RAPPEL_RETRAIT = 3;
 const RAPPELS_EXPIRATION = [30, 7, 1];
 
-/** F-43 : seuils d'alerte du budget d'équipe, en pourcentage du budget, du plus bas au plus haut. */
+/** F-54 : seuils d'alerte du budget d'équipe, en pourcentage du budget, du plus bas au plus haut. */
 const SEUILS_BUDGET = [80, 100];
 
 /** Délai de retrait configuré, en jours ; null si aucun n'est configuré (les demandes approuvées n'expirent pas). */
@@ -89,7 +89,7 @@ export interface DailyTaskReport {
  * envoie une seule fois chacun les rappels, comptés en jours calendaires : le matin du troisième jour avant
  * l'échéance de retrait ; un mois, sept jours et un jour avant l'expiration d'une clé, selon sa durée. Après des
  * jours sans tâche, seul le rappel d'expiration le plus proche de l'échéance part. Elle finit par les alertes de
- * budget d'équipe (F-43).
+ * budget d'équipe (F-54).
  */
 export async function runDailyTask(deps: DailyTaskDeps): Promise<DailyTaskReport> {
   const maintenant = deps.now?.() ?? new Date();
@@ -135,7 +135,7 @@ export async function runDailyTask(deps: DailyTaskDeps): Promise<DailyTaskReport
 }
 
 /**
- * F-43 : alertes de budget d'équipe. Pour chaque équipe plafonnée, le plus haut seuil atteint (80 puis 100 %) est
+ * F-54 : alertes de budget d'équipe. Pour chaque équipe plafonnée, le plus haut seuil atteint (80 puis 100 %) est
  * annoncé une seule fois par période aux admins et aux responsables de l'équipe ; une nouvelle période, ou un nouveau
  * budget, fait repartir les alertes. Une passerelle injoignable n'empêche pas le reste de la tâche.
  */

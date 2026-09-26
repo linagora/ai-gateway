@@ -175,7 +175,7 @@ export async function renommerEquipeAction(formData: FormData): Promise<void> {
   await run(page, () => renameTeam(getDeps(), user, { teamId: text(formData, "id"), name: text(formData, "nom") }), { path: page, message: "equipeRenommee" });
 }
 
-/** F-43 : budget d'équipe et sa période, fixés par un admin ; 0 : sans limite. */
+/** F-53 : budget d'équipe et sa période, fixés par un admin ; 0 : sans limite. */
 export async function fixerBudgetEquipeAction(formData: FormData): Promise<void> {
   const user = await requireUser();
   const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
@@ -193,7 +193,7 @@ export async function ajouterMembreAction(formData: FormData): Promise<void> {
   await run(page, () => addTeamMember(getDeps(), user, { teamId: text(formData, "id"), uid: text(formData, "uid") }), { path: page, message: "membreAjoute" });
 }
 
-/** F-54 : sortie d'une équipe, décidée par un admin. */
+/** F-54 : sortie d'une équipe, décidée par un admin ou un responsable de l'équipe. */
 export async function faireSortirMembreAction(formData: FormData): Promise<void> {
   const user = await requireUser();
   const page = `/gestion/equipes/${encodeURIComponent(text(formData, "id"))}`;
@@ -229,19 +229,19 @@ export async function revoquerCleAction(formData: FormData): Promise<void> {
   await run("/cles", () => revokeKey(getDeps(), user, text(formData, "id")), { path: "/cles", message: "cleRevoquee" });
 }
 
-/** F-43 : révocation d'une clé par un admin, depuis « Gestion — Clés ». */
+/** F-43 : révocation d'une clé par un admin ou un responsable de son équipe, depuis « Gestion — Clés ». */
 export async function revoquerCleAdminAction(formData: FormData): Promise<void> {
   const user = await requireUser();
   await run("/gestion/cles", () => revokeKey(getDeps(), user, text(formData, "id")), { path: "/gestion/cles", message: "cleRevoquee" });
 }
 
-/** F-43 : blocage d'une clé par un admin (suspension temporaire et réversible). */
+/** F-43 : blocage d'une clé par un admin ou un responsable de son équipe (suspension temporaire et réversible). */
 export async function bloquerCleAction(formData: FormData): Promise<void> {
   const user = await requireUser();
   await run("/gestion/cles", () => blockKey(getDeps(), user, text(formData, "id")), { path: "/gestion/cles", message: "cleBloquee" });
 }
 
-/** F-43 : déblocage d'une clé par un admin. */
+/** F-43 : déblocage d'une clé par un admin ou un responsable de son équipe. */
 export async function debloquerCleAction(formData: FormData): Promise<void> {
   const user = await requireUser();
   await run("/gestion/cles", () => unblockKey(getDeps(), user, text(formData, "id")), { path: "/gestion/cles", message: "cleDebloquee" });

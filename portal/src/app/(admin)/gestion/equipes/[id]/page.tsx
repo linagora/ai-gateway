@@ -18,7 +18,7 @@ import { DepenseSurBudget, formats, Notice } from "../../../../components";
 import { AdminNav } from "../../admin-nav";
 
 /**
- * F-53 et F-54 : page d'une équipe : son résumé, son renommage, son budget (F-43), ses responsables et ses membres
+ * F-53 et F-54 : page d'une équipe : son résumé, son renommage, son budget, ses responsables et ses membres
  * (ajout direct, sortie d'une équipe), et sa suppression. Un responsable d'équipe la consulte et peut en faire sortir
  * un membre ; le reste est réservé aux admins.
  */

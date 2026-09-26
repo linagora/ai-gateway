@@ -17,7 +17,7 @@ export interface TeamDeps extends NotificationDeps {
 }
 
 /**
- * Budget d'équipe (F-43), lu dans LiteLLM : plafond (null : sans limite), période au format LiteLLM, dépense de la
+ * Budget d'équipe (F-53), lu dans LiteLLM : plafond (null : sans limite), période au format LiteLLM, dépense de la
  * période en cours et date de sa remise à zéro.
  */
 export interface TeamBudget {
@@ -209,7 +209,7 @@ export async function createTeam(deps: TeamDeps, actor: SessionUser, input: { na
 }
 
 /**
- * F-43 : budget d'équipe fixé par un admin, avec sa période au format d'une clé (30d…) ; 0 retire le plafond. LiteLLM
+ * F-53 : budget d'équipe fixé par un admin, avec sa période au format d'une clé (30d…) ; 0 retire le plafond. LiteLLM
  * plafonne alors la dépense de toutes les clés de l'équipe, qu'il refuse une fois le budget atteint jusqu'à la période
  * suivante.
  */

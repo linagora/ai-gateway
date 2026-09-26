@@ -171,7 +171,7 @@ describe("équipes", () => {
     expect(await client.listTeams()).toContainEqual({ teamId, teamAlias, models: ["modele-a"], memberUids: [userId], ...SANS_BUDGET });
   });
 
-  test("un membre retiré d'une équipe n'en fait plus partie", async () => {
+  test("un membre sorti d'une équipe n'en fait plus partie", async () => {
     const userId = await newUser();
     const { teamId } = await newTeam([]);
     await client.addTeamMember(teamId, userId);

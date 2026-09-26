@@ -284,8 +284,8 @@ export async function listAllKeys(deps: KeyDeps, actor: SessionUser): Promise<Ad
 }
 
 /**
- * F-43 : révocation d'une clé, par son titulaire ou par un admin : suppression dans LiteLLM, demande
- * « Révoquée » (statut final). Le journal d'audit nomme l'auteur.
+ * F-43 : révocation d'une clé, par son titulaire, par un admin ou par un responsable de son équipe : suppression dans
+ * LiteLLM, demande « Révoquée » (statut final). Le journal d'audit nomme l'auteur.
  */
 export async function revokeKey(deps: KeyDeps, user: SessionUser, requestId: string): Promise<void> {
   const request = await activeKeyRequest(deps.db, requestId, async (r) => r.requesterUid === user.uid || (await aAutorite(deps.db, user, r.teamId)));
@@ -375,7 +375,7 @@ export async function blockKey(deps: KeyDeps, actor: SessionUser, requestId: str
   await changeBlocking(deps, actor, requestId, BLOCAGE.bloquer);
 }
 
-/** F-43 : déblocage d'une clé bloquée par un admin. */
+/** F-43 : déblocage d'une clé bloquée, par un admin ou un responsable de son équipe. */
 export async function unblockKey(deps: KeyDeps, actor: SessionUser, requestId: string): Promise<void> {
   await changeBlocking(deps, actor, requestId, BLOCAGE.debloquer);
 }

@@ -239,7 +239,7 @@ export async function notifyExpiryReminder(deps: NotificationDeps, demande: Acce
   await envoyer(deps, [demande.requesterEmail], message);
 }
 
-/** Action d'un admin sur la clé d'un titulaire : révocation, blocage ou déblocage (jamais pour ses propres actions). */
+/** Action d'un admin ou d'un responsable de l'équipe sur la clé d'un titulaire : révocation, blocage ou déblocage (jamais pour ses propres actions). */
 export async function notifyAdminKeyAction(
   deps: NotificationDeps,
   demande: AccessRequest & { keyAlias: string },
@@ -261,7 +261,7 @@ export async function notifyAdminKeyAction(
   await envoyer(deps, [demande.requesterEmail], message);
 }
 
-/** Changement dans une équipe (F-53), annoncé aux admins. */
+/** Changement dans une équipe (F-53 et F-54), annoncé aux admins et aux responsables de l'équipe. */
 export type TeamChange =
   | { type: "creee" }
   | { type: "renommee"; ancienNom: string }
@@ -324,7 +324,7 @@ function budgetEquipe(t: Traducteur, plafond: { montant: number; periode: string
 }
 
 /**
- * F-43 : alerte de budget d'équipe, à 80 % puis à 100 %, aux admins et aux responsables de l'équipe désignés par la
+ * F-54 : alerte de budget d'équipe, à 80 % puis à 100 %, aux admins et aux responsables de l'équipe désignés par la
  * tâche quotidienne : la dépense de la période, la fin de celle-ci et ce qu'il advient des clés de l'équipe.
  */
 export async function notifyTeamBudgetAlert(

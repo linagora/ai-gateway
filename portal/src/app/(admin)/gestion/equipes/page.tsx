@@ -8,7 +8,7 @@ import { AdminNav } from "../admin-nav";
 
 /**
  * F-53 : les équipes de la passerelle, avec leurs responsables, leurs membres réels, leurs clés actives et la dépense de
- * la période sur leur budget (F-43) ; la création d'une équipe est réservée aux admins.
+ * la période sur leur budget ; la création d'une équipe est réservée aux admins.
  */
 export default async function EquipesPage(props: PageProps<"/gestion/equipes">) {
   const admin = await requireGestionPage();

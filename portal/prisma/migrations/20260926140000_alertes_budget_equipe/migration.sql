@@ -1,4 +1,4 @@
--- Alertes de budget d'équipe (F-43, ticket #43) : seuil déjà annoncé pour la période en cours, pour n'envoyer chaque
+-- Alertes de budget d'équipe (F-54, ticket #43) : seuil déjà annoncé pour la période en cours, pour n'envoyer chaque
 -- alerte qu'une fois par période.
 CREATE TABLE "TeamBudgetAlert" (
     "teamId" TEXT NOT NULL,
