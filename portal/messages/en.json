@@ -1011,7 +1011,7 @@
     "retourAbonnements": "Back to “My subscriptions”",
     "abonnementRenouvele": "Renewed subscription: {offre}",
     "equipeEtEcheance": "Attached to the {equipe} team, expires on {date}.",
-    "aideRenouvellement": "Once approved, the renewal extends the expiry by the granted period, from the current expiry, without a new declaration.",
+    "aideRenouvellement": "Once approved, the renewal extends the expiry by the granted period, from the current expiry, without a new declaration; if refused, it counts as a cancellation request for the subscription.",
     "envoyerRenouvellement": "Request the renewal",
     "titreChanger": "Change offer",
     "abonnementIntrouvable": "This subscription cannot be found or is cancelled.",

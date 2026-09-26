@@ -424,6 +424,7 @@ test("dès un mois avant l'échéance, le titulaire demande le renouvellement, q
   await abonnement.getByRole("link", { name: "Demander le renouvellement" }).click();
   await expect(pageMembre.getByRole("heading", { level: 1 })).toHaveText("Renouveler un abonnement");
   await expect(pageMembre.getByRole("region", { name: new RegExp(`Abonnement renouvelé.*${echapper(offre)}`) })).toContainText(`échéance le ${jourDansNJours(30)}`);
+  await expect(pageMembre.getByText(/refusé, il vaut demande de résiliation de l'abonnement\.$/)).toBeVisible();
   await expect(pageMembre.getByLabel("Motif")).toHaveValue("Usage quotidien pour le projet");
   await pageMembre.getByLabel("Durée souhaitée").selectOption({ label: "6 mois" });
   await pageMembre.getByLabel(/Je m'engage à ne confier à cet abonnement/).check();

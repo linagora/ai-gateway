@@ -1011,7 +1011,7 @@
     "retourAbonnements": "Retour à « Mes abonnements »",
     "abonnementRenouvele": "Abonnement renouvelé : {offre}",
     "equipeEtEcheance": "Rattaché à l'équipe {equipe}, échéance le {date}.",
-    "aideRenouvellement": "Approuvé, le renouvellement reporte l'échéance de la durée accordée, à partir de l'échéance en cours, sans nouvelle déclaration.",
+    "aideRenouvellement": "Approuvé, le renouvellement reporte l'échéance de la durée accordée, à partir de l'échéance en cours, sans nouvelle déclaration ; refusé, il vaut demande de résiliation de l'abonnement.",
     "envoyerRenouvellement": "Demander le renouvellement",
     "titreChanger": "Changer d'offre",
     "abonnementIntrouvable": "Cet abonnement est introuvable ou résilié.",
