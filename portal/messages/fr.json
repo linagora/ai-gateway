@@ -754,7 +754,7 @@
         "corps": "{auteur} a désigné {responsable} responsable de l'équipe {equipe}."
       },
       "responsableRetire": {
-        "sujet": "Responsable retiré de l'équipe {equipe} : {responsable}",
+        "sujet": "Rôle de responsable retiré dans l'équipe {equipe} : {responsable}",
         "corps": "{auteur} a retiré à {responsable} son rôle de responsable de l'équipe {equipe}."
       },
       "decision": {

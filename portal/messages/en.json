@@ -754,7 +754,7 @@
         "corps": "{auteur} designated {responsable} as a manager of the team {equipe}."
       },
       "responsableRetire": {
-        "sujet": "Manager removed from the team {equipe}: {responsable}",
+        "sujet": "Manager role withdrawn in the team {equipe}: {responsable}",
         "corps": "{auteur} removed the manager role of {responsable} for the team {equipe}."
       },
       "decision": {

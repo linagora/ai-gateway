@@ -238,7 +238,7 @@ describe("responsables d'équipe (ticket #39)", () => {
     await removeManager(deps, admin, { teamId: "equipe-rd", uid: "mmaudet" });
     expect((await getTeamPage(deps, admin, "equipe-rd")).managers.map((m) => m.uid)).toEqual(["pmartin"]);
     expect((await getTeamPage(deps, admin, "equipe-rd")).members).toContain("mmaudet");
-    expect(mailer.outbox.at(-1)?.subject).toBe("[AI GATEWAY] Responsable retiré de l'équipe R&D : mmaudet / Manager removed from the team R&D: mmaudet");
+    expect(mailer.outbox.at(-1)?.subject).toBe("[AI GATEWAY] Rôle de responsable retiré dans l'équipe R&D : mmaudet / Manager role withdrawn in the team R&D: mmaudet");
     expect(mailer.outbox.at(-1)?.to).toEqual([...ADMINS, "mmaudet@linagora.com", "pmartin@linagora.com"]);
     await removeTeamMember(deps, admin, { teamId: "equipe-rd", uid: "pmartin" });
     expect((await getTeamPage(deps, admin, "equipe-rd")).managers).toEqual([]);
