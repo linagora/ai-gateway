@@ -372,6 +372,12 @@ test("un responsable bloque, débloque et révoque la clé d'un membre de son é
   const cle = await retirerCle(pageMembre);
   expect(await appel(request, cle)).toBe(200);
 
+  // Tant qu'elle a une clé active, l'équipe ne peut pas être supprimée : LiteLLM supprimerait la clé avec elle.
+  await supprimerEquipe(admin);
+  await expect(admin.getByRole("main").getByRole("alert")).toHaveText(
+    "Cette équipe a encore des clés actives (1) ou des demandes en cours (0) : révoquez ses clés et traitez ses demandes avant de la supprimer.",
+  );
+
   // Blocage puis déblocage depuis la gestion du responsable.
   await pageResponsable.goto("/gestion/cles");
   const ligne = () => pageResponsable.getByRole("region", { name: "Clés actives" }).getByRole("row", { name: new RegExp(membre.uid) });
