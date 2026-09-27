@@ -17,6 +17,7 @@
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
     "lucide-react": "1.47.0",
+    "marked": "18.0.14",
     "next": "16.3.6",
     "next-auth": "5.0.0-beta.32",
     "next-intl": "4.14.7",

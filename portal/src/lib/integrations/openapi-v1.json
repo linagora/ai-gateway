@@ -12,7 +12,7 @@
     },
     {
       "url": "http://127.0.0.1:54600/api/v1",
-      "description": "Portal development environment, through its Caddy (see docs/INTEGRATIONS.md)"
+      "description": "Portal development environment, through its Caddy (see the integration guide, /documentation/api/guide)"
     }
   ],
   "security": [

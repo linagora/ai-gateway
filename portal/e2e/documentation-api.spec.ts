@@ -18,7 +18,7 @@ test("un collaborateur connecté consulte le contrat dans Swagger UI, servi par 
     if (!requete.url().startsWith("http://localhost:3100/")) externes.push(requete.url());
   });
   await page.goto("/documentation/api");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("API d'intégration");
+  await expect(page.getByRole("heading", { level: 1, name: "API d'intégration" })).toBeVisible();
   const route = page.locator('.opblock-get:has([data-path="/me/teams"])');
   await expect(route).toBeVisible();
 
@@ -37,6 +37,34 @@ test("un collaborateur connecté consulte le contrat dans Swagger UI, servi par 
 
   // Aucun script ni appel hors du portail : ni CDN, ni validateur en ligne.
   expect(externes).toEqual([]);
+});
+
+test("depuis le menu « API », un collaborateur apprend qu'il peut faire ses demandes par API, lit le guide d'intégration et revient au contrat", async ({ browser }) => {
+  const page = await (await connecter(browser, personne("guide"))).newPage();
+  await page.goto("/");
+  await page.getByRole("navigation", { name: "Navigation principale" }).getByRole("link", { name: "API", exact: true }).click();
+  await expect(page).toHaveURL(/\/documentation\/api$/);
+  await expect(page.getByText(/^Le portail permet aussi de faire ses demandes par API/)).toBeVisible();
+  await page.getByRole("link", { name: "guide d'intégration" }).click();
+  await expect(page).toHaveURL(/\/documentation\/api\/guide$/);
+  await expect(page.getByRole("heading", { level: 1, name: "Kit d'intégration du portail AI Gateway" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "6. Erreurs et limites" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "identite_incoherente", exact: false }).first()).toBeVisible();
+  await page.getByRole("link", { name: "Contrat de l'API (Swagger)" }).click();
+  await expect(page.locator('[data-path="/key-requests"]').first()).toBeVisible();
+});
+
+test("en anglais, la page de l'API et le guide d'intégration sont traduits", async ({ browser }) => {
+  const page = await (await connecter(browser, personne("anglais"), "en-US")).newPage();
+  await page.goto("/");
+  await page.getByRole("navigation", { name: "Main navigation" }).getByRole("link", { name: "API", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Integration API" })).toBeVisible();
+  await expect(page.getByText(/^The portal also lets requests be made through an API/)).toBeVisible();
+  await page.getByRole("link", { name: "integration guide" }).click();
+  await expect(page).toHaveURL(/\/documentation\/api\/guide$/);
+  await expect(page.getByRole("heading", { level: 1, name: "AI Gateway portal integration kit" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "6. Errors and limits" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "API contract (Swagger)" })).toBeVisible();
 });
 
 test("sans session, la documentation de l'API renvoie vers la connexion", async ({ page }) => {

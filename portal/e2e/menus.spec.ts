@@ -28,6 +28,8 @@ test("le menu principal souligne l'onglet de la page, sous-pages et formulaires 
     ["/demandes/adhesion", /^Nouvelle demande$/],
     ["/cles", /^Mes clés/],
     ["/abonnements", /^Mes abonnements/],
+    ["/documentation/api", /^API$/],
+    ["/documentation/api/guide", /^API$/],
   ] as const) {
     await page.goto(chemin);
     await ongletCourant(entete, onglet);

@@ -5,6 +5,8 @@ const nextConfig: NextConfig = {
   // Image Docker minimale (brief §1) : .next/standalone + public + .next/static.
   output: "standalone",
   poweredByHeader: false,
+  // Le guide d'intégration, lu par sa page au moment de la requête, part avec elle dans la sortie standalone.
+  outputFileTracingIncludes: { "/documentation/api/guide": ["./docs/INTEGRATIONS.md", "./docs/INTEGRATIONS.en.md"] },
   async headers() {
     // HSTS, nosniff et Referrer-Policy sont posés par Caddy. La CSP stricte (nonces) viendra avec la
     // reprise de l'interface ; en attendant, interdiction d'afficher le portail dans un cadre.

@@ -24,7 +24,7 @@ Connexion : le fournisseur OIDC simulé demande un utilisateur (l'uid) et des cl
 `{"email": "mmaudet@linagora.com", "name": "Michel-Marie Maudet"}`. `mmaudet` est admin (`PORTAL_ADMIN_UIDS`).
 
 API d'intégration (`/api/v1`, contrat dans `src/lib/integrations/openapi-v1.json`, guide des intégrateurs dans
-[`docs/INTEGRATIONS.md`](../docs/INTEGRATIONS.md)) : l'intégration « demo » signe des jetons de test, et le Caddy de dev
+[`docs/INTEGRATIONS.md`](docs/INTEGRATIONS.md), affiché aussi par le portail) : l'intégration « demo » signe des jetons de test, et le Caddy de dev
 transmet au portail l'adresse de l'appelant, comme en production :
 
 ```bash

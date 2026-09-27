@@ -101,3 +101,51 @@
   color: var(--linagora);
   font-weight: 400;
 }
+
+/* Guide d'intégration, rendu depuis le Markdown du dépôt : titres, listes, tableaux et blocs de code lisibles. */
+.guide h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 1.25rem 0 0.5rem;
+}
+.guide p,
+.guide ul,
+.guide ol,
+.guide pre,
+.guide table {
+  margin: 0.75rem 0;
+}
+.guide ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+}
+.guide ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+}
+.guide li {
+  margin: 0.25rem 0;
+}
+.guide a {
+  text-decoration: underline;
+}
+.guide code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  background: #f5f5f5;
+  border-radius: 0.2rem;
+  padding: 0.05rem 0.25rem;
+}
+.guide pre {
+  overflow-x: auto;
+  background: #171717;
+  color: #f5f5f5;
+  border-radius: 0.25rem;
+  padding: 0.75rem;
+  font-size: 0.8rem;
+}
+.guide pre code {
+  background: none;
+  color: inherit;
+  padding: 0;
+}
