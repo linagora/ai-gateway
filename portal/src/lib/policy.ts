@@ -7,6 +7,15 @@
 export const DATA_LEVELS = ["N1", "N2", "N3", "EXP"] as const;
 export type DataLevel = (typeof DATA_LEVELS)[number];
 
+/** Classification des informations de LINAGORA : NC (public), C1 (interne), C2 (restreint), C3 (secret). */
+export type Classification = "NC" | "C1" | "C2" | "C3";
+
+/**
+ * Classifications que chaque niveau accepte (décision du 2026-09-26) : le niveau Expérimental, réservé aux données
+ * publiques, n'accepte que NC.
+ */
+export const CLASSIFICATIONS_ACCEPTEES: Record<DataLevel, readonly Classification[]> = { N1: ["NC", "C1"], N2: ["C2"], N3: ["C3"], EXP: ["NC"] };
+
 const LEVEL_RANK: Record<Exclude<DataLevel, "EXP">, number> = { N1: 1, N2: 2, N3: 3 };
 
 /** Règle 1 : un utilisateur est admin si son uid figure dans PORTAL_ADMIN_UIDS. */
