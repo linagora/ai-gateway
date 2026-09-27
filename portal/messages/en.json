@@ -1245,7 +1245,8 @@
       "trop_de_requetes": "Too many requests for this integration: retry after the delay given by Retry-After.",
       "hors_perimetre": "This route is outside the integration's scope ({scope}).",
       "erreur_interne": "An error occurred: try again later.",
-      "identite_incoherente": "Inconsistent identity: this uid is unknown to the portal and its email address already belongs to another employee. Check the identifier (sub) sent by the integration: it is the LDAP uid that LemonLDAP::NG gives to the portal."
+      "identite_incoherente": "Inconsistent identity: this uid is unknown to the portal and its email address already belongs to another employee. Check the identifier (sub) sent by the integration: it is the LDAP uid that LemonLDAP::NG gives to the portal.",
+      "saisie_invalide": "{reason, select, taille {Request body too large: 16 KiB at most.} json {Unreadable request body: a JSON object is expected.} other {Invalid input: check the fields {champs}.}}"
     }
   }
 }

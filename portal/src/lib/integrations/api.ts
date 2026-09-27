@@ -28,6 +28,9 @@ const AUDIENCE = process.env.INTEGRATION_TOKEN_AUDIENCE?.trim() || "ai-gateway";
 /** En-tête où Caddy transmet l'adresse réelle du client ; il l'écrase lui-même (infra/caddy/portail.caddy). */
 const ENTETE_ADRESSE = "x-real-ip";
 
+/** Taille maximale du corps d'une requête : 16 Kio. */
+const TAILLE_MAXIMALE_DU_CORPS = 16 * 1024;
+
 /** Plafond de chaque intégration : fenêtre glissante d'une minute, en mémoire, commune à toutes les routes de l'API. */
 const memoire = globalThis as typeof globalThis & { plafondsDesIntegrations?: LimiteDeDebit };
 const plafonds = (memoire.plafondsDesIntegrations ??= new LimiteDeDebit(120, 60_000));
@@ -38,8 +41,8 @@ export type DepsApi = ReturnType<typeof getDeps>;
 export type Traducteur = (typeof TRADUCTEURS)[Langue];
 
 /**
- * Ce que reçoit le traitement d'une route : le collaborateur du jeton, les dépendances, la langue et son traducteur, et
- * les paramètres du chemin.
+ * Ce que reçoit le traitement d'une route : le collaborateur du jeton, les dépendances, la langue et son traducteur, les
+ * paramètres du chemin, et la lecture du corps JSON, contrôlé par un schéma (saisie invalide : 400).
  */
 export interface Appel<P> {
   acteur: SessionUser;
@@ -47,6 +50,15 @@ export interface Appel<P> {
   langue: Langue;
   t: Traducteur;
   params: P;
+  corps: <T>(schema: z.ZodType<T>) => Promise<T>;
+}
+
+/** Réponse d'une route autre que 200 : 201 avec l'identifiant de ce qu'elle crée, ou 204 sans corps. */
+export class Reponse {
+  constructor(
+    readonly statut: 201 | 204,
+    readonly corps?: unknown,
+  ) {}
 }
 
 /** Refus de l'API : statut HTTP, code stable, détails, et attente avant de réessayer (429), en millisecondes. */
@@ -77,7 +89,7 @@ const STATUTS: Partial<Record<PortalErrorCode, number>> = {
 
 /**
  * Route de l'API : `perimetre` est celui qu'elle exige de l'intégration (aucun pour le contrat). Le traitement rend le
- * corps de la réponse (200).
+ * corps de la réponse (200), ou une `Reponse` (201, 204).
  */
 export function routeApi<P = Record<string, never>>(perimetre: Perimetre | null, traiter: (appel: Appel<P>) => Promise<unknown>) {
   return async (requete: Request, contexte: { params: Promise<P> }): Promise<Response> => {
@@ -86,11 +98,36 @@ export function routeApi<P = Record<string, never>>(perimetre: Perimetre | null,
       const deps = getDeps();
       const acteur = await controler(requete, perimetre, deps, new Date());
       await provisionIntegrationUser(deps, acteur);
-      return json(200, await traiter({ acteur, deps, langue, t: TRADUCTEURS[langue], params: await contexte.params }));
+      const corps = async <T>(schema: z.ZodType<T>) => schema.parse(await lireJson(requete));
+      const resultat = await traiter({ acteur, deps, langue, t: TRADUCTEURS[langue], params: await contexte.params, corps });
+      if (!(resultat instanceof Reponse)) return json(200, resultat);
+      return resultat.statut === 204 ? new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } }) : json(201, resultat.corps);
     } catch (e) {
       return reponseErreur(versRefus(e), langue);
     }
   };
+}
+
+/** Corps JSON de la requête, lu jusqu'à 16 Kio au plus : au-delà, ou illisible, c'est une saisie invalide. */
+async function lireJson(requete: Request): Promise<unknown> {
+  const refus = (reason: "taille" | "json") => new RefusApi(400, "saisie_invalide", { fields: [], reason });
+  if (Number(requete.headers.get("content-length") ?? 0) > TAILLE_MAXIMALE_DU_CORPS) throw refus("taille");
+  const morceaux: Uint8Array[] = [];
+  let taille = 0;
+  const lecteur = requete.body?.getReader();
+  for (let morceau = await lecteur?.read(); morceau && !morceau.done; morceau = await lecteur?.read()) {
+    taille += morceau.value.byteLength;
+    if (taille > TAILLE_MAXIMALE_DU_CORPS) {
+      await lecteur?.cancel();
+      throw refus("taille");
+    }
+    morceaux.push(morceau.value);
+  }
+  try {
+    return JSON.parse(Buffer.concat(morceaux).toString("utf8"));
+  } catch {
+    throw refus("json");
+  }
 }
 
 /** Route inconnue de l'API : 404, sans contrôle du jeton. */
@@ -123,7 +160,12 @@ function versRefus(e: unknown): RefusApi {
   if (e instanceof RefusApi) return e;
   if (e instanceof PolicyViolationError) return new RefusApi(400, e.code, { failedChecks: e.failedChecks.map(({ id, offending }) => ({ id, offending })) });
   if (e instanceof PortalError) return new RefusApi(STATUTS[e.code] ?? 400, e.code, e.params);
-  if (e instanceof z.ZodError) return new RefusApi(400, "saisie_invalide", { fields: [...new Set(e.issues.map((i) => i.path.join(".")))] });
+  if (e instanceof z.ZodError) {
+    // Champs en cause, champs inconnus compris ; sans champ, c'est le corps entier qui n'est pas l'objet attendu.
+    const chemins = e.issues.flatMap((i) => (i.code === "unrecognized_keys" ? i.keys.map((cle) => [...i.path, cle]) : [i.path]));
+    const fields = [...new Set(chemins.map((chemin) => chemin.join(".")).filter(Boolean))];
+    return new RefusApi(400, "saisie_invalide", fields.length > 0 ? { fields } : { fields, reason: "json" });
+  }
   if (e instanceof LiteLLMError || (e instanceof TypeError && e.message === "fetch failed")) {
     console.error(`API d'intégration : passerelle indisponible (${e.message})`);
     return new RefusApi(502, "passerelle_indisponible");
