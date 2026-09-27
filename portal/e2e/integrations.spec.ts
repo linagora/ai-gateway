@@ -77,12 +77,12 @@ test("un admin déclare une intégration, lui ajoute une clé publique, règle s
   await expect(admin.getByRole("status")).toHaveText("Intégration désactivée : ses appels sont refusés.");
   await expect(desactivees.getByRole("region", { name: nom })).toBeVisible();
 
-  // Retrait de la clé, après confirmation : elle reste inscrite parmi les clés retirées.
-  await fiche.getByRole("row", { name: /cle-1/ }).getByText("Retirer", { exact: true }).click();
-  await fiche.getByRole("button", { name: "Retirer la clé cle-1" }).click();
-  await expect(admin.getByRole("status")).toHaveText("Clé publique retirée : les jetons qu'elle signe sont désormais refusés.");
+  // Mise hors service de la clé, après confirmation : elle reste inscrite parmi les clés hors service.
+  await fiche.getByRole("row", { name: /cle-1/ }).getByText("Mettre hors service", { exact: true }).click();
+  await fiche.getByRole("button", { name: "Mettre hors service la clé cle-1" }).click();
+  await expect(admin.getByRole("status")).toHaveText("Clé publique mise hors service : les jetons qu'elle signe sont désormais refusés.");
   await expect(fiche).toContainText("Aucune clé : aucun jeton de l'intégration n'est accepté.");
-  await expect(fiche.getByText("Clés retirées (1)")).toBeVisible();
+  await expect(fiche.getByText("Clés hors service (1)")).toBeVisible();
 
   // Sans rechargement ciblé, une intégration désactivée est repliée.
   await admin.goto("/gestion/integrations");
@@ -99,7 +99,7 @@ test("un admin déclare une intégration, lui ajoute une clé publique, règle s
         bilingue(`Intégration modifiée : ${nom}`, `Integration updated: ${nom}`),
         bilingue(`Intégration activée : ${nom}`, `Integration enabled: ${nom}`),
         bilingue(`Intégration désactivée : ${nom}`, `Integration disabled: ${nom}`),
-        bilingue(`Clé publique retirée de l'intégration ${nom}`, `Public key removed from the integration ${nom}`),
+        bilingue(`Clé publique mise hors service pour l'intégration ${nom}`, `Public key retired for the integration ${nom}`),
       ].sort(),
     );
   const recus = await courriels(id);

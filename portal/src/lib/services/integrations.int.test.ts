@@ -70,7 +70,7 @@ describe("registre des intégrations", () => {
     expect(await listIntegrations(deps, admin)).toEqual([]);
   });
 
-  test("clés publiques : Ed25519 pour EdDSA, RSA d'au moins 2048 bits pour RS256 ; une clé invalide, privée, d'un autre algorithme ou un kid déjà pris est refusé ; une clé se retire", async () => {
+  test("clés publiques : Ed25519 pour EdDSA, RSA d'au moins 2048 bits pour RS256 ; une clé invalide, privée, d'un autre algorithme ou un kid déjà pris est refusé ; une clé se met hors service", async () => {
     await createIntegration(deps, admin, { ...teamManager, scopes: [...teamManager.scopes] });
     await addIntegrationKey(deps, admin, "team-manager", { kid: "tm-2026-09", algorithm: "EdDSA", publicKeyPem: ed25519() });
     await addIntegrationKey(deps, admin, "team-manager", { kid: "tm-rsa", algorithm: "RS256", publicKeyPem: rsa(2048) });
@@ -95,7 +95,7 @@ describe("registre des intégrations", () => {
     expect(apres.keys.map((k) => k.kid)).toEqual(["tm-2026-09"]);
     expect(apres.removedKeys.map((k) => [k.kid, k.removedBy])).toEqual([["tm-rsa", "jdupont"]]);
     await expect(removeIntegrationKey(deps, admin, "team-manager", "tm-rsa")).rejects.toMatchObject({ code: "introuvable", params: { objet: "cle_integration" } });
-    // Le kid d'une clé retirée ne resert pas.
+    // Le kid d'une clé hors service ne resert pas.
     await expect(addIntegrationKey(deps, admin, "team-manager", { kid: "tm-rsa", algorithm: "RS256", publicKeyPem: rsa(2048) })).rejects.toMatchObject({ code: "kid_existant" });
     expect((await listAudit(testDb)).map((e) => [e.action, e.details.kid ?? null])).toEqual([
       ["INTEGRATION_CREATED", null],

@@ -130,9 +130,9 @@
       "integrationDeclaree": "Intégration déclarée, désactivée : ajoutez sa clé publique, puis activez-la après la recette.",
       "integrationEnregistree": "Intégration enregistrée.",
       "cleIntegrationAjoutee": "Clé publique ajoutée.",
-      "cleIntegrationRetiree": "Clé publique retirée : les jetons qu'elle signe sont désormais refusés.",
       "integrationActivee": "Intégration activée.",
-      "integrationDesactivee": "Intégration désactivée : ses appels sont refusés."
+      "integrationDesactivee": "Intégration désactivée : ses appels sont refusés.",
+      "cleIntegrationHorsService": "Clé publique mise hors service : les jetons qu'elle signe sont désormais refusés."
     },
     "erreurs": {
       "controles_en_echec": "La demande ne respecte pas la politique d'accès aux modèles. Contrôles en échec : {controles}.",
@@ -141,7 +141,7 @@
       "renouvellement_trop_tot": "Le renouvellement se demande au plus tôt un mois avant l'échéance de l'abonnement.",
       "engagement_requis": "Engagez-vous à ne pas soumettre de données d'un niveau supérieur à celui déclaré.",
       "interdit": "Action réservée aux administrateurs.",
-      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} membre {Membre introuvable dans cette équipe.} responsable {Responsable introuvable dans cette équipe.} offre {Offre d'abonnement introuvable.} demande_abonnement {Demande d'abonnement introuvable.} abonnement {Abonnement introuvable.} transmission {Transmission introuvable.} collaborateur {Collaborateur introuvable.} integration {Intégration introuvable.} cle_integration {Clé publique introuvable, ou déjà retirée.} route {Route inconnue de l'API.} other {Demande introuvable.}}",
+      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} membre {Membre introuvable dans cette équipe.} responsable {Responsable introuvable dans cette équipe.} offre {Offre d'abonnement introuvable.} demande_abonnement {Demande d'abonnement introuvable.} abonnement {Abonnement introuvable.} transmission {Transmission introuvable.} collaborateur {Collaborateur introuvable.} integration {Intégration introuvable.} cle_integration {Clé publique introuvable, ou déjà hors service.} route {Route inconnue de l'API.} other {Demande introuvable.}}",
       "motif_obligatoire": "Un motif est obligatoire.",
       "parametre_manquant": "Budget, période du budget et durée de validité sont obligatoires : saisissez-les ou configurez des valeurs par défaut.",
       "recommandation_hors_cas_usage": "Une recommandation ne peut porter que sur un cas d'usage coché.",
@@ -168,7 +168,7 @@
       "integration_invalide": "{champ, select, identifiant {L'identifiant d'une intégration compte de 2 à 40 caractères : lettres minuscules, chiffres et tirets entre deux caractères (par exemple team-manager).} nom {Donnez un nom à l'intégration (100 caractères au plus).} perimetres {Périmètre inconnu : {valeur}.} adresses {Adresse IP ou plage CIDR invalide : {valeur}.} plafond {Le plafond est un nombre entier de requêtes par minute, de 1 à 10 000.} other {Saisie invalide.}}",
       "integration_existante": "L'identifiant {id} est déjà pris par une autre intégration.",
       "cle_publique_invalide": "{raison, select, format {Clé publique illisible : collez une clé publique au format PEM, de « -----BEGIN PUBLIC KEY----- » à « -----END PUBLIC KEY----- ».} algorithme {La clé ne correspond pas à l'algorithme choisi : une clé Ed25519 pour EdDSA, une clé RSA pour RS256.} taille {Une clé RSA doit compter au moins 2 048 bits.} cle_privee {C'est une clé privée : elle ne doit jamais quitter l'intégration. Collez sa clé publique seule.} kid {L'identifiant de clé compte de 1 à 64 caractères : lettres, chiffres, points, tirets et soulignés.} other {Clé publique refusée.}}",
-      "kid_existant": "L'identifiant de clé {kid} est déjà pris dans cette intégration, y compris par une clé retirée : choisissez-en un autre."
+      "kid_existant": "L'identifiant de clé {kid} est déjà pris dans cette intégration, y compris par une clé hors service : choisissez-en un autre."
     },
     "controles": {
       "membre_equipe": "Le demandeur est membre de l'équipe",
@@ -843,12 +843,12 @@
       },
       "empreinte": "Empreinte",
       "ajoutee": "Ajoutée",
-      "retiree": "Retirée",
+      "horsService": "Hors service",
       "parLe": "le {date, date, long} par {auteur}",
-      "retirer": "Retirer",
-      "retraitAvertissement": "Les jetons signés par cette clé seront refusés. Pour une rotation sans coupure, ajoutez d'abord la nouvelle clé ; l'identifiant de celle-ci ne pourra pas resservir.",
-      "confirmerRetrait": "Retirer la clé {kid}",
-      "clesRetirees": "Clés retirées ({nombre})",
+      "mettreHorsService": "Mettre hors service",
+      "avertissementHorsService": "Les jetons signés par cette clé seront refusés. Pour une rotation sans coupure, ajoutez d'abord la nouvelle clé ; l'identifiant de celle-ci ne pourra pas resservir.",
+      "confirmerHorsService": "Mettre hors service la clé {kid}",
+      "clesHorsService": "Clés hors service ({nombre})",
       "ajouterCle": "Ajouter une clé publique",
       "clePublique": "Clé publique (PEM)",
       "aideClePublique": "La clé publique seule, de « -----BEGIN PUBLIC KEY----- » à « -----END PUBLIC KEY----- » ; jamais la clé privée. Comparez ensuite l'empreinte affichée avec celle que donne l'intégrateur.",
@@ -1145,9 +1145,9 @@
         "sujet": "Clé publique ajoutée à l'intégration {nom}",
         "corps": "{auteur} a ajouté une clé publique à l'intégration {nom} ({id}) ; comparez son empreinte avec celle que donne l'intégrateur :"
       },
-      "cleRetiree": {
-        "sujet": "Clé publique retirée de l'intégration {nom}",
-        "corps": "{auteur} a retiré une clé publique de l'intégration {nom} ({id}) ; les jetons qu'elle signe sont désormais refusés :"
+      "cleHorsService": {
+        "sujet": "Clé publique mise hors service pour l'intégration {nom}",
+        "corps": "{auteur} a mis hors service une clé publique de l'intégration {nom} ({id}) ; les jetons qu'elle signe sont désormais refusés :"
       },
       "activee": {
         "sujet": "Intégration activée : {nom}",
@@ -1239,7 +1239,7 @@
   },
   "api": {
     "erreurs": {
-      "jeton_invalide": "{reason, select, absent {Jeton d'intégration absent : chaque appel porte l'en-tête Authorization: Bearer suivi du jeton.} illisible {Jeton d'intégration illisible : un JWT signé est attendu.} integration_inconnue {Jeton d'intégration refusé : intégration inconnue (iss).} cle_inconnue {Jeton d'intégration refusé : clé inconnue ou retirée (kid).} algorithme {Jeton d'intégration refusé : son algorithme n'est pas celui de la clé enregistrée.} signature {Jeton d'intégration refusé : signature invalide.} destinataire {Jeton d'intégration refusé : destinataire (aud) inattendu.} expire {Jeton d'intégration expiré.} futur {Jeton d'intégration pas encore valide : vérifiez l'horloge de l'intégration.} duree {Jeton d'intégration refusé : sa durée de validité dépasse cinq minutes.} revendication {Jeton d'intégration refusé : revendication {claim} absente ou invalide.} other {Jeton d'intégration refusé.}}",
+      "jeton_invalide": "{reason, select, absent {Jeton d'intégration absent : chaque appel porte l'en-tête Authorization: Bearer suivi du jeton.} illisible {Jeton d'intégration illisible : un JWT signé est attendu.} integration_inconnue {Jeton d'intégration refusé : intégration inconnue (iss).} cle_inconnue {Jeton d'intégration refusé : clé inconnue ou hors service (kid).} algorithme {Jeton d'intégration refusé : son algorithme n'est pas celui de la clé enregistrée.} signature {Jeton d'intégration refusé : signature invalide.} destinataire {Jeton d'intégration refusé : destinataire (aud) inattendu.} expire {Jeton d'intégration expiré.} futur {Jeton d'intégration pas encore valide : vérifiez l'horloge de l'intégration.} duree {Jeton d'intégration refusé : sa durée de validité dépasse cinq minutes.} revendication {Jeton d'intégration refusé : revendication {claim} absente ou invalide.} other {Jeton d'intégration refusé.}}",
       "integration_inactive": "Cette intégration est désactivée : ses appels sont refusés.",
       "adresse_non_autorisee": "L'adresse IP de l'appelant n'est pas autorisée pour cette intégration.",
       "trop_de_requetes": "Trop de requêtes pour cette intégration : réessayez après le délai indiqué par Retry-After.",

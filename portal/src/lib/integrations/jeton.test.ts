@@ -60,9 +60,9 @@ describe("jeton d'intégration", () => {
     await refus(`Bearer ${"a".repeat(9000)}.${b64(revendications)}.c2ln`, "illisible");
   });
 
-  test("une intégration inconnue, ou une clé inconnue ou retirée, est refusée", async () => {
+  test("une intégration inconnue, ou une clé inconnue ou hors service, est refusée", async () => {
     await refus(jeton({ ...revendications, iss: "inconnue" }), "integration_inconnue");
-    await refus(jeton(revendications, { kid: "tm-retiree" }), "cle_inconnue");
+    await refus(jeton(revendications, { kid: "tm-hors-service" }), "cle_inconnue");
   });
 
   test("une signature falsifiée, ou faite par une autre clé, est refusée", async () => {

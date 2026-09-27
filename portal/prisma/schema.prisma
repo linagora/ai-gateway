@@ -315,7 +315,7 @@ model Integration {
 }
 
 /// Clé publique d'une intégration : elle vérifie la signature de ses jetons ; le `kid` de leur en-tête la désigne.
-/// Une clé retirée ne vérifie plus rien, mais reste inscrite : son `kid` ne resservira pas.
+/// Une clé mise hors service ne vérifie plus rien, mais reste inscrite : son `kid` ne resservira pas.
 model IntegrationKey {
   id            String      @id @default(cuid())
   integrationId String

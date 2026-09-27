@@ -8,7 +8,7 @@ import {
   declarerIntegrationAction,
   desactiverIntegrationAction,
   modifierIntegrationAction,
-  retirerCleIntegrationAction,
+  mettreCleHorsServiceAction,
 } from "../../../actions";
 import { ExplicationObligatoires, Notice } from "../../../components";
 import { Obligatoire } from "../../../obligatoire";
@@ -100,7 +100,7 @@ async function FicheIntegration({ integration: i, ouverte }: { integration: Inte
         {i.keys.length === 0 ? <p>{t("aucuneCle")}</p> : <TableCles integration={i} cles={i.keys} />}
         {i.removedKeys.length > 0 && (
           <details>
-            <summary className="cursor-pointer">{t("clesRetirees", { nombre: i.removedKeys.length })}</summary>
+            <summary className="cursor-pointer">{t("clesHorsService", { nombre: i.removedKeys.length })}</summary>
             <TableCles integration={i} cles={i.removedKeys} />
           </details>
         )}
@@ -169,10 +169,10 @@ async function ChampsReglages({ integration }: { integration?: IntegrationView }
   );
 }
 
-/** Clés publiques d'une intégration, en service ou retirées : identifiant, algorithme, empreinte, ajout, retrait. */
+/** Clés publiques d'une intégration, en service ou hors service : identifiant, algorithme, empreinte, ajout, mise hors service. */
 async function TableCles({ integration, cles }: { integration: IntegrationView; cles: IntegrationKeyView[] }) {
   const t = await getTranslations("gestion.integrations");
-  const retirees = cles.some((c) => c.removedAt);
+  const horsService = cles.some((c) => c.removedAt);
   return (
     <div className="overflow-x-auto">
       <table>
@@ -182,7 +182,7 @@ async function TableCles({ integration, cles }: { integration: IntegrationView; 
             <th>{t("algorithme")}</th>
             <th>{t("empreinte")}</th>
             <th>{t("ajoutee")}</th>
-            <th>{retirees ? t("retiree") : <span className="sr-only">{t("retirer")}</span>}</th>
+            <th>{horsService ? t("horsService") : <span className="sr-only">{t("mettreHorsService")}</span>}</th>
           </tr>
         </thead>
         <tbody>
@@ -201,12 +201,12 @@ async function TableCles({ integration, cles }: { integration: IntegrationView; 
                   t("parLe", { date: c.removedAt, auteur: c.removedBy ?? "" })
                 ) : (
                   <details>
-                    <summary className="cursor-pointer">{t("retirer")}</summary>
-                    <p className="text-sm">{t("retraitAvertissement")}</p>
-                    <form action={retirerCleIntegrationAction}>
+                    <summary className="cursor-pointer">{t("mettreHorsService")}</summary>
+                    <p className="text-sm">{t("avertissementHorsService")}</p>
+                    <form action={mettreCleHorsServiceAction}>
                       <input type="hidden" name="id" value={integration.id} />
                       <input type="hidden" name="kid" value={c.kid} />
-                      <button type="submit">{t("confirmerRetrait", { kid: c.kid })}</button>
+                      <button type="submit">{t("confirmerHorsService", { kid: c.kid })}</button>
                     </form>
                   </details>
                 )}

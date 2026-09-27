@@ -417,13 +417,6 @@ export async function transmettreRemboursementsAction(formData: FormData): Promi
   await run(page, () => transmitCharges(getDeps(), user, { month: mois, chargeIds: prelevements }), { path: page, message: "prelevementsTransmis" });
 }
 
-/** Résultat du retrait d'une clé : la clé n'y figure qu'une fois, et nulle part ailleurs. */
-export type ResultatRetrait = { ok: true; cle: string; alias: string } | { ok: false; erreur: string; details: Record<string, string> };
-
-/**
- * F-40 / F-41 : retrait d'une clé. La clé n'est ni journalisée ni conservée ; la page n'est pas
- * rafraîchie ici, pour que le panneau d'affichage unique reste ouvert jusqu'à « J'ai copié ma clé ».
- */
 /** Spécification #71, ticket #74 : déclaration d'une intégration par un admin ; elle est créée désactivée. */
 export async function declarerIntegrationAction(formData: FormData): Promise<void> {
   const user = await requireUser();
@@ -452,13 +445,13 @@ export async function ajouterCleIntegrationAction(formData: FormData): Promise<v
   await run(pageIntegration(id), () => addIntegrationKey(getDeps(), user, id, cle), { path: pageIntegration(id), message: "cleIntegrationAjoutee" });
 }
 
-/** Ticket #74 : retrait d'une clé publique d'une intégration. */
-export async function retirerCleIntegrationAction(formData: FormData): Promise<void> {
+/** Ticket #74 : mise hors service d'une clé publique d'une intégration. */
+export async function mettreCleHorsServiceAction(formData: FormData): Promise<void> {
   const user = await requireUser();
   const id = text(formData, "id");
   await run(pageIntegration(id), () => removeIntegrationKey(getDeps(), user, id, text(formData, "kid")), {
     path: pageIntegration(id),
-    message: "cleIntegrationRetiree",
+    message: "cleIntegrationHorsService",
   });
 }
 
@@ -476,6 +469,13 @@ export async function desactiverIntegrationAction(formData: FormData): Promise<v
   await run(pageIntegration(id), () => setIntegrationActive(getDeps(), user, id, false), { path: pageIntegration(id), message: "integrationDesactivee" });
 }
 
+/** Résultat du retrait d'une clé : la clé n'y figure qu'une fois, et nulle part ailleurs. */
+export type ResultatRetrait = { ok: true; cle: string; alias: string } | { ok: false; erreur: string; details: Record<string, string> };
+
+/**
+ * F-40 / F-41 : retrait d'une clé. La clé n'est ni journalisée ni conservée ; la page n'est pas
+ * rafraîchie ici, pour que le panneau d'affichage unique reste ouvert jusqu'à « J'ai copié ma clé ».
+ */
 export async function retirerCleAction(requestId: string): Promise<ResultatRetrait> {
   const user = await requireUser();
   return afficherUneFois(requestId, (id) => pickUpKey(getDeps(), user, id));
@@ -535,7 +535,7 @@ type CleSucces =
   | "integrationDeclaree"
   | "integrationEnregistree"
   | "cleIntegrationAjoutee"
-  | "cleIntegrationRetiree"
+  | "cleIntegrationHorsService"
   | "integrationActivee"
   | "integrationDesactivee";
 

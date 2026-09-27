@@ -294,13 +294,13 @@ dans Mailpit (`http://127.0.0.1:54825`).
 1. Créez une nouvelle paire de clés, avec un nouvel identifiant de clé (`kid`).
 2. Faites ajouter la nouvelle clé publique par un admin : les deux clés sont alors acceptées.
 3. Signez vos jetons avec la nouvelle clé.
-4. Faites retirer l'ancienne clé : les jetons qu'elle signe sont refusés aussitôt. Une clé retirée reste inscrite ; son
+4. Faites mettre l'ancienne clé hors service : les jetons qu'elle signe sont refusés aussitôt. Une clé hors service reste inscrite ; son
    `kid` ne peut pas resservir.
 
 ## 10. Coupure
 
 - Un admin **désactive** l'intégration d'un clic dans l'onglet « Intégrations » : ses appels reçoivent aussitôt
   `503 integration_inactive`. Une intégration ne se supprime jamais : le journal d'audit garde son canal lisible.
-- Si une clé privée a fuité : prévenez les admins, qui retirent la clé (les jetons qu'elle signe sont refusés en `401`)
+- Si une clé privée a fuité : prévenez les admins, qui mettent la clé hors service (les jetons qu'elle signe sont refusés en `401`)
   ou désactivent l'intégration ; reprenez ensuite la rotation (section 9) avec une nouvelle paire.
 - Un jeton volé ne sert que depuis les adresses de l'intégration, et moins de cinq minutes.

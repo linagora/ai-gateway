@@ -130,9 +130,9 @@
       "integrationDeclaree": "Integration declared, disabled: add its public key, then enable it after acceptance testing.",
       "integrationEnregistree": "Integration saved.",
       "cleIntegrationAjoutee": "Public key added.",
-      "cleIntegrationRetiree": "Public key removed: tokens it signs are now rejected.",
       "integrationActivee": "Integration enabled.",
-      "integrationDesactivee": "Integration disabled: its calls are rejected."
+      "integrationDesactivee": "Integration disabled: its calls are rejected.",
+      "cleIntegrationHorsService": "Public key retired: tokens it signs are now rejected."
     },
     "erreurs": {
       "controles_en_echec": "The request does not comply with the model access policy. Failed checks: {controles}.",
@@ -141,7 +141,7 @@
       "renouvellement_trop_tot": "Renewal can be requested at the earliest one month before the subscription expires.",
       "engagement_requis": "Commit to not submitting data above the declared level.",
       "interdit": "Administrators only.",
-      "introuvable": "{objet, select, modele {Model {modele} is not declared in the gateway.} equipe {Team not found.} demande_adhesion {Access request not found.} demande_cle {Key request not found.} membre {Member not found in this team.} responsable {Manager not found in this team.} offre {Subscription offer not found.} demande_abonnement {Subscription request not found.} abonnement {Subscription not found.} transmission {Transmission not found.} collaborateur {Employee not found.} integration {Integration not found.} cle_integration {Public key not found, or already removed.} route {Unknown API route.} other {Request not found.}}",
+      "introuvable": "{objet, select, modele {Model {modele} is not declared in the gateway.} equipe {Team not found.} demande_adhesion {Access request not found.} demande_cle {Key request not found.} membre {Member not found in this team.} responsable {Manager not found in this team.} offre {Subscription offer not found.} demande_abonnement {Subscription request not found.} abonnement {Subscription not found.} transmission {Transmission not found.} collaborateur {Employee not found.} integration {Integration not found.} cle_integration {Public key not found, or already retired.} route {Unknown API route.} other {Request not found.}}",
       "motif_obligatoire": "A reason is required.",
       "parametre_manquant": "Budget, budget period and validity are required: enter them or configure default values.",
       "recommandation_hors_cas_usage": "A recommendation can only apply to a checked use case.",
@@ -168,7 +168,7 @@
       "integration_invalide": "{champ, select, identifiant {An integration ID has 2 to 40 characters: lowercase letters, digits and single hyphens between them (for example team-manager).} nom {Give the integration a name (100 characters at most).} perimetres {Unknown scope: {valeur}.} adresses {Invalid IP address or CIDR range: {valeur}.} plafond {The rate limit is a whole number of requests per minute, from 1 to 10,000.} other {Invalid input.}}",
       "integration_existante": "The ID {id} is already used by another integration.",
       "cle_publique_invalide": "{raison, select, format {Unreadable public key: paste a PEM public key, from “-----BEGIN PUBLIC KEY-----” to “-----END PUBLIC KEY-----”.} algorithme {The key does not match the chosen algorithm: an Ed25519 key for EdDSA, an RSA key for RS256.} taille {An RSA key must have at least 2,048 bits.} cle_privee {This is a private key: it must never leave the integration. Paste its public key only.} kid {A key ID has 1 to 64 characters: letters, digits, dots, hyphens and underscores.} other {Public key rejected.}}",
-      "kid_existant": "The key ID {kid} is already used in this integration, including by a removed key: choose another one."
+      "kid_existant": "The key ID {kid} is already used in this integration, including by a retired key: choose another one."
     },
     "controles": {
       "membre_equipe": "The requester is a member of the team",
@@ -843,12 +843,12 @@
       },
       "empreinte": "Fingerprint",
       "ajoutee": "Added",
-      "retiree": "Removed",
+      "horsService": "Retired",
       "parLe": "on {date, date, long} by {auteur}",
-      "retirer": "Remove",
-      "retraitAvertissement": "Tokens signed with this key will be rejected. For a rotation without downtime, add the new key first; this key's ID cannot be reused.",
-      "confirmerRetrait": "Remove the key {kid}",
-      "clesRetirees": "Removed keys ({nombre})",
+      "mettreHorsService": "Retire",
+      "avertissementHorsService": "Tokens signed with this key will be rejected. For a rotation without downtime, add the new key first; this key's ID cannot be reused.",
+      "confirmerHorsService": "Retire the key {kid}",
+      "clesHorsService": "Retired keys ({nombre})",
       "ajouterCle": "Add a public key",
       "clePublique": "Public key (PEM)",
       "aideClePublique": "The public key only, from “-----BEGIN PUBLIC KEY-----” to “-----END PUBLIC KEY-----”; never the private key. Then compare the displayed fingerprint with the one given by the integrator.",
@@ -1145,9 +1145,9 @@
         "sujet": "Public key added to the integration {nom}",
         "corps": "{auteur} added a public key to the integration {nom} ({id}); compare its fingerprint with the one given by the integrator:"
       },
-      "cleRetiree": {
-        "sujet": "Public key removed from the integration {nom}",
-        "corps": "{auteur} removed a public key from the integration {nom} ({id}); tokens it signs are now rejected:"
+      "cleHorsService": {
+        "sujet": "Public key retired for the integration {nom}",
+        "corps": "{auteur} retired a public key of the integration {nom} ({id}); tokens it signs are now rejected:"
       },
       "activee": {
         "sujet": "Integration enabled: {nom}",
@@ -1239,7 +1239,7 @@
   },
   "api": {
     "erreurs": {
-      "jeton_invalide": "{reason, select, absent {Missing integration token: every call carries the header Authorization: Bearer followed by the token.} illisible {Unreadable integration token: a signed JWT is expected.} integration_inconnue {Integration token rejected: unknown integration (iss).} cle_inconnue {Integration token rejected: unknown or removed key (kid).} algorithme {Integration token rejected: its algorithm is not the one of the registered key.} signature {Integration token rejected: invalid signature.} destinataire {Integration token rejected: unexpected audience (aud).} expire {Integration token expired.} futur {Integration token not valid yet: check the integration's clock.} duree {Integration token rejected: its validity exceeds five minutes.} revendication {Integration token rejected: claim {claim} missing or invalid.} other {Integration token rejected.}}",
+      "jeton_invalide": "{reason, select, absent {Missing integration token: every call carries the header Authorization: Bearer followed by the token.} illisible {Unreadable integration token: a signed JWT is expected.} integration_inconnue {Integration token rejected: unknown integration (iss).} cle_inconnue {Integration token rejected: unknown or retired key (kid).} algorithme {Integration token rejected: its algorithm is not the one of the registered key.} signature {Integration token rejected: invalid signature.} destinataire {Integration token rejected: unexpected audience (aud).} expire {Integration token expired.} futur {Integration token not valid yet: check the integration's clock.} duree {Integration token rejected: its validity exceeds five minutes.} revendication {Integration token rejected: claim {claim} missing or invalid.} other {Integration token rejected.}}",
       "integration_inactive": "This integration is disabled: its calls are rejected.",
       "adresse_non_autorisee": "The caller's IP address is not allowed for this integration.",
       "trop_de_requetes": "Too many requests for this integration: retry after the delay given by Retry-After.",

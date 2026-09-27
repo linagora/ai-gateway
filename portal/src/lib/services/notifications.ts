@@ -617,7 +617,7 @@ export type ChampIntegration = "nom" | "perimetres" | "adresses" | "plafond";
 export type IntegrationChange =
   | { type: "creee"; perimetres: string[]; adresses: string[]; plafond: number }
   | { type: "modifiee"; modifications: { champ: ChampIntegration; avant: string | number | string[]; apres: string | number | string[] }[] }
-  | { type: "cleAjoutee" | "cleRetiree"; kid: string; algorithme: string; empreinte: string }
+  | { type: "cleAjoutee" | "cleHorsService"; kid: string; algorithme: string; empreinte: string }
   | { type: "activee"; perimetres: string[] }
   | { type: "desactivee" };
 
@@ -626,7 +626,7 @@ const LIBELLES_INTEGRATION: Record<ChampIntegration, Libelle> = { nom: "nom", pe
 
 /**
  * Spécification #71 : chaque changement dans le registre des intégrations (déclaration, modification, clé ajoutée ou
- * retirée, activation, désactivation) est annoncé à tous les admins, avec son auteur, pour qu'aucune intégration ne
+ * mise hors service, activation, désactivation) est annoncé à tous les admins, avec son auteur, pour qu'aucune intégration ne
  * soit ajoutée ou modifiée à leur insu ; le lien mène à l'intégration dans l'onglet « Intégrations ».
  */
 export async function notifyIntegrationChange(
@@ -653,7 +653,7 @@ export async function notifyIntegrationChange(
                 apres: valeur(m.champ, m.apres),
               }),
             )
-          : changement.type === "cleAjoutee" || changement.type === "cleRetiree"
+          : changement.type === "cleAjoutee" || changement.type === "cleHorsService"
             ? lignes(t, [
                 ["kid", changement.kid],
                 ["algorithme", changement.algorithme],

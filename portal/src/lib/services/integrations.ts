@@ -72,7 +72,7 @@ export interface IntegrationView {
   updatedAt: Date;
   /** Clés en service, de la plus ancienne à la plus récente. */
   keys: IntegrationKeyView[];
-  /** Clés retirées : elles ne vérifient plus aucun jeton, et leur `kid` ne resert pas. */
+  /** Clés hors service : elles ne vérifient plus aucun jeton, et leur `kid` ne resert pas. */
   removedKeys: IntegrationKeyView[];
 }
 
@@ -193,18 +193,18 @@ export async function addIntegrationKey(deps: IntegrationDeps, actor: SessionUse
   await notifyIntegrationChange(deps, { type: "cleAjoutee", id, nom: integration.name, auteur: actor, ...details });
 }
 
-/** Retire une clé publique : les jetons qu'elle signe sont refusés ; elle reste inscrite, et son `kid` ne resert pas. */
+/** Met une clé publique hors service : les jetons qu'elle signe sont refusés ; elle reste inscrite, et son `kid` ne resert pas. */
 export async function removeIntegrationKey(deps: IntegrationDeps, actor: SessionUser, id: string, kid: string): Promise<void> {
   requireAdmin(actor);
   const integration = await trouver(deps, id);
-  const introuvable = new PortalError("introuvable", `Clé ${kid} introuvable ou déjà retirée.`, { objet: "cle_integration" });
+  const introuvable = new PortalError("introuvable", `Clé ${kid} introuvable ou déjà hors service.`, { objet: "cle_integration" });
   const cle = await deps.db.integrationKey.findUnique({ where: { integrationId_kid: { integrationId: id, kid } } });
   if (!cle || cle.removedAt) throw introuvable;
   const { count } = await deps.db.integrationKey.updateMany({ where: { id: cle.id, removedAt: null }, data: { removedAt: new Date(), removedBy: actor.uid } });
   if (count !== 1) throw introuvable;
   const details = { kid, algorithme: cle.algorithm, empreinte: empreinte(cle.publicKeyPem) };
   await recordAudit(deps.db, { actorUid: actor.uid, action: "INTEGRATION_KEY_REMOVED", targetId: id, details });
-  await notifyIntegrationChange(deps, { type: "cleRetiree", id, nom: integration.name, auteur: actor, ...details });
+  await notifyIntegrationChange(deps, { type: "cleHorsService", id, nom: integration.name, auteur: actor, ...details });
 }
 
 /** Active ou désactive une intégration ; une intégration ne se supprime jamais. Sans changement, rien n'est inscrit ni envoyé. */
