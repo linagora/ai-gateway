@@ -9,6 +9,8 @@ FROM ${NODE_IMAGE} AS deps
 RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package.json package-lock.json ./
+# Aucune statistique d'installation : le script de @scarf/scarf (dépendance de swagger-ui-dist) ne rapporte rien.
+ENV SCARF_ANALYTICS=false
 RUN npm ci --no-audit --no-fund
 
 FROM deps AS build

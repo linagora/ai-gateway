@@ -5,6 +5,11 @@ LINAGORA dans le portail AI Gateway : demander une clé d'API, rejoindre une éq
 Il décrit le mécanisme, ce qu'il faut fournir, la signature des jetons, les parcours, les erreurs, le développement
 contre l'environnement de dev, puis la mise en service, la rotation des clés et la coupure.
 
+Le contrat se consulte et s'essaie dans le portail, avec Swagger UI, pour tout collaborateur connecté :
+<https://ai-gateway.linagora.com/documentation/api>. Pour essayer une route, cliquez sur « Authorize » et collez un jeton
+signé par votre intégration (section 4) : l'appel part de votre navigateur et passe les mêmes contrôles que ceux de
+l'intégration, adresse IP comprise.
+
 Le contrat de référence est le document OpenAPI 3.1 de l'API, servi par le portail à toute intégration authentifiée qui a
 le périmètre `lecture` :
 `GET https://ai-gateway.linagora.com/api/v1/openapi.json` (en dev : `http://127.0.0.1:54600/api/v1/openapi.json`). Sa

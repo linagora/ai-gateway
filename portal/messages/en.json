@@ -809,6 +809,7 @@
     "integrations": {
       "titre": "Integrations",
       "introduction": "Third-party applications allowed to act on behalf of an employee through the portal API, within what that employee can do on their own requests and keys: never with the rights of an administrator or a team manager. An integration is declared disabled: add its public key, then enable it after acceptance testing. It cannot be deleted: disable it.",
+      "documentation": "API contract, to read and try out",
       "actives": "Active integrations",
       "aucuneActive": "No active integration: the API rejects every call.",
       "desactivees": "Disabled integrations ({nombre})",
@@ -1248,5 +1249,10 @@
       "identite_incoherente": "Inconsistent identity: this uid is unknown to the portal and its email address already belongs to another employee. Check the identifier (sub) sent by the integration: it is the LDAP uid that LemonLDAP::NG gives to the portal.",
       "saisie_invalide": "{reason, select, taille {Request body too large: 16 KiB at most.} json {Unreadable request body: a JSON object is expected.} other {Invalid input: check the fields {champs}.}}"
     }
+  },
+  "documentationApi": {
+    "titre": "Integration API",
+    "introduction": "Contract of the API that lets an integration declared by the administrators (Team Manager, for instance) act on behalf of an employee: their teams, the catalog, their requests and keys. The <guide>integration guide</guide> explains the declaration, the key pair and the token signature.",
+    "essai": "To try a route: “Authorize”, paste a token signed by your integration, then “Try it out”. Calls leave from your browser and go through the checks of any API call: active integration, allowed IP address, rate limit and scope."
   }
 }

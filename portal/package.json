@@ -24,6 +24,7 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "server-only": "0.0.1",
+    "swagger-ui-dist": "5.33.0",
     "write-excel-file": "4.1.1",
     "zod": "4.6.5"
   },
