@@ -1,4 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
+import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
 
 /** Actions inscrites au journal d'audit (F-52) : décisions sur les demandes, actions sur les clés et sur les équipes. */
@@ -7,6 +8,8 @@ export type AuditAction =
   | "RENEWAL_REQUESTED"
   | "REQUEST_APPROVED"
   | "REQUEST_REFUSED"
+  | "REQUEST_COMPLETED"
+  | "REQUEST_CANCELLED"
   | "COMPLETION_REQUESTED"
   | "MEMBERSHIP_APPROVED"
   | "KEY_GENERATED"
@@ -41,10 +44,16 @@ export interface AuditEntry {
   action: AuditAction;
   targetId: string | null;
   details: Record<string, string | number | boolean | null>;
+  /** Canal de l'action, quand elle vient d'une intégration (spécification #71) : inscrit dans les détails. */
+  canal?: string;
 }
 
-export async function recordAudit(db: Db, entry: AuditEntry): Promise<void> {
-  await db.auditLog.create({ data: { ...entry, details: entry.details as Prisma.InputJsonObject } });
+/** Auteur d'une entrée du journal : l'acteur, avec son canal s'il agit par une intégration. */
+export const parActeur = (acteur: SessionUser): Pick<AuditEntry, "actorUid" | "canal"> => ({ actorUid: acteur.uid, canal: acteur.canal });
+
+export async function recordAudit(db: Db, { canal, ...entry }: AuditEntry): Promise<void> {
+  const details = canal ? { ...entry.details, canal } : entry.details;
+  await db.auditLog.create({ data: { ...entry, details: details as Prisma.InputJsonObject } });
 }
 
 /** Entrées du journal, de la plus ancienne à la plus récente. */

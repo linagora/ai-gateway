@@ -5,7 +5,7 @@ import type { LiteLLMClient, LiteLLMTeamSummary } from "@/lib/litellm/client";
 import { PolicyViolationError, PortalError } from "@/lib/errors";
 import type { Prisma, RequestKind } from "@/generated/prisma/client";
 import { type CatalogModel, checkKeyRequest, checkTransition, DATA_LEVELS, type DataLevel, type KeyRequestDraft, type PolicyVerdict, type RequestStatus } from "@/lib/policy";
-import { recordAudit } from "./audit";
+import { parActeur, recordAudit } from "./audit";
 import { markExpired } from "./echeances";
 import { managerEmails } from "./autorite";
 import { type NotificationDeps, notifyNewRequest } from "./notifications";
@@ -58,7 +58,7 @@ export async function createKeyRequest(deps: RequestDeps, user: SessionUser, inp
     data: { kind: "CLE", requesterUid: user.uid, requesterEmail: user.email, requesterName: user.name, ...fields, renewsRequestId: origine?.id ?? null },
   });
   await recordAudit(deps.db, {
-    actorUid: user.uid,
+    ...parActeur(user),
     action: origine ? "RENEWAL_REQUESTED" : "REQUEST_CREATED",
     targetId: created.id,
     details: origine ? { kind: "CLE", teamAlias: created.teamAlias, origine: origine.id } : { kind: "CLE", teamAlias: created.teamAlias },
@@ -82,6 +82,7 @@ export async function completeRequest(deps: RequestDeps, user: SessionUser, id: 
   if (!request || request.requesterUid !== user.uid || request.kind !== "CLE") throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
   const fields = await validateKeyRequest(deps, user, input);
   await transitionRequest(deps.db, request, "SOUMISE", { data: fields });
+  await recordAudit(deps.db, { ...parActeur(user), action: "REQUEST_COMPLETED", targetId: request.id, details: { kind: request.kind, teamAlias: fields.teamAlias } });
 }
 
 /** F-20, F-21, règle 3 : saisie validée, engagement coché, équipe existante, contrôles de politique passés. */
@@ -134,7 +135,7 @@ export async function createTeamJoinRequest(deps: RequestDeps, user: SessionUser
       justification: data.justification,
     },
   });
-  await recordAudit(deps.db, { actorUid: user.uid, action: "REQUEST_CREATED", targetId: created.id, details: { kind: "ADHESION_EQUIPE", teamAlias: team.teamAlias } });
+  await recordAudit(deps.db, { ...parActeur(user), action: "REQUEST_CREATED", targetId: created.id, details: { kind: "ADHESION_EQUIPE", teamAlias: team.teamAlias } });
   await notifyNewRequest(deps, created, await managerEmails(deps.db, created.teamId, [created.requesterUid]));
   return { id: created.id };
 }
@@ -148,6 +149,7 @@ export async function cancelRequest(deps: RequestDeps, user: SessionUser, id: st
   if (!request || request.requesterUid !== user.uid) throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
   if (request.status === "APPROUVEE") throw new PortalError("transition_interdite", "Cette demande a déjà été traitée.", { cas: "traitee" });
   await transitionRequest(deps.db, request, "ANNULEE");
+  await recordAudit(deps.db, { ...parActeur(user), action: "REQUEST_CANCELLED", targetId: request.id, details: { kind: request.kind, teamAlias: request.teamAlias } });
 }
 
 /**
