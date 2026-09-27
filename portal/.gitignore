@@ -26,6 +26,9 @@
 .DS_Store
 *.pem
 
+# clé privée de l'intégration « demo » de dev (dev/integration-demo.mjs)
+/dev/.integration-demo/
+
 # debug
 npm-debug.log*
 yarn-debug.log*

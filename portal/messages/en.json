@@ -141,7 +141,7 @@
       "renouvellement_trop_tot": "Renewal can be requested at the earliest one month before the subscription expires.",
       "engagement_requis": "Commit to not submitting data above the declared level.",
       "interdit": "Administrators only.",
-      "introuvable": "{objet, select, modele {Model {modele} is not declared in the gateway.} equipe {Team not found.} demande_adhesion {Access request not found.} demande_cle {Key request not found.} membre {Member not found in this team.} responsable {Manager not found in this team.} offre {Subscription offer not found.} demande_abonnement {Subscription request not found.} abonnement {Subscription not found.} transmission {Transmission not found.} collaborateur {Employee not found.} integration {Integration not found.} cle_integration {Public key not found, or already removed.} other {Request not found.}}",
+      "introuvable": "{objet, select, modele {Model {modele} is not declared in the gateway.} equipe {Team not found.} demande_adhesion {Access request not found.} demande_cle {Key request not found.} membre {Member not found in this team.} responsable {Manager not found in this team.} offre {Subscription offer not found.} demande_abonnement {Subscription request not found.} abonnement {Subscription not found.} transmission {Transmission not found.} collaborateur {Employee not found.} integration {Integration not found.} cle_integration {Public key not found, or already removed.} route {Unknown API route.} other {Request not found.}}",
       "motif_obligatoire": "A reason is required.",
       "parametre_manquant": "Budget, budget period and validity are required: enter them or configure default values.",
       "recommandation_hors_cas_usage": "A recommendation can only apply to a checked use case.",
@@ -1235,6 +1235,16 @@
       "montant": "Actual monthly amount (€ incl. VAT)",
       "aide": "Price increase, exchange rate: the correction applies from the next charge.",
       "enregistrer": "Save the amount"
+    }
+  },
+  "api": {
+    "erreurs": {
+      "jeton_invalide": "{reason, select, absent {Missing integration token: every call carries the header Authorization: Bearer followed by the token.} illisible {Unreadable integration token: a signed JWT is expected.} integration_inconnue {Integration token rejected: unknown integration (iss).} cle_inconnue {Integration token rejected: unknown or removed key (kid).} algorithme {Integration token rejected: its algorithm is not the one of the registered key.} signature {Integration token rejected: invalid signature.} destinataire {Integration token rejected: unexpected audience (aud).} expire {Integration token expired.} futur {Integration token not valid yet: check the integration's clock.} duree {Integration token rejected: its validity exceeds five minutes.} revendication {Integration token rejected: claim {claim} missing or invalid.} other {Integration token rejected.}}",
+      "integration_inactive": "This integration is disabled: its calls are rejected.",
+      "adresse_non_autorisee": "The caller's IP address is not allowed for this integration.",
+      "trop_de_requetes": "Too many requests for this integration: retry after the delay given by Retry-After.",
+      "hors_perimetre": "This route is outside the integration's scope ({scope}).",
+      "erreur_interne": "An error occurred: try again later."
     }
   }
 }

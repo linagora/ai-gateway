@@ -141,7 +141,7 @@
       "renouvellement_trop_tot": "Le renouvellement se demande au plus tôt un mois avant l'échéance de l'abonnement.",
       "engagement_requis": "Engagez-vous à ne pas soumettre de données d'un niveau supérieur à celui déclaré.",
       "interdit": "Action réservée aux administrateurs.",
-      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} membre {Membre introuvable dans cette équipe.} responsable {Responsable introuvable dans cette équipe.} offre {Offre d'abonnement introuvable.} demande_abonnement {Demande d'abonnement introuvable.} abonnement {Abonnement introuvable.} transmission {Transmission introuvable.} collaborateur {Collaborateur introuvable.} integration {Intégration introuvable.} cle_integration {Clé publique introuvable, ou déjà retirée.} other {Demande introuvable.}}",
+      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} membre {Membre introuvable dans cette équipe.} responsable {Responsable introuvable dans cette équipe.} offre {Offre d'abonnement introuvable.} demande_abonnement {Demande d'abonnement introuvable.} abonnement {Abonnement introuvable.} transmission {Transmission introuvable.} collaborateur {Collaborateur introuvable.} integration {Intégration introuvable.} cle_integration {Clé publique introuvable, ou déjà retirée.} route {Route inconnue de l'API.} other {Demande introuvable.}}",
       "motif_obligatoire": "Un motif est obligatoire.",
       "parametre_manquant": "Budget, période du budget et durée de validité sont obligatoires : saisissez-les ou configurez des valeurs par défaut.",
       "recommandation_hors_cas_usage": "Une recommandation ne peut porter que sur un cas d'usage coché.",
@@ -1235,6 +1235,16 @@
       "montant": "Montant mensuel réel (€ TTC)",
       "aide": "Hausse de prix, change : la correction vaut à partir du prochain prélèvement.",
       "enregistrer": "Enregistrer le montant"
+    }
+  },
+  "api": {
+    "erreurs": {
+      "jeton_invalide": "{reason, select, absent {Jeton d'intégration absent : chaque appel porte l'en-tête Authorization: Bearer suivi du jeton.} illisible {Jeton d'intégration illisible : un JWT signé est attendu.} integration_inconnue {Jeton d'intégration refusé : intégration inconnue (iss).} cle_inconnue {Jeton d'intégration refusé : clé inconnue ou retirée (kid).} algorithme {Jeton d'intégration refusé : son algorithme n'est pas celui de la clé enregistrée.} signature {Jeton d'intégration refusé : signature invalide.} destinataire {Jeton d'intégration refusé : destinataire (aud) inattendu.} expire {Jeton d'intégration expiré.} futur {Jeton d'intégration pas encore valide : vérifiez l'horloge de l'intégration.} duree {Jeton d'intégration refusé : sa durée de validité dépasse cinq minutes.} revendication {Jeton d'intégration refusé : revendication {claim} absente ou invalide.} other {Jeton d'intégration refusé.}}",
+      "integration_inactive": "Cette intégration est désactivée : ses appels sont refusés.",
+      "adresse_non_autorisee": "L'adresse IP de l'appelant n'est pas autorisée pour cette intégration.",
+      "trop_de_requetes": "Trop de requêtes pour cette intégration : réessayez après le délai indiqué par Retry-After.",
+      "hors_perimetre": "Cette route ne fait pas partie du périmètre de l'intégration ({scope}).",
+      "erreur_interne": "Une erreur est survenue : réessayez plus tard."
     }
   }
 }

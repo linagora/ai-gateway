@@ -76,6 +76,32 @@ export interface IntegrationView {
   removedKeys: IntegrationKeyView[];
 }
 
+/**
+ * Intégration telle que la contrôle chaque appel de l'API : état, périmètres, adresses, plafond et clés en service. Lue
+ * sans contrôle d'admin (c'est le portail qui la lit), à chaque appel : une désactivation prend effet aussitôt.
+ */
+export interface IntegrationAppelante {
+  id: string;
+  active: boolean;
+  scopes: Perimetre[];
+  ipRanges: string[];
+  rateLimitPerMinute: number;
+  keys: { kid: string; algorithm: Algorithme; publicKeyPem: string }[];
+}
+
+export async function lireIntegrationAppelante(db: Db, id: string): Promise<IntegrationAppelante | null> {
+  const i = await db.integration.findUnique({ where: { id }, include: { keys: { where: { removedAt: null } } } });
+  if (!i) return null;
+  return {
+    id: i.id,
+    active: i.active,
+    scopes: i.scopes.map(perimetre),
+    ipRanges: i.ipRanges,
+    rateLimitPerMinute: i.rateLimitPerMinute,
+    keys: i.keys.map((k) => ({ kid: k.kid, algorithm: k.algorithm as Algorithme, publicKeyPem: k.publicKeyPem })),
+  };
+}
+
 /** Intégrations, les actives d'abord, puis par nom. */
 export async function listIntegrations(deps: IntegrationDeps, actor: SessionUser): Promise<IntegrationView[]> {
   requireAdmin(actor);

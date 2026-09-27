@@ -157,6 +157,8 @@ services:
       SMTP_FROM: ${SMTP_FROM}
       ADMIN_NOTIFICATION_EMAILS: ${ADMIN_NOTIFICATION_EMAILS}
       PORTAL_TASK_TOKEN: ${PORTAL_TASK_TOKEN:-}
+      # Destinataire (aud) exigé des jetons d'intégration de l'API /api/v1.
+      INTEGRATION_TOKEN_AUDIENCE: ${INTEGRATION_TOKEN_AUDIENCE:-ai-gateway}
     depends_on:
       postgres:
         condition: service_healthy
