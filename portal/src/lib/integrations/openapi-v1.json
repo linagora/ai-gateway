@@ -3,7 +3,7 @@
   "info": {
     "title": "AI Gateway integration API",
     "version": "1.0.0",
-    "description": "The AI Gateway portal lets LINAGORA collaborators request API keys for the gateway's models. This API lets an **integration** (a third-party application declared by a portal admin, such as Team Manager) act **for one collaborator at a time**, on that collaborator's own requests and keys only. It never grants the rights of an admin or of a team manager: requests are still examined and approved in the portal, by the same people, with the same rules, emails and audit trail.\n\n## Integration token\n\nEvery call carries `Authorization: Bearer <token>`, a JWT **signed by the integration** with the private key matching a public key registered for it in the portal:\n\n- header: `alg` is the algorithm of the registered key (`EdDSA` with an Ed25519 key, or `RS256`), `kid` the identifier of that key;\n- `iss`: the integration identifier, as registered in the portal;\n- `aud`: `ai-gateway`;\n- `sub`: the collaborator's LDAP uid, **exactly** the `sub` that LemonLDAP::NG gives to the portal;\n- `email` and `name`: the collaborator's address and display name;\n- `iat` and `exp`: `exp` at most 300 seconds after `iat`; a 30-second clock tolerance applies.\n\nAny other token is refused with `401 jeton_invalide`. Sign a fresh token for each call, or reuse one within its short validity.\n\n## Checks, in order\n\n1. The integration is known and active, otherwise `503 integration_inactive`.\n2. The caller's IP address belongs to the integration's addresses or CIDR ranges, otherwise `403 adresse_non_autorisee`.\n3. The integration's request limit (set by the admin, 120 requests per minute by default) is not exceeded, otherwise `429 trop_de_requetes`.\n4. The route belongs to the integration's **scopes** (`lecture`, `demandes`, `cles`, see `x-scope`), otherwise `403 hors_perimetre`.\n5. On a collaborator's first access, the portal registers them with the gateway. An unknown uid whose email already belongs to another uid is refused with `409 identite_incoherente`.\n\n## Errors, languages, caching\n\nErrors share one shape: a stable `code`, a `message` translated according to `Accept-Language` (`fr` by default, `en`), and `details`. An unknown route answers `404 introuvable`; an unexpected failure answers `500 erreur_interne`. Labels (levels, statuses) follow the same language. Every response carries `Cache-Control: no-store`. A key value is returned only once, by a pickup or a replacement: never log or store responses that contain one. Request bodies are limited to 16 KiB.\n\n## Limits\n\nBesides the integration's request limit, a collaborator may pick up or replace at most 5 keys per 10 minutes (`429 trop_de_generations`). A `429` response carries `Retry-After`.\n\n## Audit and versioning\n\nEvery action made through this API is recorded in the portal's audit log with the integration as its channel. Routes marked `x-status: planned` belong to the second delivery (scope `cles`) and are not available yet. An incompatible change will be published under `/api/v2`."
+    "description": "The AI Gateway portal lets LINAGORA employees request API keys for the gateway's models. This API lets an **integration** (a third-party application declared by a portal admin, such as Team Manager) act **for one employee at a time**, on that employee's own requests and keys only. It never grants the rights of an admin or of a team manager: requests are still examined and approved in the portal, by the same people, with the same rules, emails and audit trail.\n\n## Integration token\n\nEvery call carries `Authorization: Bearer <token>`, a JWT **signed by the integration** with the private key matching a public key registered for it in the portal:\n\n- header: `alg` is the algorithm of the registered key (`EdDSA` with an Ed25519 key, or `RS256`), `kid` the identifier of that key;\n- `iss`: the integration identifier, as registered in the portal;\n- `aud`: `ai-gateway`;\n- `sub`: the employee's LDAP uid, **exactly** the `sub` that LemonLDAP::NG gives to the portal;\n- `email` and `name`: the employee's address and display name;\n- `iat` and `exp`: `exp` at most 300 seconds after `iat`; a 30-second clock tolerance applies.\n\nAny other token is refused with `401 jeton_invalide`. Sign a fresh token for each call, or reuse one within its short validity.\n\n## Checks, in order\n\n1. The integration is known and active, otherwise `503 integration_inactive`.\n2. The caller's IP address belongs to the integration's addresses or CIDR ranges, otherwise `403 adresse_non_autorisee`.\n3. The integration's request limit (set by the admin, 120 requests per minute by default) is not exceeded, otherwise `429 trop_de_requetes`.\n4. The route belongs to the integration's **scopes** (`lecture`, `demandes`, `cles`, see `x-scope`), otherwise `403 hors_perimetre`.\n5. On an employee's first access, the portal registers them with the gateway. An unknown uid whose email already belongs to another uid is refused with `409 identite_incoherente`.\n\n## Errors, languages, caching\n\nErrors share one shape: a stable `code`, a `message` translated according to `Accept-Language` (`fr` by default, `en`), and `details`. An unknown route answers `404 introuvable`; an unexpected failure answers `500 erreur_interne`. Labels (levels, statuses) follow the same language. Every response carries `Cache-Control: no-store`. A key value is returned only once, by a pickup or a replacement: never log or store responses that contain one. Request bodies are limited to 16 KiB.\n\n## Limits\n\nBesides the integration's request limit, an employee may pick up or replace at most 5 keys per 10 minutes (`429 trop_de_generations`). A `429` response carries `Retry-After`.\n\n## Audit and versioning\n\nEvery action made through this API is recorded in the portal's audit log with the integration as its channel. Routes marked `x-status: planned` belong to the second delivery (scope `cles`) and are not available yet. An incompatible change will be published under `/api/v2`."
   },
   "servers": [
     {
@@ -11,8 +11,8 @@
       "description": "Production"
     },
     {
-      "url": "http://localhost:3100/api/v1",
-      "description": "Portal development environment"
+      "url": "http://127.0.0.1:54600/api/v1",
+      "description": "Portal development environment, through its Caddy (see docs/INTEGRATIONS.md)"
     }
   ],
   "security": [
@@ -27,7 +27,7 @@
     },
     {
       "name": "Teams",
-      "description": "The collaborator's teams and the teams they may ask to join."
+      "description": "The employee's teams and the teams they may ask to join."
     },
     {
       "name": "Catalog",
@@ -39,7 +39,7 @@
     },
     {
       "name": "Keys",
-      "description": "The collaborator's keys: follow-up, then pickup, replacement and revocation (second delivery)."
+      "description": "The employee's keys: follow-up, then pickup, replacement and revocation (second delivery)."
     }
   ],
   "paths": {
@@ -51,7 +51,7 @@
         "summary": "This contract",
         "operationId": "getContract",
         "description": "The OpenAPI document of the deployed version, for any authenticated integration.",
-        "x-scope": null,
+        "x-scope": "lecture",
         "x-delivery": 1,
         "x-status": "available",
         "parameters": [
@@ -81,8 +81,14 @@
           "403": {
             "$ref": "#/components/responses/Forbidden"
           },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
           "429": {
             "$ref": "#/components/responses/TooManyRequests"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
           },
           "503": {
             "$ref": "#/components/responses/ServiceUnavailable"
@@ -95,8 +101,8 @@
         "tags": [
           "Teams"
         ],
-        "summary": "The collaborator's teams",
-        "description": "Teams the collaborator belongs to, for which they may request a key.",
+        "summary": "The employee's teams",
+        "description": "Teams the employee belongs to, for which they may request a key.",
         "x-scope": "lecture",
         "x-delivery": 1,
         "x-status": "available",
@@ -107,7 +113,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The collaborator's teams.",
+            "description": "The employee's teams.",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/CacheControl"
@@ -127,6 +133,9 @@
           "403": {
             "$ref": "#/components/responses/Forbidden"
           },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
           "429": {
             "$ref": "#/components/responses/TooManyRequests"
           },
@@ -145,8 +154,8 @@
         "tags": [
           "Teams"
         ],
-        "summary": "Teams the collaborator may ask to join",
-        "description": "Teams the collaborator is not a member of and has no pending access request for.",
+        "summary": "Teams the employee may ask to join",
+        "description": "Teams the employee is not a member of and has no pending access request for.",
         "x-scope": "lecture",
         "x-delivery": 1,
         "x-status": "available",
@@ -177,6 +186,9 @@
           "403": {
             "$ref": "#/components/responses/Forbidden"
           },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
           "429": {
             "$ref": "#/components/responses/TooManyRequests"
           },
@@ -196,7 +208,7 @@
           "Catalog"
         ],
         "summary": "Visible catalog",
-        "description": "Confidentiality levels with their accepted classifications and the models that accept each level, the exact commitment text the collaborator must accept before a key request, and the visible models.",
+        "description": "Confidentiality levels with their accepted classifications and the models that accept each level, the exact commitment text the employee must accept before a key request, and the visible models.",
         "x-scope": "lecture",
         "x-delivery": 1,
         "x-status": "available",
@@ -227,6 +239,9 @@
           "403": {
             "$ref": "#/components/responses/Forbidden"
           },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
           "429": {
             "$ref": "#/components/responses/TooManyRequests"
           },
@@ -245,8 +260,8 @@
         "tags": [
           "Requests"
         ],
-        "summary": "The collaborator's requests",
-        "description": "Key requests and team access requests of the collaborator, most recent first, with their status and the examiner's comment.",
+        "summary": "The employee's requests",
+        "description": "Key requests and team access requests of the employee, most recent first, with their status and the examiner's comment.",
         "x-scope": "lecture",
         "x-delivery": 1,
         "x-status": "available",
@@ -257,7 +272,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The collaborator's requests.",
+            "description": "The employee's requests.",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/CacheControl"
@@ -277,8 +292,14 @@
           "403": {
             "$ref": "#/components/responses/Forbidden"
           },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
           "429": {
             "$ref": "#/components/responses/TooManyRequests"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
           },
           "503": {
             "$ref": "#/components/responses/ServiceUnavailable"
@@ -292,7 +313,7 @@
         "tags": [
           "Keys"
         ],
-        "summary": "The collaborator's keys",
+        "summary": "The employee's keys",
         "description": "Approved keys waiting to be picked up, then issued keys (active first), with their spend and budget read live from the gateway. Never the key value.",
         "x-scope": "lecture",
         "x-delivery": 1,
@@ -304,7 +325,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The collaborator's keys.",
+            "description": "The employee's keys.",
             "headers": {
               "Cache-Control": {
                 "$ref": "#/components/headers/CacheControl"
@@ -324,8 +345,14 @@
           "403": {
             "$ref": "#/components/responses/Forbidden"
           },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
           "429": {
             "$ref": "#/components/responses/TooManyRequests"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
           },
           "503": {
             "$ref": "#/components/responses/ServiceUnavailable"
@@ -409,7 +436,7 @@
           "Requests"
         ],
         "summary": "Request a key",
-        "description": "Creates a key request, examined in the portal. The same checks as in the portal apply (team membership, models of the team, level accepted by every model, visible models); the commitment must be accepted. With `renewsRequestId`, the request renews a key of the collaborator.",
+        "description": "Creates a key request, examined in the portal. The same checks as in the portal apply (team membership, models of the team, level accepted by every model, visible models); the commitment must be accepted. With `renewsRequestId`, the request renews a key of the employee.",
         "x-scope": "demandes",
         "x-delivery": 1,
         "x-status": "available",
@@ -478,7 +505,7 @@
           "Requests"
         ],
         "summary": "Complete a key request",
-        "description": "Completes a key request that the examiner sent back to the collaborator (status `NEEDS_COMPLETION`); it goes back to examination.",
+        "description": "Completes a key request that the examiner sent back to the employee (status `NEEDS_COMPLETION`); it goes back to examination.",
         "x-scope": "demandes",
         "x-delivery": 1,
         "x-status": "available",
@@ -579,6 +606,9 @@
           "429": {
             "$ref": "#/components/responses/TooManyRequests"
           },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
           "503": {
             "$ref": "#/components/responses/ServiceUnavailable"
           }
@@ -592,7 +622,7 @@
           "Keys"
         ],
         "summary": "Pick up an approved key",
-        "description": "**Planned for the second delivery** (not available yet). Generates the key of an approved request and returns its value **once**. If the response is lost, replace the key. At most 5 pickups or replacements per collaborator per 10 minutes. The collaborator receives an email naming the integration.",
+        "description": "**Planned for the second delivery** (not available yet). Generates the key of an approved request and returns its value **once**. If the response is lost, replace the key. At most 5 pickups or replacements per employee per 10 minutes. The employee receives an email naming the integration.",
         "x-scope": "cles",
         "x-delivery": 2,
         "x-status": "planned",
@@ -651,7 +681,7 @@
           "Keys"
         ],
         "summary": "Replace a key",
-        "description": "**Planned for the second delivery** (not available yet). Issues a new key with the same parameters, expiry and spend, returned **once**; the old key is deleted. Refused for an expired or blocked key. The collaborator receives an email naming the integration.",
+        "description": "**Planned for the second delivery** (not available yet). Issues a new key with the same parameters, expiry and spend, returned **once**; the old key is deleted. Refused for an expired or blocked key. The employee receives an email naming the integration.",
         "x-scope": "cles",
         "x-delivery": 2,
         "x-status": "planned",
@@ -710,7 +740,7 @@
           "Keys"
         ],
         "summary": "Revoke a key",
-        "description": "**Planned for the second delivery** (not available yet). Revokes one of the collaborator's own keys; the gateway refuses it within seconds. The collaborator receives an email naming the integration.",
+        "description": "**Planned for the second delivery** (not available yet). Revokes one of the employee's own keys; the gateway refuses it within seconds. The employee receives an email naming the integration.",
         "x-scope": "cles",
         "x-delivery": 2,
         "x-status": "planned",
@@ -762,7 +792,7 @@
           "Keys"
         ],
         "summary": "Renewal draft of a key",
-        "description": "**Planned for the second delivery** (not available yet). The parameters of a key of the collaborator, to prefill its renewal request (`POST /key-requests` with `renewsRequestId`).",
+        "description": "**Planned for the second delivery** (not available yet). The parameters of a key of the employee, to prefill its renewal request (`POST /key-requests` with `renewsRequestId`).",
         "x-scope": "cles",
         "x-delivery": 2,
         "x-status": "planned",
@@ -799,8 +829,14 @@
           "404": {
             "$ref": "#/components/responses/NotFound"
           },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
           "429": {
             "$ref": "#/components/responses/TooManyRequests"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
           },
           "503": {
             "$ref": "#/components/responses/ServiceUnavailable"
@@ -882,7 +918,7 @@
         }
       },
       "Forbidden": {
-        "description": "Route outside the integration's scopes (`hors_perimetre`), caller address not allowed (`adresse_non_autorisee`), collaborator not a member of the team (`non_membre`) or action refused (`interdit`).",
+        "description": "Route outside the integration's scopes (`hors_perimetre`), caller address not allowed (`adresse_non_autorisee`), employee not a member of the team (`non_membre`) or action refused (`interdit`).",
         "content": {
           "application/json": {
             "schema": {
@@ -892,7 +928,7 @@
         }
       },
       "NotFound": {
-        "description": "Unknown resource, or one that belongs to another collaborator (`introuvable`, with `details.objet`).",
+        "description": "Unknown resource, or one that belongs to another employee (`introuvable`, with `details.objet`).",
         "content": {
           "application/json": {
             "schema": {
@@ -912,7 +948,7 @@
         }
       },
       "TooManyRequests": {
-        "description": "Integration request limit (`trop_de_requetes`) or collaborator key generation limit (`trop_de_generations`) exceeded.",
+        "description": "Integration request limit (`trop_de_requetes`) or employee key generation limit (`trop_de_generations`) exceeded.",
         "headers": {
           "Retry-After": {
             "$ref": "#/components/headers/RetryAfter"
@@ -1608,7 +1644,7 @@
           "commitment": {
             "type": "boolean",
             "const": true,
-            "description": "The collaborator accepted the commitment text of `GET /catalog`."
+            "description": "The employee accepted the commitment text of `GET /catalog`."
           }
         }
       },
@@ -1667,13 +1703,13 @@
           "commitment": {
             "type": "boolean",
             "const": true,
-            "description": "The collaborator accepted the commitment text of `GET /catalog`."
+            "description": "The employee accepted the commitment text of `GET /catalog`."
           },
           "renewsRequestId": {
             "anyOf": [
               {
                 "type": "string",
-                "description": "Renewal: the request of the collaborator's key to renew (issued, expired or revoked)."
+                "description": "Renewal: the request of the employee's key to renew (issued, expired or revoked)."
               },
               {
                 "type": "null"

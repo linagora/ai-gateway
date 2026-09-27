@@ -63,7 +63,11 @@ test("un jeton refusé reçoit 401 jeton_invalide avec son motif, en français p
   }
   expect((await erreur(await appeler(request, "/me/teams", { jeton: expire }))).message).toBe("Jeton d'intégration expiré.");
   expect((await erreur(await appeler(request, "/me/teams", { jeton: expire, langue: "en" }))).message).toBe("Integration token expired.");
+  // Une route inconnue exige elle aussi le jeton ; une méthode non prévue n'est pas mise en cache non plus.
+  expect(await erreur(await appeler(request, "/inconnue"))).toMatchObject({ statut: 401, code: "jeton_invalide" });
   expect(await erreur(await appeler(request, "/inconnue", { jeton: jetonDemo(collaborateur) }))).toMatchObject({ statut: 404, code: "introuvable", details: { objet: "route" } });
+  const methode = await appeler(request, "/me/teams", { jeton: jetonDemo(collaborateur), methode: "DELETE" });
+  expect([methode.status(), methode.headers()["cache-control"]]).toEqual([405, "no-store"]);
 });
 
 test("un uid inconnu dont l'adresse appartient déjà à un autre collaborateur est refusé (409), sans être provisionné", async ({ request }) => {

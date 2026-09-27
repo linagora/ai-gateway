@@ -130,9 +130,15 @@ async function lireJson(requete: Request): Promise<unknown> {
   }
 }
 
-/** Route inconnue de l'API : 404, sans contrôle du jeton. */
-export function routeInconnue(requete: Request): Response {
-  return reponseErreur(new RefusApi(404, "introuvable", { objet: "route" }), langueDemandee(undefined, requete.headers.get("accept-language")));
+/** Route inconnue de l'API : après les contrôles de toute route (jeton, intégration, adresse, plafond), 404. */
+export async function routeInconnue(requete: Request): Promise<Response> {
+  const langue = langueDemandee(undefined, requete.headers.get("accept-language"));
+  try {
+    await controler(requete, null, getDeps(), new Date());
+    throw new RefusApi(404, "introuvable", { objet: "route" });
+  } catch (e) {
+    return reponseErreur(versRefus(e), langue);
+  }
 }
 
 /** Jeton, puis intégration active, adresse de l'appelant, plafond et périmètre : le collaborateur qui agit, ou le refus. */

@@ -21,7 +21,7 @@ describe("contrat OpenAPI de l'API d'intégration", () => {
 
   test("chaque route déclare son périmètre et sa livraison ; celles de la seconde livraison sont marquées à venir", () => {
     expect(operations.map((o) => [o.route, o["x-scope"], o["x-delivery"], o["x-status"]])).toEqual([
-      ["GET /openapi.json", null, 1, "available"],
+      ["GET /openapi.json", "lecture", 1, "available"],
       ["GET /me/teams", "lecture", 1, "available"],
       ["GET /teams/joinable", "lecture", 1, "available"],
       ["GET /catalog", "lecture", 1, "available"],
@@ -38,10 +38,10 @@ describe("contrat OpenAPI de l'API d'intégration", () => {
     ]);
   });
 
-  test("toute route exige le jeton d'intégration et prévoit les refus communs : jeton, périmètre ou adresse, plafond, intégration inactive", () => {
+  test("toute route exige le jeton d'intégration et prévoit les refus communs : jeton, périmètre ou adresse, identité, plafond, passerelle, intégration inactive", () => {
     expect(contrat.security).toEqual([{ integrationToken: [] }]);
     expect(contrat.components.securitySchemes.integrationToken).toMatchObject({ type: "http", scheme: "bearer", bearerFormat: "JWT" });
-    for (const o of operations) expect(Object.keys(o.responses), o.route).toEqual(expect.arrayContaining(["401", "403", "429", "503"]));
+    for (const o of operations) expect(Object.keys(o.responses), o.route).toEqual(expect.arrayContaining(["401", "403", "409", "429", "502", "503"]));
     for (const champ of ["`kid`", "`iss`", "`aud`", "`sub`", "`email`", "`name`", "`iat`", "`exp`", "300 seconds", "EdDSA", "RS256"]) {
       expect(contrat.components.securitySchemes.integrationToken.description).toContain(champ);
     }

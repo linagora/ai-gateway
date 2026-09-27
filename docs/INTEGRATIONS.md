@@ -5,7 +5,8 @@ LINAGORA dans le portail AI Gateway : demander une clé d'API, rejoindre une éq
 Il décrit le mécanisme, ce qu'il faut fournir, la signature des jetons, les parcours, les erreurs, le développement
 contre l'environnement de dev, puis la mise en service, la rotation des clés et la coupure.
 
-Le contrat de référence est le document OpenAPI 3.1 de l'API, servi par le portail à toute intégration authentifiée :
+Le contrat de référence est le document OpenAPI 3.1 de l'API, servi par le portail à toute intégration authentifiée qui a
+le périmètre `lecture` :
 `GET https://ai-gateway.linagora.com/api/v1/openapi.json` (en dev : `http://127.0.0.1:54600/api/v1/openapi.json`). Sa
 source est dans le dépôt : [`portal/src/lib/integrations/openapi-v1.json`](../portal/src/lib/integrations/openapi-v1.json).
 
@@ -21,7 +22,7 @@ source est dans le dépôt : [`portal/src/lib/integrations/openapi-v1.json`](../
   privée. Le portail le vérifie avec la clé publique que l'admin a enregistrée : aucun secret n'est partagé, et le
   portail ne peut pas fabriquer de jeton.
 - **Périmètres** : ce que l'admin autorise l'intégration à faire.
-  - `lecture` : équipes, catalogue, demandes et clés du collaborateur ;
+  - `lecture` : équipes, catalogue, demandes et clés du collaborateur, et le contrat de l'API ;
   - `demandes` : demander une clé ou l'accès à une équipe, compléter et annuler une demande ;
   - `cles` : retirer, remplacer et révoquer une clé, préparer son renouvellement (seconde livraison, routes marquées
     `x-status: planned` dans le contrat).

@@ -38,7 +38,7 @@ export function jetonDemo({ uid, email, name }: Personne, maintenant = new Date(
 export function appeler(
   request: APIRequestContext,
   chemin: string,
-  options: { jeton?: string; langue?: string; entetes?: Record<string, string>; methode?: "GET" | "POST" | "PUT"; corps?: unknown } = {},
+  options: { jeton?: string; langue?: string; entetes?: Record<string, string>; methode?: "GET" | "POST" | "PUT" | "DELETE"; corps?: unknown } = {},
 ): Promise<APIResponse> {
   return request.fetch(`${API}${chemin}`, {
     method: options.methode ?? "GET",
