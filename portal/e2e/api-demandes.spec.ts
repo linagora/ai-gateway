@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { appeler, basculerIntegration, declarerIntegration, erreur, installerDemo, jetonDemo } from "./api";
-import { ADMIN, ajouterAEquipe, connecter, courriels, enrichirModele, type Personne } from "./outils";
+import { ADMIN, ajouterAEquipe, connecter, courriels, demandeApprouvee, enrichirModele, type Personne, retirerCle } from "./outils";
 
 /*
  * Demandes par l'API d'intégration (spécification #71, ticket #78) : les mêmes services que les pages du portail font
@@ -77,6 +77,28 @@ test("une demande de clé par l'API : refusée sans engagement ou hors politique
     statut: 404,
     code: "introuvable",
   });
+});
+
+test("un renouvellement par l'API désigne la clé renouvelée, dont il reprend le budget ; on ne renouvelle que ses propres clés", async ({ browser, request }) => {
+  const collaborateur = personne("renouvellement");
+  const page = await (await connecter(browser, collaborateur)).newPage();
+  await demandeApprouvee(browser, page, collaborateur, "Renouvellement par l'API");
+  await retirerCle(page);
+  const [{ requestId: origine, teamId }] = (await (await appeler(request, "/keys", { jeton: jetonDemo(collaborateur) })).json()).keys;
+  const renouvellement = { teamId, dataLevel: "N1", models: ["dev-public"], justification: "Renouvellement", requestedDays: 30, commitment: true, renewsRequestId: origine };
+  const creee = await appeler(request, "/key-requests", { jeton: jetonDemo(collaborateur), methode: "POST", corps: renouvellement });
+  expect(creee.status()).toBe(201);
+  const { id } = (await creee.json()) as { id: string };
+  expect((await (await appeler(request, "/requests", { jeton: jetonDemo(collaborateur) })).json()).requests[0]).toMatchObject({ id, renewsRequestId: origine, status: "SUBMITTED" });
+  // La fiche de validation du portail présente le renouvellement avec le budget de la clé d'origine (5 €).
+  const admin = await (await connecter(browser, ADMIN)).newPage();
+  await admin.goto(`/gestion/demandes/${id}`);
+  await expect(admin.getByLabel("Budget (€)")).toHaveValue("5");
+  // Un autre collaborateur, membre de la même équipe, ne renouvelle pas cette clé.
+  const autre = personne("renouvellement-autre");
+  expect((await appeler(request, "/me/teams", { jeton: jetonDemo(autre) })).status()).toBe(200);
+  await ajouterAEquipe(autre.uid, "R&D");
+  expect(await erreur(await appeler(request, "/key-requests", { jeton: jetonDemo(autre), methode: "POST", corps: renouvellement }))).toMatchObject({ statut: 404, code: "introuvable" });
 });
 
 test("une demande d'accès à une équipe par l'API part en validation, s'annule une fois, et ne se redépose pas en double", async ({ request }) => {
