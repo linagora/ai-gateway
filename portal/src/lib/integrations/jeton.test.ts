@@ -38,8 +38,8 @@ function jeton(charge: object = revendications, { alg = "EdDSA", kid = "tm-1", c
 }
 
 const verifier = (autorisation: string | null, options: { a?: Date } = {}) => verifierJeton(autorisation, { emetteur, audience: "ai-gateway", maintenant: options.a ?? maintenant });
-const refus = async (autorisation: string | null, motif: string, revendication?: string) =>
-  expect(await verifier(autorisation)).toEqual({ ok: false, motif, ...(revendication ? { revendication } : {}) });
+const refus = async (autorisation: string | null, raison: string, revendication?: string) =>
+  expect(await verifier(autorisation)).toEqual({ ok: false, raison, ...(revendication ? { revendication } : {}) });
 
 describe("jeton d'intégration", () => {
   test("un jeton valide rend le collaborateur, jamais admin, avec le canal de l'intégration", async () => {

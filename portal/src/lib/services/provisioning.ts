@@ -20,7 +20,7 @@ export async function provisionUser(deps: { litellm: LiteLLMClient }, user: Sess
 export async function provisionIntegrationUser(deps: { db: Db; litellm: LiteLLMClient }, acteur: SessionUser): Promise<void> {
   if (await deps.litellm.getUser(acteur.uid)) return;
   if (!(await connuDuPortail(deps.db, acteur.uid))) {
-    const autres = await autresTitulaires(deps, acteur);
+    const autres = await autresUidDeLAdresse(deps, acteur);
     if (autres.length > 0) throw await refusDIdentite(deps.db, acteur, autres);
   }
   try {
@@ -54,7 +54,7 @@ async function connuDuPortail(db: Db, uid: string): Promise<boolean> {
 }
 
 /** Autres uid à qui appartient l'adresse, sans tenir compte de sa casse : dans le portail, et parmi les utilisateurs de la passerelle. */
-async function autresTitulaires(deps: { db: Db; litellm: LiteLLMClient }, { uid, email }: SessionUser): Promise<string[]> {
+async function autresUidDeLAdresse(deps: { db: Db; litellm: LiteLLMClient }, { uid, email }: SessionUser): Promise<string[]> {
   const memeAdresse = { equals: email, mode: "insensitive" as const };
   const [demandes, abonnements, responsables, passerelle] = await Promise.all([
     deps.db.accessRequest.findMany({ where: { requesterEmail: memeAdresse, requesterUid: { not: uid } }, distinct: ["requesterUid"], select: { requesterUid: true } }),

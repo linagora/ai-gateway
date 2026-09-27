@@ -11,10 +11,10 @@ import type { Traducteur } from "./api";
  */
 
 /** Types de demande de l'API : les demandes d'abonnement n'y figurent pas. */
-const TYPES: Partial<Record<RequestKind, string>> = { CLE: "KEY", ADHESION_EQUIPE: "TEAM_ACCESS" };
+const TYPES_DU_CONTRAT: Partial<Record<RequestKind, string>> = { CLE: "KEY", ADHESION_EQUIPE: "TEAM_ACCESS" };
 
 /** Statuts des demandes de clé et d'accès à une équipe, tels que les nomme l'API. */
-const STATUTS: Partial<Record<RequestStatus, string>> = {
+const STATUTS_DU_CONTRAT: Partial<Record<RequestStatus, string>> = {
   SOUMISE: "SUBMITTED",
   A_COMPLETER: "NEEDS_COMPLETION",
   APPROUVEE: "APPROVED",
@@ -31,7 +31,7 @@ const iso = (date: Date | null) => date?.toISOString() ?? null;
 export function vueDemandes(demandes: RequestSummary[], t: Traducteur) {
   return {
     requests: demandes.flatMap((d) => {
-      const [kind, status] = [TYPES[d.kind], STATUTS[d.status]];
+      const [kind, status] = [TYPES_DU_CONTRAT[d.kind], STATUTS_DU_CONTRAT[d.status]];
       if (!kind || !status) return [];
       return [
         {
@@ -74,7 +74,7 @@ export function vueCles({ toPickUp, keys }: MyKeys, t: Traducteur) {
       project: k.project,
       issuedAt: k.issuedAt.toISOString(),
       expiresAt: iso(k.expiresAt),
-      status: STATUTS[k.status],
+      status: STATUTS_DU_CONTRAT[k.status],
       statusLabel: t(`domaine.statuts.${k.status}`),
       gateway: k.gatewayState && {
         spend: k.gatewayState.spend,

@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { ALGORITHMES } from "@/lib/integrations/cles-publiques";
-import { type IntegrationKeyView, type IntegrationView, listIntegrations, PERIMETRES } from "@/lib/services/integrations";
+import { BORNES, type IntegrationKeyView, type IntegrationView, listIntegrations, PERIMETRES, PLAFOND_PAR_DEFAUT } from "@/lib/services/integrations";
 import { getDeps, requireAdminPage } from "@/lib/session";
 import {
   activerIntegrationAction,
@@ -56,7 +56,7 @@ export default async function IntegrationsPage(props: PageProps<"/gestion/integr
           <label>
             {t("identifiant")}
             <Obligatoire />
-            <input name="id" required minLength={2} maxLength={40} pattern="[a-z0-9]+(-[a-z0-9]+)*" />
+            <input name="id" required minLength={BORNES.identifiant.minimum} maxLength={BORNES.identifiant.maximum} pattern="[a-z0-9]+(-[a-z0-9]+)*" />
           </label>
           <p className="text-xs text-neutral-600">{t("aideIdentifiant")}</p>
           <ChampsReglages />
@@ -110,7 +110,7 @@ async function FicheIntegration({ integration: i, ouverte }: { integration: Inte
             <label>
               {t("kid")}
               <Obligatoire />
-              <input name="kid" required maxLength={64} pattern="[A-Za-z0-9._\-]+" />
+              <input name="kid" required maxLength={BORNES.kid} pattern="[A-Za-z0-9._\-]+" />
             </label>
             <label>
               {t("algorithme")}
@@ -144,7 +144,7 @@ async function ChampsReglages({ integration }: { integration?: IntegrationView }
       <label>
         {t("nom")}
         <Obligatoire />
-        <input name="name" required maxLength={100} defaultValue={integration?.name} />
+        <input name="name" required maxLength={BORNES.nom} defaultValue={integration?.name} />
       </label>
       <fieldset>
         <legend className="font-medium">{t("perimetre")}</legend>
@@ -162,7 +162,15 @@ async function ChampsReglages({ integration }: { integration?: IntegrationView }
       <label>
         {t("plafond")}
         <Obligatoire />
-        <input name="rateLimitPerMinute" type="number" required min={1} max={10000} step={1} defaultValue={integration?.rateLimitPerMinute ?? 120} />
+        <input
+          name="rateLimitPerMinute"
+          type="number"
+          required
+          min={1}
+          max={BORNES.plafond}
+          step={1}
+          defaultValue={integration?.rateLimitPerMinute ?? PLAFOND_PAR_DEFAUT}
+        />
       </label>
       <p className="text-xs text-neutral-600">{t("aidePlafond")}</p>
     </>

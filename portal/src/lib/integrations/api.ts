@@ -7,7 +7,7 @@ import { type Langue, langueDemandee } from "@/lib/langue";
 import { LimiteDeDebit } from "@/lib/limite-de-debit";
 import { LiteLLMError } from "@/lib/litellm/client";
 import { type ControleEnEchec, parametresDErreur } from "@/lib/parametres-erreur";
-import { lireIntegrationAppelante, type Perimetre } from "@/lib/services/integrations";
+import { lireIntegrationAppelante, type Perimetre, PLAFOND_PAR_DEFAUT } from "@/lib/services/integrations";
 import { provisionIntegrationUser } from "@/lib/services/provisioning";
 import { getDeps } from "@/lib/session";
 import en from "../../../messages/en.json";
@@ -34,7 +34,7 @@ const TAILLE_MAXIMALE_DU_CORPS = 16 * 1024;
 
 /** Plafond de chaque intégration : fenêtre glissante d'une minute, en mémoire, commune à toutes les routes de l'API. */
 const memoire = globalThis as typeof globalThis & { plafondsDesIntegrations?: LimiteDeDebit };
-const plafonds = (memoire.plafondsDesIntegrations ??= new LimiteDeDebit(120, 60_000));
+const plafonds = (memoire.plafondsDesIntegrations ??= new LimiteDeDebit(PLAFOND_PAR_DEFAUT, 60_000));
 
 export type DepsApi = ReturnType<typeof getDeps>;
 
@@ -62,11 +62,22 @@ export class Reponse {
   ) {}
 }
 
+/** Codes d'erreur de l'API : ceux des services du portail, et ceux propres à l'API. */
+type CodeErreur =
+  | PortalErrorCode
+  | "jeton_invalide"
+  | "integration_inactive"
+  | "adresse_non_autorisee"
+  | "trop_de_requetes"
+  | "hors_perimetre"
+  | "saisie_invalide"
+  | "erreur_interne";
+
 /** Refus de l'API : statut HTTP, code stable, détails, et attente avant de réessayer (429), en millisecondes. */
 class RefusApi extends Error {
   constructor(
     readonly statut: number,
-    readonly code: string,
+    readonly code: CodeErreur,
     readonly details: Record<string, unknown> = {},
     readonly attente?: number,
   ) {
@@ -75,7 +86,7 @@ class RefusApi extends Error {
 }
 
 /** Statut HTTP des erreurs métier des services ; les autres sont des saisies refusées (400). */
-const STATUTS: Partial<Record<PortalErrorCode, number>> = {
+const STATUTS_HTTP: Partial<Record<PortalErrorCode, number>> = {
   interdit: 403,
   non_membre: 403,
   introuvable: 404,
@@ -150,7 +161,7 @@ async function controler(requete: Request, perimetre: Perimetre | null, deps: De
     maintenant,
   });
   if (!verification.ok) {
-    throw new RefusApi(401, "jeton_invalide", { reason: verification.motif, ...(verification.revendication ? { claim: verification.revendication } : {}) });
+    throw new RefusApi(401, "jeton_invalide", { reason: verification.raison, ...(verification.revendication ? { claim: verification.revendication } : {}) });
   }
   const integration = verification.emetteur;
   if (!integration.active) throw new RefusApi(503, "integration_inactive");
@@ -166,7 +177,7 @@ async function controler(requete: Request, perimetre: Perimetre | null, deps: De
 function versRefus(e: unknown): RefusApi {
   if (e instanceof RefusApi) return e;
   if (e instanceof PolicyViolationError) return new RefusApi(400, e.code, { failedChecks: e.failedChecks.map(({ id, offending }) => ({ id, offending })) });
-  if (e instanceof PortalError) return new RefusApi(STATUTS[e.code] ?? 400, e.code, e.params);
+  if (e instanceof PortalError) return new RefusApi(STATUTS_HTTP[e.code] ?? 400, e.code, e.params);
   if (e instanceof z.ZodError) {
     // Champs en cause, champs inconnus compris ; sans champ, c'est le corps entier qui n'est pas l'objet attendu.
     const chemins = e.issues.flatMap((i) => (i.code === "unrecognized_keys" ? i.keys.map((cle) => [...i.path, cle]) : [i.path]));

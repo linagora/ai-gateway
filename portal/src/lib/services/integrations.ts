@@ -6,7 +6,7 @@ import { estAdresseOuPlage } from "@/lib/integrations/adresses";
 import { type Algorithme, empreinte, lireClePublique } from "@/lib/integrations/cles-publiques";
 import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
-import { type ChampIntegration, type NotificationDeps, notifyIntegrationChange } from "./notifications";
+import { type NotificationDeps, notifyIntegrationChange } from "./notifications";
 
 /**
  * Registre des intégrations (spécification #71, ADR 0003) : les applications tierces qu'un admin autorise à agir pour un
@@ -24,12 +24,18 @@ export type Perimetre = (typeof PERIMETRES)[number];
 const EN_BASE: Record<Perimetre, IntegrationScope> = { lecture: "LECTURE", demandes: "DEMANDES", cles: "CLES" };
 const perimetre = (scope: IntegrationScope) => PERIMETRES.find((p) => EN_BASE[p] === scope) as Perimetre;
 
-/** Identifiant d'une intégration : de 2 à 40 caractères, minuscules, chiffres et tirets isolés (« team-manager »). */
+/** Bornes des réglages d'une intégration, reprises par le formulaire de l'onglet ; le service fait foi. */
+export const BORNES = { identifiant: { minimum: 2, maximum: 40 }, nom: 100, kid: 64, plafond: 10_000 } as const;
+/** Plafond de requêtes par minute d'une nouvelle intégration. */
+export const PLAFOND_PAR_DEFAUT = 120;
+
+/** Identifiant d'une intégration : minuscules, chiffres et tirets isolés (« team-manager »). */
 const IDENTIFIANT = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-/** Identifiant d'une clé (`kid`) : de 1 à 64 lettres, chiffres, points, tirets ou soulignés. */
-const KID = /^[A-Za-z0-9._-]{1,64}$/;
-const NOM_MAXIMAL = 100;
-const PLAFOND_MAXIMAL = 10_000;
+/** Identifiant d'une clé (`kid`) : lettres, chiffres, points, tirets ou soulignés. */
+const KID = new RegExp(`^[A-Za-z0-9._-]{1,${BORNES.kid}}$`);
+
+/** Réglage d'une intégration que l'admin modifie : nom, périmètre, adresses ou plafond. */
+export type ChampIntegration = "nom" | "perimetres" | "adresses" | "plafond";
 
 /** Réglages d'une intégration que l'admin saisit et modifie ; l'identifiant, lui, ne change jamais. */
 export interface IntegrationSettings {
@@ -138,7 +144,7 @@ const vueCle = (k: IntegrationKey): IntegrationKeyView => ({
 export async function createIntegration(deps: IntegrationDeps, actor: SessionUser, input: IntegrationInput): Promise<string> {
   requireAdmin(actor);
   const id = input.id.trim();
-  if (id.length < 2 || id.length > 40 || !IDENTIFIANT.test(id)) throw invalide("identifiant");
+  if (id.length < BORNES.identifiant.minimum || id.length > BORNES.identifiant.maximum || !IDENTIFIANT.test(id)) throw invalide("identifiant");
   const reglages = controlerReglages(input);
   const existante = new PortalError("integration_existante", `L'identifiant ${id} est déjà pris par une autre intégration.`, { id });
   if (await deps.db.integration.findUnique({ where: { id } })) throw existante;
@@ -223,14 +229,14 @@ type Reglages = { name: string; scopes: Perimetre[]; ipRanges: string[]; rateLim
 
 function controlerReglages(input: IntegrationSettings): Reglages {
   const name = input.name.trim();
-  if (!name || name.length > NOM_MAXIMAL) throw invalide("nom");
+  if (!name || name.length > BORNES.nom) throw invalide("nom");
   const inconnu = input.scopes.find((p) => !(PERIMETRES as readonly string[]).includes(p));
   if (inconnu !== undefined) throw invalide("perimetres", inconnu);
   const ipRanges = [...new Set(input.ipRanges.map((a) => a.trim()).filter(Boolean))];
   const fausse = ipRanges.find((a) => !estAdresseOuPlage(a));
   if (fausse !== undefined) throw invalide("adresses", fausse);
   const plafond = input.rateLimitPerMinute;
-  if (!Number.isInteger(plafond) || plafond < 1 || plafond > PLAFOND_MAXIMAL) throw invalide("plafond");
+  if (!Number.isInteger(plafond) || plafond < 1 || plafond > BORNES.plafond) throw invalide("plafond");
   return { name, scopes: PERIMETRES.filter((p) => input.scopes.includes(p)), ipRanges, rateLimitPerMinute: plafond };
 }
 

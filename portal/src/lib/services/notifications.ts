@@ -5,6 +5,7 @@ import { DUREES_VALIDITE, joursDePeriode } from "@/lib/durees";
 import type { Langue } from "@/lib/langue";
 import en from "../../../messages/en.json";
 import fr from "../../../messages/fr.json";
+import type { ChampIntegration } from "./integrations";
 import { libelleOffre } from "./offers";
 
 /** Dépendances des notifications : sans expéditeur, rien n'est envoyé et rien n'est bloqué. */
@@ -609,9 +610,6 @@ export async function notifyManagerDesignated(deps: NotificationDeps, designatio
   );
   await envoyer(deps, [designation.email], message);
 }
-
-/** Réglage d'une intégration dont un changement est annoncé : nom, périmètre, adresses ou plafond. */
-export type ChampIntegration = "nom" | "perimetres" | "adresses" | "plafond";
 
 /** Changement dans le registre des intégrations (spécification #71). */
 export type IntegrationChange =

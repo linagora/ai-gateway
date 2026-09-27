@@ -1,11 +1,11 @@
 import { createHash, createPublicKey, type KeyObject } from "node:crypto";
 
-/** Algorithmes de signature des jetons d'intégration (ADR 0003) : EdDSA avec une clé Ed25519, ou RS256 en repli. */
+/** Algorithmes de signature des jetons d'intégration (spécification #71, ADR 0003) : EdDSA avec une clé Ed25519, ou RS256 en repli. */
 export const ALGORITHMES = ["EdDSA", "RS256"] as const;
 export type Algorithme = (typeof ALGORITHMES)[number];
 
-/** Motif du refus d'une clé publique. */
-export type RaisonRefus = "format" | "algorithme" | "taille" | "cle_privee";
+/** Raison du refus d'une clé publique. */
+export type RaisonDuRefus = "format" | "algorithme" | "taille" | "cle_privee";
 
 /** Type de clé qu'exige chaque algorithme (Node.js, `asymmetricKeyType`). */
 const TYPE_DE_CLE: Record<Algorithme, string> = { EdDSA: "ed25519", RS256: "rsa" };
@@ -17,10 +17,10 @@ const RSA_MINIMUM = 2048;
 const LONGUEUR_MAXIMALE = 10_000;
 
 /**
- * Contrôle une clé publique transmise au format PEM pour l'algorithme déclaré : rend sa forme normalisée (PEM SPKI), ou le
- * motif de son refus. Une clé privée est refusée : le portail n'en reçoit jamais.
+ * Contrôle une clé publique transmise au format PEM pour l'algorithme déclaré : rend sa forme normalisée (PEM SPKI), ou la
+ * raison de son refus. Une clé privée est refusée : le portail n'en reçoit jamais.
  */
-export function lireClePublique(algorithme: string, pem: string): { ok: true; publicKeyPem: string } | { ok: false; raison: RaisonRefus } {
+export function lireClePublique(algorithme: string, pem: string): { ok: true; publicKeyPem: string } | { ok: false; raison: RaisonDuRefus } {
   if (!(ALGORITHMES as readonly string[]).includes(algorithme)) return { ok: false, raison: "algorithme" };
   // createPublicKey accepte aussi une clé privée, dont il tire la clé publique : elle est refusée avant toute lecture.
   if (pem.includes("PRIVATE KEY")) return { ok: false, raison: "cle_privee" };

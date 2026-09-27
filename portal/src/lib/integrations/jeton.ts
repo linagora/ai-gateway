@@ -21,8 +21,8 @@ export interface EmetteurDeJetons {
   keys: CleDeVerification[];
 }
 
-/** Motif d'un refus (réponse 401, `details.reason`). */
-export type MotifDeRefus =
+/** Raison d'un refus (réponse 401, `details.reason`). */
+export type RaisonDuRefus =
   | "absent"
   | "illisible"
   | "integration_inconnue"
@@ -35,10 +35,10 @@ export type MotifDeRefus =
   | "duree"
   | "revendication";
 
-/** Jeton accepté : l'intégration telle que l'a lue `emetteur`, et le collaborateur qui agit par elle ; ou le motif du refus. */
+/** Jeton accepté : l'intégration telle que l'a lue `emetteur`, et le collaborateur qui agit par elle ; ou la raison du refus. */
 export type Verification<E extends EmetteurDeJetons = EmetteurDeJetons> =
   | { ok: true; emetteur: E; acteur: SessionUser }
-  | { ok: false; motif: MotifDeRefus; revendication?: string };
+  | { ok: false; raison: RaisonDuRefus; revendication?: string };
 
 /** Durée de validité maximale d'un jeton : `exp` au plus cinq minutes après `iat`. */
 const DUREE_MAXIMALE_S = 300;
@@ -61,7 +61,7 @@ export async function verifierJeton<E extends EmetteurDeJetons>(
   autorisation: string | null,
   options: { emetteur: (id: string) => Promise<E | null>; audience: string; maintenant: Date },
 ): Promise<Verification<E>> {
-  const refus = (motif: MotifDeRefus, revendication?: string): Verification<E> => ({ ok: false, motif, ...(revendication ? { revendication } : {}) });
+  const refus = (raison: RaisonDuRefus, revendication?: string): Verification<E> => ({ ok: false, raison, ...(revendication ? { revendication } : {}) });
   const porteur = /^Bearer (\S+)$/.exec(autorisation?.trim() ?? "")?.[1];
   if (!porteur) return refus("absent");
   const parties = porteur.split(".");
