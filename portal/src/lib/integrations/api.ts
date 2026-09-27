@@ -6,6 +6,7 @@ import { PolicyViolationError, PortalError, type PortalErrorCode } from "@/lib/e
 import { type Langue, langueDemandee } from "@/lib/langue";
 import { LimiteDeDebit } from "@/lib/limite-de-debit";
 import { LiteLLMError } from "@/lib/litellm/client";
+import { type ControleEnEchec, parametresDErreur } from "@/lib/parametres-erreur";
 import { lireIntegrationAppelante, type Perimetre } from "@/lib/services/integrations";
 import { provisionIntegrationUser } from "@/lib/services/provisioning";
 import { getDeps } from "@/lib/session";
@@ -210,13 +211,9 @@ function message(langue: Langue, { code, details }: RefusApi): string {
   const cle = [`api.erreurs.${code}`, `avis.erreurs.${code}`].find((c) => t.has(c)) ?? "avis.erreurs.inconnue";
   const valeurs = Object.fromEntries(Object.entries(details).flatMap(([nom, valeur]) => (typeof valeur === "string" || typeof valeur === "number" ? [[nom, String(valeur)]] : [])));
   // Champs d'une saisie invalide et contrôles en échec, nommés comme dans le portail.
-  const champs = [...new Set(((details.fields as string[] | undefined) ?? []).map((chemin) => chemin.split(".")[0]))]
-    .map((champ) => (t.has(`avis.champs.${champ}`) ? t(`avis.champs.${champ}`) : champ))
-    .join(", ");
-  const controles = ((details.failedChecks as { id: string; offending: string[] }[] | undefined) ?? [])
-    .map(({ id, offending }) => `${t.has(`avis.controles.${id}`) ? t(`avis.controles.${id}`) : id}${offending.length > 0 ? ` (${offending.join(", ")})` : ""}`)
-    .join(" ; ");
-  // Paramètres attendus par les messages (ICU) : une valeur vide choisit la variante par défaut.
-  const defauts = { objet: "", cas: "", modele: "", equipe: "", champ: "", raison: "", valeur: "", id: "", kid: "", reason: "", claim: "", scope: "" };
-  return t(cle, { ...defauts, ...valeurs, champs, controles });
+  const parametres = parametresDErreur(
+    { details: valeurs, champs: (details.fields as string[] | undefined) ?? [], controles: (details.failedChecks as ControleEnEchec[] | undefined) ?? [] },
+    (espace, nom) => (t.has(`avis.${espace}.${nom}`) ? t(`avis.${espace}.${nom}`) : null),
+  );
+  return t(cle, parametres);
 }

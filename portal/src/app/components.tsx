@@ -7,6 +7,7 @@ import { countAdminPending } from "@/lib/services/admin-requests";
 import { equipesGerees } from "@/lib/services/autorite";
 import { approversByTeam } from "@/lib/services/teams";
 import { getCurrentUser, getDeps } from "@/lib/session";
+import { parametresDErreur } from "@/lib/parametres-erreur";
 import { changerLangueAction, signOutAction } from "./actions";
 import type { EquipeProposee } from "./choix-equipe";
 import { Onglets } from "./onglets";
@@ -91,7 +92,10 @@ export async function Notice({ searchParams }: { searchParams: Record<string, st
   return null;
 }
 
-/** Paramètres d'un message d'erreur ; les contrôles de politique en échec sont traduits un à un. */
+/**
+ * Paramètres d'un message d'erreur, lus dans l'adresse : détails (JSON), contrôles de politique en échec
+ * (« id:modèle,modèle;id ») et champs d'une saisie invalide, nommés dans la langue de l'utilisateur.
+ */
 function parametresErreur(lire: (nom: string) => string | null, t: Awaited<ReturnType<typeof getTranslations<"avis">>>) {
   let details: Record<string, string> = {};
   try {
@@ -105,16 +109,10 @@ function parametresErreur(lire: (nom: string) => string | null, t: Awaited<Retur
     .filter(Boolean)
     .map((controle) => {
       const [id, enCause = ""] = controle.split(":");
-      const libelle = t.has(`controles.${id}`) ? t(`controles.${id}`) : id;
-      return enCause ? `${libelle} (${enCause.split(",").join(", ")})` : libelle;
-    })
-    .join(" ; ");
-  // Champs d'une saisie invalide : leur libellé dans la langue de l'utilisateur, jamais leur nom technique.
-  const champs = [...new Set((details.champs ?? "").split(", ").filter(Boolean).map((chemin) => chemin.split(".")[0]))]
-    .map((champ) => (t.has(`champs.${champ}`) ? t(`champs.${champ}`) : champ))
-    .join(", ");
-  // Paramètres attendus par les messages (ICU) : une valeur vide choisit la variante par défaut.
-  return { objet: "", cas: "", modele: "", equipe: "", champ: "", raison: "", valeur: "", id: "", kid: "", ...details, champs, controles };
+      return { id, offending: enCause.split(",").filter(Boolean) };
+    });
+  const champs = (details.champs ?? "").split(", ").filter(Boolean);
+  return parametresDErreur({ details, champs, controles }, (espace, cle) => (t.has(`${espace}.${cle}`) ? t(`${espace}.${cle}`) : null));
 }
 
 /** Explication des étoiles, en tête d'un formulaire qui a des champs obligatoires. */
