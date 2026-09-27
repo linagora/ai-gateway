@@ -148,11 +148,14 @@ export async function createTeamJoinRequest(deps: RequestDeps, user: SessionUser
 
 /**
  * F-24 : le demandeur annule sa demande soumise ou à compléter. Une demande approuvée ne s'annule qu'à la sortie de son
- * équipe (F-54). Pour un autre utilisateur, la demande n'existe pas.
+ * équipe (F-54). Pour un autre utilisateur, la demande n'existe pas ; de même pour une demande d'un autre type que
+ * `types`, quand ils sont donnés (l'API d'intégration n'annule que les demandes de clé et d'accès à une équipe).
  */
-export async function cancelRequest(deps: RequestDeps, user: SessionUser, id: string): Promise<void> {
+export async function cancelRequest(deps: RequestDeps, user: SessionUser, id: string, types?: readonly RequestKind[]): Promise<void> {
   const request = await deps.db.accessRequest.findUnique({ where: { id } });
-  if (!request || request.requesterUid !== user.uid) throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
+  if (!request || request.requesterUid !== user.uid || (types && !types.includes(request.kind))) {
+    throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
+  }
   if (request.status === "APPROUVEE") throw new PortalError("transition_interdite", "Cette demande a déjà été traitée.", { cas: "traitee" });
   await transitionRequest(deps.db, request, "ANNULEE");
   await recordAudit(deps.db, { ...parActeur(user), action: "REQUEST_CANCELLED", targetId: request.id, details: { kind: request.kind, teamAlias: request.teamAlias } });

@@ -149,6 +149,14 @@ describe("annulation par le demandeur (F-24)", () => {
     const autre = { ...demandeur, uid: "pmartin", email: "pmartin@linagora.com" };
     await expect(cancelRequest(deps, autre, id)).rejects.toMatchObject({ code: "introuvable" });
   });
+
+  test("restreinte à certains types de demande (API d'intégration : clés et accès), l'annulation tient les autres pour introuvables", async () => {
+    const { id } = await createKeyRequest(deps, demandeur, demande);
+    await testDb.accessRequest.update({ where: { id }, data: { kind: "ABONNEMENT" } });
+    await expect(cancelRequest(deps, demandeur, id, ["CLE", "ADHESION_EQUIPE"])).rejects.toMatchObject({ code: "introuvable" });
+    await cancelRequest(deps, demandeur, id);
+    expect(await listMyRequests(deps, demandeur)).toMatchObject([{ id, status: "ANNULEE" }]);
+  });
 });
 
 describe("notification des admins (ticket #23)", () => {
