@@ -96,7 +96,14 @@ type Libelle =
   | "expiration"
   | "offre"
   | "prixMensuel"
-  | "niveauMaximal";
+  | "niveauMaximal"
+  | "nom"
+  | "perimetre"
+  | "adresses"
+  | "plafond"
+  | "kid"
+  | "algorithme"
+  | "empreinte";
 
 /** Demande, avec l'offre demandée quand c'est une demande d'abonnement (spécification #51). */
 type DemandeAvecOffre = AccessRequest & { offer?: Pick<SubscriptionOffer, "supplier" | "name" | "monthlyPriceEur" | "dataLevel"> | null };
@@ -601,4 +608,66 @@ export async function notifyManagerDesignated(deps: NotificationDeps, designatio
     lienVers(deps, "/gestion/demandes"),
   );
   await envoyer(deps, [designation.email], message);
+}
+
+/** Réglage d'une intégration dont un changement est annoncé : nom, périmètre, adresses ou plafond. */
+export type ChampIntegration = "nom" | "perimetres" | "adresses" | "plafond";
+
+/** Changement dans le registre des intégrations (spécification #71). */
+export type IntegrationChange =
+  | { type: "creee"; perimetres: string[]; adresses: string[]; plafond: number }
+  | { type: "modifiee"; modifications: { champ: ChampIntegration; avant: string | number | string[]; apres: string | number | string[] }[] }
+  | { type: "cleAjoutee" | "cleRetiree"; kid: string; algorithme: string; empreinte: string }
+  | { type: "activee"; perimetres: string[] }
+  | { type: "desactivee" };
+
+/** Libellé du récapitulatif pour chaque réglage d'une intégration. */
+const LIBELLES_INTEGRATION: Record<ChampIntegration, Libelle> = { nom: "nom", perimetres: "perimetre", adresses: "adresses", plafond: "plafond" };
+
+/**
+ * Spécification #71 : chaque changement dans le registre des intégrations (déclaration, modification, clé ajoutée ou
+ * retirée, activation, désactivation) est annoncé à tous les admins, avec son auteur, pour qu'aucune intégration ne
+ * soit ajoutée ou modifiée à leur insu ; le lien mène à l'intégration dans l'onglet « Intégrations ».
+ */
+export async function notifyIntegrationChange(
+  deps: NotificationDeps,
+  changement: IntegrationChange & { id: string; nom: string; auteur: { uid: string; name: string } },
+): Promise<void> {
+  const valeurs = { id: changement.id, nom: changement.nom, auteur: auteur(changement.auteur) };
+  const message = bilingue((t) => {
+    // Liste de valeurs (périmètres, adresses) : « aucun » quand elle est vide.
+    const texte = (v: string | number | string[]) => (Array.isArray(v) ? v.join(", ") || t("courriels.integration.aucun") : String(v));
+    const valeur = (champ: ChampIntegration, v: string | number | string[]) => (champ === "plafond" ? t("courriels.recap.plafondValeur", { nombre: Number(v) }) : texte(v));
+    const details =
+      changement.type === "creee"
+        ? lignes(t, [
+            ["perimetre", texte(changement.perimetres)],
+            ["adresses", texte(changement.adresses)],
+            ["plafond", valeur("plafond", changement.plafond)],
+          ])
+        : changement.type === "modifiee"
+          ? changement.modifications.map((m) =>
+              t("courriels.integration.modification", {
+                libelle: t(`courriels.recap.${LIBELLES_INTEGRATION[m.champ]}`),
+                avant: valeur(m.champ, m.avant),
+                apres: valeur(m.champ, m.apres),
+              }),
+            )
+          : changement.type === "cleAjoutee" || changement.type === "cleRetiree"
+            ? lignes(t, [
+                ["kid", changement.kid],
+                ["algorithme", changement.algorithme],
+                ["empreinte", changement.empreinte],
+              ])
+            : [];
+    const corps = t(`courriels.integration.${changement.type}.corps`, {
+      ...valeurs,
+      perimetres: changement.type === "activee" ? texte(changement.perimetres) : "",
+    });
+    return {
+      sujet: t(`courriels.integration.${changement.type}.sujet`, valeurs),
+      paragraphes: [t("courriels.bonjourAdmins"), avecRecap(corps, details), t("courriels.integration.alerte")],
+    };
+  }, lienVers(deps, `/gestion/integrations?integration=${encodeURIComponent(changement.id)}`));
+  await envoyer(deps, deps.adminEmails ?? [], message);
 }

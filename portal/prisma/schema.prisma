@@ -288,3 +288,47 @@ model ChargeTransmission {
   totalEur      Decimal
   charges       SubscriptionCharge[]
 }
+
+/// Périmètre d'une intégration (spécification #71) : ce qu'un admin l'autorise à faire pour un collaborateur.
+enum IntegrationScope {
+  LECTURE
+  DEMANDES
+  CLES
+}
+
+/// Intégration (spécification #71, ADR 0003) : application tierce, déclarée par un admin, qui agit pour un
+/// collaborateur par l'API du portail, dans la limite de ses périmètres. Son identifiant sert d'`iss` à ses jetons et
+/// de canal au journal d'audit ; elle se crée désactivée et ne se supprime jamais.
+model Integration {
+  id                 String             @id
+  name               String
+  scopes             IntegrationScope[]
+  /// Adresses IP et plages CIDR d'où elle appelle l'API.
+  ipRanges           String[]
+  /// Plafond de requêtes par minute, tous collaborateurs confondus.
+  rateLimitPerMinute Int                @default(120)
+  active             Boolean            @default(false)
+  createdAt          DateTime           @default(now())
+  createdBy          String
+  updatedAt          DateTime           @updatedAt
+  keys               IntegrationKey[]
+}
+
+/// Clé publique d'une intégration : elle vérifie la signature de ses jetons ; le `kid` de leur en-tête la désigne.
+/// Une clé retirée ne vérifie plus rien, mais reste inscrite : son `kid` ne resservira pas.
+model IntegrationKey {
+  id            String      @id @default(cuid())
+  integrationId String
+  integration   Integration @relation(fields: [integrationId], references: [id])
+  kid           String
+  /// Algorithme imposé aux jetons signés par cette clé : EdDSA (Ed25519) ou RS256.
+  algorithm     String
+  /// Clé publique au format PEM (SPKI).
+  publicKeyPem  String
+  createdAt     DateTime    @default(now())
+  createdBy     String
+  removedAt     DateTime?
+  removedBy     String?
+
+  @@unique([integrationId, kid])
+}

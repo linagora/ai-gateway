@@ -126,7 +126,13 @@
       "montantCorrige": "Montant corrigé : il vaut à partir du prochain prélèvement.",
       "resiliationDeclaree": "Résiliation déclarée.",
       "resiliationDemandee": "Demande de résiliation envoyée au titulaire.",
-      "abonnementRattache": "Abonnement rattaché à l'équipe."
+      "abonnementRattache": "Abonnement rattaché à l'équipe.",
+      "integrationDeclaree": "Intégration déclarée, désactivée : ajoutez sa clé publique, puis activez-la après la recette.",
+      "integrationEnregistree": "Intégration enregistrée.",
+      "cleIntegrationAjoutee": "Clé publique ajoutée.",
+      "cleIntegrationRetiree": "Clé publique retirée : les jetons qu'elle signe sont désormais refusés.",
+      "integrationActivee": "Intégration activée.",
+      "integrationDesactivee": "Intégration désactivée : ses appels sont refusés."
     },
     "erreurs": {
       "controles_en_echec": "La demande ne respecte pas la politique d'accès aux modèles. Contrôles en échec : {controles}.",
@@ -135,7 +141,7 @@
       "renouvellement_trop_tot": "Le renouvellement se demande au plus tôt un mois avant l'échéance de l'abonnement.",
       "engagement_requis": "Engagez-vous à ne pas soumettre de données d'un niveau supérieur à celui déclaré.",
       "interdit": "Action réservée aux administrateurs.",
-      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} membre {Membre introuvable dans cette équipe.} responsable {Responsable introuvable dans cette équipe.} offre {Offre d'abonnement introuvable.} demande_abonnement {Demande d'abonnement introuvable.} abonnement {Abonnement introuvable.} transmission {Transmission introuvable.} collaborateur {Collaborateur introuvable.} other {Demande introuvable.}}",
+      "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} membre {Membre introuvable dans cette équipe.} responsable {Responsable introuvable dans cette équipe.} offre {Offre d'abonnement introuvable.} demande_abonnement {Demande d'abonnement introuvable.} abonnement {Abonnement introuvable.} transmission {Transmission introuvable.} collaborateur {Collaborateur introuvable.} integration {Intégration introuvable.} cle_integration {Clé publique introuvable, ou déjà retirée.} other {Demande introuvable.}}",
       "motif_obligatoire": "Un motif est obligatoire.",
       "parametre_manquant": "Budget, période du budget et durée de validité sont obligatoires : saisissez-les ou configurez des valeurs par défaut.",
       "recommandation_hors_cas_usage": "Une recommandation ne peut porter que sur un cas d'usage coché.",
@@ -158,7 +164,11 @@
       "budget_equipe_invalide": "Budget d'équipe invalide : saisissez un montant positif ou nul (0 : sans limite) et, pour un montant positif, une période au format 30d, 12h…",
       "non_membre": "{cas, select, titulaire {{uid} n'est pas membre de l'équipe {equipe} : son abonnement ne peut pas y être rattaché.} other {Vous n'êtes pas membre de l'équipe {equipe}.}}",
       "date_future": "{objet, select, resiliation {La date de résiliation ne peut pas être dans le futur.} other {La date de souscription ne peut pas être dans le futur.}}",
-      "date_avant_souscription": "La date de résiliation ne peut pas précéder la date de souscription."
+      "date_avant_souscription": "La date de résiliation ne peut pas précéder la date de souscription.",
+      "integration_invalide": "{champ, select, identifiant {L'identifiant d'une intégration compte de 2 à 40 caractères : lettres minuscules, chiffres et tirets entre deux caractères (par exemple team-manager).} nom {Donnez un nom à l'intégration (100 caractères au plus).} perimetres {Périmètre inconnu : {valeur}.} adresses {Adresse IP ou plage CIDR invalide : {valeur}.} plafond {Le plafond est un nombre entier de requêtes par minute, de 1 à 10 000.} other {Saisie invalide.}}",
+      "integration_existante": "L'identifiant {id} est déjà pris par une autre intégration.",
+      "cle_publique_invalide": "{raison, select, format {Clé publique illisible : collez une clé publique au format PEM, de « -----BEGIN PUBLIC KEY----- » à « -----END PUBLIC KEY----- ».} algorithme {La clé ne correspond pas à l'algorithme choisi : une clé Ed25519 pour EdDSA, une clé RSA pour RS256.} taille {Une clé RSA doit compter au moins 2 048 bits.} cle_privee {C'est une clé privée : elle ne doit jamais quitter l'intégration. Collez sa clé publique seule.} kid {L'identifiant de clé compte de 1 à 64 caractères : lettres, chiffres, points, tirets et soulignés.} other {Clé publique refusée.}}",
+      "kid_existant": "L'identifiant de clé {kid} est déjà pris dans cette intégration, y compris par une clé retirée : choisissez-en un autre."
     },
     "controles": {
       "membre_equipe": "Le demandeur est membre de l'équipe",
@@ -519,7 +529,8 @@
       "aValider": "{nombre, plural, one {# demande à valider} other {# demandes à valider}}",
       "outils": "Outils",
       "collaborateurs": "Collaborateurs",
-      "remboursements": "Remboursements"
+      "remboursements": "Remboursements",
+      "integrations": "Intégrations"
     },
     "file": {
       "titre": "Demandes en attente de validation",
@@ -794,6 +805,57 @@
         "resume": "{nombre, plural, one {# prélèvement} other {# prélèvements}}, {total} au total",
         "ligne": "{date} : {montant}, équipe {equipe}"
       }
+    },
+    "integrations": {
+      "titre": "Intégrations",
+      "introduction": "Applications tierces autorisées à agir pour un collaborateur par l'API du portail, dans la limite de ce qu'il peut faire lui-même sur ses demandes et ses clés : jamais avec les droits d'un admin ni d'un responsable. Une intégration se déclare désactivée : ajoutez sa clé publique, puis activez-la après la recette. Elle ne se supprime pas : désactivez-la.",
+      "actives": "Intégrations actives",
+      "aucuneActive": "Aucune intégration active : l'API refuse tous les appels.",
+      "desactivees": "Intégrations désactivées ({nombre})",
+      "etat": "{active, select, true {Active} other {Désactivée}}",
+      "declaree": "Déclarée le {date, date, long} par {auteur}.",
+      "activer": "Activer",
+      "desactiver": "Désactiver",
+      "aideActiver": "Activez-la seulement après la recette : elle pourra alors appeler l'API pour tout collaborateur, dans son périmètre.",
+      "aideDesactiver": "Ses appels sont refusés dans les secondes qui suivent.",
+      "reglages": "Réglages",
+      "identifiant": "Identifiant",
+      "aideIdentifiant": "Immuable : il sert d'émetteur (iss) aux jetons de l'intégration et de canal au journal d'audit. De 2 à 40 caractères : minuscules, chiffres et tirets (par exemple team-manager).",
+      "nom": "Nom",
+      "perimetre": "Périmètre",
+      "perimetres": {
+        "lecture": "Lecture : les équipes, le catalogue, les demandes et les clés du collaborateur",
+        "demandes": "Demandes : demander une clé ou l'accès à une équipe, compléter et annuler une demande",
+        "cles": "Clés : retirer, remplacer et révoquer une clé, préparer son renouvellement"
+      },
+      "adresses": "Adresses IP et plages CIDR",
+      "aideAdresses": "Une par ligne, par exemple 203.0.113.10 ou 2001:db8::/32. Sans adresse, tous ses appels sont refusés.",
+      "plafond": "Plafond (requêtes par minute)",
+      "aidePlafond": "Tous collaborateurs confondus ; au-delà, l'API répond 429.",
+      "enregistrer": "Enregistrer",
+      "cles": "Clés publiques",
+      "aucuneCle": "Aucune clé : aucun jeton de l'intégration n'est accepté.",
+      "kid": "Identifiant de clé (kid)",
+      "algorithme": "Algorithme",
+      "algorithmes": {
+        "EdDSA": "EdDSA (Ed25519)",
+        "RS256": "RS256 (RSA, 2 048 bits au moins)"
+      },
+      "empreinte": "Empreinte",
+      "ajoutee": "Ajoutée",
+      "retiree": "Retirée",
+      "parLe": "le {date, date, long} par {auteur}",
+      "retirer": "Retirer",
+      "retraitAvertissement": "Les jetons signés par cette clé seront refusés. Pour une rotation sans coupure, ajoutez d'abord la nouvelle clé ; l'identifiant de celle-ci ne pourra pas resservir.",
+      "confirmerRetrait": "Retirer la clé {kid}",
+      "clesRetirees": "Clés retirées ({nombre})",
+      "ajouterCle": "Ajouter une clé publique",
+      "clePublique": "Clé publique (PEM)",
+      "aideClePublique": "La clé publique seule, de « -----BEGIN PUBLIC KEY----- » à « -----END PUBLIC KEY----- » ; jamais la clé privée. Comparez ensuite l'empreinte affichée avec celle que donne l'intégrateur.",
+      "ajouter": "Ajouter la clé",
+      "declarer": "Déclarer une intégration",
+      "aideDeclarer": "Elle est créée désactivée.",
+      "boutonDeclarer": "Déclarer l'intégration"
     }
   },
   "introuvable": {
@@ -897,7 +959,15 @@
       "prixMensuel": "Prix mensuel",
       "prixMensuelValeur": "{montant, number, ::currency/EUR} TTC",
       "niveauMaximal": "Niveau maximal",
-      "date": "{date, date, long}"
+      "date": "{date, date, long}",
+      "nom": "Nom",
+      "perimetre": "Périmètre",
+      "adresses": "Adresses IP",
+      "plafond": "Plafond",
+      "plafondValeur": "{nombre, number} requêtes par minute",
+      "kid": "Identifiant de clé",
+      "algorithme": "Algorithme",
+      "empreinte": "Empreinte"
     },
     "nouvelleDemandeCle": {
       "sujet": "Nouvelle demande de clé d'API de {nom}",
@@ -1058,6 +1128,35 @@
     "designationResponsable": {
       "sujet": "Vous êtes responsable de l'équipe {equipe}",
       "corps": "{auteur} vous a désigné responsable de l'équipe {equipe} : vous validez ses demandes d'accès et de clé (sauf les vôtres), et gérez ses membres et ses clés depuis la gestion du portail."
+    },
+    "integration": {
+      "aucun": "aucun",
+      "modification": "- {libelle} : {apres} (auparavant : {avant})",
+      "alerte": "Ce courriel est envoyé à tous les admins du portail à chaque changement d'une intégration. Si celui-ci vous surprend, vérifiez-le dans l'onglet « Intégrations » et désactivez l'intégration au moindre doute.",
+      "creee": {
+        "sujet": "Intégration déclarée : {nom}",
+        "corps": "{auteur} a déclaré l'intégration {nom} ({id}), désactivée jusqu'à son activation par un admin :"
+      },
+      "modifiee": {
+        "sujet": "Intégration modifiée : {nom}",
+        "corps": "{auteur} a modifié l'intégration {nom} ({id}) :"
+      },
+      "cleAjoutee": {
+        "sujet": "Clé publique ajoutée à l'intégration {nom}",
+        "corps": "{auteur} a ajouté une clé publique à l'intégration {nom} ({id}) ; comparez son empreinte avec celle que donne l'intégrateur :"
+      },
+      "cleRetiree": {
+        "sujet": "Clé publique retirée de l'intégration {nom}",
+        "corps": "{auteur} a retiré une clé publique de l'intégration {nom} ({id}) ; les jetons qu'elle signe sont désormais refusés :"
+      },
+      "activee": {
+        "sujet": "Intégration activée : {nom}",
+        "corps": "{auteur} a activé l'intégration {nom} ({id}) : elle peut appeler l'API du portail pour tout collaborateur, dans son périmètre ({perimetres})."
+      },
+      "desactivee": {
+        "sujet": "Intégration désactivée : {nom}",
+        "corps": "{auteur} a désactivé l'intégration {nom} ({id}) : ses appels à l'API du portail sont refusés."
+      }
     }
   },
   "validation": {

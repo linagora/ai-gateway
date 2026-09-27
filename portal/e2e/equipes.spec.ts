@@ -237,7 +237,7 @@ test("un responsable voit, dans une gestion limitée à son équipe, ses demande
   await admin.goto("/gestion/demandes");
   const ficheEtrangere = await admin.getByRole("row", { name: new RegExp(etranger.uid) }).getByRole("link", { name: "Examiner" }).getAttribute("href");
   expect((await pageResponsable.goto(ficheEtrangere!))?.status()).toBe(404);
-  for (const chemin of ["/gestion/catalogue", "/gestion/parametres", "/gestion/outils"]) {
+  for (const chemin of ["/gestion/catalogue", "/gestion/parametres", "/gestion/integrations", "/gestion/outils"]) {
     expect((await pageResponsable.goto(chemin))?.status(), chemin).toBe(404);
   }
 

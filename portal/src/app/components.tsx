@@ -114,7 +114,7 @@ function parametresErreur(lire: (nom: string) => string | null, t: Awaited<Retur
     .map((champ) => (t.has(`champs.${champ}`) ? t(`champs.${champ}`) : champ))
     .join(", ");
   // Paramètres attendus par les messages (ICU) : une valeur vide choisit la variante par défaut.
-  return { objet: "", cas: "", modele: "", equipe: "", ...details, champs, controles };
+  return { objet: "", cas: "", modele: "", equipe: "", champ: "", raison: "", valeur: "", id: "", kid: "", ...details, champs, controles };
 }
 
 /** Explication des étoiles, en tête d'un formulaire qui a des champs obligatoires. */

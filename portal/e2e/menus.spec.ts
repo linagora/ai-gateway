@@ -53,6 +53,7 @@ test("la gestion souligne « Gestion » dans l'en-tête et, dans son menu, l'ong
     ["/gestion/remboursements", /^Remboursements$/],
     ["/gestion/catalogue", /^Catalogue$/],
     ["/gestion/parametres", /^Valeurs par défaut$/],
+    ["/gestion/integrations", /^Intégrations$/],
     ["/gestion/outils", /^Outils$/],
   ] as const) {
     await admin.goto(chemin);
