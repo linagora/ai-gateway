@@ -1,0 +1,62 @@
+name: Bug report
+description: Something does not work as expected in the portal, the gateway or the deployment.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report a bug. English or French, as you prefer.
+
+        **Security vulnerabilities must not be reported here**: see [SECURITY.md](https://github.com/linagora/ai-gateway/blob/main/SECURITY.md).
+        Never paste API keys, integration tokens, passwords or personal data: redact them.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Portal
+        - Integration API
+        - Gateway (LiteLLM configuration and hooks)
+        - Reporting (Superset)
+        - Deployment (Docker Compose, Caddy, scripts)
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the problem, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Sign in as an employee of the "R&D" team
+        2. Open "New request"
+        3. …
+    validations:
+      required: true
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      options:
+        - Production
+        - Local development environment
+        - Other deployment
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Commit or version
+      description: The commit of `main` you run, if you know it.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or screenshots
+      description: Error messages, server logs or screenshots, with secrets and personal data redacted.
+      render: shell
