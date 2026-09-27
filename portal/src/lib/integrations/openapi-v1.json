@@ -908,7 +908,7 @@
         }
       },
       "Unauthorized": {
-        "description": "Missing, forged, expired or otherwise invalid integration token (`jeton_invalide`, with `details.reason`).",
+        "description": "Missing, forged, expired or otherwise invalid integration token (`jeton_invalide`, with `details.reason`, and `details.claim` for a missing or invalid claim).",
         "content": {
           "application/json": {
             "schema": {
@@ -918,7 +918,7 @@
         }
       },
       "Forbidden": {
-        "description": "Route outside the integration's scopes (`hors_perimetre`), caller address not allowed (`adresse_non_autorisee`), employee not a member of the team (`non_membre`) or action refused (`interdit`).",
+        "description": "Route outside the integration's scopes (`hors_perimetre`, with the required scope in `details.scope`), caller address not allowed (`adresse_non_autorisee`), employee not a member of the team (`non_membre`) or action refused (`interdit`).",
         "content": {
           "application/json": {
             "schema": {
@@ -928,7 +928,7 @@
         }
       },
       "NotFound": {
-        "description": "Unknown resource, or one that belongs to another employee (`introuvable`, with `details.objet`).",
+        "description": "Unknown resource or route, or one that belongs to another employee (`introuvable`, with `details.object`).",
         "content": {
           "application/json": {
             "schema": {
@@ -938,7 +938,7 @@
         }
       },
       "Conflict": {
-        "description": "Incompatible status or concurrent change (`transition_interdite`, with `details.cas`), pending request (`demande_en_cours`), already a member (`deja_membre`) or inconsistent identity (`identite_incoherente`).",
+        "description": "Incompatible status or concurrent change (`transition_interdite`, with `details.case`), pending request (`demande_en_cours`, with `details.team`), already a member (`deja_membre`, with `details.team`) or inconsistent identity (`identite_incoherente`).",
         "content": {
           "application/json": {
             "schema": {
@@ -1008,7 +1008,7 @@
               "details": {
                 "type": "object",
                 "additionalProperties": true,
-                "description": "Code-specific details, for instance `reason`, `objet`, `cas`, `fields` or `failedChecks`."
+                "description": "Code-specific details, with English keys and stable identifiers as values, for instance `reason`, `claim`, `scope`, `object`, `case`, `team`, `fields` or `failedChecks`."
               }
             }
           }

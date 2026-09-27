@@ -68,11 +68,19 @@ test("une demande de clé par l'API : refusée sans engagement ou hors politique
   await admin.getByRole("button", { name: "Approuver", exact: true }).click();
   await expect(admin.getByRole("status")).toHaveText("Demande approuvée.");
   expect((await lire("/requests")).requests[0]).toMatchObject({ status: "APPROVED", statusLabel: "Approuvée" });
-  expect(await erreur(await appeler(request, `/requests/${id}/cancel`, { jeton: jeton(), methode: "POST" }))).toMatchObject({ statut: 409, code: "transition_interdite" });
+  expect(await erreur(await appeler(request, `/requests/${id}/cancel`, { jeton: jeton(), methode: "POST" }))).toMatchObject({
+    statut: 409,
+    code: "transition_interdite",
+    details: { case: "traitee" },
+  });
 
   // Un autre collaborateur ne trouve pas cette demande.
   const autre = personne("autre");
-  expect(await erreur(await appeler(request, `/requests/${id}/cancel`, { jeton: jetonDemo(autre), methode: "POST" }))).toMatchObject({ statut: 404, code: "introuvable" });
+  expect(await erreur(await appeler(request, `/requests/${id}/cancel`, { jeton: jetonDemo(autre), methode: "POST" }))).toMatchObject({
+    statut: 404,
+    code: "introuvable",
+    details: { object: "demande" },
+  });
   expect(await erreur(await appeler(request, `/key-requests/${id}`, { jeton: jetonDemo(autre), methode: "PUT", corps: { ...demande, commitment: true } }))).toMatchObject({
     statut: 404,
     code: "introuvable",
@@ -112,7 +120,7 @@ test("une demande d'accès à une équipe par l'API part en validation, s'annule
   const creee = await deposer();
   expect(creee.status()).toBe(201);
   const { id } = (await creee.json()) as { id: string };
-  expect(await erreur(await deposer())).toMatchObject({ statut: 409, code: "demande_en_cours" });
+  expect(await erreur(await deposer())).toMatchObject({ statut: 409, code: "demande_en_cours", details: { team: "LPS Paris" } });
   await expect
     .poll(async () => (await courriels(collaborateur.uid)).some((c) => c.subject.includes(`Nouvelle demande d'accès à une équipe de ${collaborateur.name}`)), { timeout: 15_000 })
     .toBe(true);

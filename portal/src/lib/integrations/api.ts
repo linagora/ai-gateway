@@ -73,17 +73,23 @@ type CodeErreur =
   | "saisie_invalide"
   | "erreur_interne";
 
-/** Refus de l'API : statut HTTP, code stable, détails, et attente avant de réessayer (429), en millisecondes. */
+/**
+ * Refus de l'API : statut HTTP, code stable et détails ; en option, l'attente avant de réessayer (429), en millisecondes,
+ * et les paramètres du message quand ils diffèrent des détails (erreurs métier du portail).
+ */
 class RefusApi extends Error {
   constructor(
     readonly statut: number,
     readonly code: CodeErreur,
     readonly details: Record<string, unknown> = {},
-    readonly attente?: number,
+    readonly options: { attente?: number; parametres?: Record<string, string> } = {},
   ) {
     super(code);
   }
 }
+
+/** Clés des détails d'une erreur métier, en anglais dans l'API ; leurs valeurs restent des identifiants stables. */
+const CLES_DES_DETAILS: Record<string, string> = { objet: "object", cas: "case", equipe: "team", modele: "model", champ: "field", valeur: "value", raison: "reason" };
 
 /** Statut HTTP des erreurs métier des services ; les autres sont des saisies refusées (400). */
 const STATUTS_HTTP: Partial<Record<PortalErrorCode, number>> = {
@@ -147,7 +153,7 @@ export async function routeInconnue(requete: Request): Promise<Response> {
   const langue = langueDemandee(undefined, requete.headers.get("accept-language"));
   try {
     await controler(requete, null, getDeps(), new Date());
-    throw new RefusApi(404, "introuvable", { objet: "route" });
+    throw new PortalError("introuvable", "Route inconnue de l'API.", { objet: "route" });
   } catch (e) {
     return reponseErreur(versRefus(e), langue);
   }
@@ -167,7 +173,7 @@ async function controler(requete: Request, perimetre: Perimetre | null, deps: De
   if (!integration.active) throw new RefusApi(503, "integration_inactive");
   if (!adresseAutorisee(requete.headers.get(ENTETE_ADRESSE), integration.ipRanges)) throw new RefusApi(403, "adresse_non_autorisee");
   if (!plafonds.autoriser(integration.id, maintenant, integration.rateLimitPerMinute)) {
-    throw new RefusApi(429, "trop_de_requetes", {}, plafonds.attente(integration.id, maintenant, integration.rateLimitPerMinute));
+    throw new RefusApi(429, "trop_de_requetes", {}, { attente: plafonds.attente(integration.id, maintenant, integration.rateLimitPerMinute) });
   }
   if (perimetre && !integration.scopes.includes(perimetre)) throw new RefusApi(403, "hors_perimetre", { scope: perimetre });
   return verification.acteur;
@@ -177,7 +183,10 @@ async function controler(requete: Request, perimetre: Perimetre | null, deps: De
 function versRefus(e: unknown): RefusApi {
   if (e instanceof RefusApi) return e;
   if (e instanceof PolicyViolationError) return new RefusApi(400, e.code, { failedChecks: e.failedChecks.map(({ id, offending }) => ({ id, offending })) });
-  if (e instanceof PortalError) return new RefusApi(STATUTS_HTTP[e.code] ?? 400, e.code, e.params);
+  if (e instanceof PortalError) {
+    const details = Object.fromEntries(Object.entries(e.params).map(([cle, valeur]) => [CLES_DES_DETAILS[cle] ?? cle, valeur]));
+    return new RefusApi(STATUTS_HTTP[e.code] ?? 400, e.code, details, { parametres: e.params });
+  }
   if (e instanceof z.ZodError) {
     // Champs en cause, champs inconnus compris ; sans champ, c'est le corps entier qui n'est pas l'objet attendu.
     const chemins = e.issues.flatMap((i) => (i.code === "unrecognized_keys" ? i.keys.map((cle) => [...i.path, cle]) : [i.path]));
@@ -193,7 +202,8 @@ function versRefus(e: unknown): RefusApi {
 }
 
 function reponseErreur(refus: RefusApi, langue: Langue): Response {
-  const entetes = refus.attente !== undefined ? { "Retry-After": String(Math.max(1, Math.ceil(refus.attente / 1000))) } : undefined;
+  const { attente } = refus.options;
+  const entetes = attente !== undefined ? { "Retry-After": String(Math.max(1, Math.ceil(attente / 1000))) } : undefined;
   return json(refus.statut, { error: { code: refus.code, message: message(langue, refus), details: refus.details } }, entetes);
 }
 
@@ -217,10 +227,13 @@ const TRADUCTEURS = {
   en: createTranslator<Messages>({ locale: "en", messages: textes(en) }),
 };
 
-function message(langue: Langue, { code, details }: RefusApi): string {
+function message(langue: Langue, { code, details, options }: RefusApi): string {
   const t = TRADUCTEURS[langue];
   const cle = [`api.erreurs.${code}`, `avis.erreurs.${code}`].find((c) => t.has(c)) ?? "avis.erreurs.inconnue";
-  const valeurs = Object.fromEntries(Object.entries(details).flatMap(([nom, valeur]) => (typeof valeur === "string" || typeof valeur === "number" ? [[nom, String(valeur)]] : [])));
+  // Les messages du portail attendent les paramètres de l'erreur métier, en français ; ceux de l'API, ses détails.
+  const valeurs =
+    options.parametres ??
+    Object.fromEntries(Object.entries(details).flatMap(([nom, valeur]) => (typeof valeur === "string" || typeof valeur === "number" ? [[nom, String(valeur)]] : [])));
   // Champs d'une saisie invalide et contrôles en échec, nommés comme dans le portail.
   const parametres = parametresDErreur(
     { details: valeurs, champs: (details.fields as string[] | undefined) ?? [], controles: (details.failedChecks as ControleEnEchec[] | undefined) ?? [] },

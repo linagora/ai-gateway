@@ -230,7 +230,7 @@ api "$PORTAIL/keys"
 ## 6. Erreurs et limites
 
 Toutes les erreurs ont la même forme, avec un code stable, un message dans la langue d'`Accept-Language` (français par
-défaut, anglais) et des détails :
+défaut, anglais) et des détails, aux clés en anglais et aux valeurs stables :
 
 ```json
 { "error": { "code": "controles_en_echec", "message": "…", "details": { "failedChecks": [{ "id": "niveau_modeles", "offending": ["…"] }] } } }
@@ -239,10 +239,10 @@ défaut, anglais) et des détails :
 | Statut | Codes |
 |---|---|
 | 400 | `saisie_invalide` (champs en cause dans `details.fields`), `engagement_requis`, `controles_en_echec` (contrôles en échec dans `details.failedChecks`) |
-| 401 | `jeton_invalide` (motif dans `details.reason` : `absent`, `illisible`, `integration_inconnue`, `cle_inconnue`, `algorithme`, `signature`, `destinataire`, `expire`, `futur`, `duree`, `revendication`) |
+| 401 | `jeton_invalide` (motif dans `details.reason` : `absent`, `illisible`, `integration_inconnue`, `cle_inconnue`, `algorithme`, `signature`, `destinataire`, `expire`, `futur`, `duree`, `revendication`, avec alors `details.claim`) |
 | 403 | `adresse_non_autorisee`, `hors_perimetre` (périmètre exigé dans `details.scope`), `non_membre`, `interdit` |
-| 404 | `introuvable` : ressource inconnue ou appartenant à un autre collaborateur (`details.objet`), route inconnue |
-| 409 | `transition_interdite` (`details.cas`), `demande_en_cours`, `deja_membre`, `identite_incoherente` |
+| 404 | `introuvable` : ressource ou route inconnue, ou appartenant à un autre collaborateur (`details.object`) |
+| 409 | `transition_interdite` (`details.case`), `demande_en_cours` et `deja_membre` (`details.team`), `identite_incoherente` |
 | 429 | `trop_de_requetes` (plafond de l'intégration), avec l'en-tête `Retry-After` en secondes |
 | 502 | `passerelle_indisponible` : la passerelle ne répond pas, rien n'a changé |
 | 503 | `integration_inactive` : l'intégration est désactivée |
