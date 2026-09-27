@@ -1,6 +1,7 @@
 # Caddy de développement : reproduit le point de contrôle de la production (fragment partagé
-# infra/caddy/portal-gate.caddy) devant un service factice qui affiche l'identité reçue.
-#   http://localhost:54600/admin/…  et  http://localhost:54600/stats/…
+# infra/caddy/portal-gate.caddy) devant un service factice qui affiche l'identité reçue, et le proxy
+# de l'API d'intégration du portail (fragment partagé infra/caddy/portail.caddy).
+#   http://localhost:54600/admin/…, http://localhost:54600/stats/… et http://localhost:54600/api/v1/…
 {
 	auto_https off
 	admin off
@@ -20,6 +21,11 @@
 			import /etc/caddy/portal-gate.caddy stats host.docker.internal:3100
 			reverse_proxy 127.0.0.1:8081
 		}
+	}
+	# API d'intégration : comme en production, Caddy transmet au portail l'adresse réelle du client.
+	@api path /api/v1 /api/v1/*
+	handle @api {
+		import /etc/caddy/portail.caddy host.docker.internal:3100
 	}
 }
 

@@ -1,0 +1,7 @@
+# Proxy vers le portail, à importer DANS un bloc handle :
+#   import portail.caddy <adresse du portail, ex. portal:3000>
+# Caddy transmet au portail l'adresse réelle du client dans X-Real-IP, qu'il écrase lui-même : un client ne peut pas la
+# falsifier. L'API d'intégration du portail (/api/v1) n'accepte que les appels venus des adresses de chaque intégration.
+reverse_proxy {args[0]} {
+	header_up X-Real-IP {remote_host}
+}

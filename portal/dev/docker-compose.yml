@@ -23,6 +23,7 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ../../infra/caddy/portal-gate.caddy:/etc/caddy/portal-gate.caddy:ro
+      - ../../infra/caddy/portail.caddy:/etc/caddy/portail.caddy:ro
     ports:
       - "127.0.0.1:54600:8080"
 

@@ -78,8 +78,8 @@
 		respond "Not Found" 404
 	}
 
-	# --- Tout le reste : Portail Linagora
+	# --- Tout le reste : Portail Linagora, avec l'adresse réelle du client (API d'intégration, /api/v1).
 	handle {
-		reverse_proxy portal:3000
+		import portail.caddy portal:3000
 	}
 }
