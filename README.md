@@ -90,38 +90,29 @@ self-hosted on a single virtual machine with Docker Compose.
 
 ## Screenshots
 
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <img src="docs/screenshots/key-request.png" alt="Key request form">
-      <p><b>Request a key.</b> The declared data level filters the models that can be requested.</p>
-    </td>
-    <td width="50%" valign="top">
-      <img src="docs/screenshots/my-keys.png" alt="Issued keys of an employee">
-      <p><b>My keys.</b> Endpoint, expiry, spend against budget, renewal, replacement and revocation.</p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <img src="docs/screenshots/approval-queue.png" alt="Queue of requests awaiting validation">
-      <p><b>Approval queue.</b> Pending requests, then the archive of processed ones.</p>
-    </td>
-    <td width="50%" valign="top">
-      <img src="docs/screenshots/request-review.png" alt="Review of a key request with its policy checks">
-      <p><b>Request review.</b> Policy checks, then the budget and validity of the key.</p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <img src="docs/screenshots/api-docs.png" alt="Integration API documentation with Swagger UI">
-      <p><b>Integration API.</b> The contract in Swagger UI, which can be tried with a signed token.</p>
-    </td>
-    <td width="50%" valign="top">
-      <img src="docs/screenshots/integrations.png" alt="Integrations declared by the administrators">
-      <p><b>Integrations.</b> Scopes, allowed addresses, rate limit and public keys of each application.</p>
-    </td>
-  </tr>
-</table>
+**Request a key.** The declared data level filters the models that can be requested.
+
+![Key request form](docs/screenshots/key-request.png)
+
+**My keys.** Endpoint, expiry, spend against budget, renewal, replacement and revocation.
+
+![Issued keys of an employee](docs/screenshots/my-keys.png)
+
+**Approval queue.** Pending requests, then the archive of processed ones.
+
+![Queue of requests awaiting validation](docs/screenshots/approval-queue.png)
+
+**Request review.** Policy checks, then the budget and validity of the key.
+
+![Review of a key request with its policy checks](docs/screenshots/request-review.png)
+
+**Integration API.** The contract in Swagger UI, which can be tried with a signed token.
+
+![Integration API documentation with Swagger UI](docs/screenshots/api-docs.png)
+
+**Integrations.** Scopes, allowed addresses, rate limit and public keys of each application.
+
+![Integrations declared by the administrators](docs/screenshots/integrations.png)
 
 The screenshots are taken from the development environment, with fictional people and data, by
 `npm run captures` (see [portal/dev/captures](portal/dev/captures/captures.spec.ts)).
