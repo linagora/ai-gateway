@@ -10,6 +10,7 @@
     "catalogue": "Catalog",
     "mesDemandes": "My requests",
     "nouvelleDemande": "New request",
+    "api": "API",
     "gestion": "Administration",
     "deconnexion": "Sign out",
     "mesCles": "My keys",
@@ -1252,7 +1253,9 @@
   },
   "documentationApi": {
     "titre": "Integration API",
-    "introduction": "Contract of the API that lets an integration declared by the administrators (Team Manager, for instance) act on behalf of an employee: their teams, the catalog, their requests and keys. The <guide>integration guide</guide> explains the declaration, the key pair and the token signature.",
-    "essai": "To try a route: “Authorize”, paste a token signed by your integration, then “Try it out”. Calls leave from your browser and go through the checks of any API call: active integration, allowed IP address, rate limit and scope."
+    "introduction": "The portal also lets requests be made through an API: an application declared by the administrators, an integration (Team Manager, for instance), can, on behalf of an employee, read their teams, the catalog, their requests and keys, and submit their key or team access requests. Requests are then approved in the portal, like any other.",
+    "guide": "The <lien>integration guide</lien> explains how to declare an integration, create its key pair and sign its tokens. The API contract follows.",
+    "essai": "To try a route: “Authorize”, paste a token signed by your integration, then “Try it out”. Calls leave from your browser and go through the checks of any API call: active integration, allowed IP address, rate limit and scope.",
+    "versContrat": "API contract (Swagger)"
   }
 }

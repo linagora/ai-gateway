@@ -10,6 +10,7 @@
     "catalogue": "Catalogue",
     "mesDemandes": "Mes demandes",
     "nouvelleDemande": "Nouvelle demande",
+    "api": "API",
     "gestion": "Gestion",
     "deconnexion": "Se déconnecter",
     "mesCles": "Mes clés",
@@ -1252,7 +1253,9 @@
   },
   "documentationApi": {
     "titre": "API d'intégration",
-    "introduction": "Contrat de l'API qui permet à une intégration déclarée par les admins (Team Manager, par exemple) d'agir pour un collaborateur : ses équipes, le catalogue, ses demandes et ses clés. Le <guide>guide d'intégration</guide> explique la déclaration, la paire de clés et la signature des jetons.",
-    "essai": "Pour essayer une route : « Authorize », collez un jeton signé par votre intégration, puis « Try it out ». Les appels partent de votre navigateur et passent les contrôles de tout appel de l'API : intégration active, adresse IP autorisée, plafond et périmètre."
+    "introduction": "Le portail permet aussi de faire ses demandes par API : une application déclarée par les admins, une intégration (Team Manager, par exemple), peut, pour un collaborateur, lire ses équipes, le catalogue, ses demandes et ses clés, et déposer ses demandes de clé ou d'accès à une équipe. Les demandes se valident ensuite dans le portail, comme les autres.",
+    "guide": "Le <lien>guide d'intégration</lien> explique comment déclarer une intégration, créer sa paire de clés et signer ses jetons. Le contrat de l'API suit.",
+    "essai": "Pour essayer une route : « Authorize », collez un jeton signé par votre intégration, puis « Try it out ». Les appels partent de votre navigateur et passent les contrôles de tout appel de l'API : intégration active, adresse IP autorisée, plafond et périmètre.",
+    "versContrat": "Contrat de l'API (Swagger)"
   }
 }
