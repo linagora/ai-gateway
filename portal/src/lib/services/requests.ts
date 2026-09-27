@@ -57,8 +57,10 @@ export interface RequestSummary {
 export async function createKeyRequest(deps: RequestDeps, user: SessionUser, input: KeyRequestInput): Promise<{ id: string }> {
   const fields = await validateKeyRequest(deps, user, input);
   const origine = input.renewsRequestId ? await ownKeyToRenew(deps, user, input.renewsRequestId) : null;
+  // Le collaborateur ne saisit plus de budget : un renouvellement reprend celui de la clé d'origine.
+  const requestedBudget = fields.requestedBudget ?? origine?.approvedBudget ?? null;
   const created = await deps.db.accessRequest.create({
-    data: { kind: "CLE", requesterUid: user.uid, requesterEmail: user.email, requesterName: user.name, ...fields, renewsRequestId: origine?.id ?? null },
+    data: { kind: "CLE", requesterUid: user.uid, requesterEmail: user.email, requesterName: user.name, ...fields, requestedBudget, renewsRequestId: origine?.id ?? null },
   });
   await recordAudit(deps.db, {
     ...parActeur(user),
@@ -84,7 +86,8 @@ export async function completeRequest(deps: RequestDeps, user: SessionUser, id: 
   const request = await deps.db.accessRequest.findUnique({ where: { id } });
   if (!request || request.requesterUid !== user.uid || request.kind !== "CLE") throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
   const fields = await validateKeyRequest(deps, user, input);
-  await transitionRequest(deps.db, request, "SOUMISE", { data: fields });
+  // Le budget n'est pas ressaisi : un complément garde celui de la demande (repris de la clé d'origine d'un renouvellement).
+  await transitionRequest(deps.db, request, "SOUMISE", { data: { ...fields, requestedBudget: fields.requestedBudget ?? request.requestedBudget } });
   await recordAudit(deps.db, { ...parActeur(user), action: "REQUEST_COMPLETED", targetId: request.id, details: { kind: request.kind, teamAlias: fields.teamAlias } });
 }
 

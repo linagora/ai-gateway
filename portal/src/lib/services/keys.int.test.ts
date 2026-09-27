@@ -4,12 +4,12 @@ import { LimiteDeDebit } from "@/lib/limite-de-debit";
 import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
 import { FakeMailer } from "@/test/fake-mailer";
-import { approveKeyRequest, getRequestReview, refuseRequest } from "./admin-requests";
+import { approveKeyRequest, getRequestReview, refuseRequest, requestCompletion } from "./admin-requests";
 import { listAudit } from "./audit";
 import { saveCatalogEntry } from "./catalog";
 import { runDailyTask } from "./echeances";
 import { blockKey, listActiveKeys, listKeyArchive, listKeysToPickUp, listMyKeys, pickUpKey, renewalDraft, replaceKey, revokeKey, unblockKey } from "./keys";
-import { createKeyRequest, type KeyRequestInput, listMyRequests } from "./requests";
+import { completeRequest, createKeyRequest, type KeyRequestInput, listMyRequests } from "./requests";
 import { saveSettings } from "./settings";
 
 const admin = { uid: "jdupont", email: "jdupont@linagora.com", name: "Jeanne Dupont", isAdmin: true };
@@ -422,6 +422,17 @@ describe("renouvellement d'une clé (ticket #21)", () => {
     });
     const { renouvelee } = await renouvellement();
     expect((await listAudit(testDb)).map((e) => [e.action, e.targetId, e.details])).toContainEqual(["RENEWAL_REQUESTED", renouvelee, expect.objectContaining({ origine: expect.any(String) })]);
+  });
+
+  test("un renouvellement déposé sans budget reprend celui de la clé d'origine, qu'un complément garde", async () => {
+    const origine = await demandeApprouvee();
+    await pickUpKey(deps, titulaire, origine);
+    const renouvellement = { ...demande, requestedBudget: null, justification: "Renouvellement", commitment: true };
+    const { id } = await createKeyRequest(deps, titulaire, { ...renouvellement, renewsRequestId: origine });
+    expect((await getRequestReview(deps, admin, id)).requestedBudget).toBe(15);
+    await requestCompletion(deps, admin, id, "Précisez le projet");
+    await completeRequest(deps, titulaire, id, { ...renouvellement, project: "Autre projet" });
+    expect((await getRequestReview(deps, admin, id)).requestedBudget).toBe(15);
   });
 
   test("on ne renouvelle que ses propres clés : pas celle d'un autre, ni une demande sans clé", async () => {

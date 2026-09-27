@@ -36,18 +36,15 @@ const champsDeCle = {
 export const demandeDeCle = z.strictObject({ ...champsDeCle, renewsRequestId: z.string().regex(/^[a-z0-9]{1,64}$/).nullish() });
 export const complementDeCle = z.strictObject(champsDeCle);
 
-/**
- * Saisie du service des demandes : le budget n'est pas demandé au collaborateur (un renouvellement reprend celui de la
- * clé d'origine, comme le formulaire du portail).
- */
-export function versDemandeDeCle(saisie: z.infer<typeof complementDeCle>, requestedBudget: number | null = null): KeyRequestInput {
+/** Saisie du service des demandes : le budget n'est pas demandé au collaborateur (le service reprend celui d'un renouvellement). */
+export function versDemandeDeCle(saisie: z.infer<typeof complementDeCle>): KeyRequestInput {
   return {
     teamId: saisie.teamId,
     dataLevel: saisie.dataLevel,
     models: saisie.models,
     justification: saisie.justification,
     project: saisie.project || null,
-    requestedBudget,
+    requestedBudget: null,
     requestedDays: saisie.requestedDays ?? null,
     commitment: saisie.commitment === true,
   };

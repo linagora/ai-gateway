@@ -75,8 +75,7 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
             {t("projet")}
             <input name="project" defaultValue={renouvellement?.project ?? ""} />
           </label>
-          {/* Le budget n'est plus demandé au salarié : l'admin le fixe ; un renouvellement propose celui de la clé d'origine. */}
-          {renouvellement?.requestedBudget != null && <input type="hidden" name="requestedBudget" value={renouvellement.requestedBudget} />}
+          {/* Le budget n'est plus demandé au collaborateur : l'admin le fixe ; un renouvellement reprend celui de la clé d'origine. */}
           <label>
             {t("duree")}
             <ChoixDuree name="requestedDays" valeur={renouvellement?.requestedDays ?? dureeParDefaut} />
