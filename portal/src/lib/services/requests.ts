@@ -42,11 +42,14 @@ export interface RequestSummary {
   kind: RequestKind;
   /** Demande d'abonnement : l'offre demandée, « Anthropic · Claude Max 5x ». */
   offer: string | null;
+  teamId: string;
   teamAlias: string;
   dataLevel: DataLevel | null;
   models: string[];
   status: RequestStatus;
   decisionComment: string | null;
+  /** Renouvellement d'une clé : la demande dont vient la clé renouvelée. */
+  renewsRequestId: string | null;
   createdAt: Date;
 }
 
@@ -210,11 +213,13 @@ export async function listMyRequests(deps: RequestDeps, user: SessionUser): Prom
     id: r.id,
     kind: r.kind,
     offer: r.offer && libelleOffre(r.offer),
+    teamId: r.teamId,
     teamAlias: r.teamAlias,
     dataLevel: r.dataLevel,
     models: r.models,
     status: r.status,
     decisionComment: r.decisionComment,
+    renewsRequestId: r.renewsRequestId,
     createdAt: r.createdAt,
   }));
 }

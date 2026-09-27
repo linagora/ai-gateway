@@ -34,11 +34,18 @@ const plafonds = (memoire.plafondsDesIntegrations ??= new LimiteDeDebit(120, 60_
 
 export type DepsApi = ReturnType<typeof getDeps>;
 
-/** Ce que reçoit le traitement d'une route : le collaborateur du jeton, les dépendances, la langue et les paramètres. */
+/** Traducteur des textes de l'API dans la langue demandée (dictionnaires du portail). */
+export type Traducteur = (typeof TRADUCTEURS)[Langue];
+
+/**
+ * Ce que reçoit le traitement d'une route : le collaborateur du jeton, les dépendances, la langue et son traducteur, et
+ * les paramètres du chemin.
+ */
 export interface Appel<P> {
   acteur: SessionUser;
   deps: DepsApi;
   langue: Langue;
+  t: Traducteur;
   params: P;
 }
 
@@ -79,7 +86,7 @@ export function routeApi<P = Record<string, never>>(perimetre: Perimetre | null,
       const deps = getDeps();
       const acteur = await controler(requete, perimetre, deps, new Date());
       await provisionIntegrationUser(deps, acteur);
-      return json(200, await traiter({ acteur, deps, langue, params: await contexte.params }));
+      return json(200, await traiter({ acteur, deps, langue, t: TRADUCTEURS[langue], params: await contexte.params }));
     } catch (e) {
       return reponseErreur(versRefus(e), langue);
     }
@@ -135,10 +142,16 @@ function json(statut: number, corps: unknown, entetes: Record<string, string> = 
 }
 
 /**
- * Textes des erreurs : ceux du portail (espace « avis »), et ceux propres à l'API (espace « api »). Les codes d'erreur
- * sont connus à l'exécution seulement : les clés ne sont pas vérifiées à la compilation.
+ * Textes de l'API, repris des dictionnaires du portail : erreurs (espaces « avis » et « api »), noms du domaine (niveaux,
+ * statuts) et engagement de la demande de clé. Les codes d'erreur ne sont connus qu'à l'exécution : les clés ne sont
+ * pas vérifiées à la compilation.
  */
-const textes = (messages: typeof fr) => ({ avis: messages.avis, api: messages.api });
+const textes = (messages: typeof fr) => ({
+  avis: messages.avis,
+  api: messages.api,
+  domaine: messages.domaine,
+  nouvelleDemande: { engagement: messages.nouvelleDemande.engagement },
+});
 const TRADUCTEURS = {
   fr: createTranslator<Messages>({ locale: "fr", messages: textes(fr) }),
   en: createTranslator<Messages>({ locale: "en", messages: textes(en) }),

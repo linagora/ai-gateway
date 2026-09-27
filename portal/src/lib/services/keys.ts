@@ -33,6 +33,7 @@ function verifierFrequence(deps: KeyDeps, user: SessionUser, maintenant: Date): 
 /** Demande approuvée, en attente de retrait par son titulaire. */
 export interface KeyToPickUp {
   requestId: string;
+  teamId: string;
   teamAlias: string;
   dataLevel: DataLevel;
   models: string[];
@@ -45,6 +46,7 @@ export interface KeyToPickUp {
 export interface IssuedKey {
   requestId: string;
   alias: string;
+  teamId: string;
   teamAlias: string;
   dataLevel: DataLevel;
   models: string[];
@@ -86,6 +88,7 @@ export async function listMyKeys(deps: KeyDeps, user: SessionUser): Promise<MyKe
       .filter((r) => r.status === "APPROUVEE" && r.dataLevel)
       .map((r) => ({
         requestId: r.id,
+        teamId: r.teamId,
         teamAlias: r.teamAlias,
         dataLevel: r.dataLevel as DataLevel,
         models: r.approvedModels,
@@ -103,6 +106,7 @@ async function toIssuedKey(litellm: LiteLLMClient, r: AccessRequest): Promise<Om
   return {
     requestId: r.id,
     alias: r.keyAlias as string,
+    teamId: r.teamId,
     teamAlias: r.teamAlias,
     dataLevel: r.dataLevel as DataLevel,
     models: r.approvedModels,
