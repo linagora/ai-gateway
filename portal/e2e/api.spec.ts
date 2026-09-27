@@ -60,6 +60,19 @@ test("un jeton refusé reçoit 401 jeton_invalide avec son motif, en français p
   expect(await erreur(await appeler(request, "/inconnue", { jeton: jetonDemo(collaborateur) }))).toMatchObject({ statut: 404, code: "introuvable", details: { objet: "route" } });
 });
 
+test("un uid inconnu dont l'adresse appartient déjà à un autre collaborateur est refusé (409), sans être provisionné", async ({ request }) => {
+  const collaborateur = personne("identite");
+  expect((await appeler(request, "/me/teams", { jeton: jetonDemo(collaborateur) })).status()).toBe(200);
+  // Même personne, uid mal formé par l'intégration : aucun second collaborateur n'est créé.
+  const erreurDeFormat = { ...collaborateur, uid: collaborateur.uid.toUpperCase() };
+  expect(await erreur(await appeler(request, "/me/teams", { jeton: jetonDemo(erreurDeFormat) }))).toMatchObject({ statut: 409, code: "identite_incoherente", details: {} });
+  expect(await utilisateurPasserelle(erreurDeFormat.uid)).toBeNull();
+  // Une autre personne, inconnue elle aussi, mais d'adresse inconnue : provisionnée.
+  const nouvelle = personne("identite-nouvelle");
+  expect((await appeler(request, "/me/teams", { jeton: jetonDemo(nouvelle) })).status()).toBe(200);
+  expect(await utilisateurPasserelle(nouvelle.uid)).toMatchObject({ user_email: nouvelle.email });
+});
+
 test("le contrat OpenAPI est servi à une intégration authentifiée", async ({ request }) => {
   const reponse = await appeler(request, "/openapi.json", { jeton: jetonDemo(personne("contrat")) });
   expect(reponse.status()).toBe(200);

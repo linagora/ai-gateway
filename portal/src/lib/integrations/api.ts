@@ -7,7 +7,7 @@ import { type Langue, langueDemandee } from "@/lib/langue";
 import { LimiteDeDebit } from "@/lib/limite-de-debit";
 import { LiteLLMError } from "@/lib/litellm/client";
 import { lireIntegrationAppelante, type Perimetre } from "@/lib/services/integrations";
-import { provisionUser } from "@/lib/services/provisioning";
+import { provisionIntegrationUser } from "@/lib/services/provisioning";
 import { getDeps } from "@/lib/session";
 import en from "../../../messages/en.json";
 import fr from "../../../messages/fr.json";
@@ -16,7 +16,8 @@ import { verifierJeton } from "./jeton";
 
 /**
  * API d'intégration `/api/v1` (spécification #71) : chaque appel porte un jeton d'intégration, passe les contrôles dans
- * l'ordre du contrat (intégration active, adresse, plafond, périmètre), provisionne le collaborateur au premier accès,
+ * l'ordre du contrat (intégration active, adresse, plafond, périmètre), provisionne le collaborateur au premier accès
+ * (sauf identité incohérente),
  * puis appelle les mêmes services que les pages du portail, pour le collaborateur seul, jamais comme admin. Toutes les
  * réponses portent `Cache-Control: no-store` ; les erreurs ont un code stable et un message dans la langue demandée.
  */
@@ -61,6 +62,7 @@ const STATUTS: Partial<Record<PortalErrorCode, number>> = {
   transition_interdite: 409,
   demande_en_cours: 409,
   deja_membre: 409,
+  identite_incoherente: 409,
   renouvellement_trop_tot: 409,
   trop_de_generations: 429,
   passerelle_indisponible: 502,
@@ -76,7 +78,7 @@ export function routeApi<P = Record<string, never>>(perimetre: Perimetre | null,
     try {
       const deps = getDeps();
       const acteur = await controler(requete, perimetre, deps, new Date());
-      await provisionUser(deps, acteur);
+      await provisionIntegrationUser(deps, acteur);
       return json(200, await traiter({ acteur, deps, langue, params: await contexte.params }));
     } catch (e) {
       return reponseErreur(versRefus(e), langue);

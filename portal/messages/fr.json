@@ -1244,7 +1244,8 @@
       "adresse_non_autorisee": "L'adresse IP de l'appelant n'est pas autorisée pour cette intégration.",
       "trop_de_requetes": "Trop de requêtes pour cette intégration : réessayez après le délai indiqué par Retry-After.",
       "hors_perimetre": "Cette route ne fait pas partie du périmètre de l'intégration ({scope}).",
-      "erreur_interne": "Une erreur est survenue : réessayez plus tard."
+      "erreur_interne": "Une erreur est survenue : réessayez plus tard.",
+      "identite_incoherente": "Identité incohérente : cet uid est inconnu du portail et son adresse appartient déjà à un autre collaborateur. Vérifiez l'identifiant (sub) transmis par l'intégration : c'est l'uid LDAP que LemonLDAP::NG donne au portail."
     }
   }
 }

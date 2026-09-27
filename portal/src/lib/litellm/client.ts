@@ -139,6 +139,8 @@ export interface LiteLLMClient {
   getUser(userId: string): Promise<LiteLLMUser | null>;
   /** F-02 : crée l'utilisateur (rôle internal_user) SANS clé : aucune clé hors du circuit de validation. */
   createUser(input: { userId: string; email: string }): Promise<void>;
+  /** Spécification #71 (garde-fou d'identité) : utilisateurs dont l'adresse est exactement celle-ci, sans tenir compte de la casse. */
+  findUsersByEmail(email: string): Promise<{ userId: string; email: string }[]>;
   /** F-22 : ajoute l'utilisateur à l'équipe avec le rôle « user ». */
   addTeamMember(teamId: string, userId: string): Promise<void>;
   /** F-53 : retire un membre d'une équipe (sortie d'une équipe). */
@@ -191,6 +193,9 @@ const userInfoSchema = z.object({
   user_info: z.object({ user_email: z.string().nullish() }).nullish(),
   teams: z.array(teamSummarySchema).nullish(),
 });
+
+/** Utilisateurs tels que les liste GET /user/list. */
+const userListSchema = z.object({ users: z.array(z.object({ user_id: z.string(), user_email: z.string().nullish() })) });
 
 /** Clés d'une équipe, telles que les liste GET /team/info. */
 const teamKeysSchema = z.object({ keys: z.array(z.object({ expires: z.string().nullish() })).nullish() });
@@ -285,6 +290,17 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
         email: info.user_info?.user_email ?? null,
         teams: (info.teams ?? []).map(toTeamSummary),
       };
+    },
+
+    async findUsersByEmail(email) {
+      // GET /user/list filtre sur une partie de l'adresse (LiteLLM 1.102.1) : seules les adresses identiques sont gardées.
+      const path = `/user/list?user_email=${encodeURIComponent(email)}&page_size=100`;
+      const { status, data } = await call("GET", path);
+      if (status !== 200) fail("GET", path, status, data);
+      const cherchee = email.toLowerCase();
+      return userListSchema
+        .parse(data)
+        .users.flatMap((u) => (u.user_email && u.user_email.toLowerCase() === cherchee ? [{ userId: u.user_id, email: u.user_email }] : []));
     },
 
     async createUser({ userId, email }) {

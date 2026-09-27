@@ -45,7 +45,8 @@ export type AuditAction =
   | "INTEGRATION_KEY_ADDED"
   | "INTEGRATION_KEY_REMOVED"
   | "INTEGRATION_ACTIVATED"
-  | "INTEGRATION_DEACTIVATED";
+  | "INTEGRATION_DEACTIVATED"
+  | "INTEGRATION_IDENTITY_REFUSED";
 
 /** Entrée du journal d'audit : qui, quoi, sur quelle cible, avec quels détails. Jamais de secret. */
 export interface AuditEntry {

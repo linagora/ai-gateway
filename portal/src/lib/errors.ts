@@ -14,6 +14,7 @@ export type PortalErrorCode =
   | "demande_en_cours"
   | "engagement_requis"
   | "equipe_non_vide"
+  | "identite_incoherente"
   | "integration_existante"
   | "integration_invalide"
   | "interdit"
