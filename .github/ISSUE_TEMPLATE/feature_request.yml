@@ -1,0 +1,40 @@
+name: Feature request
+description: Suggest a new feature or an improvement.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for your suggestion. English or French, as you prefer.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Portal
+        - Integration API
+        - Gateway (LiteLLM configuration and hooks)
+        - Reporting (Superset)
+        - Deployment (Docker Compose, Caddy, scripts)
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and what gets in the way? Who is concerned (employees, team managers, administrators, integrators)?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How you would like it to work.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other solutions or workarounds you have thought of.
