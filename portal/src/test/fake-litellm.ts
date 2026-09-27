@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import type { GeneratedKey, KeyInfo, KeyParams, LiteLLMClient, LiteLLMModel, LiteLLMTeam, LiteLLMUser, TeamChanges } from "@/lib/litellm/client";
+import { type GeneratedKey, type KeyInfo, type KeyParams, type LiteLLMClient, LiteLLMError, type LiteLLMModel, type LiteLLMTeam, type LiteLLMUser, type TeamChanges } from "@/lib/litellm/client";
 
 /** Clé connue du LiteLLM simulé ; `key` n'y est gardée que pour les vérifications des tests. */
 export interface FakeKey extends KeyParams {
@@ -46,9 +46,15 @@ export class FakeLiteLLM implements LiteLLMClient {
     return { userId, email: user.email, teams };
   }
 
+  async findUsersByEmail(email: string): Promise<{ userId: string; email: string }[]> {
+    return [...this.users].filter(([, u]) => u.email.toLowerCase() === email.toLowerCase()).map(([userId, u]) => ({ userId, email: u.email }));
+  }
+
   async createUser({ userId, email }: { userId: string; email: string }): Promise<void> {
     // Comme une contrainte d'unicité : recréer un utilisateur existant est une erreur.
     if (this.users.has(userId)) throw new Error(`utilisateur déjà existant : ${userId}`);
+    // Comme LiteLLM 1.102.1 : une adresse déjà prise par un autre utilisateur est refusée (HTTP 409).
+    if ([...this.users.values()].some((u) => u.email === email)) throw new LiteLLMError(409, `LiteLLM POST /user/new : HTTP 409 (adresse déjà prise)`);
     this.users.set(userId, { email });
   }
 

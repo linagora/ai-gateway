@@ -126,7 +126,13 @@
       "montantCorrige": "Amount corrected: it applies from the next charge.",
       "resiliationDeclaree": "Cancellation declared.",
       "resiliationDemandee": "Cancellation request sent to the holder.",
-      "abonnementRattache": "Subscription attached to the team."
+      "abonnementRattache": "Subscription attached to the team.",
+      "integrationDeclaree": "Integration declared, disabled: add its public key, then enable it after acceptance testing.",
+      "integrationEnregistree": "Integration saved.",
+      "cleIntegrationAjoutee": "Public key added.",
+      "integrationActivee": "Integration enabled.",
+      "integrationDesactivee": "Integration disabled: its calls are rejected.",
+      "cleIntegrationHorsService": "Public key retired: tokens it signs are now rejected."
     },
     "erreurs": {
       "controles_en_echec": "The request does not comply with the model access policy. Failed checks: {controles}.",
@@ -135,7 +141,7 @@
       "renouvellement_trop_tot": "Renewal can be requested at the earliest one month before the subscription expires.",
       "engagement_requis": "Commit to not submitting data above the declared level.",
       "interdit": "Administrators only.",
-      "introuvable": "{objet, select, modele {Model {modele} is not declared in the gateway.} equipe {Team not found.} demande_adhesion {Access request not found.} demande_cle {Key request not found.} membre {Member not found in this team.} responsable {Manager not found in this team.} offre {Subscription offer not found.} demande_abonnement {Subscription request not found.} abonnement {Subscription not found.} transmission {Transmission not found.} collaborateur {Employee not found.} other {Request not found.}}",
+      "introuvable": "{objet, select, modele {Model {modele} is not declared in the gateway.} equipe {Team not found.} demande_adhesion {Access request not found.} demande_cle {Key request not found.} membre {Member not found in this team.} responsable {Manager not found in this team.} offre {Subscription offer not found.} demande_abonnement {Subscription request not found.} abonnement {Subscription not found.} transmission {Transmission not found.} collaborateur {Employee not found.} integration {Integration not found.} cle_integration {Public key not found, or already retired.} route {Unknown API route.} other {Request not found.}}",
       "motif_obligatoire": "A reason is required.",
       "parametre_manquant": "Budget, budget period and validity are required: enter them or configure default values.",
       "recommandation_hors_cas_usage": "A recommendation can only apply to a checked use case.",
@@ -158,7 +164,11 @@
       "budget_equipe_invalide": "Invalid team budget: enter an amount of zero or more (0: no limit) and, for a positive amount, a period such as 30d, 12h…",
       "non_membre": "{cas, select, titulaire {{uid} is not a member of the {equipe} team: their subscription cannot be attached to it.} other {You are not a member of the {equipe} team.}}",
       "date_future": "{objet, select, resiliation {The cancellation date cannot be in the future.} other {The subscription date cannot be in the future.}}",
-      "date_avant_souscription": "The cancellation date cannot be before the subscription date."
+      "date_avant_souscription": "The cancellation date cannot be before the subscription date.",
+      "integration_invalide": "{champ, select, identifiant {An integration ID has 2 to 40 characters: lowercase letters, digits and single hyphens between them (for example team-manager).} nom {Give the integration a name (100 characters at most).} perimetres {Unknown scope: {valeur}.} adresses {Invalid IP address or CIDR range: {valeur}.} plafond {The rate limit is a whole number of requests per minute, from 1 to 10,000.} other {Invalid input.}}",
+      "integration_existante": "The ID {id} is already used by another integration.",
+      "cle_publique_invalide": "{raison, select, format {Unreadable public key: paste a PEM public key, from “-----BEGIN PUBLIC KEY-----” to “-----END PUBLIC KEY-----”.} algorithme {The key does not match the chosen algorithm: an Ed25519 key for EdDSA, an RSA key for RS256.} taille {An RSA key must have at least 2,048 bits.} cle_privee {This is a private key: it must never leave the integration. Paste its public key only.} kid {A key ID has 1 to 64 characters: letters, digits, dots, hyphens and underscores.} other {Public key rejected.}}",
+      "kid_existant": "The key ID {kid} is already used in this integration, including by a retired key: choose another one."
     },
     "controles": {
       "membre_equipe": "The requester is a member of the team",
@@ -519,7 +529,8 @@
       "aValider": "{nombre, plural, one {# request to review} other {# requests to review}}",
       "outils": "Tools",
       "collaborateurs": "Employees",
-      "remboursements": "Accounting"
+      "remboursements": "Accounting",
+      "integrations": "Integrations"
     },
     "file": {
       "titre": "Requests awaiting validation",
@@ -794,6 +805,57 @@
         "resume": "{nombre, plural, one {# charge} other {# charges}}, {total} in total",
         "ligne": "{date}: {montant}, team {equipe}"
       }
+    },
+    "integrations": {
+      "titre": "Integrations",
+      "introduction": "Third-party applications allowed to act on behalf of an employee through the portal API, within what that employee can do on their own requests and keys: never with the rights of an administrator or a team manager. An integration is declared disabled: add its public key, then enable it after acceptance testing. It cannot be deleted: disable it.",
+      "actives": "Active integrations",
+      "aucuneActive": "No active integration: the API rejects every call.",
+      "desactivees": "Disabled integrations ({nombre})",
+      "etat": "{active, select, true {Active} other {Disabled}}",
+      "declaree": "Declared on {date, date, long} by {auteur}.",
+      "activer": "Enable",
+      "desactiver": "Disable",
+      "aideActiver": "Enable it only after acceptance testing: it will then be able to call the API for any employee, within its scope.",
+      "aideDesactiver": "Its calls are rejected within seconds.",
+      "reglages": "Settings",
+      "identifiant": "ID",
+      "aideIdentifiant": "Immutable: it is the issuer (iss) of the integration's tokens and its channel in the audit log. 2 to 40 characters: lowercase letters, digits and hyphens (for example team-manager).",
+      "nom": "Name",
+      "perimetre": "Scope",
+      "perimetres": {
+        "lecture": "Read: the employee's teams, the catalog, their requests and keys",
+        "demandes": "Requests: request a key or access to a team, complete and cancel a request",
+        "cles": "Keys: pick up, replace and revoke a key, prepare its renewal"
+      },
+      "adresses": "IP addresses and CIDR ranges",
+      "aideAdresses": "One per line, for example 203.0.113.10 or 2001:db8::/32. Without any address, all its calls are rejected.",
+      "plafond": "Rate limit (requests per minute)",
+      "aidePlafond": "All employees combined; beyond it, the API answers 429.",
+      "enregistrer": "Save",
+      "cles": "Public keys",
+      "aucuneCle": "No key: no token from the integration is accepted.",
+      "kid": "Key ID (kid)",
+      "algorithme": "Algorithm",
+      "algorithmes": {
+        "EdDSA": "EdDSA (Ed25519)",
+        "RS256": "RS256 (RSA, at least 2,048 bits)"
+      },
+      "empreinte": "Fingerprint",
+      "ajoutee": "Added",
+      "horsService": "Retired",
+      "parLe": "on {date, date, long} by {auteur}",
+      "mettreHorsService": "Retire",
+      "avertissementHorsService": "Tokens signed with this key will be rejected. For a rotation without downtime, add the new key first; this key's ID cannot be reused.",
+      "confirmerHorsService": "Retire the key {kid}",
+      "clesHorsService": "Retired keys ({nombre})",
+      "ajouterCle": "Add a public key",
+      "clePublique": "Public key (PEM)",
+      "aideClePublique": "The public key only, from “-----BEGIN PUBLIC KEY-----” to “-----END PUBLIC KEY-----”; never the private key. Then compare the displayed fingerprint with the one given by the integrator.",
+      "ajouter": "Add the key",
+      "declarer": "Declare an integration",
+      "aideDeclarer": "It is created disabled.",
+      "boutonDeclarer": "Declare the integration"
     }
   },
   "introuvable": {
@@ -897,7 +959,15 @@
       "prixMensuel": "Monthly price",
       "prixMensuelValeur": "{montant, number, ::currency/EUR} incl. VAT",
       "niveauMaximal": "Maximum level",
-      "date": "{date, date, long}"
+      "date": "{date, date, long}",
+      "nom": "Name",
+      "perimetre": "Scope",
+      "adresses": "IP addresses",
+      "plafond": "Rate limit",
+      "plafondValeur": "{nombre, number} requests per minute",
+      "kid": "Key ID",
+      "algorithme": "Algorithm",
+      "empreinte": "Fingerprint"
     },
     "nouvelleDemandeCle": {
       "sujet": "New API key request from {nom}",
@@ -1058,6 +1128,35 @@
     "designationResponsable": {
       "sujet": "You are a manager of the team {equipe}",
       "corps": "{auteur} designated you as a manager of the team {equipe}: you approve its access and key requests (except your own), and manage its members and keys from the portal's administration."
+    },
+    "integration": {
+      "aucun": "none",
+      "modification": "- {libelle}: {apres} (previously: {avant})",
+      "alerte": "This email is sent to every administrator of the portal whenever an integration changes. If this change surprises you, check it in the “Integrations” tab and disable the integration at the slightest doubt.",
+      "creee": {
+        "sujet": "Integration declared: {nom}",
+        "corps": "{auteur} declared the integration {nom} ({id}), disabled until an administrator enables it:"
+      },
+      "modifiee": {
+        "sujet": "Integration updated: {nom}",
+        "corps": "{auteur} updated the integration {nom} ({id}):"
+      },
+      "cleAjoutee": {
+        "sujet": "Public key added to the integration {nom}",
+        "corps": "{auteur} added a public key to the integration {nom} ({id}); compare its fingerprint with the one given by the integrator:"
+      },
+      "cleHorsService": {
+        "sujet": "Public key retired for the integration {nom}",
+        "corps": "{auteur} retired a public key of the integration {nom} ({id}); tokens it signs are now rejected:"
+      },
+      "activee": {
+        "sujet": "Integration enabled: {nom}",
+        "corps": "{auteur} enabled the integration {nom} ({id}): it can call the portal API for any employee, within its scope ({perimetres})."
+      },
+      "desactivee": {
+        "sujet": "Integration disabled: {nom}",
+        "corps": "{auteur} disabled the integration {nom} ({id}): its calls to the portal API are rejected."
+      }
     }
   },
   "validation": {
@@ -1136,6 +1235,18 @@
       "montant": "Actual monthly amount (€ incl. VAT)",
       "aide": "Price increase, exchange rate: the correction applies from the next charge.",
       "enregistrer": "Save the amount"
+    }
+  },
+  "api": {
+    "erreurs": {
+      "jeton_invalide": "{reason, select, absent {Missing integration token: every call carries the header Authorization: Bearer followed by the token.} illisible {Unreadable integration token: a signed JWT is expected.} integration_inconnue {Integration token rejected: unknown integration (iss).} cle_inconnue {Integration token rejected: unknown or retired key (kid).} algorithme {Integration token rejected: its algorithm is not the one of the registered key.} signature {Integration token rejected: invalid signature.} destinataire {Integration token rejected: unexpected audience (aud).} expire {Integration token expired.} futur {Integration token not valid yet: check the integration's clock.} duree {Integration token rejected: its validity exceeds five minutes.} revendication {Integration token rejected: claim {claim} missing or invalid.} other {Integration token rejected.}}",
+      "integration_inactive": "This integration is disabled: its calls are rejected.",
+      "adresse_non_autorisee": "The caller's IP address is not allowed for this integration.",
+      "trop_de_requetes": "Too many requests for this integration: retry after the delay given by Retry-After.",
+      "hors_perimetre": "This route is outside the integration's scope ({scope}).",
+      "erreur_interne": "An error occurred: try again later.",
+      "identite_incoherente": "Inconsistent identity: this uid is unknown to the portal and its email address already belongs to another employee. Check the identifier (sub) sent by the integration: it is the LDAP uid that LemonLDAP::NG gives to the portal.",
+      "saisie_invalide": "{reason, select, taille {Request body too large: 16 KiB at most.} json {Unreadable request body: a JSON object is expected.} other {Invalid input: check the fields {champs}.}}"
     }
   }
 }

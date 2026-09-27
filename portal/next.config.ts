@@ -8,7 +8,11 @@ const nextConfig: NextConfig = {
   async headers() {
     // HSTS, nosniff et Referrer-Policy sont posés par Caddy. La CSP stricte (nonces) viendra avec la
     // reprise de l'interface ; en attendant, interdiction d'afficher le portail dans un cadre.
-    return [{ source: "/:path*", headers: [{ key: "Content-Security-Policy", value: "frame-ancestors 'none'" }] }];
+    return [
+      { source: "/:path*", headers: [{ key: "Content-Security-Policy", value: "frame-ancestors 'none'" }] },
+      // API d'intégration : aucune réponse mise en cache, y compris celles de Next.js (405 d'une méthode non prévue).
+      { source: "/api/v1/:path*", headers: [{ key: "Cache-Control", value: "no-store" }] },
+    ];
   },
 };
 

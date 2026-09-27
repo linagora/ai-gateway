@@ -7,12 +7,14 @@ export interface OidcClaims {
   name?: string | null;
 }
 
-/** Utilisateur connecté au portail, porté par la session. */
+/** Utilisateur connecté au portail, porté par la session, ou collaborateur pour qui agit une intégration. */
 export interface SessionUser {
   uid: string;
   email: string;
   name: string;
   isAdmin: boolean;
+  /** Canal : l'identifiant de l'intégration par laquelle il agit (spécification #71) ; absent dans le portail. */
+  canal?: string;
 }
 
 /**

@@ -237,6 +237,23 @@ describe("utilisateurs", () => {
     const keys = await admin<{ keys: string[] }>("GET", `/key/list?user_id=${userId}`);
     expect({ email: user?.email, keys: keys.keys.length }).toEqual({ email: `${userId}@example.org`, keys: 0 });
   });
+
+  test("les utilisateurs d'une adresse se retrouvent par cette adresse exacte, sans tenir compte de la casse", async () => {
+    const [titulaire, voisin] = [uniqueId("adresse"), uniqueId("adresse")];
+    createdUsers.push(titulaire, voisin);
+    await client.createUser({ userId: titulaire, email: `${titulaire}@example.org` });
+    // Une adresse qui contient la première n'est pas la même adresse.
+    await client.createUser({ userId: voisin, email: `x${titulaire}@example.org` });
+    expect(await client.findUsersByEmail(`${titulaire.toUpperCase()}@EXAMPLE.ORG`)).toEqual([{ userId: titulaire, email: `${titulaire}@example.org` }]);
+    expect(await client.findUsersByEmail(`${uniqueId("personne")}@example.org`)).toEqual([]);
+  });
+
+  test("une adresse déjà prise par un autre utilisateur est refusée (409)", async () => {
+    const titulaire = uniqueId("pris");
+    createdUsers.push(titulaire);
+    await client.createUser({ userId: titulaire, email: `${titulaire}@example.org` });
+    await expect(client.createUser({ userId: uniqueId("pris"), email: `${titulaire}@example.org` })).rejects.toMatchObject({ name: "LiteLLMError", status: 409 });
+  });
 });
 
 describe("clés", () => {

@@ -7,7 +7,7 @@ import { SANS_EXPIRATION } from "@/lib/durees";
 import type { DataLevel, RequestStatus } from "@/lib/policy";
 import type { LimiteDeDebit } from "@/lib/limite-de-debit";
 import { type Page, tranche } from "@/lib/pagination";
-import { recordAudit } from "./audit";
+import { parActeur, recordAudit } from "./audit";
 import { aAutorite, dansEquipes, duTitulaire, type FiltreGestion, managerEmails, requireGestion } from "./autorite";
 import { pickupDeadline, readPickupDays } from "./delais";
 import { markExpired } from "./echeances";
@@ -33,6 +33,7 @@ function verifierFrequence(deps: KeyDeps, user: SessionUser, maintenant: Date): 
 /** Demande approuvée, en attente de retrait par son titulaire. */
 export interface KeyToPickUp {
   requestId: string;
+  teamId: string;
   teamAlias: string;
   dataLevel: DataLevel;
   models: string[];
@@ -45,6 +46,7 @@ export interface KeyToPickUp {
 export interface IssuedKey {
   requestId: string;
   alias: string;
+  teamId: string;
   teamAlias: string;
   dataLevel: DataLevel;
   models: string[];
@@ -86,6 +88,7 @@ export async function listMyKeys(deps: KeyDeps, user: SessionUser): Promise<MyKe
       .filter((r) => r.status === "APPROUVEE" && r.dataLevel)
       .map((r) => ({
         requestId: r.id,
+        teamId: r.teamId,
         teamAlias: r.teamAlias,
         dataLevel: r.dataLevel as DataLevel,
         models: r.approvedModels,
@@ -103,6 +106,7 @@ async function toIssuedKey(litellm: LiteLLMClient, r: AccessRequest): Promise<Om
   return {
     requestId: r.id,
     alias: r.keyAlias as string,
+    teamId: r.teamId,
     teamAlias: r.teamAlias,
     dataLevel: r.dataLevel as DataLevel,
     models: r.approvedModels,
@@ -180,11 +184,11 @@ export async function pickUpKey(deps: KeyDeps, user: SessionUser, requestId: str
     where: { id: request.id },
     data: { keyAlias: generee.alias, keyTokenId: generee.tokenId, keyExpiresAt: generee.expiresAt },
   });
-  await recordAudit(deps.db, { actorUid: user.uid, action: "KEY_GENERATED", targetId: request.id, details: { alias: generee.alias } });
+  await recordAudit(deps.db, { ...parActeur(user), action: "KEY_GENERATED", targetId: request.id, details: { alias: generee.alias } });
   if (origineActive) {
     await transitionRequest(deps.db, origineActive, "REVOQUEE");
     await recordAudit(deps.db, {
-      actorUid: user.uid,
+      ...parActeur(user),
       action: "KEY_REVOKED",
       targetId: origineActive.id,
       details: { alias: origineActive.keyAlias, raison: "renouvellement" },
@@ -321,7 +325,7 @@ export async function revokeKey(deps: KeyDeps, user: SessionUser, requestId: str
   const request = await activeKeyRequest(deps.db, requestId, async (r) => r.requesterUid === user.uid || (await aAutorite(deps.db, user, r.teamId)));
   await deleteFromGateway(deps.litellm, request.keyTokenId);
   await transitionRequest(deps.db, request, "REVOQUEE");
-  await recordAudit(deps.db, { actorUid: user.uid, action: "KEY_REVOKED", targetId: request.id, details: { alias: request.keyAlias } });
+  await recordAudit(deps.db, { ...parActeur(user), action: "KEY_REVOKED", targetId: request.id, details: { alias: request.keyAlias } });
   // Le titulaire est prévenu d'une révocation qu'il n'a pas faite lui-même.
   if (user.uid !== request.requesterUid) await prevenirActionSurCle(deps, user, request, "revocation");
 }
@@ -387,7 +391,7 @@ export async function replaceKey(deps: KeyDeps, user: SessionUser, requestId: st
     await retirerLaNouvelle();
     throw new PortalError("transition_interdite", "La clé a été modifiée entre-temps ; rechargez la page.", { cas: "modifiee" });
   }
-  await recordAudit(deps.db, { actorUid: user.uid, action: "KEY_REPLACED", targetId: request.id, details: { alias: nouvelle.alias, ancienAlias: request.keyAlias } });
+  await recordAudit(deps.db, { ...parActeur(user), action: "KEY_REPLACED", targetId: request.id, details: { alias: nouvelle.alias, ancienAlias: request.keyAlias } });
   return { key: nouvelle.key, alias: nouvelle.alias };
 }
 

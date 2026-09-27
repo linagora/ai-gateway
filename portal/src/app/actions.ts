@@ -17,6 +17,7 @@ import {
   requestCompletion,
 } from "@/lib/services/admin-requests";
 import { saveCatalogEntry } from "@/lib/services/catalog";
+import { addIntegrationKey, createIntegration, removeIntegrationKey, setIntegrationActive, updateIntegration } from "@/lib/services/integrations";
 import { saveOffer } from "@/lib/services/offers";
 import { transmitCharges } from "@/lib/services/remboursements";
 import { requestOfferChange, requestRenewal } from "@/lib/services/renouvellements";
@@ -416,6 +417,58 @@ export async function transmettreRemboursementsAction(formData: FormData): Promi
   await run(page, () => transmitCharges(getDeps(), user, { month: mois, chargeIds: prelevements }), { path: page, message: "prelevementsTransmis" });
 }
 
+/** Spécification #71, ticket #74 : déclaration d'une intégration par un admin ; elle est créée désactivée. */
+export async function declarerIntegrationAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const id = text(formData, "id").trim();
+  await run("/gestion/integrations", () => createIntegration(getDeps(), user, { id, ...reglagesIntegration(formData) }), {
+    path: pageIntegration(id),
+    message: "integrationDeclaree",
+  });
+}
+
+/** Ticket #74 : modification du nom, du périmètre, des adresses et du plafond d'une intégration. */
+export async function modifierIntegrationAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const id = text(formData, "id");
+  await run(pageIntegration(id), () => updateIntegration(getDeps(), user, id, reglagesIntegration(formData)), {
+    path: pageIntegration(id),
+    message: "integrationEnregistree",
+  });
+}
+
+/** Ticket #74 : ajout d'une clé publique à une intégration. */
+export async function ajouterCleIntegrationAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const id = text(formData, "id");
+  const cle = { kid: text(formData, "kid"), algorithm: text(formData, "algorithm"), publicKeyPem: text(formData, "publicKeyPem") };
+  await run(pageIntegration(id), () => addIntegrationKey(getDeps(), user, id, cle), { path: pageIntegration(id), message: "cleIntegrationAjoutee" });
+}
+
+/** Ticket #74 : mise hors service d'une clé publique d'une intégration. */
+export async function mettreCleHorsServiceAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const id = text(formData, "id");
+  await run(pageIntegration(id), () => removeIntegrationKey(getDeps(), user, id, text(formData, "kid")), {
+    path: pageIntegration(id),
+    message: "cleIntegrationHorsService",
+  });
+}
+
+/** Ticket #74 : activation d'une intégration, après la recette. */
+export async function activerIntegrationAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const id = text(formData, "id");
+  await run(pageIntegration(id), () => setIntegrationActive(getDeps(), user, id, true), { path: pageIntegration(id), message: "integrationActivee" });
+}
+
+/** Ticket #74 : désactivation d'une intégration, d'un clic. */
+export async function desactiverIntegrationAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const id = text(formData, "id");
+  await run(pageIntegration(id), () => setIntegrationActive(getDeps(), user, id, false), { path: pageIntegration(id), message: "integrationDesactivee" });
+}
+
 /** Résultat du retrait d'une clé : la clé n'y figure qu'une fois, et nulle part ailleurs. */
 export type ResultatRetrait = { ok: true; cle: string; alias: string } | { ok: false; erreur: string; details: Record<string, string> };
 
@@ -478,7 +531,13 @@ type CleSucces =
   | "equipeSupprimee"
   | "responsableDesigne"
   | "responsableRetire"
-  | "prelevementsTransmis";
+  | "prelevementsTransmis"
+  | "integrationDeclaree"
+  | "integrationEnregistree"
+  | "cleIntegrationAjoutee"
+  | "cleIntegrationHorsService"
+  | "integrationActivee"
+  | "integrationDesactivee";
 
 /** Exécute le cas d'usage ; en cas d'erreur métier, revient sur `errorPath` avec le message. */
 async function run(errorPath: string, action: () => Promise<unknown>, success: { path: string; message: CleSucces }): Promise<void> {
@@ -536,6 +595,21 @@ function pageAbonnements(formData: FormData): string {
 function pageGestion(formData: FormData, parDefaut: string): string {
   const collaborateur = text(formData, "collaborateur");
   return collaborateur ? `/gestion/collaborateurs/${encodeURIComponent(collaborateur)}` : parDefaut;
+}
+
+/** Réglages d'une intégration saisis dans l'onglet : les adresses, une par ligne (ou séparées par des virgules ou des espaces). */
+function reglagesIntegration(formData: FormData) {
+  return {
+    name: text(formData, "name"),
+    scopes: formData.getAll("scopes").map(String),
+    ipRanges: text(formData, "ipRanges").split(/[\s,]+/),
+    rateLimitPerMinute: optionalNumber(formData, "rateLimitPerMinute") ?? Number.NaN,
+  };
+}
+
+/** Onglet « Intégrations », dépliant l'intégration visée par le formulaire. */
+function pageIntegration(id: string): string {
+  return `/gestion/integrations?integration=${encodeURIComponent(id)}`;
 }
 
 function text(formData: FormData, name: string): string {

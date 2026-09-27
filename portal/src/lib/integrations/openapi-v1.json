@@ -1,0 +1,1796 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AI Gateway integration API",
+    "version": "1.0.0",
+    "description": "The AI Gateway portal lets LINAGORA employees request API keys for the gateway's models. This API lets an **integration** (a third-party application declared by a portal admin, such as Team Manager) act **for one employee at a time**, on that employee's own requests and keys only. It never grants the rights of an admin or of a team manager: requests are still examined and approved in the portal, by the same people, with the same rules, emails and audit trail.\n\n## Integration token\n\nEvery call carries `Authorization: Bearer <token>`, a JWT **signed by the integration** with the private key matching a public key registered for it in the portal:\n\n- header: `alg` is the algorithm of the registered key (`EdDSA` with an Ed25519 key, or `RS256`), `kid` the identifier of that key;\n- `iss`: the integration identifier, as registered in the portal;\n- `aud`: `ai-gateway`;\n- `sub`: the employee's LDAP uid, **exactly** the `sub` that LemonLDAP::NG gives to the portal;\n- `email` and `name`: the employee's address and display name;\n- `iat` and `exp`: `exp` at most 300 seconds after `iat`; a 30-second clock tolerance applies.\n\nAny other token is refused with `401 jeton_invalide`. Sign a fresh token for each call, or reuse one within its short validity.\n\n## Checks, in order\n\n1. The integration is known and active, otherwise `503 integration_inactive`.\n2. The caller's IP address belongs to the integration's addresses or CIDR ranges, otherwise `403 adresse_non_autorisee`.\n3. The integration's request limit (set by the admin, 120 requests per minute by default) is not exceeded, otherwise `429 trop_de_requetes`.\n4. The route belongs to the integration's **scopes** (`lecture`, `demandes`, `cles`, see `x-scope`), otherwise `403 hors_perimetre`.\n5. On an employee's first access, the portal registers them with the gateway. An unknown uid whose email already belongs to another uid is refused with `409 identite_incoherente`.\n\n## Errors, languages, caching\n\nErrors share one shape: a stable `code`, a `message` translated according to `Accept-Language` (`fr` by default, `en`), and `details`. An unknown route answers `404 introuvable`; an unexpected failure answers `500 erreur_interne`. Labels (levels, statuses) follow the same language. Every response carries `Cache-Control: no-store`. A key value is returned only once, by a pickup or a replacement: never log or store responses that contain one. Request bodies are limited to 16 KiB.\n\n## Limits\n\nBesides the integration's request limit, an employee may pick up or replace at most 5 keys per 10 minutes (`429 trop_de_generations`). A `429` response carries `Retry-After`.\n\n## Audit and versioning\n\nEvery action made through this API is recorded in the portal's audit log with the integration as its channel. Routes marked `x-status: planned` belong to the second delivery (scope `cles`) and are not available yet. An incompatible change will be published under `/api/v2`."
+  },
+  "servers": [
+    {
+      "url": "https://ai-gateway.linagora.com/api/v1",
+      "description": "Production"
+    },
+    {
+      "url": "http://127.0.0.1:54600/api/v1",
+      "description": "Portal development environment, through its Caddy (see docs/INTEGRATIONS.md)"
+    }
+  ],
+  "security": [
+    {
+      "integrationToken": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Contract",
+      "description": "This document."
+    },
+    {
+      "name": "Teams",
+      "description": "The employee's teams and the teams they may ask to join."
+    },
+    {
+      "name": "Catalog",
+      "description": "Confidentiality levels, the commitment text and the visible models."
+    },
+    {
+      "name": "Requests",
+      "description": "Team access requests and key requests, examined in the portal."
+    },
+    {
+      "name": "Keys",
+      "description": "The employee's keys: follow-up, then pickup, replacement and revocation (second delivery)."
+    }
+  ],
+  "paths": {
+    "/openapi.json": {
+      "get": {
+        "tags": [
+          "Contract"
+        ],
+        "summary": "This contract",
+        "operationId": "getContract",
+        "description": "The OpenAPI document of the deployed version, for any authenticated integration.",
+        "x-scope": "lecture",
+        "x-delivery": 1,
+        "x-status": "available",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The OpenAPI document.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        }
+      }
+    },
+    "/me/teams": {
+      "get": {
+        "tags": [
+          "Teams"
+        ],
+        "summary": "The employee's teams",
+        "description": "Teams the employee belongs to, for which they may request a key.",
+        "x-scope": "lecture",
+        "x-delivery": 1,
+        "x-status": "available",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The employee's teams.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "operationId": "listMyTeams"
+      }
+    },
+    "/teams/joinable": {
+      "get": {
+        "tags": [
+          "Teams"
+        ],
+        "summary": "Teams the employee may ask to join",
+        "description": "Teams the employee is not a member of and has no pending access request for.",
+        "x-scope": "lecture",
+        "x-delivery": 1,
+        "x-status": "available",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Teams open to an access request.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "operationId": "listJoinableTeams"
+      }
+    },
+    "/catalog": {
+      "get": {
+        "tags": [
+          "Catalog"
+        ],
+        "summary": "Visible catalog",
+        "description": "Confidentiality levels with their accepted classifications and the models that accept each level, the exact commitment text the employee must accept before a key request, and the visible models.",
+        "x-scope": "lecture",
+        "x-delivery": 1,
+        "x-status": "available",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The catalog, in the requested language.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Catalog"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "operationId": "getCatalog"
+      }
+    },
+    "/requests": {
+      "get": {
+        "tags": [
+          "Requests"
+        ],
+        "summary": "The employee's requests",
+        "description": "Key requests and team access requests of the employee, most recent first, with their status and the examiner's comment.",
+        "x-scope": "lecture",
+        "x-delivery": 1,
+        "x-status": "available",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The employee's requests.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RequestList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "operationId": "listMyRequests"
+      }
+    },
+    "/keys": {
+      "get": {
+        "tags": [
+          "Keys"
+        ],
+        "summary": "The employee's keys",
+        "description": "Approved keys waiting to be picked up, then issued keys (active first), with their spend and budget read live from the gateway. Never the key value.",
+        "x-scope": "lecture",
+        "x-delivery": 1,
+        "x-status": "available",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The employee's keys.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Keys"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "operationId": "listMyKeys"
+      }
+    },
+    "/team-access-requests": {
+      "post": {
+        "tags": [
+          "Requests"
+        ],
+        "summary": "Ask to join a team",
+        "description": "Creates a team access request, examined in the portal by a manager of the team or an admin.",
+        "x-scope": "demandes",
+        "x-delivery": 1,
+        "x-status": "available",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The request was created.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Created"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TeamAccessRequestInput"
+              }
+            }
+          }
+        },
+        "operationId": "createTeamAccessRequest"
+      }
+    },
+    "/key-requests": {
+      "post": {
+        "tags": [
+          "Requests"
+        ],
+        "summary": "Request a key",
+        "description": "Creates a key request, examined in the portal. The same checks as in the portal apply (team membership, models of the team, level accepted by every model, visible models); the commitment must be accepted. With `renewsRequestId`, the request renews a key of the employee.",
+        "x-scope": "demandes",
+        "x-delivery": 1,
+        "x-status": "available",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The request was created and sent for examination.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Created"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeyRequestInput"
+              }
+            }
+          }
+        },
+        "operationId": "createKeyRequest"
+      }
+    },
+    "/key-requests/{id}": {
+      "put": {
+        "tags": [
+          "Requests"
+        ],
+        "summary": "Complete a key request",
+        "description": "Completes a key request that the examiner sent back to the employee (status `NEEDS_COMPLETION`); it goes back to examination.",
+        "x-scope": "demandes",
+        "x-delivery": 1,
+        "x-status": "available",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RequestId"
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The request was completed.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KeyRequestCompletion"
+              }
+            }
+          }
+        },
+        "operationId": "completeKeyRequest"
+      }
+    },
+    "/requests/{id}/cancel": {
+      "post": {
+        "tags": [
+          "Requests"
+        ],
+        "summary": "Cancel a request",
+        "description": "Cancels a key request or a team access request that has not been approved yet.",
+        "x-scope": "demandes",
+        "x-delivery": 1,
+        "x-status": "available",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RequestId"
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The request was cancelled.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "operationId": "cancelRequest"
+      }
+    },
+    "/key-requests/{id}/pickup": {
+      "post": {
+        "tags": [
+          "Keys"
+        ],
+        "summary": "Pick up an approved key",
+        "description": "**Planned for the second delivery** (not available yet). Generates the key of an approved request and returns its value **once**. If the response is lost, replace the key. At most 5 pickups or replacements per employee per 10 minutes. The employee receives an email naming the integration.",
+        "x-scope": "cles",
+        "x-delivery": 2,
+        "x-status": "planned",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RequestId"
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The key, returned once.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NewKey"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "operationId": "pickUpKey"
+      }
+    },
+    "/keys/{id}/replace": {
+      "post": {
+        "tags": [
+          "Keys"
+        ],
+        "summary": "Replace a key",
+        "description": "**Planned for the second delivery** (not available yet). Issues a new key with the same parameters, expiry and spend, returned **once**; the old key is deleted. Refused for an expired or blocked key. The employee receives an email naming the integration.",
+        "x-scope": "cles",
+        "x-delivery": 2,
+        "x-status": "planned",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RequestId"
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "The new key, returned once.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NewKey"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "operationId": "replaceKey"
+      }
+    },
+    "/keys/{id}/revoke": {
+      "post": {
+        "tags": [
+          "Keys"
+        ],
+        "summary": "Revoke a key",
+        "description": "**Planned for the second delivery** (not available yet). Revokes one of the employee's own keys; the gateway refuses it within seconds. The employee receives an email naming the integration.",
+        "x-scope": "cles",
+        "x-delivery": 2,
+        "x-status": "planned",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RequestId"
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The key was revoked.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "operationId": "revokeKey"
+      }
+    },
+    "/keys/{id}/renewal-draft": {
+      "get": {
+        "tags": [
+          "Keys"
+        ],
+        "summary": "Renewal draft of a key",
+        "description": "**Planned for the second delivery** (not available yet). The parameters of a key of the employee, to prefill its renewal request (`POST /key-requests` with `renewsRequestId`).",
+        "x-scope": "cles",
+        "x-delivery": 2,
+        "x-status": "planned",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RequestId"
+          },
+          {
+            "$ref": "#/components/parameters/AcceptLanguage"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The renewal draft.",
+            "headers": {
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControl"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenewalDraft"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/ServiceUnavailable"
+          }
+        },
+        "operationId": "getKeyRenewalDraft"
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "integrationToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT signed by the integration (EdDSA Ed25519 or RS256, as registered). Required: header `kid`; claims `iss` (integration identifier), `aud` (`ai-gateway`), `sub` (LDAP uid), `email`, `name`, `iat`, `exp` (at most 300 seconds after `iat`)."
+      }
+    },
+    "parameters": {
+      "AcceptLanguage": {
+        "name": "Accept-Language",
+        "in": "header",
+        "required": false,
+        "description": "Language of messages and labels: `fr` (default) or `en`.",
+        "schema": {
+          "type": "string",
+          "examples": [
+            "fr",
+            "en"
+          ]
+        }
+      },
+      "RequestId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Identifier of the request (a key is identified by the request it comes from).",
+        "schema": {
+          "type": "string",
+          "pattern": "^[a-z0-9]{1,64}$"
+        }
+      }
+    },
+    "headers": {
+      "CacheControl": {
+        "description": "Always `no-store`.",
+        "schema": {
+          "type": "string",
+          "const": "no-store"
+        }
+      },
+      "RetryAfter": {
+        "description": "Seconds to wait before retrying.",
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Invalid input (`saisie_invalide`), commitment not accepted (`engagement_requis`), request refused by the access policy (`controles_en_echec`, with the failed checks in `details.failedChecks`) or incomplete key parameters (`parametre_manquant`).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Missing, forged, expired or otherwise invalid integration token (`jeton_invalide`, with `details.reason`, and `details.claim` for a missing or invalid claim).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Route outside the integration's scopes (`hors_perimetre`, with the required scope in `details.scope`), caller address not allowed (`adresse_non_autorisee`), employee not a member of the team (`non_membre`) or action refused (`interdit`).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Unknown resource or route, or one that belongs to another employee (`introuvable`, with `details.object`).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "Incompatible status or concurrent change (`transition_interdite`, with `details.case`), pending request (`demande_en_cours`, with `details.team`), already a member (`deja_membre`, with `details.team`) or inconsistent identity (`identite_incoherente`).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "TooManyRequests": {
+        "description": "Integration request limit (`trop_de_requetes`) or employee key generation limit (`trop_de_generations`) exceeded.",
+        "headers": {
+          "Retry-After": {
+            "$ref": "#/components/headers/RetryAfter"
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "BadGateway": {
+        "description": "The gateway is unavailable (`passerelle_indisponible`); nothing was changed.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "ServiceUnavailable": {
+        "description": "The integration is inactive (`integration_inactive`).",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message",
+              "details"
+            ],
+            "properties": {
+              "code": {
+                "$ref": "#/components/schemas/ErrorCode"
+              },
+              "message": {
+                "type": "string",
+                "description": "Translated according to `Accept-Language`."
+              },
+              "details": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "Code-specific details, with English keys and stable identifiers as values, for instance `reason`, `claim`, `scope`, `object`, `case`, `team`, `fields` or `failedChecks`."
+              }
+            }
+          }
+        },
+        "examples": [
+          {
+            "error": {
+              "code": "engagement_requis",
+              "message": "Engagez-vous à ne pas soumettre de données d'un niveau supérieur à celui déclaré.",
+              "details": {}
+            }
+          }
+        ]
+      },
+      "ErrorCode": {
+        "type": "string",
+        "enum": [
+          "saisie_invalide",
+          "engagement_requis",
+          "controles_en_echec",
+          "parametre_manquant",
+          "jeton_invalide",
+          "hors_perimetre",
+          "adresse_non_autorisee",
+          "non_membre",
+          "interdit",
+          "introuvable",
+          "transition_interdite",
+          "demande_en_cours",
+          "deja_membre",
+          "identite_incoherente",
+          "trop_de_requetes",
+          "trop_de_generations",
+          "passerelle_indisponible",
+          "integration_inactive",
+          "erreur_interne"
+        ],
+        "description": "Stable error code; the list may grow within `/api/v1`."
+      },
+      "FailedCheck": {
+        "type": "object",
+        "required": [
+          "id",
+          "offending"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "membre_equipe",
+              "modeles_presents",
+              "modeles_equipe",
+              "niveau_modeles",
+              "modeles_visibles"
+            ]
+          },
+          "offending": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Elements at fault, for instance the models that do not accept the level."
+          }
+        }
+      },
+      "DataLevel": {
+        "type": "string",
+        "enum": [
+          "N1",
+          "N2",
+          "N3",
+          "EXP"
+        ],
+        "description": "Confidentiality level: N1 Public, N2 Internal, N3 Confidential, EXP Experimental (beta)."
+      },
+      "Classification": {
+        "type": "string",
+        "enum": [
+          "NC",
+          "C1",
+          "C2",
+          "C3"
+        ],
+        "description": "LINAGORA information classification."
+      },
+      "ValidityDays": {
+        "type": "integer",
+        "enum": [
+          1,
+          7,
+          30,
+          90,
+          180,
+          365,
+          0
+        ],
+        "description": "Validity of the key once picked up, in days; 0: the key never expires."
+      },
+      "Team": {
+        "type": "object",
+        "required": [
+          "teamId",
+          "teamAlias"
+        ],
+        "properties": {
+          "teamId": {
+            "type": "string"
+          },
+          "teamAlias": {
+            "type": "string"
+          }
+        }
+      },
+      "TeamList": {
+        "type": "object",
+        "required": [
+          "teams"
+        ],
+        "properties": {
+          "teams": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Team"
+            }
+          }
+        }
+      },
+      "Level": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "classifications",
+          "models"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/DataLevel"
+          },
+          "name": {
+            "type": "string",
+            "description": "Translated name, for instance « N2 Interne »."
+          },
+          "classifications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Classification"
+            },
+            "description": "Information classifications this level accepts."
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Visible models that accept this level (a model accepts every level up to its maximal level; the Experimental level only accepts Experimental models)."
+          }
+        }
+      },
+      "CatalogModel": {
+        "type": "object",
+        "required": [
+          "modelName",
+          "displayName",
+          "description",
+          "dataLevel",
+          "useCases",
+          "inputPricePerMillion",
+          "outputPricePerMillion"
+        ],
+        "properties": {
+          "modelName": {
+            "type": "string",
+            "description": "Name to use in a key request and when calling the gateway."
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "dataLevel": {
+            "$ref": "#/components/schemas/DataLevel",
+            "description": "Maximal level of the model."
+          },
+          "useCases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "publisher": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "executionRegion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "inputPricePerMillion": {
+            "type": "number",
+            "description": "Euros per million input tokens."
+          },
+          "outputPricePerMillion": {
+            "type": "number",
+            "description": "Euros per million output tokens."
+          },
+          "maxInputTokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "Catalog": {
+        "type": "object",
+        "required": [
+          "commitment",
+          "levels",
+          "models"
+        ],
+        "properties": {
+          "commitment": {
+            "type": "string",
+            "description": "Exact commitment text, to display as is before sending a key request."
+          },
+          "levels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Level"
+            }
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CatalogModel"
+            }
+          }
+        }
+      },
+      "RequestKind": {
+        "type": "string",
+        "enum": [
+          "KEY",
+          "TEAM_ACCESS"
+        ]
+      },
+      "RequestStatus": {
+        "type": "string",
+        "enum": [
+          "SUBMITTED",
+          "NEEDS_COMPLETION",
+          "APPROVED",
+          "REFUSED",
+          "CANCELLED",
+          "KEY_ISSUED",
+          "EXPIRED",
+          "REVOKED"
+        ]
+      },
+      "Request": {
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "teamId",
+          "teamAlias",
+          "models",
+          "status",
+          "statusLabel",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/RequestKind"
+          },
+          "teamId": {
+            "type": "string"
+          },
+          "teamAlias": {
+            "type": "string"
+          },
+          "dataLevel": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DataLevel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "$ref": "#/components/schemas/RequestStatus"
+          },
+          "statusLabel": {
+            "type": "string",
+            "description": "Translated status."
+          },
+          "decisionComment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "renewsRequestId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RequestList": {
+        "type": "object",
+        "required": [
+          "requests"
+        ],
+        "properties": {
+          "requests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Request"
+            }
+          }
+        }
+      },
+      "KeyToPickUp": {
+        "type": "object",
+        "required": [
+          "requestId",
+          "teamId",
+          "teamAlias",
+          "dataLevel",
+          "models"
+        ],
+        "properties": {
+          "requestId": {
+            "type": "string"
+          },
+          "teamId": {
+            "type": "string"
+          },
+          "teamAlias": {
+            "type": "string"
+          },
+          "dataLevel": {
+            "$ref": "#/components/schemas/DataLevel"
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "pickupDeadline": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "description": "After this date the request expires."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "GatewayState": {
+        "type": "object",
+        "required": [
+          "spend",
+          "blocked"
+        ],
+        "properties": {
+          "spend": {
+            "type": "number",
+            "description": "Spend in euros over the current budget period."
+          },
+          "maxBudget": {
+            "anyOf": [
+              {
+                "type": "number",
+                "description": "Budget in euros; null: no budget."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "budgetResetAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "blocked": {
+            "type": "boolean",
+            "description": "Blocked by a manager or an admin."
+          }
+        }
+      },
+      "IssuedKey": {
+        "type": "object",
+        "required": [
+          "requestId",
+          "alias",
+          "teamId",
+          "teamAlias",
+          "dataLevel",
+          "models",
+          "issuedAt",
+          "status",
+          "statusLabel"
+        ],
+        "properties": {
+          "requestId": {
+            "type": "string",
+            "description": "Identifies the key in this API."
+          },
+          "alias": {
+            "type": "string"
+          },
+          "teamId": {
+            "type": "string"
+          },
+          "teamAlias": {
+            "type": "string"
+          },
+          "dataLevel": {
+            "$ref": "#/components/schemas/DataLevel"
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "issuedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expiresAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "KEY_ISSUED",
+              "EXPIRED",
+              "REVOKED"
+            ]
+          },
+          "statusLabel": {
+            "type": "string"
+          },
+          "gateway": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GatewayState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "Keys": {
+        "type": "object",
+        "required": [
+          "toPickUp",
+          "keys"
+        ],
+        "properties": {
+          "toPickUp": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KeyToPickUp"
+            }
+          },
+          "keys": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IssuedKey"
+            }
+          }
+        }
+      },
+      "TeamAccessRequestInput": {
+        "type": "object",
+        "required": [
+          "teamId",
+          "justification"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "teamId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "justification": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        }
+      },
+      "KeyRequestCompletion": {
+        "type": "object",
+        "required": [
+          "teamId",
+          "dataLevel",
+          "models",
+          "justification",
+          "commitment"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "teamId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dataLevel": {
+            "$ref": "#/components/schemas/DataLevel"
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          },
+          "justification": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestedDays": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ValidityDays"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "commitment": {
+            "type": "boolean",
+            "const": true,
+            "description": "The employee accepted the commitment text of `GET /catalog`."
+          }
+        }
+      },
+      "KeyRequestInput": {
+        "type": "object",
+        "required": [
+          "teamId",
+          "dataLevel",
+          "models",
+          "justification",
+          "commitment"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "teamId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "dataLevel": {
+            "$ref": "#/components/schemas/DataLevel"
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          },
+          "justification": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestedDays": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ValidityDays"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "commitment": {
+            "type": "boolean",
+            "const": true,
+            "description": "The employee accepted the commitment text of `GET /catalog`."
+          },
+          "renewsRequestId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "Renewal: the request of the employee's key to renew (issued, expired or revoked)."
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "Created": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          }
+        }
+      },
+      "NewKey": {
+        "type": "object",
+        "required": [
+          "key",
+          "alias"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "The key value, returned once: never log or store it."
+          },
+          "alias": {
+            "type": "string"
+          }
+        }
+      },
+      "RenewalDraft": {
+        "type": "object",
+        "required": [
+          "alias",
+          "teamId",
+          "dataLevel",
+          "models"
+        ],
+        "properties": {
+          "alias": {
+            "type": "string"
+          },
+          "teamId": {
+            "type": "string"
+          },
+          "dataLevel": {
+            "$ref": "#/components/schemas/DataLevel"
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "requestedDays": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ValidityDays"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

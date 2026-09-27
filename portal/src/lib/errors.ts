@@ -6,6 +6,7 @@ import type { PolicyCheck } from "./policy";
  */
 export type PortalErrorCode =
   | "budget_equipe_invalide"
+  | "cle_publique_invalide"
   | "controles_en_echec"
   | "date_avant_souscription"
   | "date_future"
@@ -13,7 +14,11 @@ export type PortalErrorCode =
   | "demande_en_cours"
   | "engagement_requis"
   | "equipe_non_vide"
+  | "identite_incoherente"
+  | "integration_existante"
+  | "integration_invalide"
   | "interdit"
+  | "kid_existant"
   | "membre_existant"
   | "mois_invalide"
   | "introuvable"
