@@ -24,6 +24,10 @@
 }
 
 /* Styles de base volontairement sobres (V1) ; le graphisme sera repris plus tard. */
+/*
+ * Styles de base du portail. Les tableaux et les formulaires ne s'appliquent pas dans Swagger UI (documentation de l'API),
+ * qui a les siens : :where() les en exclut sans changer leur spécificité.
+ */
 @layer base {
   body {
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -43,26 +47,26 @@
   a {
     color: #1d4ed8;
   }
-  table {
+  table:where(:not(.swagger-ui *)) {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.9rem;
   }
-  th,
-  td {
+  th:where(:not(.swagger-ui *)),
+  td:where(:not(.swagger-ui *)) {
     border-bottom: 1px solid #e5e5e5;
     padding: 0.4rem 0.5rem;
     text-align: left;
     vertical-align: middle;
   }
-  label {
+  label:where(:not(.swagger-ui *)) {
     display: block;
     margin-top: 0.75rem;
     font-weight: 500;
   }
-  input:not([type="checkbox"]):not([type="radio"]),
-  select,
-  textarea {
+  input:not([type="checkbox"]):not([type="radio"]):where(:not(.swagger-ui *)),
+  select:where(:not(.swagger-ui *)),
+  textarea:where(:not(.swagger-ui *)) {
     display: block;
     width: 100%;
     max-width: 32rem;
@@ -71,7 +75,7 @@
     padding: 0.3rem 0.5rem;
   }
   /* Boutons principaux aux couleurs de Linagora. */
-  button {
+  button:where(:not(.swagger-ui *)) {
     margin-top: 0.75rem;
     border: 1px solid var(--linagora);
     border-radius: 0.25rem;
@@ -79,14 +83,14 @@
     background: var(--linagora);
     color: #ffffff;
   }
-  button:hover:not(:disabled) {
+  button:hover:not(:disabled):where(:not(.swagger-ui *)) {
     background: var(--linagora-fonce);
   }
   /* Dans un tableau, un bouton s'aligne sur le texte de sa ligne, sans marge au-dessus. */
   td button {
     margin-top: 0;
   }
-  fieldset {
+  fieldset:where(:not(.swagger-ui *)) {
     margin-top: 0.75rem;
   }
 }

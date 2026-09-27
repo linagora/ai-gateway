@@ -809,6 +809,7 @@
     "integrations": {
       "titre": "Intégrations",
       "introduction": "Applications tierces autorisées à agir pour un collaborateur par l'API du portail, dans la limite de ce qu'il peut faire lui-même sur ses demandes et ses clés : jamais avec les droits d'un admin ni d'un responsable. Une intégration se déclare désactivée : ajoutez sa clé publique, puis activez-la après la recette. Elle ne se supprime pas : désactivez-la.",
+      "documentation": "Contrat de l'API, à consulter et à essayer",
       "actives": "Intégrations actives",
       "aucuneActive": "Aucune intégration active : l'API refuse tous les appels.",
       "desactivees": "Intégrations désactivées ({nombre})",
@@ -1248,5 +1249,10 @@
       "identite_incoherente": "Identité incohérente : cet uid est inconnu du portail et son adresse appartient déjà à un autre collaborateur. Vérifiez l'identifiant (sub) transmis par l'intégration : c'est l'uid LDAP que LemonLDAP::NG donne au portail.",
       "saisie_invalide": "{reason, select, taille {Corps de la requête trop volumineux : 16 Kio au plus.} json {Corps de la requête illisible : un objet JSON est attendu.} other {Saisie invalide : vérifiez les champs {champs}.}}"
     }
+  },
+  "documentationApi": {
+    "titre": "API d'intégration",
+    "introduction": "Contrat de l'API qui permet à une intégration déclarée par les admins (Team Manager, par exemple) d'agir pour un collaborateur : ses équipes, le catalogue, ses demandes et ses clés. Le <guide>guide d'intégration</guide> explique la déclaration, la paire de clés et la signature des jetons.",
+    "essai": "Pour essayer une route : « Authorize », collez un jeton signé par votre intégration, puis « Try it out ». Les appels partent de votre navigateur et passent les contrôles de tout appel de l'API : intégration active, adresse IP autorisée, plafond et périmètre."
   }
 }

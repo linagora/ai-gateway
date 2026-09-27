@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { ALGORITHMES } from "@/lib/integrations/cles-publiques";
 import { BORNES, type IntegrationKeyView, type IntegrationView, listIntegrations, PERIMETRES, PLAFOND_PAR_DEFAUT } from "@/lib/services/integrations";
@@ -30,6 +31,9 @@ export default async function IntegrationsPage(props: PageProps<"/gestion/integr
       <AdminNav />
       <h1>{t("titre")}</h1>
       <p className="text-sm text-neutral-600">{t("introduction")}</p>
+      <p className="text-sm">
+        <Link href="/documentation/api">{t("documentation")}</Link>
+      </p>
       <ExplicationObligatoires />
       <Notice searchParams={searchParams} />
 
