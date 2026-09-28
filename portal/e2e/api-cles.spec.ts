@@ -1,5 +1,5 @@
 import { type APIRequestContext, type Browser, expect, test } from "@playwright/test";
-import { appeler, basculerIntegration, declarerIntegration, erreur, installerDemo, jetonDemo } from "./api";
+import { appeler, basculerIntegration, clesDansLaPasserelle, declarerIntegration, DEMO, erreur, installerDemo, jetonDemo } from "./api";
 import { ADMIN, appel, connecter, courriels, demandeApprouvee, enrichirModele, type Personne, retirerCle } from "./outils";
 
 /*
@@ -10,8 +10,6 @@ import { ADMIN, appel, connecter, courriels, demandeApprouvee, enrichirModele, t
 const suffixe = Date.now().toString(36);
 const personne = (n: string): Personne => ({ uid: `api-cle-${n}-${suffixe}`, email: `api-cle-${n}-${suffixe}@example.org`, name: `Personne ${n} ${suffixe}` });
 
-/** Nom de l'intégration « demo » dans le registre de dev (dev/integration-demo.mjs). */
-const DEMO_NOM = "Démo (développement)";
 
 test.beforeAll(async ({ browser }) => {
   installerDemo();
@@ -33,11 +31,6 @@ async function demandeDeCleApprouvee(browser: Browser, request: APIRequestContex
 const agir = (request: APIRequestContext, collaborateur: Personne, chemin: string, methode: "GET" | "POST" = "POST") =>
   appeler(request, chemin, { jeton: jetonDemo(collaborateur), methode });
 
-/** Nombre de clés du collaborateur dans la passerelle de dev, lu par l'API d'administration de LiteLLM. */
-async function clesDansLaPasserelle(uid: string): Promise<number> {
-  const reponse = await fetch(`http://127.0.0.1:54400/admin/user/info?user_id=${encodeURIComponent(uid)}`, { headers: { Authorization: "Bearer sk-dev-master-key" } });
-  return ((await reponse.json()) as { keys: unknown[] }).keys.length;
-}
 
 /** Courriel reçu par le titulaire dont l'objet contient le texte, attendu jusqu'à 15 s : ses destinataires. */
 const destinatairesDu = (collaborateur: Personne, objet: string) =>
@@ -53,7 +46,7 @@ test("un retrait par l'API rend la clé une seule fois, sans mise en cache : ell
   const { key, alias } = (await retrait.json()) as { key: string; alias: string };
   expect(await appel(request, key)).toBe(200);
   expect(await erreur(await agir(request, collaborateur, `/key-requests/${id}/pickup`))).toMatchObject({ statut: 409, code: "transition_interdite" });
-  await destinatairesDu(collaborateur, `${alias} a été retirée par ${DEMO_NOM}`).toEqual([collaborateur.email]);
+  await destinatairesDu(collaborateur, `${alias} a été retirée par ${DEMO.nom}`).toEqual([collaborateur.email]);
 });
 
 test("deux retraits simultanés de la même demande n'émettent qu'une clé", async ({ browser, request }) => {
@@ -79,7 +72,7 @@ test("un remplacement par l'API émet une nouvelle clé aux mêmes paramètres e
   expect(await cleEmise()).toMatchObject({ alias, teamId: avant.teamId, dataLevel: avant.dataLevel, models: avant.models, expiresAt: avant.expiresAt, status: "KEY_ISSUED" });
   expect(await appel(request, nouvelle)).toBe(200);
   await expect.poll(() => appel(request, ancienne), { timeout: 15_000, intervals: [1_000] }).toBe(401);
-  await destinatairesDu(collaborateur, `${ancienAlias} a été remplacée par ${DEMO_NOM}`).toEqual([collaborateur.email]);
+  await destinatairesDu(collaborateur, `${ancienAlias} a été remplacée par ${DEMO.nom}`).toEqual([collaborateur.email]);
 });
 
 test("une révocation par l'API coupe la clé et l'annonce au titulaire ; la clé d'un autre collaborateur reste introuvable", async ({ browser, request }) => {
@@ -96,7 +89,7 @@ test("une révocation par l'API coupe la clé et l'annonce au titulaire ; la cl�
   expect(revocation.headers()["cache-control"]).toBe("no-store");
   await expect.poll(() => appel(request, key), { timeout: 15_000, intervals: [1_000] }).toBe(401);
   expect(((await (await agir(request, collaborateur, "/keys", "GET")).json()) as { keys: unknown[] }).keys[0]).toMatchObject({ alias, status: "REVOKED" });
-  await destinatairesDu(collaborateur, `${alias} a été révoquée par ${DEMO_NOM}`).toEqual([collaborateur.email]);
+  await destinatairesDu(collaborateur, `${alias} a été révoquée par ${DEMO.nom}`).toEqual([collaborateur.email]);
 });
 
 test("le brouillon de renouvellement par l'API reprend les paramètres de sa propre clé et préremplit la demande de renouvellement", async ({ browser, request }) => {
