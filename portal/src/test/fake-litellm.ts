@@ -51,8 +51,8 @@ export class FakeLiteLLM implements LiteLLMClient {
   }
 
   async createUser({ userId, email }: { userId: string; email: string }): Promise<void> {
-    // Comme une contrainte d'unicité : recréer un utilisateur existant est une erreur.
-    if (this.users.has(userId)) throw new Error(`utilisateur déjà existant : ${userId}`);
+    // Comme LiteLLM 1.102.1 : recréer un utilisateur existant est refusé (HTTP 409 « User with id … already exists »).
+    if (this.users.has(userId)) throw new LiteLLMError(409, `LiteLLM POST /user/new : HTTP 409 (utilisateur déjà existant : ${userId})`);
     // Comme LiteLLM 1.102.1 : une adresse déjà prise par un autre utilisateur est refusée (HTTP 409).
     if ([...this.users.values()].some((u) => u.email === email)) throw new LiteLLMError(409, `LiteLLM POST /user/new : HTTP 409 (adresse déjà prise)`);
     this.users.set(userId, { email });

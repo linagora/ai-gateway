@@ -16,4 +16,10 @@ describe("provisionUser (F-02)", () => {
     await provisionUser({ litellm }, user);
     await expect(provisionUser({ litellm }, user)).resolves.toBeUndefined();
   });
+
+  test("des premières connexions simultanées aboutissent toutes", async () => {
+    const litellm = new FakeLiteLLM();
+    await Promise.all([provisionUser({ litellm }, user), provisionUser({ litellm }, user)]);
+    expect((await litellm.getUser("mmaudet"))?.email).toBe("mmaudet@linagora.com");
+  });
 });

@@ -30,6 +30,16 @@ describe("provisionnement par une intégration", () => {
     expect(await listAudit(testDb)).toEqual([]);
   });
 
+  test("des premiers accès simultanés d'un même collaborateur aboutissent tous, sans refus inscrit au journal", async () => {
+    // Une intégration peut lancer plusieurs appels en parallèle au premier accès d'un collaborateur.
+    await Promise.all([
+      provisionIntegrationUser(deps, parTeamManager("pmartin", "pmartin@linagora.com")),
+      provisionIntegrationUser(deps, parTeamManager("pmartin", "pmartin@linagora.com")),
+    ]);
+    expect((await litellm.getUser("pmartin"))?.email).toBe("pmartin@linagora.com");
+    expect(await listAudit(testDb)).toEqual([]);
+  });
+
   test("un uid inconnu dont l'adresse appartient à un utilisateur de la passerelle est refusé, sans provisionnement, et inscrit au journal avec son canal", async () => {
     await litellm.createUser({ userId: "mmaudet", email: "mmaudet@linagora.com" });
     await refusee("MMaudet", "MMaudet@Linagora.com");
