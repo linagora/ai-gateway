@@ -222,8 +222,19 @@ function keyParams(request: AccessRequest, alias: string, duration: string | nul
   };
 }
 
+/** Brouillon de la demande de renouvellement d'une clé : les paramètres de la clé, et son alias. */
+export interface RenewalDraft {
+  teamId: string;
+  dataLevel: DataLevel;
+  models: string[];
+  project: string | null;
+  requestedBudget: number | null;
+  requestedDays: number | null;
+  alias: string;
+}
+
 /** F-44 : brouillon de la demande de renouvellement d'une clé, prérempli avec ses paramètres. */
-export async function renewalDraft(deps: KeyDeps, user: SessionUser, requestId: string) {
+export async function renewalDraft(deps: KeyDeps, user: SessionUser, requestId: string): Promise<RenewalDraft> {
   const origine = await ownKeyToRenew(deps, user, requestId);
   return {
     teamId: origine.teamId,

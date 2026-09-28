@@ -1,7 +1,7 @@
 import type { RequestKind, RequestStatus } from "@/generated/prisma/client";
 import { CLASSIFICATIONS_ACCEPTEES, DATA_LEVELS, modelAcceptsLevel } from "@/lib/policy";
 import type { CatalogItem } from "@/lib/services/catalog";
-import type { MyKeys, renewalDraft } from "@/lib/services/keys";
+import type { MyKeys, RenewalDraft } from "@/lib/services/keys";
 import type { RequestSummary } from "@/lib/services/requests";
 import type { Traducteur } from "./api";
 
@@ -90,7 +90,7 @@ export function vueCles({ toPickUp, keys }: MyKeys, t: Traducteur) {
  * Brouillon de renouvellement d'une clé (GET /keys/{id}/renewal-draft) : de quoi préremplir sa demande de
  * renouvellement ; le budget n'y figure pas, le portail reprenant celui de la clé renouvelée.
  */
-export function vueBrouillonDeRenouvellement({ alias, teamId, dataLevel, models, project, requestedDays }: Awaited<ReturnType<typeof renewalDraft>>) {
+export function vueBrouillonDeRenouvellement({ alias, teamId, dataLevel, models, project, requestedDays }: RenewalDraft) {
   return { alias, teamId, dataLevel, models, project, requestedDays };
 }
 
