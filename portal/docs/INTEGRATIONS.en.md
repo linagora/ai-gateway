@@ -234,10 +234,10 @@ api "$PORTAL/keys"
 **Pick up, replace, revoke a key** (`cles`, second delivery). Picking up an approved key generates it and returns its
 value **once** (`201`, `{"key": "…", "alias": "…"}`): show it to the employee, and never log or store it. If the
 response is lost, offer the replacement: it issues a new key with the same parameters, expiry and spend, also returned
-once, and deletes the old one; it is refused for an expired key or one blocked by an administrator. Revocation cuts
-the key off (`204`): the gateway refuses it within seconds. Each of these actions sends the employee an email that
-names the integration and asks them to warn the administrators if they did not make it. An employee acts on their own
-keys only, even as a manager of the team: another employee's key is not found (`404`).
+once, and deletes the old one; it is refused for an expired key or one blocked by an administrator or a manager of its
+team. Revocation cuts the key off (`204`): the gateway refuses it within seconds. Each of these actions sends the
+employee an email that names the integration and asks them to warn the administrators if they did not make it. An
+employee acts on their own keys only, even as a manager of the team: another employee's key is not found (`404`).
 
 ```bash
 api -X POST "$PORTAL/key-requests/<requestId>/pickup"    # the key, once: do not log the response

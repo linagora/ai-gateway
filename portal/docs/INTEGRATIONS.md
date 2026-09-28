@@ -237,10 +237,10 @@ api "$PORTAIL/keys"
 sa valeur **une seule fois** (`201`, `{"key": "…", "alias": "…"}`) : montrez-la au collaborateur, sans jamais la
 journaliser ni la conserver. Si la réponse se perd, proposez le remplacement : il émet une nouvelle clé aux mêmes
 paramètres, avec la même expiration et la même dépense, rendue elle aussi une seule fois, et supprime l'ancienne ; il
-est refusé pour une clé expirée ou bloquée par un admin. La révocation coupe la clé (`204`) : la passerelle la refuse
-en quelques secondes. Chacune de ces actions envoie au collaborateur un courriel qui nomme l'intégration et l'invite à
-prévenir les administrateurs s'il n'en est pas l'auteur. Un collaborateur n'agit que sur ses propres clés, même s'il
-est responsable de l'équipe : la clé d'un autre est introuvable (`404`).
+est refusé pour une clé expirée ou bloquée par un admin ou un responsable de son équipe. La révocation coupe la clé
+(`204`) : la passerelle la refuse en quelques secondes. Chacune de ces actions envoie au collaborateur un courriel qui
+nomme l'intégration et l'invite à prévenir les administrateurs s'il n'en est pas l'auteur. Un collaborateur n'agit que
+sur ses propres clés, même s'il est responsable de l'équipe : la clé d'un autre est introuvable (`404`).
 
 ```bash
 api -X POST "$PORTAIL/key-requests/<requestId>/pickup"    # la clé, une seule fois : ne journalisez pas la réponse
