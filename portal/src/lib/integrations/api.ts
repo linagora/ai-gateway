@@ -117,24 +117,13 @@ export function routeApi<P = Record<string, never>>(perimetre: Perimetre | null,
       const acteur = await controler(requete, perimetre, deps, new Date());
       await provisionIntegrationUser(deps, acteur);
       const corps = async <T>(schema: z.ZodType<T>) => schema.parse(await lireJson(requete));
-      const resultat = await traiter({ acteur, deps, langue, t: TRADUCTEURS[langue], params: await contexte.params, corps }).catch((e: unknown) => {
-        throw avecAttenteDesGenerations(e, deps, acteur);
-      });
+      const resultat = await traiter({ acteur, deps, langue, t: TRADUCTEURS[langue], params: await contexte.params, corps });
       if (!(resultat instanceof Reponse)) return json(200, resultat);
       return resultat.statut === 204 ? new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } }) : json(201, resultat.corps);
     } catch (e) {
       return reponseErreur(versRefus(e), langue);
     }
   };
-}
-
-/**
- * Limite des retraits et remplacements du collaborateur (429) : comme pour le plafond de l'intégration, la réponse dit
- * combien de temps attendre avant de réessayer.
- */
-function avecAttenteDesGenerations(e: unknown, deps: DepsApi, acteur: SessionUser): unknown {
-  if (!(e instanceof PortalError && e.code === "trop_de_generations")) return e;
-  return new RefusApi(429, e.code, {}, { attente: deps.limiteGenerations.attente(acteur.uid, new Date()), parametres: e.params });
 }
 
 /** Corps JSON de la requête, lu jusqu'à 16 Kio au plus : au-delà, ou illisible, c'est une saisie invalide. */
@@ -196,7 +185,8 @@ function versRefus(e: unknown): RefusApi {
   if (e instanceof PolicyViolationError) return new RefusApi(400, e.code, { failedChecks: e.failedChecks.map(({ id, offending }) => ({ id, offending })) });
   if (e instanceof PortalError) {
     const details = Object.fromEntries(Object.entries(e.params).map(([cle, valeur]) => [CLES_DES_DETAILS[cle] ?? cle, valeur]));
-    return new RefusApi(STATUTS_HTTP[e.code] ?? 400, e.code, details, { parametres: e.params });
+    // Une limite de fréquence du service (retraits et remplacements) dit, comme le plafond, quand réessayer.
+    return new RefusApi(STATUTS_HTTP[e.code] ?? 400, e.code, details, { parametres: e.params, attente: e.attente });
   }
   if (e instanceof z.ZodError) {
     // Champs en cause, champs inconnus compris ; sans champ, c'est le corps entier qui n'est pas l'objet attendu.

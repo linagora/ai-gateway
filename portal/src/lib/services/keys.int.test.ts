@@ -653,12 +653,12 @@ describe("robustesse du retrait (revue de code)", () => {
     expect(litellm.keys.size).toBe(1);
   });
 
-  test("au-delà de cinq retraits ou remplacements en dix minutes, le titulaire doit patienter", async () => {
+  test("au-delà de cinq retraits ou remplacements en dix minutes, le titulaire doit patienter, et l'erreur dit combien de temps", async () => {
     const limites = { ...deps, limiteGenerations: new LimiteDeDebit(5, 10 * 60_000) };
     const id = await demandeApprouvee();
     await pickUpKey(limites, titulaire, id);
     for (let i = 0; i < 4; i++) await replaceKey(limites, titulaire, id);
-    await expect(replaceKey(limites, titulaire, id)).rejects.toMatchObject({ code: "trop_de_generations" });
+    await expect(replaceKey(limites, titulaire, id)).rejects.toMatchObject({ code: "trop_de_generations", attente: 10 * 60_000 });
     maintenant = new Date(maintenant.getTime() + 10 * 60_000 + 1);
     await expect(replaceKey(limites, titulaire, id)).resolves.toMatchObject({ key: expect.stringMatching(/^sk-/) });
   });

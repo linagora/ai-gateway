@@ -27,7 +27,7 @@ export interface KeyDeps extends NotificationDeps {
 /** Le retrait et le remplacement sont limités en fréquence par titulaire (spécification #14). */
 function verifierFrequence(deps: KeyDeps, user: SessionUser, maintenant: Date): void {
   if (deps.limiteGenerations && !deps.limiteGenerations.autoriser(user.uid, maintenant)) {
-    throw new PortalError("trop_de_generations", "Trop de clés générées en peu de temps.");
+    throw new PortalError("trop_de_generations", "Trop de clés générées en peu de temps.", {}, deps.limiteGenerations.attente(user.uid, maintenant));
   }
 }
 
