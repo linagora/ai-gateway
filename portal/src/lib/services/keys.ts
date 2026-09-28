@@ -11,7 +11,8 @@ import { parActeur, recordAudit } from "./audit";
 import { aAutorite, dansEquipes, duTitulaire, type FiltreGestion, managerEmails, requireGestion } from "./autorite";
 import { pickupDeadline, readPickupDays } from "./delais";
 import { markExpired } from "./echeances";
-import { type NotificationDeps, notifyAdminKeyAction, notifyIntegrationKeyAction, notifyTeamChange } from "./notifications";
+import { lireNomDIntegration } from "./integrations";
+import { type ActionDIntegrationSurCle, type NotificationDeps, notifyAdminKeyAction, notifyIntegrationKeyAction, notifyTeamChange } from "./notifications";
 import { ownKeyToRenew, transitionRequest } from "./requests";
 
 /** Dépendances du service des clés ; la date du jour est injectée pour rendre les échéances testables. */
@@ -194,7 +195,7 @@ export async function pickUpKey(deps: KeyDeps, user: SessionUser, requestId: str
       details: { alias: origineActive.keyAlias, raison: "renouvellement" },
     });
   }
-  await prevenirActionParIntegration(deps, user, { ...request, keyAlias: generee.alias, keyExpiresAt: generee.expiresAt }, "retrait");
+  await prevenirActionParIntegration(deps, user, { ...request, keyAlias: generee.alias, keyExpiresAt: generee.expiresAt }, { type: "retrait" });
   return { key: generee.key, alias: generee.alias };
 }
 
@@ -336,7 +337,7 @@ export async function revokeKey(deps: KeyDeps, user: SessionUser, requestId: str
 export async function revokeOwnKey(deps: KeyDeps, user: SessionUser, requestId: string): Promise<void> {
   const request = await activeKeyRequest(deps.db, requestId, (r) => r.requesterUid === user.uid);
   await revoquer(deps, user, request);
-  await prevenirActionParIntegration(deps, user, request, "revocation");
+  await prevenirActionParIntegration(deps, user, request, { type: "revocation" });
 }
 
 /** Révocation d'une clé émise : suppression dans LiteLLM, demande « Révoquée » (statut final), journal d'audit. */
@@ -408,7 +409,7 @@ export async function replaceKey(deps: KeyDeps, user: SessionUser, requestId: st
     throw new PortalError("transition_interdite", "La clé a été modifiée entre-temps ; rechargez la page.", { cas: "modifiee" });
   }
   await recordAudit(deps.db, { ...parActeur(user), action: "KEY_REPLACED", targetId: request.id, details: { alias: nouvelle.alias, ancienAlias: request.keyAlias } });
-  await prevenirActionParIntegration(deps, user, request, "remplacement", nouvelle.alias);
+  await prevenirActionParIntegration(deps, user, request, { type: "remplacement", nouvelAlias: nouvelle.alias });
   return { key: nouvelle.key, alias: nouvelle.alias };
 }
 
@@ -467,16 +468,10 @@ async function prevenirActionSurCle(deps: KeyDeps, actor: SessionUser, request: 
  * Spécification #71 : le retrait, le remplacement ou la révocation d'une clé par une intégration est annoncé à son
  * titulaire, avec le nom de l'intégration enregistré par l'admin ; une action faite dans le portail n'envoie rien.
  */
-async function prevenirActionParIntegration(
-  deps: KeyDeps,
-  user: SessionUser,
-  request: AccessRequest,
-  action: "retrait" | "remplacement" | "revocation",
-  nouvelAlias?: string,
-): Promise<void> {
+async function prevenirActionParIntegration(deps: KeyDeps, user: SessionUser, request: AccessRequest, action: ActionDIntegrationSurCle): Promise<void> {
   if (!user.canal || !request.keyAlias) return;
-  const integration = await deps.db.integration.findUnique({ where: { id: user.canal }, select: { name: true } });
-  await notifyIntegrationKeyAction(deps, { ...request, keyAlias: request.keyAlias }, action, integration?.name ?? user.canal, nouvelAlias);
+  const integration = (await lireNomDIntegration(deps.db, user.canal)) ?? user.canal;
+  await notifyIntegrationKeyAction(deps, { ...request, keyAlias: request.keyAlias }, integration, action);
 }
 
 /**

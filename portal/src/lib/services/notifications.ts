@@ -473,27 +473,29 @@ export async function notifyAdminKeyAction(
   await envoyer(deps, [demande.requesterEmail], message);
 }
 
+/** Action d'une intégration sur la clé d'un collaborateur ; un remplacement nomme la clé qui remplace l'ancienne. */
+export type ActionDIntegrationSurCle = { type: "retrait" } | { type: "remplacement"; nouvelAlias: string } | { type: "revocation" };
+
 /**
  * Spécification #71 : retrait, remplacement ou révocation d'une clé par une intégration, au nom de son titulaire, qui en
  * est prévenu ; le courriel nomme l'intégration et l'invite à prévenir les administrateurs s'il n'en est pas l'auteur.
- * Pour un remplacement, `demande` porte l'alias de l'ancienne clé, et `nouvelAlias` celui de sa remplaçante.
+ * Pour un remplacement, `demande` porte l'alias de l'ancienne clé.
  */
 export async function notifyIntegrationKeyAction(
   deps: NotificationDeps,
   demande: AccessRequest & { keyAlias: string },
-  action: "retrait" | "remplacement" | "revocation",
   integration: string,
-  nouvelAlias = "",
+  action: ActionDIntegrationSurCle,
 ): Promise<void> {
-  const valeurs = { alias: demande.keyAlias, action, integration, nouvelAlias };
+  const valeurs = { alias: demande.keyAlias, integration, nouvelAlias: action.type === "remplacement" ? action.nouvelAlias : "" };
   const message = bilingue(
     (t) => ({
-      sujet: t("courriels.cleParIntegration.sujet", valeurs),
+      sujet: t(`courriels.cleParIntegration.${action.type}.sujet`, valeurs),
       paragraphes: [
         t("courriels.bonjour", { nom: nom(demande) }),
-        t("courriels.cleParIntegration.corps", valeurs),
+        t(`courriels.cleParIntegration.${action.type}.corps`, valeurs),
         avecRecap(t("courriels.rappelCle"), recapCle(t, demande)),
-        t("courriels.cleParIntegration.alerte", valeurs),
+        t(`courriels.cleParIntegration.${action.type}.alerte`),
       ],
     }),
     lienVers(deps, "/cles"),
