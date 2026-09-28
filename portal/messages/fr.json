@@ -1065,6 +1065,11 @@
       "sujet": "Votre clé {alias} est débloquée",
       "corps": "{role, select, responsable {Un responsable de votre équipe} other {Un administrateur}} a débloqué votre clé d'API {alias} : elle fonctionne à nouveau."
     },
+    "cleParIntegration": {
+      "sujet": "Votre clé {alias} a été {action, select, retrait {retirée} remplacement {remplacée} other {révoquée}} par {integration}",
+      "corps": "{action, select, retrait {L'intégration {integration} a retiré en votre nom votre clé d'API {alias} : sa valeur n'a été affichée que dans l'intégration.} remplacement {L'intégration {integration} a remplacé en votre nom votre clé d'API {alias} par une nouvelle clé, {nouvelAlias} : la passerelle refuse désormais l'ancienne, et la nouvelle n'a été affichée que dans l'intégration.} other {L'intégration {integration} a révoqué en votre nom votre clé d'API {alias} : la passerelle la refuse désormais.}}",
+      "alerte": "Si vous n'êtes pas à l'origine de {action, select, retrait {ce retrait} remplacement {ce remplacement} other {cette révocation}}, prévenez aussitôt les administrateurs du portail."
+    },
     "equipe": {
       "creee": {
         "sujet": "Équipe créée : {equipe}",

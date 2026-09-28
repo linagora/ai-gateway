@@ -473,6 +473,34 @@ export async function notifyAdminKeyAction(
   await envoyer(deps, [demande.requesterEmail], message);
 }
 
+/**
+ * Spécification #71 : retrait, remplacement ou révocation d'une clé par une intégration, au nom de son titulaire, qui en
+ * est prévenu ; le courriel nomme l'intégration et l'invite à prévenir les administrateurs s'il n'en est pas l'auteur.
+ * Pour un remplacement, `demande` porte l'alias de l'ancienne clé, et `nouvelAlias` celui de sa remplaçante.
+ */
+export async function notifyIntegrationKeyAction(
+  deps: NotificationDeps,
+  demande: AccessRequest & { keyAlias: string },
+  action: "retrait" | "remplacement" | "revocation",
+  integration: string,
+  nouvelAlias = "",
+): Promise<void> {
+  const valeurs = { alias: demande.keyAlias, action, integration, nouvelAlias };
+  const message = bilingue(
+    (t) => ({
+      sujet: t("courriels.cleParIntegration.sujet", valeurs),
+      paragraphes: [
+        t("courriels.bonjour", { nom: nom(demande) }),
+        t("courriels.cleParIntegration.corps", valeurs),
+        avecRecap(t("courriels.rappelCle"), recapCle(t, demande)),
+        t("courriels.cleParIntegration.alerte", valeurs),
+      ],
+    }),
+    lienVers(deps, "/cles"),
+  );
+  await envoyer(deps, [demande.requesterEmail], message);
+}
+
 /** Changement dans une équipe (F-53 et F-54), annoncé aux admins et aux responsables de l'équipe. */
 export type TeamChange =
   | { type: "creee" }

@@ -8,7 +8,7 @@ import { approveKeyRequest, getRequestReview, refuseRequest, requestCompletion }
 import { listAudit } from "./audit";
 import { saveCatalogEntry } from "./catalog";
 import { runDailyTask } from "./echeances";
-import { blockKey, listActiveKeys, listKeyArchive, listKeysToPickUp, listMyKeys, pickUpKey, renewalDraft, replaceKey, revokeKey, unblockKey } from "./keys";
+import { blockKey, listActiveKeys, listKeyArchive, listKeysToPickUp, listMyKeys, pickUpKey, renewalDraft, replaceKey, revokeKey, revokeOwnKey, unblockKey } from "./keys";
 import { completeRequest, createKeyRequest, type KeyRequestInput, listMyRequests } from "./requests";
 import { saveSettings } from "./settings";
 
@@ -569,6 +569,54 @@ describe("courriels des actions d'un admin sur une clé (ticket #26)", () => {
     await pickUpKey(avecCourriel(), titulaire, renouvelee);
     await revokeKey(avecCourriel(), titulaire, renouvelee);
     expect(mailer.outbox).toEqual([]);
+  });
+});
+
+describe("actions d'une intégration sur les clés du collaborateur (ticket #81)", () => {
+  let mailer: FakeMailer;
+  const avecCourriel = () => ({ ...deps, mailer, portalUrl: "https://portail.test" });
+  /** Le titulaire, agissant par l'intégration Team Manager. */
+  const parTeamManager = { ...titulaire, canal: "team-manager" };
+
+  beforeEach(async () => {
+    mailer = new FakeMailer();
+    await testDb.integration.create({ data: { id: "team-manager", name: "Team Manager", scopes: ["LECTURE", "DEMANDES", "CLES"], ipRanges: ["10.0.0.0/8"], createdBy: "jdupont" } });
+  });
+
+  test("un retrait par une intégration envoie au titulaire un courriel qui la nomme et l'invite à prévenir les administrateurs", async () => {
+    const id = await demandeApprouvee();
+    const { alias } = await pickUpKey(avecCourriel(), parTeamManager, id);
+    expect(mailer.outbox.map((c) => [c.to, c.subject])).toEqual([
+      [["mmaudet@linagora.com"], `[AI GATEWAY] Votre clé ${alias} a été retirée par Team Manager / Your key ${alias} was picked up by Team Manager`],
+    ]);
+    expect(mailer.outbox[0].text).toContain(`L'intégration Team Manager a retiré en votre nom votre clé d'API ${alias}`);
+    expect(mailer.outbox[0].text).toContain("Si vous n'êtes pas à l'origine de ce retrait, prévenez aussitôt les administrateurs du portail.");
+    expect(mailer.outbox[0].text).toContain("https://portail.test/cles");
+  });
+
+  test("un remplacement par une intégration annonce au titulaire l'ancienne clé et sa remplaçante", async () => {
+    const id = await demandeApprouvee();
+    const { alias: ancien } = await pickUpKey(deps, titulaire, id);
+    const { alias: nouvel } = await replaceKey(avecCourriel(), parTeamManager, id);
+    expect(mailer.outbox.map((c) => c.subject)).toEqual([`[AI GATEWAY] Votre clé ${ancien} a été remplacée par Team Manager / Your key ${ancien} was replaced by Team Manager`]);
+    expect(mailer.outbox[0].text).toContain(`L'intégration Team Manager a remplacé en votre nom votre clé d'API ${ancien} par une nouvelle clé, ${nouvel}`);
+  });
+
+  test("une révocation par une intégration coupe la clé et l'annonce au titulaire", async () => {
+    const id = await demandeApprouvee();
+    const { key, alias } = await pickUpKey(deps, titulaire, id);
+    await revokeOwnKey(avecCourriel(), parTeamManager, id);
+    expect([...litellm.keys.values()].some((k) => k.key === key)).toBe(false);
+    expect((await listMyKeys(deps, titulaire)).keys[0].status).toBe("REVOQUEE");
+    expect(mailer.outbox.map((c) => c.subject)).toEqual([`[AI GATEWAY] Votre clé ${alias} a été révoquée par Team Manager / Your key ${alias} was revoked by Team Manager`]);
+  });
+
+  test("par une intégration, on ne révoque que sa propre clé, même responsable de son équipe", async () => {
+    const id = await demandeApprouvee();
+    await pickUpKey(deps, titulaire, id);
+    await testDb.teamManager.create({ data: { teamId: "equipe-rd", uid: "pmartin", email: "pmartin@linagora.com", designatedBy: "jdupont" } });
+    await expect(revokeOwnKey(deps, { ...collegue, canal: "team-manager" }, id)).rejects.toMatchObject({ code: "introuvable" });
+    expect((await listMyKeys(deps, titulaire)).keys[0].status).toBe("CLE_EMISE");
   });
 });
 

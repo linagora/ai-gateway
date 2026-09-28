@@ -11,7 +11,7 @@ import { parActeur, recordAudit } from "./audit";
 import { aAutorite, dansEquipes, duTitulaire, type FiltreGestion, managerEmails, requireGestion } from "./autorite";
 import { pickupDeadline, readPickupDays } from "./delais";
 import { markExpired } from "./echeances";
-import { type NotificationDeps, notifyAdminKeyAction, notifyTeamChange } from "./notifications";
+import { type NotificationDeps, notifyAdminKeyAction, notifyIntegrationKeyAction, notifyTeamChange } from "./notifications";
 import { ownKeyToRenew, transitionRequest } from "./requests";
 
 /** Dépendances du service des clés ; la date du jour est injectée pour rendre les échéances testables. */
@@ -194,6 +194,7 @@ export async function pickUpKey(deps: KeyDeps, user: SessionUser, requestId: str
       details: { alias: origineActive.keyAlias, raison: "renouvellement" },
     });
   }
+  await prevenirActionParIntegration(deps, user, { ...request, keyAlias: generee.alias, keyExpiresAt: generee.expiresAt }, "retrait");
   return { key: generee.key, alias: generee.alias };
 }
 
@@ -323,11 +324,26 @@ async function adminKey(litellm: LiteLLMClient, r: AccessRequest): Promise<Admin
  */
 export async function revokeKey(deps: KeyDeps, user: SessionUser, requestId: string): Promise<void> {
   const request = await activeKeyRequest(deps.db, requestId, async (r) => r.requesterUid === user.uid || (await aAutorite(deps.db, user, r.teamId)));
+  await revoquer(deps, user, request);
+  // Le titulaire est prévenu d'une révocation qu'il n'a pas faite lui-même.
+  if (user.uid !== request.requesterUid) await prevenirActionSurCle(deps, user, request, "revocation");
+}
+
+/**
+ * Spécification #71 : révocation de sa propre clé, et d'elle seule, pour l'API d'intégration ; même responsable de
+ * l'équipe, un collaborateur n'y révoque pas la clé d'un autre, qui reste introuvable.
+ */
+export async function revokeOwnKey(deps: KeyDeps, user: SessionUser, requestId: string): Promise<void> {
+  const request = await activeKeyRequest(deps.db, requestId, (r) => r.requesterUid === user.uid);
+  await revoquer(deps, user, request);
+  await prevenirActionParIntegration(deps, user, request, "revocation");
+}
+
+/** Révocation d'une clé émise : suppression dans LiteLLM, demande « Révoquée » (statut final), journal d'audit. */
+async function revoquer(deps: KeyDeps, user: SessionUser, request: AccessRequest & { keyTokenId: string }): Promise<void> {
   await deleteFromGateway(deps.litellm, request.keyTokenId);
   await transitionRequest(deps.db, request, "REVOQUEE");
   await recordAudit(deps.db, { ...parActeur(user), action: "KEY_REVOKED", targetId: request.id, details: { alias: request.keyAlias } });
-  // Le titulaire est prévenu d'une révocation qu'il n'a pas faite lui-même.
-  if (user.uid !== request.requesterUid) await prevenirActionSurCle(deps, user, request, "revocation");
 }
 
 /**
@@ -392,6 +408,7 @@ export async function replaceKey(deps: KeyDeps, user: SessionUser, requestId: st
     throw new PortalError("transition_interdite", "La clé a été modifiée entre-temps ; rechargez la page.", { cas: "modifiee" });
   }
   await recordAudit(deps.db, { ...parActeur(user), action: "KEY_REPLACED", targetId: request.id, details: { alias: nouvelle.alias, ancienAlias: request.keyAlias } });
+  await prevenirActionParIntegration(deps, user, request, "remplacement", nouvelle.alias);
   return { key: nouvelle.key, alias: nouvelle.alias };
 }
 
@@ -444,6 +461,22 @@ async function prevenirActionSurCle(deps: KeyDeps, actor: SessionUser, request: 
     // Le titulaire, fût-il responsable, reçoit déjà son propre courriel.
     await managerEmails(deps.db, request.teamId, [actor.uid, request.requesterUid]),
   );
+}
+
+/**
+ * Spécification #71 : le retrait, le remplacement ou la révocation d'une clé par une intégration est annoncé à son
+ * titulaire, avec le nom de l'intégration enregistré par l'admin ; une action faite dans le portail n'envoie rien.
+ */
+async function prevenirActionParIntegration(
+  deps: KeyDeps,
+  user: SessionUser,
+  request: AccessRequest,
+  action: "retrait" | "remplacement" | "revocation",
+  nouvelAlias?: string,
+): Promise<void> {
+  if (!user.canal || !request.keyAlias) return;
+  const integration = await deps.db.integration.findUnique({ where: { id: user.canal }, select: { name: true } });
+  await notifyIntegrationKeyAction(deps, { ...request, keyAlias: request.keyAlias }, action, integration?.name ?? user.canal, nouvelAlias);
 }
 
 /**
