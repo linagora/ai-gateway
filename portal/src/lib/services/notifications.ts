@@ -473,8 +473,14 @@ export async function notifyAdminKeyAction(
   await envoyer(deps, [demande.requesterEmail], message);
 }
 
-/** Action d'une intégration sur la clé d'un collaborateur ; un remplacement nomme la clé qui remplace l'ancienne. */
-export type ActionDIntegrationSurCle = { type: "retrait" } | { type: "remplacement"; nouvelAlias: string } | { type: "revocation" };
+/**
+ * Action d'une intégration sur la clé d'un collaborateur : le retrait d'un renouvellement nomme la clé renouvelée,
+ * révoquée du même coup ; un remplacement nomme la clé qui remplace l'ancienne.
+ */
+export type ActionDIntegrationSurCle =
+  | { type: "retrait"; cleRenouvelee: string | null }
+  | { type: "remplacement"; nouvelAlias: string }
+  | { type: "revocation" };
 
 /**
  * Spécification #71 : retrait, remplacement ou révocation d'une clé par une intégration, au nom de son titulaire, qui en
@@ -494,6 +500,7 @@ export async function notifyIntegrationKeyAction(
       paragraphes: [
         t("courriels.bonjour", { nom: nom(demande) }),
         t(`courriels.cleParIntegration.${action.type}.corps`, valeurs),
+        ...(action.type === "retrait" && action.cleRenouvelee ? [t("courriels.cleParIntegration.retrait.renouvellement", { ancienAlias: action.cleRenouvelee })] : []),
         avecRecap(t("courriels.rappelCle"), recapCle(t, demande)),
         t(`courriels.cleParIntegration.${action.type}.alerte`),
       ],

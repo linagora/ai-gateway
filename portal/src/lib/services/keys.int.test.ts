@@ -594,6 +594,17 @@ describe("actions d'une intégration sur les clés du collaborateur (ticket #81)
     expect(mailer.outbox[0].text).toContain("https://portail.test/cles");
   });
 
+  test("le retrait par une intégration d'une clé de renouvellement annonce aussi la révocation de la clé renouvelée", async () => {
+    const origine = await demandeApprouvee();
+    const { alias: renouvelee } = await pickUpKey(deps, titulaire, origine);
+    const brouillon = await renewalDraft(deps, titulaire, origine);
+    const { id } = await createKeyRequest(deps, titulaire, { ...demande, ...brouillon, justification: "Renouvellement", commitment: true, renewsRequestId: origine });
+    await approveKeyRequest(deps, admin, id, { models: ["mistral-small"], budget: 15, budgetDuration: "30d", days: 60, rpmLimit: null, tpmLimit: null });
+    await pickUpKey(avecCourriel(), parIntegration, id);
+    expect(mailer.outbox).toHaveLength(1);
+    expect(mailer.outbox[0].text).toContain(`Elle renouvelle votre clé ${renouvelee}, que la passerelle refuse désormais.`);
+  });
+
   test("un remplacement par une intégration annonce au titulaire l'ancienne clé et sa remplaçante", async () => {
     const id = await demandeApprouvee();
     const { alias: ancien } = await pickUpKey(deps, titulaire, id);

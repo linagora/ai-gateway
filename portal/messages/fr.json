@@ -1069,6 +1069,7 @@
       "retrait": {
         "sujet": "Votre clé {alias} a été retirée par {integration}",
         "corps": "L'intégration {integration} a retiré en votre nom votre clé d'API {alias} : sa valeur n'a été affichée que dans l'intégration.",
+        "renouvellement": "Elle renouvelle votre clé {ancienAlias}, que la passerelle refuse désormais.",
         "alerte": "Si vous n'êtes pas à l'origine de ce retrait, prévenez aussitôt les administrateurs du portail."
       },
       "remplacement": {

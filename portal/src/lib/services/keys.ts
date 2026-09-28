@@ -195,7 +195,7 @@ export async function pickUpKey(deps: KeyDeps, user: SessionUser, requestId: str
       details: { alias: origineActive.keyAlias, raison: "renouvellement" },
     });
   }
-  await prevenirActionParIntegration(deps, user, { ...request, keyAlias: generee.alias, keyExpiresAt: generee.expiresAt }, { type: "retrait" });
+  await prevenirActionParIntegration(deps, user, { ...request, keyAlias: generee.alias, keyExpiresAt: generee.expiresAt }, { type: "retrait", cleRenouvelee: origineActive?.keyAlias ?? null });
   return { key: generee.key, alias: generee.alias };
 }
 

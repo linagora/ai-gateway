@@ -1069,6 +1069,7 @@
       "retrait": {
         "sujet": "Your key {alias} was picked up by {integration}",
         "corps": "The integration {integration} picked up your API key {alias} on your behalf: its value was only shown in the integration.",
+        "renouvellement": "It renews your key {ancienAlias}, which the gateway now refuses.",
         "alerte": "If you did not pick up this key yourself, tell the portal administrators right away."
       },
       "remplacement": {
