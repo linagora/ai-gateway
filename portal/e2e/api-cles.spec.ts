@@ -1,6 +1,6 @@
 import { type APIRequestContext, type Browser, expect, test } from "@playwright/test";
 import { appeler, basculerIntegration, declarerIntegration, erreur, installerDemo, jetonDemo } from "./api";
-import { ADMIN, appel, connecter, courriels, demandeApprouvee, enrichirModele, type Personne } from "./outils";
+import { ADMIN, appel, connecter, courriels, demandeApprouvee, enrichirModele, type Personne, retirerCle } from "./outils";
 
 /*
  * Clés par l'API d'intégration (spécification #71, ticket #81) : retrait, remplacement et révocation de ses propres
@@ -139,10 +139,14 @@ test("une intégration sans le périmètre « cles » ne retire, ne remplace, ne
   await basculerIntegration(admin, integration, "Désactiver");
 });
 
-test("au-delà de cinq retraits ou remplacements en dix minutes, l'API répond 429 avec le délai avant de réessayer", async ({ browser, request }) => {
+test("au-delà de cinq retraits ou remplacements en dix minutes, dans le portail et par l'API confondus, l'API répond 429 avec le délai avant de réessayer", async ({ browser, request }) => {
   const collaborateur = personne("limite");
-  const id = await demandeDeCleApprouvee(browser, request, collaborateur);
-  expect((await agir(request, collaborateur, `/key-requests/${id}/pickup`)).status()).toBe(201);
+  const page = await (await connecter(browser, collaborateur)).newPage();
+  await demandeApprouvee(browser, page, collaborateur, `Clés par l'API ${suffixe}`);
+  // Le retrait se fait dans le portail, puis les remplacements par l'API : ils comptent ensemble.
+  await retirerCle(page);
+  const { keys } = (await (await agir(request, collaborateur, "/keys", "GET")).json()) as { keys: { requestId: string }[] };
+  const id = keys[0].requestId;
   for (let i = 0; i < 4; i++) expect((await agir(request, collaborateur, `/keys/${id}/replace`)).status()).toBe(201);
   const refus = await agir(request, collaborateur, `/keys/${id}/replace`);
   expect(await erreur(refus)).toMatchObject({ statut: 429, code: "trop_de_generations" });

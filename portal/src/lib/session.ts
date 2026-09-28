@@ -44,8 +44,13 @@ export async function requireAdminPage(): Promise<SessionUser> {
   return user;
 }
 
-/** Au plus cinq retraits ou remplacements de clé par titulaire en dix minutes (spécification #14). */
-const limiteGenerations = new LimiteDeDebit(5, 10 * 60_000);
+/**
+ * Au plus cinq retraits ou remplacements de clé par titulaire en dix minutes (spécification #14), dans le portail et
+ * par l'API d'intégration confondus : Next.js charge ce module une fois pour les pages et une fois pour les routes de
+ * l'API, d'où la limite rangée sur globalThis, comme le plafond des intégrations.
+ */
+const memoire = globalThis as typeof globalThis & { limiteDesGenerations?: LimiteDeDebit };
+const limiteGenerations = (memoire.limiteDesGenerations ??= new LimiteDeDebit(5, 10 * 60_000));
 
 /** Dépendances réelles des cas d'usage ; sans configuration SMTP, aucun courriel n'est envoyé. */
 export function getDeps() {
