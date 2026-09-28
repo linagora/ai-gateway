@@ -7,7 +7,20 @@ import { parActeur, recordAudit } from "./audit";
 /** F-02 : à la connexion, crée l'utilisateur dans LiteLLM s'il n'existe pas encore (sans clé). */
 export async function provisionUser(deps: { litellm: LiteLLMClient }, user: SessionUser): Promise<void> {
   if (await deps.litellm.getUser(user.uid)) return;
-  await deps.litellm.createUser({ userId: user.uid, email: user.email });
+  await creerUtilisateur(deps.litellm, user);
+}
+
+/**
+ * Crée l'utilisateur dans LiteLLM. Des appels simultanés au premier accès le créent chacun de leur côté : un 409 alors
+ * que l'utilisateur existe désormais veut dire qu'un autre appel vient de le créer, ce n'est pas une erreur.
+ */
+async function creerUtilisateur(litellm: LiteLLMClient, { uid, email }: SessionUser): Promise<void> {
+  try {
+    await litellm.createUser({ userId: uid, email });
+  } catch (e) {
+    if (e instanceof LiteLLMError && e.status === 409 && (await litellm.getUser(uid))) return;
+    throw e;
+  }
 }
 
 /**
@@ -24,7 +37,7 @@ export async function provisionIntegrationUser(deps: { db: Db; litellm: LiteLLMC
     if (autres.length > 0) throw await refusDIdentite(deps.db, acteur, autres);
   }
   try {
-    await deps.litellm.createUser({ userId: acteur.uid, email: acteur.email });
+    await creerUtilisateur(deps.litellm, acteur);
   } catch (e) {
     // La passerelle refuse elle-même une adresse déjà prise par un autre de ses utilisateurs (HTTP 409) : même refus.
     if (e instanceof LiteLLMError && e.status === 409) throw await refusDIdentite(deps.db, acteur, []);
