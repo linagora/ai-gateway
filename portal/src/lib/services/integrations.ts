@@ -108,6 +108,11 @@ export async function lireIntegrationAppelante(db: Db, id: string): Promise<Inte
   };
 }
 
+/** Nom d'une intégration, tel que l'a enregistré l'admin, pour les courriels au collaborateur ; null si elle est inconnue. */
+export async function lireNomDIntegration(db: Db, id: string): Promise<string | null> {
+  return (await db.integration.findUnique({ where: { id }, select: { name: true } }))?.name ?? null;
+}
+
 /** Intégrations, les actives d'abord, puis par nom. */
 export async function listIntegrations(deps: IntegrationDeps, actor: SessionUser): Promise<IntegrationView[]> {
   requireAdmin(actor);

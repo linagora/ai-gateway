@@ -1065,6 +1065,24 @@
       "sujet": "Your key {alias} is unblocked",
       "corps": "{role, select, responsable {A manager of your team} other {An administrator}} unblocked your API key {alias}: it works again."
     },
+    "cleParIntegration": {
+      "retrait": {
+        "sujet": "Your key {alias} was picked up by {integration}",
+        "corps": "The integration {integration} picked up your API key {alias} on your behalf: its value was only shown in the integration.",
+        "renouvellement": "It renews your key {ancienAlias}, which the gateway now refuses.",
+        "alerte": "If you did not pick up this key yourself, tell the portal administrators right away."
+      },
+      "remplacement": {
+        "sujet": "Your key {alias} was replaced by {integration}",
+        "corps": "The integration {integration} replaced your API key {alias} on your behalf with a new key, {nouvelAlias}: the gateway now refuses the old one, and the new one was only shown in the integration.",
+        "alerte": "If you did not replace this key yourself, tell the portal administrators right away."
+      },
+      "revocation": {
+        "sujet": "Your key {alias} was revoked by {integration}",
+        "corps": "The integration {integration} revoked your API key {alias} on your behalf: the gateway now refuses it.",
+        "alerte": "If you did not revoke this key yourself, tell the portal administrators right away."
+      }
+    },
     "equipe": {
       "creee": {
         "sujet": "Team created: {equipe}",

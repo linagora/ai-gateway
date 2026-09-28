@@ -8,8 +8,8 @@ import type { Personne } from "./outils";
 /** API d'intégration par le Caddy de dev, qui transmet au portail l'adresse de l'appelant, comme en production. */
 export const API = "http://127.0.0.1:54600/api/v1";
 
-/** Intégration « demo » de l'environnement de dev (dev/integration-demo.mjs). */
-export const DEMO = { id: "demo", kid: "demo-1" };
+/** Intégration « demo » de l'environnement de dev (dev/integration-demo.mjs), avec le nom que lui donne le registre. */
+export const DEMO = { id: "demo", kid: "demo-1", nom: "Démo (développement)" };
 
 /** Déclare, ou remet en état, l'intégration « demo » dans la base portal de dev ; crée sa clé privée au premier usage. */
 export function installerDemo(): void {
@@ -58,11 +58,21 @@ export async function erreur(reponse: APIResponse): Promise<{ statut: number; co
   return { statut: reponse.status(), ...error };
 }
 
-/** Utilisateur de la passerelle de dev (null s'il n'existe pas), lu par l'API d'administration de LiteLLM. */
-export async function utilisateurPasserelle(uid: string): Promise<{ user_email: string | null } | null> {
+/** Fiche d'un utilisateur de la passerelle de dev (null s'il n'existe pas), lue par l'API d'administration de LiteLLM. */
+async function fichePasserelle(uid: string): Promise<{ user_info: { user_email: string | null }; keys: unknown[] } | null> {
   const reponse = await fetch(`http://127.0.0.1:54400/admin/user/info?user_id=${encodeURIComponent(uid)}`, { headers: { Authorization: "Bearer sk-dev-master-key" } });
   if (reponse.status === 404) return null;
-  return ((await reponse.json()) as { user_info: { user_email: string | null } }).user_info;
+  return (await reponse.json()) as { user_info: { user_email: string | null }; keys: unknown[] };
+}
+
+/** Utilisateur de la passerelle de dev (null s'il n'existe pas). */
+export async function utilisateurPasserelle(uid: string): Promise<{ user_email: string | null } | null> {
+  return (await fichePasserelle(uid))?.user_info ?? null;
+}
+
+/** Nombre de clés d'un collaborateur dans la passerelle de dev. */
+export async function clesDansLaPasserelle(uid: string): Promise<number> {
+  return (await fichePasserelle(uid))?.keys.length ?? 0;
 }
 
 /** Intégration de test déclarée dans l'onglet, avec une clé Ed25519 : de quoi signer ses jetons. */

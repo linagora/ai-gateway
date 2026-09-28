@@ -44,6 +44,8 @@ export class PortalError extends Error {
     readonly code: PortalErrorCode,
     message: string,
     readonly params: Record<string, string> = {},
+    /** Limite de fréquence atteinte : millisecondes à attendre avant de réessayer. */
+    readonly attente?: number,
   ) {
     super(message);
     this.name = "PortalError";

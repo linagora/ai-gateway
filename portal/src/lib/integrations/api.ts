@@ -185,7 +185,8 @@ function versRefus(e: unknown): RefusApi {
   if (e instanceof PolicyViolationError) return new RefusApi(400, e.code, { failedChecks: e.failedChecks.map(({ id, offending }) => ({ id, offending })) });
   if (e instanceof PortalError) {
     const details = Object.fromEntries(Object.entries(e.params).map(([cle, valeur]) => [CLES_DES_DETAILS[cle] ?? cle, valeur]));
-    return new RefusApi(STATUTS_HTTP[e.code] ?? 400, e.code, details, { parametres: e.params });
+    // Une limite de fréquence du service (retraits et remplacements) dit, comme le plafond, quand réessayer.
+    return new RefusApi(STATUTS_HTTP[e.code] ?? 400, e.code, details, { parametres: e.params, attente: e.attente });
   }
   if (e instanceof z.ZodError) {
     // Champs en cause, champs inconnus compris ; sans champ, c'est le corps entier qui n'est pas l'objet attendu.

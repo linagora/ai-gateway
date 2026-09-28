@@ -473,6 +473,43 @@ export async function notifyAdminKeyAction(
   await envoyer(deps, [demande.requesterEmail], message);
 }
 
+/**
+ * Action d'une intégration sur la clé d'un collaborateur : le retrait d'un renouvellement nomme la clé renouvelée,
+ * révoquée du même coup ; un remplacement nomme la clé qui remplace l'ancienne.
+ */
+export type ActionDIntegrationSurCle =
+  | { type: "retrait"; cleRenouvelee: string | null }
+  | { type: "remplacement"; nouvelAlias: string }
+  | { type: "revocation" };
+
+/**
+ * Spécification #71 : retrait, remplacement ou révocation d'une clé par une intégration, au nom de son titulaire, qui en
+ * est prévenu ; le courriel nomme l'intégration et l'invite à prévenir les administrateurs s'il n'en est pas l'auteur.
+ * Pour un remplacement, `demande` porte l'alias de l'ancienne clé.
+ */
+export async function notifyIntegrationKeyAction(
+  deps: NotificationDeps,
+  demande: AccessRequest & { keyAlias: string },
+  integration: string,
+  action: ActionDIntegrationSurCle,
+): Promise<void> {
+  const valeurs = { alias: demande.keyAlias, integration, nouvelAlias: action.type === "remplacement" ? action.nouvelAlias : "" };
+  const message = bilingue(
+    (t) => ({
+      sujet: t(`courriels.cleParIntegration.${action.type}.sujet`, valeurs),
+      paragraphes: [
+        t("courriels.bonjour", { nom: nom(demande) }),
+        t(`courriels.cleParIntegration.${action.type}.corps`, valeurs),
+        ...(action.type === "retrait" && action.cleRenouvelee ? [t("courriels.cleParIntegration.retrait.renouvellement", { ancienAlias: action.cleRenouvelee })] : []),
+        avecRecap(t("courriels.rappelCle"), recapCle(t, demande)),
+        t(`courriels.cleParIntegration.${action.type}.alerte`),
+      ],
+    }),
+    lienVers(deps, "/cles"),
+  );
+  await envoyer(deps, [demande.requesterEmail], message);
+}
+
 /** Changement dans une équipe (F-53 et F-54), annoncé aux admins et aux responsables de l'équipe. */
 export type TeamChange =
   | { type: "creee" }
