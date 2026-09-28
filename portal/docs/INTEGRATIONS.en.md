@@ -29,8 +29,8 @@ source is in the repository: `portal/src/lib/integrations/openapi-v1.json`.
 - **Scopes**: what the administrator allows the integration to do.
   - `lecture` (read): the employee's teams, the catalog, their requests and keys, and the API contract;
   - `demandes` (requests): request a key or access to a team, complete and cancel a request;
-  - `cles` (keys): pick up, replace and revoke a key, prepare its renewal (second delivery, routes marked
-    `x-status: planned` in the contract).
+  - `cles` (keys): pick up, replace and revoke a key, prepare its renewal (second delivery, opened by an administrator
+    after its acceptance test, section 8).
 - **Channel**: every action made through the API is recorded in the portal's audit log with the integration's
   identifier, which tells it apart from actions made in the portal.
 
@@ -49,7 +49,7 @@ To send to the portal administrators:
 | Name | As it will appear in the administration and in the emails to administrators. |
 | Public key | PEM format (`-----BEGIN PUBLIC KEY-----`), Ed25519 preferably (algorithm `EdDSA`), otherwise RSA of at least 2,048 bits (`RS256`), with its key identifier (`kid`, 1 to 64 letters, digits, dots, hyphens or underscores) and its fingerprint (section 3). **Never the private key.** |
 | Outgoing IP addresses | Addresses or CIDR ranges (IPv4 or IPv6) from which the integration calls the API; any other call is rejected. |
-| Requested scopes | `lecture`, `demandes`, and later `cles`. |
+| Requested scopes | `lecture`, `demandes`, then `cles` after the acceptance test of the second delivery. |
 | Rate limit | Requests per minute, all employees combined; 120 by default. |
 | Employee identity | Confirmation that the tokens' `sub` is the LDAP uid, exactly the one LemonLDAP::NG gives to the portal. |
 
@@ -174,7 +174,7 @@ token() { # uid, email, name
 curl -s -H "Authorization: Bearer $(token jdupont jdupont@linagora.com "Jeanne Dupont")" "$PORTAL/me/teams"
 ```
 
-## 5. First delivery flows
+## 5. Flows
 
 The examples use `curl` and `jq`, with a token for the employee in `$TOKEN` (section 4, or section 7 in dev):
 
@@ -223,12 +223,34 @@ api -X PUT "$PORTAL/key-requests/<id>" -d '{"teamId": "<teamId>", "dataLevel": "
 api -X POST "$PORTAL/requests/<id>/cancel"
 ```
 
-**Keys** (`lecture`). Approved keys waiting to be picked up, with their pickup deadline, then issued keys, with their
-expiration, spend and budget, never their value. In the first delivery, the employee picks up their key in the portal
-(“My keys”); pickup through the API will come with the `cles` scope.
+**Keys** (`lecture`). Approved keys waiting to be picked up (`toPickUp`), with their pickup deadline, then issued keys
+(`keys`), with their expiration, spend and budget, never their value. A key is identified by the request it comes from
+(`requestId`). Without the `cles` scope, the employee picks up their key in the portal (“My keys”).
 
 ```bash
 api "$PORTAL/keys"
+```
+
+**Pick up, replace, revoke a key** (`cles`, second delivery). Picking up an approved key generates it and returns its
+value **once** (`201`, `{"key": "…", "alias": "…"}`): show it to the employee, and never log or store it. If the
+response is lost, offer the replacement: it issues a new key with the same parameters, expiry and spend, also returned
+once, and deletes the old one; it is refused for an expired key or one blocked by an administrator. Revocation cuts
+the key off (`204`): the gateway refuses it within seconds. Each of these actions sends the employee an email that
+names the integration and asks them to warn the administrators if they did not make it. An employee acts on their own
+keys only, even as a manager of the team: another employee's key is not found (`404`).
+
+```bash
+api -X POST "$PORTAL/key-requests/<requestId>/pickup"    # the key, once: do not log the response
+api -X POST "$PORTAL/keys/<requestId>/replace"
+api -X POST "$PORTAL/keys/<requestId>/revoke"
+```
+
+**Renew a key** (`cles`, then `demandes`). The renewal draft gives the key's parameters (alias, team, level, models,
+project, validity) to prefill the renewal request, then made as a key request with `"renewsRequestId"`; the portal
+takes over the budget of the renewed key. When the new key is picked up, the old one is revoked.
+
+```bash
+api "$PORTAL/keys/<requestId>/renewal-draft"
 ```
 
 ## 6. Errors and limits
@@ -247,7 +269,7 @@ English) and details, with English keys and stable values:
 | 403 | `adresse_non_autorisee`, `hors_perimetre` (required scope in `details.scope`), `non_membre`, `interdit` |
 | 404 | `introuvable`: unknown resource or route, or one that belongs to another employee (`details.object`) |
 | 409 | `transition_interdite` (`details.case`), `demande_en_cours` and `deja_membre` (`details.team`), `identite_incoherente` |
-| 429 | `trop_de_requetes` (integration's request limit), with the `Retry-After` header in seconds |
+| 429 | `trop_de_requetes` (integration's request limit) and `trop_de_generations` (the employee's pickups and replacements), with the `Retry-After` header in seconds |
 | 502 | `passerelle_indisponible`: the gateway does not answer, nothing changed |
 | 503 | `integration_inactive`: the integration is disabled |
 
@@ -256,8 +278,8 @@ belongs to another uid. The portal refuses rather than create a second employee:
 included).
 
 Limits: per-minute request limit of the integration; JSON request bodies of 16 KiB at most, without unknown fields;
-every response carries `Cache-Control: no-store`. With the second delivery, an employee will be able to pick up or
-replace at most five keys per ten minutes (`429 trop_de_generations`). Never log a response that contains a key.
+every response carries `Cache-Control: no-store`. An employee picks up or replaces at most five keys per ten minutes,
+in the portal and through the API combined (`429 trop_de_generations`). Never log a response that contains a key.
 
 ## 7. Develop against the dev environment
 
@@ -289,6 +311,9 @@ approved in “Administration” then “Requests”; emails arrive in Mailpit (
    shows to this employee; a request made through the API reaches the portal's approval queue.
 4. The administrator **enables** the integration. Opening the `cles` scope is decided later, after the acceptance test
    of the second delivery.
+5. Second delivery: the integrator confirms in writing that they log no API response; a joint acceptance test on
+   their account checks pickup, replacement, revocation and their emails; then the administrator adds the `cles` scope
+   to the integration.
 
 ## 9. Key rotation
 

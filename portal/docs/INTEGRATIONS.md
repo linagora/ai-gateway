@@ -29,8 +29,8 @@ source est dans le dépôt : `portal/src/lib/integrations/openapi-v1.json`.
 - **Périmètres** : ce que l'admin autorise l'intégration à faire.
   - `lecture` : équipes, catalogue, demandes et clés du collaborateur, et le contrat de l'API ;
   - `demandes` : demander une clé ou l'accès à une équipe, compléter et annuler une demande ;
-  - `cles` : retirer, remplacer et révoquer une clé, préparer son renouvellement (seconde livraison, routes marquées
-    `x-status: planned` dans le contrat).
+  - `cles` : retirer, remplacer et révoquer une clé, préparer son renouvellement (seconde livraison, ouverte par un
+    admin après sa recette, section 8).
 - **Canal** : chaque action faite par l'API est inscrite au journal d'audit du portail avec l'identifiant de
   l'intégration, qui la distingue des actions faites dans le portail.
 
@@ -49,7 +49,7 @@ première connexion au portail.
 | Nom | Tel qu'il apparaîtra dans la gestion et dans les courriels aux admins. |
 | Clé publique | Au format PEM (`-----BEGIN PUBLIC KEY-----`), Ed25519 de préférence (algorithme `EdDSA`), RSA de 2 048 bits au moins sinon (`RS256`), avec son identifiant de clé (`kid`, de 1 à 64 lettres, chiffres, points, tirets ou soulignés) et son empreinte (section 3). **Jamais la clé privée.** |
 | Adresses IP de sortie | Adresses ou plages CIDR (IPv4 ou IPv6) d'où l'intégration appelle l'API ; tout autre appel est refusé. |
-| Périmètre demandé | `lecture`, `demandes`, et plus tard `cles`. |
+| Périmètre demandé | `lecture`, `demandes`, puis `cles` après la recette de la seconde livraison. |
 | Plafond | Requêtes par minute, tous collaborateurs confondus ; 120 par défaut. |
 | Identité des collaborateurs | Confirmation que le `sub` des jetons est l'uid LDAP, exactement celui que LemonLDAP::NG donne au portail. |
 
@@ -174,7 +174,7 @@ jeton() { # uid, adresse, nom
 curl -s -H "Authorization: Bearer $(jeton jdupont jdupont@linagora.com "Jeanne Dupont")" "$PORTAIL/me/teams"
 ```
 
-## 5. Parcours de la première livraison
+## 5. Parcours
 
 Les exemples utilisent `curl` et `jq`, avec un jeton pour le collaborateur dans `$JETON` (section 4, ou section 7 en
 dev) :
@@ -224,12 +224,37 @@ api -X PUT "$PORTAIL/key-requests/<id>" -d '{"teamId": "<teamId>", "dataLevel": 
 api -X POST "$PORTAIL/requests/<id>/cancel"
 ```
 
-**Clés** (`lecture`). Les clés approuvées à retirer, avec leur échéance de retrait, puis les clés émises, avec leur
-expiration, leur dépense et leur budget, jamais leur valeur. Dans la première livraison, le collaborateur retire sa
-clé dans le portail (« Mes clés ») ; le retrait par l'API viendra avec le périmètre `cles`.
+**Clés** (`lecture`). Les clés approuvées à retirer (`toPickUp`), avec leur échéance de retrait, puis les clés émises
+(`keys`), avec leur expiration, leur dépense et leur budget, jamais leur valeur. Une clé est désignée par l'identifiant
+de la demande dont elle vient (`requestId`). Sans le périmètre `cles`, le collaborateur retire sa clé dans le portail
+(« Mes clés »).
 
 ```bash
 api "$PORTAIL/keys"
+```
+
+**Retirer, remplacer, révoquer une clé** (`cles`, seconde livraison). Le retrait d'une clé approuvée la génère et rend
+sa valeur **une seule fois** (`201`, `{"key": "…", "alias": "…"}`) : montrez-la au collaborateur, sans jamais la
+journaliser ni la conserver. Si la réponse se perd, proposez le remplacement : il émet une nouvelle clé aux mêmes
+paramètres, avec la même expiration et la même dépense, rendue elle aussi une seule fois, et supprime l'ancienne ; il
+est refusé pour une clé expirée ou bloquée par un admin. La révocation coupe la clé (`204`) : la passerelle la refuse
+en quelques secondes. Chacune de ces actions envoie au collaborateur un courriel qui nomme l'intégration et l'invite à
+prévenir les administrateurs s'il n'en est pas l'auteur. Un collaborateur n'agit que sur ses propres clés, même s'il
+est responsable de l'équipe : la clé d'un autre est introuvable (`404`).
+
+```bash
+api -X POST "$PORTAIL/key-requests/<requestId>/pickup"    # la clé, une seule fois : ne journalisez pas la réponse
+api -X POST "$PORTAIL/keys/<requestId>/replace"
+api -X POST "$PORTAIL/keys/<requestId>/revoke"
+```
+
+**Renouveler une clé** (`cles`, puis `demandes`). Le brouillon de renouvellement donne les paramètres de la clé (alias,
+équipe, niveau, modèles, projet, durée) pour préremplir la demande de renouvellement, déposée ensuite comme une demande
+de clé avec `"renewsRequestId"` ; le portail reprend le budget de la clé renouvelée. Au retrait de la nouvelle clé,
+l'ancienne est révoquée.
+
+```bash
+api "$PORTAIL/keys/<requestId>/renewal-draft"
 ```
 
 ## 6. Erreurs et limites
@@ -248,7 +273,7 @@ défaut, anglais) et des détails, aux clés en anglais et aux valeurs stables :
 | 403 | `adresse_non_autorisee`, `hors_perimetre` (périmètre exigé dans `details.scope`), `non_membre`, `interdit` |
 | 404 | `introuvable` : ressource ou route inconnue, ou appartenant à un autre collaborateur (`details.object`) |
 | 409 | `transition_interdite` (`details.case`), `demande_en_cours` et `deja_membre` (`details.team`), `identite_incoherente` |
-| 429 | `trop_de_requetes` (plafond de l'intégration), avec l'en-tête `Retry-After` en secondes |
+| 429 | `trop_de_requetes` (plafond de l'intégration) et `trop_de_generations` (retraits et remplacements du collaborateur), avec l'en-tête `Retry-After` en secondes |
 | 502 | `passerelle_indisponible` : la passerelle ne répond pas, rien n'a changé |
 | 503 | `integration_inactive` : l'intégration est désactivée |
 
@@ -257,8 +282,8 @@ un autre uid. Le portail refuse plutôt que de créer un second collaborateur : 
 comprise).
 
 Limites : plafond de requêtes par minute propre à l'intégration ; corps des requêtes en JSON, de 16 Kio au plus, sans
-champ inconnu ; toutes les réponses portent `Cache-Control: no-store`. Avec la seconde livraison, un collaborateur
-pourra retirer ou remplacer au plus cinq clés par tranche de dix minutes (`429 trop_de_generations`). Ne journalisez
+champ inconnu ; toutes les réponses portent `Cache-Control: no-store`. Un collaborateur retire ou remplace au plus
+cinq clés par tranche de dix minutes, dans le portail et par l'API confondus (`429 trop_de_generations`). Ne journalisez
 jamais une réponse qui contient une clé.
 
 ## 7. Développer contre l'environnement de dev
@@ -293,6 +318,9 @@ dans Mailpit (`http://127.0.0.1:54825`).
    portail montre à ce collaborateur ; une demande déposée par l'API arrive dans la file de validation du portail.
 4. L'admin **active** l'intégration. L'ouverture du périmètre `cles` se décide plus tard, après la recette de la
    seconde livraison.
+5. Seconde livraison : l'intégrateur confirme par écrit qu'il ne journalise aucune réponse de l'API ; une recette
+   commune sur son compte vérifie le retrait, le remplacement, la révocation et leurs courriels ; puis l'admin ajoute
+   le périmètre `cles` à l'intégration.
 
 ## 9. Rotation des clés
 
