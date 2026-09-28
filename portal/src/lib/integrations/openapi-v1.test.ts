@@ -19,7 +19,7 @@ describe("contrat OpenAPI de l'API d'intégration", () => {
     expect(contrat.openapi).toBe("3.1.0");
   });
 
-  test("chaque route déclare son périmètre et sa livraison ; celles de la seconde livraison sont marquées à venir", () => {
+  test("chaque route déclare son périmètre et sa livraison ; toutes sont disponibles, celles de la seconde livraison comprises", () => {
     expect(operations.map((o) => [o.route, o["x-scope"], o["x-delivery"], o["x-status"]])).toEqual([
       ["GET /openapi.json", "lecture", 1, "available"],
       ["GET /me/teams", "lecture", 1, "available"],
@@ -31,11 +31,13 @@ describe("contrat OpenAPI de l'API d'intégration", () => {
       ["POST /key-requests", "demandes", 1, "available"],
       ["PUT /key-requests/{id}", "demandes", 1, "available"],
       ["POST /requests/{id}/cancel", "demandes", 1, "available"],
-      ["POST /key-requests/{id}/pickup", "cles", 2, "planned"],
-      ["POST /keys/{id}/replace", "cles", 2, "planned"],
-      ["POST /keys/{id}/revoke", "cles", 2, "planned"],
-      ["GET /keys/{id}/renewal-draft", "cles", 2, "planned"],
+      ["POST /key-requests/{id}/pickup", "cles", 2, "available"],
+      ["POST /keys/{id}/replace", "cles", 2, "available"],
+      ["POST /keys/{id}/revoke", "cles", 2, "available"],
+      ["GET /keys/{id}/renewal-draft", "cles", 2, "available"],
     ]);
+    // Plus rien n'est annoncé « à venir », ni dans les routes ni dans la présentation du contrat.
+    expect(JSON.stringify(contrat)).not.toMatch(/planned|not available yet/i);
   });
 
   test("toute route exige le jeton d'intégration et prévoit les refus communs : jeton, périmètre ou adresse, identité, plafond, passerelle, intégration inactive", () => {

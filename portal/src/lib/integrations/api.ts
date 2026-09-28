@@ -117,13 +117,24 @@ export function routeApi<P = Record<string, never>>(perimetre: Perimetre | null,
       const acteur = await controler(requete, perimetre, deps, new Date());
       await provisionIntegrationUser(deps, acteur);
       const corps = async <T>(schema: z.ZodType<T>) => schema.parse(await lireJson(requete));
-      const resultat = await traiter({ acteur, deps, langue, t: TRADUCTEURS[langue], params: await contexte.params, corps });
+      const resultat = await traiter({ acteur, deps, langue, t: TRADUCTEURS[langue], params: await contexte.params, corps }).catch((e: unknown) => {
+        throw avecAttenteDesGenerations(e, deps, acteur);
+      });
       if (!(resultat instanceof Reponse)) return json(200, resultat);
       return resultat.statut === 204 ? new Response(null, { status: 204, headers: { "Cache-Control": "no-store" } }) : json(201, resultat.corps);
     } catch (e) {
       return reponseErreur(versRefus(e), langue);
     }
   };
+}
+
+/**
+ * Limite des retraits et remplacements du collaborateur (429) : comme pour le plafond de l'intégration, la réponse dit
+ * combien de temps attendre avant de réessayer.
+ */
+function avecAttenteDesGenerations(e: unknown, deps: DepsApi, acteur: SessionUser): unknown {
+  if (!(e instanceof PortalError && e.code === "trop_de_generations")) return e;
+  return new RefusApi(429, e.code, {}, { attente: deps.limiteGenerations.attente(acteur.uid, new Date()), parametres: e.params });
 }
 
 /** Corps JSON de la requête, lu jusqu'à 16 Kio au plus : au-delà, ou illisible, c'est une saisie invalide. */
