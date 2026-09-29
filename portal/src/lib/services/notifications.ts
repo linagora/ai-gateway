@@ -197,6 +197,31 @@ export async function notifyNewRequest(deps: NotificationDeps, demande: DemandeA
   await envoyer(deps, adminsEtResponsables(deps, responsables), message);
 }
 
+/**
+ * Spécification #93 : un responsable de l'équipe a donné son accord à une demande d'abonnement. Les admins, seuls à
+ * pouvoir l'approuver, reçoivent la demande, l'auteur de l'accord et son commentaire ; le demandeur n'est pas prévenu.
+ */
+export async function notifySubscriptionAgreed(
+  deps: NotificationDeps,
+  demande: DemandeAvecOffre,
+  accord: { auteur: { uid: string; name: string }; commentaire: string | null },
+): Promise<void> {
+  const valeurs = { auteur: auteur(accord.auteur), nom: nom(demande), email: demande.requesterEmail };
+  const message = bilingue(
+    (t) => ({
+      sujet: t("courriels.abonnementAApprouver.sujet", valeurs),
+      paragraphes: [
+        t("courriels.bonjourAdmins"),
+        avecRecap(t("courriels.abonnementAApprouver.corps", valeurs), recapDemande(t, demande)),
+        ...(accord.commentaire ? [t("courriels.abonnementAApprouver.commentaire", { commentaire: accord.commentaire })] : []),
+        t("courriels.examiner"),
+      ],
+    }),
+    lienVers(deps, `/gestion/demandes/${demande.id}`),
+  );
+  await envoyer(deps, deps.adminEmails ?? [], message);
+}
+
 /** F-40 : demande de clé approuvée, avec les paramètres de la clé et l'échéance de retrait ; jamais de clé. */
 export async function notifyKeyApproved(deps: NotificationDeps, demande: AccessRequest, echeance: Date | null): Promise<void> {
   const message = bilingue(

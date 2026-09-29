@@ -1,5 +1,19 @@
 import { describe, expect, test } from "vitest";
-import { canAccessRequest, type CatalogModel, checkKeyRequest, checkTransition, isAdmin, type KeyRequestDraft, modelAcceptsLevel, pasEncoreDecidee, type RequestStatus, STATUTS_PAS_ENCORE_DECIDES, type TeamForPolicy } from "./policy";
+import {
+  canAccessRequest,
+  type CatalogModel,
+  checkKeyRequest,
+  checkTransition,
+  enAttenteDeValidation,
+  isAdmin,
+  type KeyRequestDraft,
+  modelAcceptsLevel,
+  pasEncoreDecidee,
+  type RequestStatus,
+  STATUTS_EN_ATTENTE_DE_VALIDATION,
+  STATUTS_PAS_ENCORE_DECIDES,
+  type TeamForPolicy,
+} from "./policy";
 
 describe("canAccessRequest", () => {
   const demande = { requesterUid: "mmaudet" };
@@ -41,14 +55,24 @@ describe("checkTransition", () => {
   test("un refus motivé est accepté", () => {
     expect(checkTransition("SOUMISE", "REFUSEE", { comment: "Projet sans budget validé" })).toEqual({ ok: true });
   });
+
+  test("une demande d'abonnement soumise reçoit l'accord du responsable, puis un admin l'approuve (spécification #93)", () => {
+    expect(checkTransition("SOUMISE", "ACCORD_RESPONSABLE")).toEqual({ ok: true });
+    expect(checkTransition("ACCORD_RESPONSABLE", "APPROUVEE")).toEqual({ ok: true });
+  });
+
+  test("l'accord du responsable ne se retire pas : la demande ne redevient pas soumise", () => {
+    expect(checkTransition("ACCORD_RESPONSABLE", "SOUMISE")).toEqual({ ok: false, reason: "transition_interdite" });
+  });
 });
 
 describe("pasEncoreDecidee", () => {
-  test("seule une demande soumise ou à compléter n'est pas encore décidée", () => {
+  test("seule une demande soumise, à compléter ou qui a reçu l'accord du responsable n'est pas encore décidée", () => {
     // Tous les statuts, sans exception : un statut ajouté doit être classé ici (ticket #94).
     const attendu: Record<RequestStatus, boolean> = {
       SOUMISE: true,
       A_COMPLETER: true,
+      ACCORD_RESPONSABLE: true,
       APPROUVEE: false,
       REFUSEE: false,
       ANNULEE: false,
@@ -63,6 +87,33 @@ describe("pasEncoreDecidee", () => {
 
   test("son demandeur peut toujours annuler une demande pas encore décidée", () => {
     for (const statut of STATUTS_PAS_ENCORE_DECIDES) expect(checkTransition(statut, "ANNULEE"), statut).toEqual({ ok: true });
+  });
+});
+
+describe("enAttenteDeValidation", () => {
+  test("seule une demande soumise, ou qui a reçu l'accord du responsable, attend une validation ; une demande à compléter attend son demandeur", () => {
+    // Tous les statuts, sans exception : un statut ajouté doit être classé ici.
+    const attendu: Record<RequestStatus, boolean> = {
+      SOUMISE: true,
+      A_COMPLETER: false,
+      ACCORD_RESPONSABLE: true,
+      APPROUVEE: false,
+      REFUSEE: false,
+      ANNULEE: false,
+      CLE_EMISE: false,
+      EXPIREE: false,
+      REVOQUEE: false,
+      DECLAREE: false,
+      RENOUVELEE: false,
+    };
+    for (const [statut, enAttente] of Object.entries(attendu)) expect(enAttenteDeValidation(statut as RequestStatus), statut).toBe(enAttente);
+  });
+
+  test("une demande en attente de validation n'est pas encore décidée, et peut être approuvée", () => {
+    for (const statut of STATUTS_EN_ATTENTE_DE_VALIDATION) {
+      expect(pasEncoreDecidee(statut), statut).toBe(true);
+      expect(checkTransition(statut, "APPROUVEE"), statut).toEqual({ ok: true });
+    }
   });
 });
 

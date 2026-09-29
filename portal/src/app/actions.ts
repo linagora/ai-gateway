@@ -10,6 +10,7 @@ import { COOKIE_LANGUE, LANGUES, type Langue } from "@/lib/langue";
 import type { DataLevel } from "@/lib/policy";
 import type { UseCase } from "@/lib/use-cases";
 import {
+  agreeSubscriptionRequest,
   approveKeyRequest,
   approveSubscriptionRequest,
   approveTeamJoinRequest,
@@ -286,6 +287,16 @@ export async function approuverAbonnementAction(formData: FormData): Promise<voi
   });
 }
 
+/** Spécification #93 : accord du responsable sur une demande d'abonnement, avec un commentaire facultatif pour les admins. */
+export async function accorderAbonnementAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const id = text(formData, "id");
+  await run(`/gestion/demandes/${id}`, () => agreeSubscriptionRequest(getDeps(), user, id, optionalText(formData, "comment")), {
+    path: "/gestion/demandes",
+    message: "accordDonne",
+  });
+}
+
 export async function approveTeamJoinRequestAction(formData: FormData): Promise<void> {
   const user = await requireUser();
   const id = text(formData, "id");
@@ -516,6 +527,7 @@ type CleSucces =
   | "resiliationDemandee"
   | "abonnementRattache"
   | "demandeApprouvee"
+  | "accordDonne"
   | "adhesionApprouvee"
   | "demandeRefusee"
   | "complementDemande"

@@ -66,6 +66,7 @@
     "statuts": {
       "SOUMISE": "Submitted",
       "A_COMPLETER": "Needs more information",
+      "ACCORD_RESPONSABLE": "Agreed by manager",
       "APPROUVEE": "Approved",
       "REFUSEE": "Refused",
       "ANNULEE": "Cancelled",
@@ -106,6 +107,7 @@
       "demandeAnnulee": "Request cancelled.",
       "catalogueMisAJour": "Catalog updated.",
       "demandeApprouvee": "Request approved.",
+      "accordDonne": "Agreement given: the request now awaits an administrator's approval.",
       "adhesionApprouvee": "Access request approved: the requester has been added to the team.",
       "demandeRefusee": "Request refused.",
       "complementDemande": "Request sent back to the requester for more information.",
@@ -142,6 +144,7 @@
       "renouvellement_trop_tot": "Renewal can be requested at the earliest one month before the subscription expires.",
       "engagement_requis": "Commit to not submitting data above the declared level.",
       "interdit": "Administrators only.",
+      "accord_reserve": "Only a manager of the team gives their agreement to a subscription request: an administrator approves it directly.",
       "introuvable": "{objet, select, modele {Model {modele} is not declared in the gateway.} equipe {Team not found.} demande_adhesion {Access request not found.} demande_cle {Key request not found.} membre {Member not found in this team.} responsable {Manager not found in this team.} offre {Subscription offer not found.} demande_abonnement {Subscription request not found.} abonnement {Subscription not found.} transmission {Transmission not found.} collaborateur {Employee not found.} integration {Integration not found.} cle_integration {Public key not found, or already retired.} route {Unknown API route.} other {Request not found.}}",
       "motif_obligatoire": "A reason is required.",
       "parametre_manquant": "Budget, budget period and validity are required: enter them or configure default values.",
@@ -419,7 +422,8 @@
     "annuler": "Cancel",
     "aucune": "No request yet.",
     "retirer": "Pick up my key",
-    "declarer": "Declare"
+    "declarer": "Declare",
+    "attenteApprobation": "Awaiting an administrator's approval"
   },
   "nouvelleDemande": {
     "titre": "Request an API key",
@@ -598,6 +602,12 @@
       "changementOffre": "Plan change: this subscription replaces the subscription {offre}, cancelled when the new offer is declared.",
       "depenseOrigine": "Spend of this key: {depense}.",
       "propreDemande": "You cannot decide on your own request: another manager of the team or an administrator will handle it.",
+      "accordDuResponsable": "Manager agreement",
+      "commentaireDuResponsable": "Manager's comment",
+      "donnerAccord": "Give my agreement",
+      "aideAccord": "Your agreement passes the request on to the administrators: only an administrator approves a subscription.",
+      "commentaireAccord": "Comment for the administrators",
+      "attenteApprobation": "A manager of the team has given their agreement: the request awaits an administrator's approval.",
       "approuverAbonnement": "Approve (subscription validity period)",
       "offre": "Offer",
       "prixMensuel": "Monthly price",
@@ -982,6 +992,11 @@
     "nouvelleDemandeAbonnement": {
       "sujet": "New subscription request from {nom}",
       "corps": "{nom} ({email}) requests a subscription:"
+    },
+    "abonnementAApprouver": {
+      "sujet": "Subscription request to approve: {nom}",
+      "corps": "{auteur} agreed to the subscription request from {nom} ({email}):",
+      "commentaire": "Manager's comment: {commentaire}"
     },
     "demandeApprouvee": {
       "sujet": "Your key request is approved",

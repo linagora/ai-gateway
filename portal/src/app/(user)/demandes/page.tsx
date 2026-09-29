@@ -41,7 +41,10 @@ export default async function MyRequestsPage(props: PageProps<"/demandes">) {
               <td>{r.teamAlias}</td>
               <td>{r.dataLevel ? domaine(`niveaux.${r.dataLevel}`) : ""}</td>
               <td>{r.offer ?? r.models.join(", ")}</td>
-              <td>{domaine(`statuts.${r.status}`)}</td>
+              <td>
+                {domaine(`statuts.${r.status}`)}
+                {r.status === "ACCORD_RESPONSABLE" && <span className="block text-sm text-neutral-600">{t("attenteApprobation")}</span>}
+              </td>
               <td>{r.decisionComment ?? ""}</td>
               <td>
                 {r.status === "A_COMPLETER" && r.kind === "CLE" && <Link href={`/demandes/nouvelle?completer=${r.id}`}>{t("completer")}</Link>}

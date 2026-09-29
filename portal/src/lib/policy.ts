@@ -107,25 +107,41 @@ function check(id: PolicyCheckId, offending: string[]): PolicyCheck {
   return { id, ok: offending.length === 0, offending };
 }
 
-export type RequestStatus = "SOUMISE" | "A_COMPLETER" | "APPROUVEE" | "REFUSEE" | "ANNULEE" | "CLE_EMISE" | "EXPIREE" | "REVOQUEE" | "DECLAREE" | "RENOUVELEE";
+export type RequestStatus = "SOUMISE" | "A_COMPLETER" | "ACCORD_RESPONSABLE" | "APPROUVEE" | "REFUSEE" | "ANNULEE" | "CLE_EMISE" | "EXPIREE" | "REVOQUEE" | "DECLAREE" | "RENOUVELEE";
 
 /**
- * Statuts d'une demande pas encore décidée, ni approuvée ni refusée : soumise, ou renvoyée à son demandeur pour
- * complément. Seule définition de ces statuts : les demandes « en cours » en partent (sortie et suppression d'une équipe,
- * demande en double, renouvellement qui suspend la demande de résiliation à l'échéance), et le demandeur peut annuler
- * une telle demande.
+ * Statuts d'une demande pas encore décidée, ni approuvée ni refusée : soumise, renvoyée à son demandeur pour
+ * complément, ou demande d'abonnement qui a reçu l'accord du responsable et attend l'approbation d'un admin
+ * (spécification #93). Seule définition de ces statuts : les demandes « en cours » en partent (sortie et suppression
+ * d'une équipe, demande en double, renouvellement qui suspend la demande de résiliation à l'échéance), et le demandeur
+ * peut annuler une telle demande.
  */
-export const STATUTS_PAS_ENCORE_DECIDES = ["SOUMISE", "A_COMPLETER"] as const satisfies readonly RequestStatus[];
+export const STATUTS_PAS_ENCORE_DECIDES = ["SOUMISE", "A_COMPLETER", "ACCORD_RESPONSABLE"] as const satisfies readonly RequestStatus[];
 
 /** La demande n'est-elle pas encore décidée ? */
 export function pasEncoreDecidee(status: RequestStatus): boolean {
   return (STATUTS_PAS_ENCORE_DECIDES as readonly RequestStatus[]).includes(status);
 }
 
+/**
+ * Statuts d'une demande en attente de validation, celles que montre la file : soumise, ou demande d'abonnement qui a
+ * reçu l'accord du responsable et attend l'approbation d'un admin (spécification #93). Une demande à compléter attend
+ * son demandeur.
+ */
+export const STATUTS_EN_ATTENTE_DE_VALIDATION = ["SOUMISE", "ACCORD_RESPONSABLE"] as const satisfies readonly RequestStatus[];
+
+/** La demande est-elle en attente de validation ? */
+export function enAttenteDeValidation(status: RequestStatus): boolean {
+  return (STATUTS_EN_ATTENTE_DE_VALIDATION as readonly RequestStatus[]).includes(status);
+}
+
 /** Règle 5 : seules ces transitions sont autorisées ; les autres statuts sont finaux. */
 const ALLOWED_TRANSITIONS: Partial<Record<RequestStatus, readonly RequestStatus[]>> = {
-  SOUMISE: ["APPROUVEE", "REFUSEE", "A_COMPLETER", "ANNULEE"],
+  SOUMISE: ["APPROUVEE", "REFUSEE", "A_COMPLETER", "ANNULEE", "ACCORD_RESPONSABLE"],
   A_COMPLETER: ["SOUMISE", "ANNULEE"],
+  // ACCORD_RESPONSABLE : demande d'abonnement qui a reçu l'accord du responsable ; un admin l'approuve
+  // (spécification #93).
+  ACCORD_RESPONSABLE: ["APPROUVEE", "ANNULEE"],
   // ANNULEE : sortie d'une équipe avant le retrait de la clé (F-54) ; DECLAREE : abonnement déclaré, RENOUVELEE :
   // renouvellement d'abonnement appliqué à son approbation (spécification #51).
   APPROUVEE: ["CLE_EMISE", "DECLAREE", "RENOUVELEE", "EXPIREE", "ANNULEE"],

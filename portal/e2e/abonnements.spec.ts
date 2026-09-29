@@ -2,6 +2,7 @@ import { type Browser, expect, type Page, test } from "@playwright/test";
 import {
   ADMIN,
   ajouterMembre,
+  approuver,
   approuverDemande,
   choisirOffre,
   connecter,
@@ -10,7 +11,9 @@ import {
   declarer,
   demanderOffre,
   designer,
+  donnerAccord,
   echapper,
+  examinerDemande,
   faireSortir,
   masquerOffre,
   nouvelleEquipe,
@@ -36,7 +39,7 @@ interface Situation {
 
 /**
  * Mise en place : une offre visible, une équipe avec son responsable et son membre, et la demande d'abonnement du
- * membre, pour la durée donnée (trois mois), approuvée par le responsable.
+ * membre, pour la durée donnée (trois mois), avec l'accord du responsable, puis approuvée par un admin.
  */
 async function abonnementApprouve(browser: Browser, nom: string, duree = "3 mois"): Promise<Situation> {
   const responsable = personne(`${nom}-responsable`);
@@ -52,7 +55,9 @@ async function abonnementApprouve(browser: Browser, nom: string, duree = "3 mois
   await ajouterMembre(admin, membre.uid);
   const pageEquipe = admin.url();
   await demanderOffre(pageMembre, offre, equipe, duree);
-  await approuverDemande(pageResponsable, membre);
+  await examinerDemande(pageResponsable, membre);
+  await donnerAccord(pageResponsable);
+  await approuverDemande(admin, membre);
   return { admin, pageResponsable, pageMembre, responsable, membre, equipe, pageEquipe, offre };
 }
 
@@ -140,7 +145,7 @@ test("un admin crée une offre, que les salariés voient au catalogue en frança
   await expect(salarie.getByRole("region", { name: "Anthropic" }).getByRole("option", { name: new RegExp(echapper(nom)) })).toHaveCount(0);
 });
 
-test("un membre demande une offre pour son équipe ; le responsable l'approuve, et le courriel explique comment souscrire puis déclarer (ticket #54)", async ({ browser }) => {
+test("un membre demande une offre pour son équipe ; le responsable donne son accord, un admin l'approuve, et le courriel explique comment souscrire puis déclarer (tickets #54 et #95)", async ({ browser }) => {
   const responsable = personne("responsable");
   const membre = personne("membre");
   const pageResponsable = await (await connecter(browser, responsable)).newPage();
@@ -177,13 +182,34 @@ test("un membre demande une offre pour son équipe ; le responsable l'approuve, 
   await expect(pageMembre.getByRole("status")).toHaveText("Demande envoyée aux administrateurs.");
   await expect(pageMembre.getByRole("row", { name: new RegExp(`Abonnement.*${echapper(equipe)}.*OpenAI · ${echapper(nomOffre)}.*Soumise`) })).toBeVisible();
 
-  // Le responsable l'examine et l'approuve pour six mois.
-  await pageResponsable.goto("/gestion/demandes");
-  await pageResponsable.getByRole("row", { name: new RegExp(`${membre.uid}.*Abonnement`) }).getByRole("link", { name: "Examiner" }).click();
+  // Le responsable l'examine : il ne l'approuve pas, il donne son accord, avec un commentaire pour les admins.
+  await examinerDemande(pageResponsable, membre);
   await expect(pageResponsable.getByRole("main")).toContainText(`${nomOffre} (OpenAI)`);
-  await expect(pageResponsable.getByLabel("Durée de validité")).toHaveValue("180");
-  await pageResponsable.getByRole("button", { name: "Approuver", exact: true }).click();
-  await expect(pageResponsable.getByRole("status")).toHaveText("Demande approuvée.");
+  await expect(pageResponsable.getByRole("button", { name: "Approuver", exact: true })).toHaveCount(0);
+  await expect(pageResponsable.getByLabel("Durée de validité")).toHaveCount(0);
+  await donnerAccord(pageResponsable, "Comptes rendus de toute l'équipe");
+
+  // Le membre voit l'accord du responsable, en attente de l'approbation d'un admin.
+  await pageMembre.goto("/demandes");
+  await expect(pageMembre.getByRole("row", { name: new RegExp(`Abonnement.*${echapper(equipe)}.*Accord du responsable`) })).toContainText(
+    "En attente de l'approbation d'un administrateur",
+  );
+
+  // Les admins reçoivent la demande à approuver, avec le commentaire et le lien vers sa fiche.
+  const aApprouver = `[AI GATEWAY] Demande d'abonnement à approuver : ${membre.name} / Subscription request to approve: ${membre.name}`;
+  await expect.poll(async () => (await courriels(membre.uid)).map((c) => c.subject), { timeout: 15_000 }).toContain(aApprouver);
+  const courrielAdmins = (await courriels(membre.uid)).find((c) => c.subject === aApprouver)?.text ?? "";
+  expect(courrielAdmins).toContain(`${responsable.name} (${responsable.uid}) a donné son accord à la demande d'abonnement de ${membre.name} (${membre.email}) :`);
+  expect(courrielAdmins).toContain("Commentaire du responsable : Comptes rendus de toute l'équipe");
+  expect(courrielAdmins).toMatch(/\/gestion\/demandes\/\S+/);
+
+  // L'admin la retrouve dans sa file, voit l'accord, et l'approuve pour la durée demandée, six mois.
+  await examinerDemande(admin, membre);
+  await expect(admin.getByRole("main")).toContainText("Accord du responsable");
+  await expect(admin.getByRole("main")).toContainText(responsable.uid);
+  await expect(admin.getByRole("main")).toContainText("Comptes rendus de toute l'équipe");
+  await expect(admin.getByLabel("Durée de validité")).toHaveValue("180");
+  await approuver(admin);
 
   // Le membre apprend comment souscrire puis déclarer l'abonnement.
   const sujet = "[AI GATEWAY] Votre demande d'abonnement est approuvée / Your subscription request is approved";
@@ -376,10 +402,10 @@ test("la sortie d'une équipe rend l'abonnement à résilier ; le responsable de
 /** Jour J + n (UTC), tel que l'écrit le portail en français : « 26 septembre 2026 ». */
 const jourDansNJours = (n: number) => new Intl.DateTimeFormat("fr-FR", { dateStyle: "long", timeZone: "UTC" }).format(new Date(Date.now() + n * 86_400_000));
 
-test("dès un mois avant l'échéance, le titulaire demande le renouvellement, que le responsable approuve : l'échéance est reportée, sans nouvelle déclaration (ticket #59)", async ({ browser }) => {
+test("dès un mois avant l'échéance, le titulaire demande le renouvellement ; après l'accord du responsable, un admin l'approuve : l'échéance est reportée, sans nouvelle déclaration (tickets #59 et #95)", async ({ browser }) => {
   // Autorisé pour un mois, l'abonnement déclaré aujourd'hui est aussitôt renouvelable.
   const situation = await abonnementApprouve(browser, "renouvellement", "1 mois");
-  const { pageResponsable, pageMembre, membre, offre } = situation;
+  const { admin, pageResponsable, pageMembre, membre, offre } = situation;
   await declarer(pageMembre, offre, { montant: "108", adresse: membre.email });
   const abonnement = pageMembre.getByRole("region", { name: "Abonnements déclarés" }).getByRole("row", { name: new RegExp(echapper(offre)) });
   await expect(abonnement).toContainText(jourDansNJours(30));
@@ -397,13 +423,16 @@ test("dès un mois avant l'échéance, le titulaire demande le renouvellement, q
   await pageMembre.goto("/abonnements");
   await expect(abonnement.getByRole("link", { name: "Renouvellement demandé" })).toBeVisible();
 
-  // Le responsable l'approuve depuis sa file : la fiche annonce un renouvellement.
-  await pageResponsable.goto("/gestion/demandes");
-  await pageResponsable.getByRole("row", { name: new RegExp(`${membre.uid}.*Abonnement`) }).getByRole("link", { name: "Examiner" }).click();
+  // Le responsable y donne son accord depuis sa file : la fiche annonce un renouvellement.
+  await examinerDemande(pageResponsable, membre);
   await expect(pageResponsable.getByText(`Renouvellement de l'abonnement Anthropic · ${offre}, qui arrive à échéance le ${jourDansNJours(30)}`)).toBeVisible();
-  await expect(pageResponsable.getByLabel("Durée de validité")).toHaveValue("180");
-  await pageResponsable.getByRole("button", { name: "Approuver", exact: true }).click();
-  await expect(pageResponsable.getByRole("status")).toHaveText("Demande approuvée.");
+  await donnerAccord(pageResponsable);
+
+  // Un admin l'approuve, pour la durée demandée.
+  await examinerDemande(admin, membre);
+  await expect(admin.getByText(`Renouvellement de l'abonnement Anthropic · ${offre}, qui arrive à échéance le ${jourDansNJours(30)}`)).toBeVisible();
+  await expect(admin.getByLabel("Durée de validité")).toHaveValue("180");
+  await approuver(admin);
 
   // Le titulaire l'apprend par courriel ; son abonnement a sa nouvelle échéance, sans rien à déclarer.
   const sujet = "[AI GATEWAY] Votre demande de renouvellement est approuvée / Your renewal request is approved";
@@ -418,7 +447,7 @@ test("dès un mois avant l'échéance, le titulaire demande le renouvellement, q
   await nettoyer(situation);
 });
 
-test("le titulaire change d'offre ; à la déclaration de la nouvelle offre, seul l'abonnement d'origine est résilié (ticket #59)", async ({ browser }) => {
+test("le titulaire change d'offre ; après l'accord du responsable et l'approbation d'un admin, à la déclaration de la nouvelle offre, seul l'abonnement d'origine est résilié (tickets #59 et #95)", async ({ browser }) => {
   const situation = await abonnementApprouve(browser, "changement");
   const { admin, pageResponsable, pageMembre, membre, offre } = situation;
   await declarer(pageMembre, offre, { montant: "108", adresse: membre.email });
@@ -437,12 +466,11 @@ test("le titulaire change d'offre ; à la déclaration de la nouvelle offre, seu
   await pageMembre.getByRole("button", { name: "Demander le changement d'offre" }).click();
   await expect(pageMembre.getByRole("status")).toHaveText("Demande envoyée aux administrateurs.");
 
-  // Le responsable l'approuve ; le courriel annonce le remplacement.
-  await pageResponsable.goto("/gestion/demandes");
-  await pageResponsable.getByRole("row", { name: new RegExp(`${membre.uid}.*Abonnement`) }).getByRole("link", { name: "Examiner" }).click();
+  // Le responsable y donne son accord, puis un admin l'approuve ; le courriel annonce le remplacement.
+  await examinerDemande(pageResponsable, membre);
   await expect(pageResponsable.getByText(`Changement d'offre : cet abonnement remplace l'abonnement Anthropic · ${offre}`)).toBeVisible();
-  await pageResponsable.getByRole("button", { name: "Approuver", exact: true }).click();
-  await expect(pageResponsable.getByRole("status")).toHaveText("Demande approuvée.");
+  await donnerAccord(pageResponsable);
+  await approuverDemande(admin, membre);
   const sujet = "[AI GATEWAY] Votre demande d'abonnement est approuvée / Your subscription request is approved";
   await expect.poll(async () => (await courriels(membre.uid)).filter((c) => c.subject === sujet).length, { timeout: 15_000 }).toBe(2);
   expect((await courriels(membre.uid)).map((c) => c.text).join("\n")).toContain(`Cet abonnement remplace votre abonnement Anthropic · ${offre}`);

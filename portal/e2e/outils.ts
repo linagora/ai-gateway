@@ -246,12 +246,32 @@ export async function demanderOffre(pageMembre: Page, offre: string, equipe: str
   await expect(pageMembre.getByRole("status")).toHaveText("Demande envoyée aux administrateurs.");
 }
 
-/** Le responsable (page ouverte) approuve, depuis sa file, la demande d'abonnement du membre. */
-export async function approuverDemande(pageResponsable: Page, membre: Personne): Promise<void> {
-  await pageResponsable.goto("/gestion/demandes");
-  await pageResponsable.getByRole("row", { name: new RegExp(`${membre.uid}.*Abonnement`) }).first().getByRole("link", { name: "Examiner" }).click();
-  await pageResponsable.getByRole("button", { name: "Approuver", exact: true }).click();
-  await expect(pageResponsable.getByRole("status")).toHaveText("Demande approuvée.");
+/** Depuis la file de validation, un responsable ou un admin (page ouverte) ouvre la fiche de la demande d'abonnement du membre. */
+export async function examinerDemande(page: Page, membre: Personne): Promise<void> {
+  await page.goto("/gestion/demandes");
+  await page.getByRole("row", { name: new RegExp(`${membre.uid}.*Abonnement`) }).first().getByRole("link", { name: "Examiner" }).click();
+}
+
+/**
+ * Sur la fiche ouverte d'une demande d'abonnement, le responsable donne son accord, avec le commentaire donné pour les
+ * admins (spécification #93).
+ */
+export async function donnerAccord(pageResponsable: Page, commentaire?: string): Promise<void> {
+  if (commentaire) await pageResponsable.getByLabel("Commentaire pour les administrateurs").fill(commentaire);
+  await pageResponsable.getByRole("button", { name: "Donner mon accord" }).click();
+  await expect(pageResponsable.getByRole("status")).toHaveText("Accord donné : la demande attend l'approbation d'un administrateur.");
+}
+
+/** Sur la fiche ouverte d'une demande d'abonnement, un admin l'approuve pour la durée préremplie, celle demandée. */
+export async function approuver(pageAdmin: Page): Promise<void> {
+  await pageAdmin.getByRole("button", { name: "Approuver", exact: true }).click();
+  await expect(pageAdmin.getByRole("status")).toHaveText("Demande approuvée.");
+}
+
+/** Un admin (page ouverte) approuve, depuis sa file, la demande d'abonnement du membre, pour la durée demandée. */
+export async function approuverDemande(pageAdmin: Page, membre: Personne): Promise<void> {
+  await examinerDemande(pageAdmin, membre);
+  await approuver(pageAdmin);
 }
 
 /** Le membre déclare dans « Mes abonnements » l'abonnement approuvé, au jour même, avec l'adresse et le montant donnés. */
