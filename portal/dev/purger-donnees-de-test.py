@@ -5,8 +5,10 @@ Sans option, le script compte ce qu'il supprimerait ; avec --appliquer, il suppr
   - dans le LiteLLM de dev : les équipes de test (avec leurs clés), les clés et l'appartenance des utilisateurs de test
     aux équipes de démonstration (« R&D », « LPS Paris »), puis ces utilisateurs ;
   - dans la base portal de dev, qui ne sert qu'aux tests : les prélèvements, les abonnements, les demandes, le journal
-    d'audit, les responsables d'équipe, les alertes de budget, les offres d'abonnement de test et les intégrations de
-    test avec leurs clés publiques (le catalogue, les offres initiales, les réglages et l'intégration « demo » restent) ;
+    d'audit, les responsables d'équipe, les alertes de budget, les offres d'abonnement de test, les intégrations de
+    test avec leurs clés publiques, et les textes anglais des modèles de démonstration (`dev-*`), que les captures du
+    README y laissent et que les parcours supposent absents (le catalogue, les offres initiales, les réglages et
+    l'intégration « demo » restent) ;
   - dans Mailpit : les courriels reçus.
 
 Utilisateurs, équipes, offres et intégrations de test : identifiant ou nom terminé par un suffixe de 8 caractères
@@ -37,6 +39,10 @@ OFFRES_DE_TEST = """from "SubscriptionOffer" where name ~ '[- ][a-z0-9]{8}$'"""
 # Une clé publique tient à son intégration : elle est supprimée d'abord.
 CLES_D_INTEGRATION_DE_TEST = """from "IntegrationKey" where "integrationId" ~ '[- ][a-z0-9]{8}$'"""
 INTEGRATIONS_DE_TEST = """from "Integration" where id ~ '[- ][a-z0-9]{8}$'"""
+# Textes anglais des modèles de démonstration, laissés par les captures du README : les parcours qui en ont besoin les
+# écrivent eux-mêmes.
+MODELES_TRADUITS = """from "CatalogEntry" where "modelName" like 'dev-%' and coalesce("displayNameEn", "shortDescriptionEn", "longDescriptionEn", "limitationsEn") is not null"""
+SANS_TEXTES_ANGLAIS = """update "CatalogEntry" set "displayNameEn" = null, "shortDescriptionEn" = null, "longDescriptionEn" = null, "limitationsEn" = null where "modelName" like 'dev-%'"""
 
 
 def litellm(methode: str, chemin: str, corps: object | None = None) -> object:
@@ -83,11 +89,12 @@ def main() -> None:
     lignes = {table: int(portal(f'select count(*) from "{table}"')) for table in TABLES_DE_TEST}
     offres = int(portal(f"select count(*) {OFFRES_DE_TEST}"))
     integrations = int(portal(f"select count(*) {INTEGRATIONS_DE_TEST}"))
+    traduits = int(portal(f"select count(*) {MODELES_TRADUITS}"))
     courriels = total_courriels_mailpit()
 
     print(f"LiteLLM : {len(equipes_de_test)} équipes de test sur {len(equipes)} (gardées : {', '.join(sorted(e.get('team_alias') or e['team_id'] for e in gardees))})")
     print(f"LiteLLM : {len(cles)} clés et {len(membres)} appartenances d'utilisateurs de test dans les équipes gardées ; {len(comptes)} utilisateurs de test")
-    print("portal : " + ", ".join(f"{table} {n}" for table, n in lignes.items()) + f", offres de test {offres}, intégrations de test {integrations}")
+    print("portal : " + ", ".join(f"{table} {n}" for table, n in lignes.items()) + f", offres de test {offres}, intégrations de test {integrations}, modèles de démonstration traduits {traduits}")
     print(f"Mailpit : {courriels} courriels")
     if not appliquer:
         print("Simulation : rien n'est supprimé (relancer avec --appliquer).")
@@ -101,7 +108,7 @@ def main() -> None:
         litellm("POST", "/team/member_delete", {"team_id": team_id, "user_id": user_id})
     for lot in par_lots(comptes, 100):
         litellm("POST", "/user/delete", {"user_ids": lot})
-    portal("; ".join([*(f'delete from "{table}"' for table in TABLES_DE_TEST), f"delete {OFFRES_DE_TEST}", f"delete {CLES_D_INTEGRATION_DE_TEST}", f"delete {INTEGRATIONS_DE_TEST}"]))
+    portal("; ".join([*(f'delete from "{table}"' for table in TABLES_DE_TEST), f"delete {OFFRES_DE_TEST}", f"delete {CLES_D_INTEGRATION_DE_TEST}", f"delete {INTEGRATIONS_DE_TEST}", SANS_TEXTES_ANGLAIS]))
     with urllib.request.urlopen(urllib.request.Request(f"{MAILPIT}/api/v1/messages", method="DELETE"), timeout=60):
         pass
     print("Purge appliquée.")
