@@ -249,6 +249,83 @@ describe("où attend une demande d'abonnement : responsables ou admins (ticket #
   });
 });
 
+describe("refus, complément et annulation d'une demande d'abonnement en deux temps (ticket #98)", () => {
+  const TRAITEE = "[AI GATEWAY] Demande traitée dans l'équipe R&D : pmartin / Request processed in the team R&D: pmartin";
+
+  test("la responsable refuse, avec un motif, une demande soumise de son équipe : elle est refusée définitivement, et le demandeur et les admins en sont prévenus", async () => {
+    const { id } = await createSubscriptionRequest(deps, membre, demande());
+    mailer.outbox.length = 0;
+    await refuseRequest(deps, responsable, id, "Offre trop coûteuse pour ce besoin");
+    expect(mailer.outbox.map((m) => [m.to, m.subject])).toEqual([
+      [["pmartin@linagora.com"], "[AI GATEWAY] Votre demande est refusée / Your request is refused"],
+      [ADMINS, TRAITEE],
+    ]);
+    expect(mailer.outbox[1].text).toContain("Léa Bernard (lbernard) a refusé la demande de pmartin.");
+    await expect(approveSubscriptionRequest(deps, admin, id, { days: 90 })).rejects.toMatchObject({ code: "transition_interdite" });
+    expect(await listMyRequests(deps, membre)).toEqual([expect.objectContaining({ id, status: "REFUSEE" })]);
+  });
+
+  test("l'admin refuse une demande avant ou après l'accord ; la responsable de l'équipe en est prévenue", async () => {
+    const avant = await createSubscriptionRequest(deps, membre, demande());
+    const apres = await createSubscriptionRequest(deps, membre, demande({ justification: "Second essai" }));
+    await agreeSubscriptionRequest(deps, responsable, apres.id);
+    mailer.outbox.length = 0;
+    await refuseRequest(deps, admin, avant.id, "Hors budget");
+    await refuseRequest(deps, admin, apres.id, "Hors budget");
+    expect((await listMyRequests(deps, membre)).map((r) => r.status)).toEqual(["REFUSEE", "REFUSEE"]);
+    expect(mailer.outbox.filter((m) => m.subject === TRAITEE).map((m) => m.to)).toEqual([["lbernard@linagora.com"], ["lbernard@linagora.com"]]);
+  });
+
+  test("après son accord, la responsable n'agit plus sur la demande : ni refus, ni complément, ni second accord", async () => {
+    const { id } = await createSubscriptionRequest(deps, membre, demande());
+    await agreeSubscriptionRequest(deps, responsable, id);
+    await expect(refuseRequest(deps, responsable, id, "Finalement non")).rejects.toMatchObject({ code: "interdit" });
+    await expect(requestCompletion(deps, responsable, id, "Précisez le projet")).rejects.toMatchObject({ code: "interdit" });
+    await expect(agreeSubscriptionRequest(deps, responsable, id)).rejects.toMatchObject({ code: "transition_interdite" });
+    expect(await listMyRequests(deps, membre)).toEqual([expect.objectContaining({ id, status: "ACCORD_RESPONSABLE" })]);
+  });
+
+  test("renvoyée pour complément par la responsable avant son accord, la demande complétée redevient soumise et l'attend de nouveau", async () => {
+    const { id } = await createSubscriptionRequest(deps, membre, demande());
+    await requestCompletion(deps, responsable, id, "Précisez le projet");
+    await completeSubscriptionRequest(deps, membre, id, demande({ project: "Twake" }));
+    expect(await listPendingRequests(deps, responsable)).toEqual({ aTraiter: [expect.objectContaining({ id, status: "SOUMISE", project: "Twake" })], aSuivre: [] });
+  });
+
+  test("renvoyée pour complément par l'admin après l'accord, la demande complétée revient à « Accord du responsable », sans qu'on le redemande", async () => {
+    const { id } = await createSubscriptionRequest(deps, membre, demande());
+    await agreeSubscriptionRequest(deps, responsable, id, "Indispensable pour la veille de l'équipe");
+    await requestCompletion(deps, admin, id, "Précisez le projet");
+    expect(await listMyRequests(deps, membre)).toEqual([expect.objectContaining({ id, status: "A_COMPLETER" })]);
+    await completeSubscriptionRequest(deps, membre, id, demande({ project: "Twake" }));
+    expect(await getRequestReview(deps, admin, id)).toMatchObject({
+      status: "ACCORD_RESPONSABLE",
+      project: "Twake",
+      agreement: { by: "lbernard", comment: "Indispensable pour la veille de l'équipe" },
+    });
+    expect((await listPendingRequests(deps, admin)).aTraiter).toEqual([expect.objectContaining({ id })]);
+    await approveSubscriptionRequest(deps, admin, id, { days: 90 });
+  });
+
+  test("renvoyée pour complément par l'admin avant l'accord, la demande complétée redevient soumise et attend la responsable", async () => {
+    const { id } = await createSubscriptionRequest(deps, membre, demande());
+    await requestCompletion(deps, admin, id, "Précisez le projet");
+    await completeSubscriptionRequest(deps, membre, id, demande({ project: "Twake" }));
+    expect((await listPendingRequests(deps, responsable)).aTraiter).toEqual([expect.objectContaining({ id, status: "SOUMISE" })]);
+  });
+
+  test("complétée pour une autre équipe, la demande perd l'accord donné par la responsable de la première : elle redevient soumise", async () => {
+    await litellm.addTeamMember("equipe-data", "pmartin");
+    const { id } = await createSubscriptionRequest(deps, membre, demande());
+    await agreeSubscriptionRequest(deps, responsable, id);
+    await requestCompletion(deps, admin, id, "Précisez le projet");
+    await completeSubscriptionRequest(deps, membre, id, demande({ teamId: "equipe-data" }));
+    expect(await getRequestReview(deps, admin, id)).toMatchObject({ status: "SOUMISE", teamAlias: "Data", agreement: null });
+    // Data n'a pas de responsable : elle attend directement l'approbation d'un admin.
+    expect((await listPendingRequests(deps, admin)).aTraiter).toEqual([expect.objectContaining({ id })]);
+  });
+});
+
 /** Accord de la responsable de R&D, puis approbation par l'admin pour la durée donnée (spécification #93). */
 async function accordPuisApprobation(id: string, jours = 90): Promise<void> {
   await agreeSubscriptionRequest(deps, responsable, id);
@@ -917,6 +994,26 @@ describe("échéance, renouvellement et changement d'offre (ticket #59)", () => 
     expect(await journal("SUBSCRIPTION_OFFER_CHANGED")).toEqual([
       ["pmartin", origine, { offre: "Anthropic · Claude Max 5x", nouvelleOffre: "Anthropic · Claude Max 20x", date: "2026-10-13", nouvelAbonnement: nouveau }],
     ]);
+  });
+
+  test("renvoyé pour complément après l'accord de la responsable, un renouvellement y revient une fois complété (ticket #98)", async () => {
+    const id = await declare();
+    deps.now = () => new Date("2026-12-01T09:00:00Z");
+    const { id: demande } = await requestRenewal(deps, membre, id, renouvellement());
+    await agreeSubscriptionRequest(deps, responsable, demande);
+    await requestCompletion(deps, admin, demande, "Précisez l'usage");
+    await completeSubscriptionRequest(deps, membre, demande, { ...renouvellement(), offerId: offre, teamId: "equipe-rd" });
+    expect(await getRequestReview(deps, admin, demande)).toMatchObject({ status: "ACCORD_RESPONSABLE", agreement: { by: "lbernard" } });
+  });
+
+  test("renvoyé pour complément après l'accord de la responsable, un changement d'offre y revient une fois complété (ticket #98)", async () => {
+    const id = await declare();
+    const max20 = await saveOffer(deps, admin, { ...claudeMax, name: "Claude Max 20x", monthlyPriceEur: 216 });
+    const { id: demande } = await requestOfferChange(deps, membre, id, { ...changement(), offerId: max20 });
+    await agreeSubscriptionRequest(deps, responsable, demande);
+    await requestCompletion(deps, admin, demande, "Précisez le besoin");
+    await completeSubscriptionRequest(deps, membre, demande, { ...changement(), offerId: max20, teamId: "equipe-rd" });
+    expect(await getRequestReview(deps, admin, demande)).toMatchObject({ status: "ACCORD_RESPONSABLE", offer: "Anthropic · Claude Max 20x" });
   });
 
   test("renvoyé pour complément, un renouvellement se complète sans changer d'offre ni d'équipe", async () => {

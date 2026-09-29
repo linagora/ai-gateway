@@ -160,17 +160,53 @@ export function attendUnResponsable(demande: DemandeDeLaFile, responsables: read
  * lui-même : responsable de l'équipe, il en reçoit les demandes et les approuve en un seul temps.
  */
 export function attendLActeur(acteur: PortalUser, demande: DemandeDeLaFile, responsables: readonly string[]): boolean {
-  if (!acteur.isAdmin) return demande.status === "SOUMISE" && demande.requesterUid !== acteur.uid;
+  if (!acteur.isAdmin) return enAttenteDeValidation(demande.status) && empechementDeDecider(acteur, demande) === null;
   return !attendUnResponsable(demande, responsables) || (acteur.uid !== demande.requesterUid && responsables.includes(acteur.uid));
+}
+
+/**
+ * Ce qui empêche un acteur de décider d'une demande de ses équipes, qu'il peut consulter (F-54, spécification #93) :
+ * un responsable ne décide jamais de sa propre demande (quatre yeux), ni d'une demande qui a reçu l'accord du
+ * responsable, dont seul un admin décide (interdit). Un admin décide de toute la file ; le statut de la demande est
+ * contrôlé par les transitions.
+ */
+export function empechementDeDecider(acteur: PortalUser, demande: DemandeDeLaFile): "quatre_yeux" | "interdit" | null {
+  if (acteur.isAdmin) return null;
+  if (demande.requesterUid === acteur.uid) return "quatre_yeux";
+  return demande.status === "ACCORD_RESPONSABLE" ? "interdit" : null;
+}
+
+/**
+ * Décision que la fiche d'une demande de ses équipes propose à un admin ou à un responsable (F-54, spécification #93),
+ * toujours accompagnée du refus et de la demande de complément ; null quand il ne peut pas en décider. Les services la
+ * contrôlent de nouveau. Un responsable approuve une demande de clé ou accepte une demande d'accès ; d'une demande
+ * d'abonnement, il ne donne que son accord. Un admin approuve tant que la demande attend une validation.
+ */
+export function decisionProposee(acteur: PortalUser, demande: DemandeDeLaFile): "approuver" | "donnerAccord" | null {
+  if (!enAttenteDeValidation(demande.status) || empechementDeDecider(acteur, demande) !== null) return null;
+  return !acteur.isAdmin && demande.kind === "ABONNEMENT" ? "donnerAccord" : "approuver";
+}
+
+/**
+ * Statut d'une demande complétée (ticket #98) : elle revient à l'accord du responsable s'il avait été donné, sans qu'on
+ * le redemande. Une demande qui change d'équipe ou d'offre n'a plus l'accord d'un responsable de sa nouvelle équipe :
+ * elle redevient soumise.
+ */
+export function statutApresComplement(
+  avant: { agreedBy: string | null; teamId: string; offerId: string | null },
+  apres: { teamId: string; offerId: string | null },
+): "ACCORD_RESPONSABLE" | "SOUMISE" {
+  return avant.agreedBy && avant.teamId === apres.teamId && avant.offerId === apres.offerId ? "ACCORD_RESPONSABLE" : "SOUMISE";
 }
 
 /** Règle 5 : seules ces transitions sont autorisées ; les autres statuts sont finaux. */
 const ALLOWED_TRANSITIONS: Partial<Record<RequestStatus, readonly RequestStatus[]>> = {
   SOUMISE: ["APPROUVEE", "REFUSEE", "A_COMPLETER", "ANNULEE", "ACCORD_RESPONSABLE"],
-  A_COMPLETER: ["SOUMISE", "ANNULEE"],
-  // ACCORD_RESPONSABLE : demande d'abonnement qui a reçu l'accord du responsable ; un admin l'approuve
-  // (spécification #93).
-  ACCORD_RESPONSABLE: ["APPROUVEE", "ANNULEE"],
+  // Complétée, une demande qui avait reçu l'accord du responsable y revient, sans qu'on le redemande (ticket #98).
+  A_COMPLETER: ["SOUMISE", "ACCORD_RESPONSABLE", "ANNULEE"],
+  // ACCORD_RESPONSABLE : demande d'abonnement qui a reçu l'accord du responsable ; un admin l'approuve, la refuse ou
+  // demande un complément (spécification #93).
+  ACCORD_RESPONSABLE: ["APPROUVEE", "REFUSEE", "A_COMPLETER", "ANNULEE"],
   // ANNULEE : sortie d'une équipe avant le retrait de la clé (F-54) ; DECLAREE : abonnement déclaré, RENOUVELEE :
   // renouvellement d'abonnement appliqué à son approbation (spécification #51).
   APPROUVEE: ["CLE_EMISE", "DECLAREE", "RENOUVELEE", "EXPIREE", "ANNULEE"],

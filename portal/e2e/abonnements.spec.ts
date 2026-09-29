@@ -9,6 +9,7 @@ import {
   courriels,
   creerOffre,
   declarer,
+  demanderComplement,
   demanderOffre,
   designer,
   donnerAccord,
@@ -19,6 +20,7 @@ import {
   masquerOffre,
   nouvelleEquipe,
   type Personne,
+  refuser,
   supprimerEquipe,
 } from "./outils";
 
@@ -38,11 +40,8 @@ interface Situation {
   offre: string;
 }
 
-/**
- * Mise en place : une offre visible, une équipe avec son responsable et son membre, et la demande d'abonnement du
- * membre, pour la durée donnée (trois mois), avec l'accord du responsable, puis approuvée par un admin.
- */
-async function abonnementApprouve(browser: Browser, nom: string, duree = "3 mois"): Promise<Situation> {
+/** Mise en place : une offre visible, et une équipe avec son responsable et son membre. */
+async function equipeEtOffre(browser: Browser, nom: string): Promise<Situation> {
   const responsable = personne(`${nom}-responsable`);
   const membre = personne(`${nom}-membre`);
   const pageResponsable = await (await connecter(browser, responsable)).newPage();
@@ -54,12 +53,20 @@ async function abonnementApprouve(browser: Browser, nom: string, duree = "3 mois
   await nouvelleEquipe(admin, equipe);
   await designer(admin, responsable.uid);
   await ajouterMembre(admin, membre.uid);
-  const pageEquipe = admin.url();
-  await demanderOffre(pageMembre, offre, equipe, duree);
-  await examinerDemande(pageResponsable, membre);
-  await donnerAccord(pageResponsable);
-  await approuverDemande(admin, membre);
-  return { admin, pageResponsable, pageMembre, responsable, membre, equipe, pageEquipe, offre };
+  return { admin, pageResponsable, pageMembre, responsable, membre, equipe, pageEquipe: admin.url(), offre };
+}
+
+/**
+ * Mise en place, puis la demande d'abonnement du membre, pour la durée donnée (trois mois), avec l'accord du
+ * responsable, puis approuvée par un admin.
+ */
+async function abonnementApprouve(browser: Browser, nom: string, duree = "3 mois"): Promise<Situation> {
+  const situation = await equipeEtOffre(browser, nom);
+  await demanderOffre(situation.pageMembre, situation.offre, situation.equipe, duree);
+  await examinerDemande(situation.pageResponsable, situation.membre);
+  await donnerAccord(situation.pageResponsable);
+  await approuverDemande(situation.admin, situation.membre);
+  return situation;
 }
 
 /**
@@ -487,18 +494,8 @@ test("le titulaire change d'offre ; après l'accord du responsable et l'approbat
 });
 
 test("une demande d'abonnement attend l'accord de la responsable : à traiter chez elle, à part chez l'admin ; après l'accord, à approuver chez l'admin et en lecture seule chez elle (ticket #96)", async ({ browser }) => {
-  const responsable = personne("attente-responsable");
-  const membre = personne("attente-membre");
-  const pageResponsable = await (await connecter(browser, responsable)).newPage();
-  const pageMembre = await (await connecter(browser, membre)).newPage();
-  const admin = await (await connecter(browser, ADMIN)).newPage();
-  const offre = `Offre attente ${suffixe}`;
-  await creerOffre(admin, { fournisseur: "Anthropic", nom: offre, prix: "108", niveau: "N1 Public", reglesFr: "Désactivez l'entraînement sur vos données." });
-  const equipe = `Équipe attente ${suffixe}`;
-  await nouvelleEquipe(admin, equipe);
-  await designer(admin, responsable.uid);
-  await ajouterMembre(admin, membre.uid);
-  const pageEquipe = admin.url();
+  const situation = await equipeEtOffre(browser, "attente");
+  const { admin, pageResponsable, pageMembre, responsable, membre, equipe, offre } = situation;
   await demanderOffre(pageMembre, offre, equipe);
 
   // La demande part à la seule responsable ; elle l'attend, et sa pastille la compte ; chez l'admin, elle est à part.
@@ -522,8 +519,7 @@ test("une demande d'abonnement attend l'accord de la responsable : à traiter ch
   await expect(ligneDeLaFile(admin, "À approuver", membre)).toBeVisible();
   await approuverDemande(admin, membre);
 
-  await viderEtSupprimer(admin, pageEquipe, [membre.uid, responsable.uid]);
-  await masquerOffre(admin, "Anthropic", offre);
+  await nettoyer(situation);
 });
 
 test("sans autre responsable que son demandeur, une demande d'abonnement va directement aux admins ; un second responsable désigné, elle attend son accord (ticket #96)", async ({ browser }) => {
@@ -570,4 +566,69 @@ test("sans autre responsable que son demandeur, une demande d'abonnement va dire
 
   await viderEtSupprimer(admin, pageEquipe, [membre.uid, second.uid]);
   await masquerOffre(admin, "Anthropic", offre);
+});
+
+/** Le membre complète, depuis « Mes demandes », sa demande d'abonnement renvoyée pour complément, et la resoumet. */
+async function completer(pageMembre: Page): Promise<void> {
+  await pageMembre.goto("/demandes");
+  await pageMembre.getByRole("row", { name: /Abonnement.*À compléter/ }).getByRole("link", { name: "Compléter" }).click();
+  await pageMembre.getByLabel(/Je m'engage à ne confier à cet abonnement/).check();
+  await pageMembre.getByRole("button", { name: "Resoumettre" }).click();
+  await expect(pageMembre.getByRole("status")).toHaveText("Demande complétée et resoumise.");
+}
+
+test("renvoyée pour complément, une demande d'abonnement complétée revient à l'étape qu'elle avait quittée ; après l'accord, son demandeur peut encore l'annuler (ticket #98)", async ({ browser }) => {
+  const situation = await equipeEtOffre(browser, "complement");
+  const { admin, pageResponsable, pageMembre, membre, equipe, offre } = situation;
+  await demanderOffre(pageMembre, offre, equipe);
+
+  // Avant son accord, la responsable demande un complément ; complétée, la demande redevient soumise et l'attend.
+  await examinerDemande(pageResponsable, membre);
+  await demanderComplement(pageResponsable, "Précisez le projet");
+  await completer(pageMembre);
+  await pageResponsable.goto("/gestion/demandes");
+  await expect(ligneDeLaFile(pageResponsable, "À traiter", membre)).toBeVisible();
+
+  // Après l'accord, l'admin demande un complément ; complétée, la demande revient à l'accord, sans qu'on le redemande.
+  await examinerDemande(pageResponsable, membre);
+  await donnerAccord(pageResponsable);
+  await examinerDemande(admin, membre);
+  await demanderComplement(admin, "Précisez la durée");
+  await completer(pageMembre);
+  await expect(pageMembre.getByRole("row", { name: new RegExp(`Abonnement.*${echapper(equipe)}.*Accord du responsable`) })).toBeVisible();
+  await admin.goto("/gestion/demandes");
+  await expect(ligneDeLaFile(admin, "À approuver", membre)).toBeVisible();
+
+  // Son demandeur l'annule encore.
+  await pageMembre.getByRole("row", { name: /Abonnement.*Accord du responsable/ }).getByRole("button", { name: "Annuler" }).click();
+  await expect(pageMembre.getByRole("status")).toHaveText("Demande annulée.");
+  await expect(pageMembre.getByRole("row", { name: new RegExp(`Abonnement.*${echapper(equipe)}.*Annulée`) })).toBeVisible();
+
+  await nettoyer(situation);
+});
+
+test("la responsable refuse une demande soumise, définitivement ; l'admin refuse une demande après l'accord ; le demandeur, les admins et la responsable en sont prévenus (ticket #98)", async ({ browser }) => {
+  const situation = await equipeEtOffre(browser, "refus");
+  const { admin, pageResponsable, pageMembre, responsable, membre, equipe, offre } = situation;
+  await demanderOffre(pageMembre, offre, equipe);
+  await demanderOffre(pageMembre, offre, equipe);
+  const traitee = `[AI GATEWAY] Demande traitée dans l'équipe ${equipe} : ${membre.uid} / Request processed in the team ${equipe}: ${membre.uid}`;
+  const annonces = async () => (await courriels(membre.uid)).filter((c) => c.subject === traitee).map((c) => c.to);
+
+  // La responsable refuse la première : le demandeur et les admins en sont prévenus.
+  await examinerDemande(pageResponsable, membre);
+  await refuser(pageResponsable, "Offre trop coûteuse pour ce besoin");
+  await expect.poll(annonces, { timeout: 15_000 }).toEqual([["admins-e2e@example.org"]]);
+
+  // Elle donne son accord à la seconde, que l'admin refuse : la responsable en est prévenue.
+  await examinerDemande(pageResponsable, membre);
+  await donnerAccord(pageResponsable);
+  await examinerDemande(admin, membre);
+  await refuser(admin, "Hors budget cette année");
+  await expect.poll(annonces, { timeout: 15_000 }).toEqual(expect.arrayContaining([["admins-e2e@example.org"], [responsable.email]]));
+  await expect.poll(async () => (await courriels(membre.uid)).filter((c) => c.subject === "[AI GATEWAY] Votre demande est refusée / Your request is refused").length, { timeout: 15_000 }).toBe(2);
+  await pageMembre.goto("/demandes");
+  await expect(pageMembre.getByRole("row", { name: new RegExp(`Abonnement.*${echapper(equipe)}.*Refusée`) })).toHaveCount(2);
+
+  await nettoyer(situation);
 });

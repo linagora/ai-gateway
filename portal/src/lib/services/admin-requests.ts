@@ -6,7 +6,16 @@ import { estDureeAbonnement, PERIODE_BUDGET } from "@/lib/durees";
 import { PolicyViolationError, PortalError } from "@/lib/errors";
 import type { LiteLLMClient } from "@/lib/litellm/client";
 import { type Page, tranche } from "@/lib/pagination";
-import { attendLActeur, type DataLevel, type DemandeDeLaFile, enAttenteDeValidation, type PolicyCheck, type RequestStatus, STATUTS_EN_ATTENTE_DE_VALIDATION } from "@/lib/policy";
+import {
+  attendLActeur,
+  type DataLevel,
+  type DemandeDeLaFile,
+  empechementDeDecider,
+  enAttenteDeValidation,
+  type PolicyCheck,
+  type RequestStatus,
+  STATUTS_EN_ATTENTE_DE_VALIDATION,
+} from "@/lib/policy";
 import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
 import { dansEquipes, managerEmails, requireAutorite, requireGestion } from "./autorite";
@@ -495,13 +504,14 @@ async function teamForApproval(
 
 /**
  * Droit de décider d'une demande (F-54) : autorité sur son équipe (admin, ou responsable de cette équipe) et, pour un
- * responsable, jamais sur sa propre demande : un autre responsable de l'équipe ou un admin en décide.
+ * responsable, jamais sur sa propre demande : un autre responsable de l'équipe ou un admin en décide. Après l'accord du
+ * responsable, seul un admin décide encore d'une demande d'abonnement (spécification #93).
  */
-async function requireDecision(deps: AdminDeps, actor: SessionUser, request: { teamId: string; requesterUid: string }, objet: string): Promise<void> {
+async function requireDecision(deps: AdminDeps, actor: SessionUser, request: DemandeDeLaFile & { teamId: string }, objet: string): Promise<void> {
   await requireAutorite(deps.db, actor, request.teamId, objet);
-  if (!actor.isAdmin && request.requesterUid === actor.uid) {
-    throw new PortalError("quatre_yeux", "Un responsable ne décide pas de sa propre demande.", { cas: "demande" });
-  }
+  const empechement = empechementDeDecider(actor, request);
+  if (empechement === "quatre_yeux") throw new PortalError("quatre_yeux", "Un responsable ne décide pas de sa propre demande.", { cas: "demande" });
+  if (empechement === "interdit") throw new PortalError("interdit", "Après l'accord du responsable, seul un admin décide de la demande.");
 }
 
 /**

@@ -4,7 +4,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { PortalError } from "@/lib/errors";
 import type { Langue } from "@/lib/langue";
 import { DUREE_ABONNEMENT_PAR_DEFAUT, DUREES_ABONNEMENT } from "@/lib/durees";
-import { enAttenteDeValidation, modelAcceptsLevel } from "@/lib/policy";
+import { decisionProposee, empechementDeDecider, enAttenteDeValidation, modelAcceptsLevel } from "@/lib/policy";
 import { getRequestReview } from "@/lib/services/admin-requests";
 import { equipesGerees } from "@/lib/services/autorite";
 import { listCatalog } from "@/lib/services/catalog";
@@ -61,15 +61,9 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
       </select>
     </label>
   );
-  const soumise = review.status === "SOUMISE";
-  // Un responsable d'équipe décide des demandes de ses équipes, jamais de la sienne (F-54).
-  const sienne = !admin.isAdmin && review.requesterUid === admin.uid;
-  const peutDecider = soumise && !sienne;
-  // Spécification #93 : un responsable donne son accord à une demande d'abonnement ; seul un admin l'approuve, après
-  // cet accord ou sans lui.
-  const abonnement = review.kind === "ABONNEMENT";
-  const peutDonnerSonAccord = peutDecider && abonnement && !admin.isAdmin;
-  const peutApprouverAbonnement = abonnement && admin.isAdmin && enAttenteDeValidation(review.status);
+  // Décision proposée, toujours accompagnée du refus et du complément ; sinon, ce qui empêche l'acteur de décider.
+  const decision = decisionProposee(admin, review);
+  const empechement = empechementDeDecider(admin, review);
 
   return (
     <>
@@ -205,14 +199,14 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
         </>
       )}
 
-      {soumise && sienne && <p className="mt-6 rounded border border-neutral-300 bg-neutral-50 p-3">{t("propreDemande")}</p>}
-      {review.status === "ACCORD_RESPONSABLE" && !admin.isAdmin && (
-        <p className="mt-6 rounded border border-neutral-300 bg-neutral-50 p-3">{t("attenteApprobation")}</p>
+      {empechement === "quatre_yeux" && enAttenteDeValidation(review.status) && (
+        <p className="mt-6 rounded border border-neutral-300 bg-neutral-50 p-3">{t("propreDemande")}</p>
       )}
+      {empechement === "interdit" && <p className="mt-6 rounded border border-neutral-300 bg-neutral-50 p-3">{t("attenteApprobation")}</p>}
 
-      {peutDecider && <ExplicationObligatoires />}
+      {decision !== null && <ExplicationObligatoires />}
 
-      {peutDecider && review.kind === "CLE" && (
+      {decision === "approuver" && review.kind === "CLE" && (
         <>
           <h2>{t("approuverCle")}</h2>
           <form action={approveKeyRequestAction}>
@@ -258,7 +252,7 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
         </>
       )}
 
-      {peutApprouverAbonnement && (
+      {decision === "approuver" && review.kind === "ABONNEMENT" && (
         <>
           <h2>{t("approuverAbonnement")}</h2>
           <form action={approuverAbonnementAction}>
@@ -278,7 +272,7 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
         </>
       )}
 
-      {peutDonnerSonAccord && (
+      {decision === "donnerAccord" && (
         <>
           <h2>{t("donnerAccord")}</h2>
           <p>{t("aideAccord")}</p>
@@ -293,7 +287,7 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
         </>
       )}
 
-      {peutDecider && review.kind === "ADHESION_EQUIPE" && (
+      {decision === "approuver" && review.kind === "ADHESION_EQUIPE" && (
         <form action={approveTeamJoinRequestAction}>
           <input type="hidden" name="id" value={review.id} />
           {choixEquipe(t("equipeAffectation"))}
@@ -301,7 +295,7 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
         </form>
       )}
 
-      {peutDecider && (
+      {decision !== null && (
         <>
           <h2>{t("refuserOuCompleter")}</h2>
           <form action={refuseRequestAction}>

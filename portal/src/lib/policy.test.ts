@@ -6,6 +6,8 @@ import {
   type CatalogModel,
   checkKeyRequest,
   checkTransition,
+  decisionProposee,
+  empechementDeDecider,
   enAttenteDeValidation,
   isAdmin,
   type KeyRequestDraft,
@@ -14,6 +16,7 @@ import {
   type RequestStatus,
   STATUTS_EN_ATTENTE_DE_VALIDATION,
   STATUTS_PAS_ENCORE_DECIDES,
+  statutApresComplement,
   type TeamForPolicy,
 } from "./policy";
 
@@ -65,6 +68,13 @@ describe("checkTransition", () => {
 
   test("l'accord du responsable ne se retire pas : la demande ne redevient pas soumise", () => {
     expect(checkTransition("ACCORD_RESPONSABLE", "SOUMISE")).toEqual({ ok: false, reason: "transition_interdite" });
+  });
+
+  test("après l'accord, la demande peut être refusée avec un motif ou renvoyée pour complément ; complétée, elle y revient (ticket #98)", () => {
+    expect(checkTransition("ACCORD_RESPONSABLE", "REFUSEE", { comment: "Budget épuisé" })).toEqual({ ok: true });
+    expect(checkTransition("ACCORD_RESPONSABLE", "REFUSEE")).toEqual({ ok: false, reason: "motif_obligatoire" });
+    expect(checkTransition("ACCORD_RESPONSABLE", "A_COMPLETER")).toEqual({ ok: true });
+    expect(checkTransition("A_COMPLETER", "ACCORD_RESPONSABLE")).toEqual({ ok: true });
   });
 });
 
@@ -154,6 +164,41 @@ describe("où attend une demande de la file (spécification #93, ticket #96)", (
     expect(attendLActeur(responsable, { ...abonnement, kind: "CLE" }, ["lbernard"])).toBe(true);
     expect(attendLActeur(responsable, { ...abonnement, status: "ACCORD_RESPONSABLE" }, ["lbernard"])).toBe(false);
     expect(attendLActeur(responsable, { ...abonnement, requesterUid: "lbernard" }, ["lbernard", "pmartin"])).toBe(false);
+  });
+});
+
+describe("décider d'une demande (spécification #93, ticket #98)", () => {
+  const admin = { uid: "jdupont", isAdmin: true };
+  const responsable = { uid: "lbernard", isAdmin: false };
+  const abonnement = { kind: "ABONNEMENT" as const, status: "SOUMISE" as const, requesterUid: "pmartin" };
+
+  test("un responsable ne décide ni de sa propre demande, ni d'une demande qui a reçu l'accord ; un admin décide de toute la file", () => {
+    expect(empechementDeDecider(responsable, abonnement)).toBeNull();
+    expect(empechementDeDecider(responsable, { ...abonnement, requesterUid: "lbernard" })).toBe("quatre_yeux");
+    expect(empechementDeDecider(responsable, { ...abonnement, status: "ACCORD_RESPONSABLE" })).toBe("interdit");
+    expect(empechementDeDecider(admin, { ...abonnement, requesterUid: "jdupont", status: "ACCORD_RESPONSABLE" })).toBeNull();
+  });
+
+  test("sur une demande d'abonnement soumise, la fiche propose au responsable son accord ; à l'admin, l'approbation, avant comme après l'accord", () => {
+    expect(decisionProposee(responsable, abonnement)).toBe("donnerAccord");
+    expect(decisionProposee(responsable, { ...abonnement, status: "ACCORD_RESPONSABLE" })).toBeNull();
+    for (const status of ["SOUMISE", "ACCORD_RESPONSABLE"] as const) expect(decisionProposee(admin, { ...abonnement, status }), status).toBe("approuver");
+  });
+
+  test("le responsable approuve une demande de clé ou accepte une demande d'accès, jamais la sienne ; une demande décidée ne propose plus rien", () => {
+    expect(decisionProposee(responsable, { ...abonnement, kind: "CLE" })).toBe("approuver");
+    expect(decisionProposee(responsable, { ...abonnement, kind: "ADHESION_EQUIPE" })).toBe("approuver");
+    expect(decisionProposee(responsable, { ...abonnement, kind: "ADHESION_EQUIPE", requesterUid: "lbernard" })).toBeNull();
+    expect(decisionProposee(admin, { ...abonnement, status: "APPROUVEE" })).toBeNull();
+    expect(decisionProposee(admin, { ...abonnement, status: "A_COMPLETER" })).toBeNull();
+  });
+
+  test("complétée, une demande revient à l'accord du responsable s'il avait été donné, sauf si elle change d'équipe ou d'offre", () => {
+    const avant = { agreedBy: "lbernard", teamId: "equipe-rd", offerId: "max" };
+    expect(statutApresComplement(avant, { teamId: "equipe-rd", offerId: "max" })).toBe("ACCORD_RESPONSABLE");
+    expect(statutApresComplement(avant, { teamId: "equipe-data", offerId: "max" })).toBe("SOUMISE");
+    expect(statutApresComplement(avant, { teamId: "equipe-rd", offerId: "pro" })).toBe("SOUMISE");
+    expect(statutApresComplement({ ...avant, agreedBy: null }, { teamId: "equipe-rd", offerId: "max" })).toBe("SOUMISE");
   });
 });
 

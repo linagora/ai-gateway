@@ -257,7 +257,8 @@ export const ligneDeLaFile = (page: Page, partie: string, demandeur: Personne) =
 /** Depuis la file de validation, un responsable ou un admin (page ouverte) ouvre la fiche de la demande d'abonnement du membre. */
 export async function examinerDemande(page: Page, membre: Personne): Promise<void> {
   await page.goto("/gestion/demandes");
-  await page.getByRole("row", { name: new RegExp(`${membre.uid}.*Abonnement`) }).first().getByRole("link", { name: "Examiner" }).click();
+  // Une ligne de la file, et non de l'archive, dont le lien est « Voir ».
+  await page.getByRole("row", { name: new RegExp(`${membre.uid}.*Abonnement.*Examiner`) }).first().getByRole("link", { name: "Examiner" }).click();
 }
 
 /**
@@ -268,6 +269,20 @@ export async function donnerAccord(pageResponsable: Page, commentaire?: string):
   if (commentaire) await pageResponsable.getByLabel("Commentaire pour les administrateurs").fill(commentaire);
   await pageResponsable.getByRole("button", { name: "Donner mon accord" }).click();
   await expect(pageResponsable.getByRole("status")).toHaveText("Accord donné : la demande attend l'approbation d'un administrateur.");
+}
+
+/** Sur la fiche ouverte d'une demande, un responsable ou un admin la refuse avec ce motif. */
+export async function refuser(page: Page, motif: string): Promise<void> {
+  await page.getByLabel("Motif du refus").fill(motif);
+  await page.getByRole("button", { name: "Refuser" }).click();
+  await expect(page.getByRole("status")).toHaveText("Demande refusée.");
+}
+
+/** Sur la fiche ouverte d'une demande, un responsable ou un admin demande un complément. */
+export async function demanderComplement(page: Page, commentaire: string): Promise<void> {
+  await page.getByLabel("Complément demandé").fill(commentaire);
+  await page.getByRole("button", { name: "Demander un complément" }).click();
+  await expect(page.getByRole("status")).toHaveText("Demande renvoyée au demandeur pour complément.");
 }
 
 /** Sur la fiche ouverte d'une demande d'abonnement, un admin l'approuve pour la durée préremplie, celle demandée. */
