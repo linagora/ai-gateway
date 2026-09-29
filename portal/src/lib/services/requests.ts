@@ -4,8 +4,9 @@ import type { Db } from "@/lib/db";
 import type { LiteLLMClient, LiteLLMTeamSummary } from "@/lib/litellm/client";
 import { PolicyViolationError, PortalError } from "@/lib/errors";
 import type { Prisma, RequestKind } from "@/generated/prisma/client";
-import { type CatalogModel, checkKeyRequest, checkTransition, DATA_LEVELS, type DataLevel, type KeyRequestDraft, type PolicyVerdict, type RequestStatus } from "@/lib/policy";
+import { type CatalogModel, checkKeyRequest, checkTransition, DATA_LEVELS, type DataLevel, type KeyRequestDraft, pasEncoreDecidee, type PolicyVerdict, type RequestStatus } from "@/lib/policy";
 import { parActeur, recordAudit } from "./audit";
+import { DEMANDES_EN_COURS, PAS_ENCORE_DECIDEES } from "./demandes-en-cours";
 import { markExpired } from "./echeances";
 import { managerEmails } from "./autorite";
 import { type NotificationDeps, notifyNewRequest } from "./notifications";
@@ -147,8 +148,8 @@ export async function createTeamJoinRequest(deps: RequestDeps, user: SessionUser
 }
 
 /**
- * F-24 : le demandeur annule sa demande soumise ou à compléter. Une demande approuvée ne s'annule qu'à la sortie de son
- * équipe (F-54). Pour un autre utilisateur, la demande n'existe pas ; de même pour une demande d'un autre type que
+ * F-24 : le demandeur annule sa demande tant qu'elle n'est pas décidée. Une demande approuvée ne s'annule qu'à la sortie
+ * de son équipe (F-54). Pour un autre utilisateur, la demande n'existe pas ; de même pour une demande d'un autre type que
  * `types`, quand ils sont donnés (l'API d'intégration n'annule que les demandes de clé et d'accès à une équipe).
  */
 export async function cancelRequest(deps: RequestDeps, user: SessionUser, id: string, types?: readonly RequestKind[]): Promise<void> {
@@ -157,18 +158,12 @@ export async function cancelRequest(deps: RequestDeps, user: SessionUser, id: st
     throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
   }
   if (request.status === "APPROUVEE") throw new PortalError("transition_interdite", "Cette demande a déjà été traitée.", { cas: "traitee" });
+  // Les transitions permettent aussi d'annuler une demande approuvée, à la sortie d'une équipe : ce qu'annule le
+  // demandeur se décide ici, par la définition des demandes pas encore décidées.
+  if (!pasEncoreDecidee(request.status)) throw new PortalError("transition_interdite", TRANSITION_MESSAGES.transition_interdite);
   await transitionRequest(deps.db, request, "ANNULEE");
   await recordAudit(deps.db, { ...parActeur(user), action: "REQUEST_CANCELLED", targetId: request.id, details: { kind: request.kind, teamAlias: request.teamAlias } });
 }
-
-/**
- * Demandes en cours dans une équipe (F-54, #38) : soumises ou à compléter, demandes de clé approuvées dont la clé
- * n'est pas retirée, et demandes d'abonnement approuvées pas encore déclarées. Une demande d'accès approuvée est close :
- * le salarié est entré dans l'équipe.
- */
-export const DEMANDES_EN_COURS: Prisma.AccessRequestWhereInput = {
-  OR: [{ status: { in: ["SOUMISE", "A_COMPLETER"] } }, { kind: { in: ["CLE", "ABONNEMENT"] }, status: "APPROUVEE" }],
-};
 
 /**
  * F-54 : sortie d'une équipe. Annule les demandes en cours d'un membre dans cette équipe, pour qu'il ne puisse plus y
@@ -259,10 +254,10 @@ export async function listJoinableTeams(deps: RequestDeps, user: SessionUser): P
   return (await deps.litellm.listTeams()).filter((t) => !exclues.has(t.teamId)).sort((a, b) => a.teamAlias.localeCompare(b.teamAlias));
 }
 
-/** Demandes d'accès du salarié encore en cours (soumises ou à compléter). */
+/** Demandes d'accès du salarié encore en cours (pas encore décidées). */
 function demandesDAccesEnCours(db: Db, user: SessionUser, teamId?: string) {
   return db.accessRequest.findMany({
-    where: { requesterUid: user.uid, kind: "ADHESION_EQUIPE", status: { in: ["SOUMISE", "A_COMPLETER"] }, ...(teamId ? { teamId } : {}) },
+    where: { requesterUid: user.uid, kind: "ADHESION_EQUIPE", ...PAS_ENCORE_DECIDEES, ...(teamId ? { teamId } : {}) },
     select: { teamId: true },
   });
 }

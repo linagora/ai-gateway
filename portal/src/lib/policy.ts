@@ -109,6 +109,19 @@ function check(id: PolicyCheckId, offending: string[]): PolicyCheck {
 
 export type RequestStatus = "SOUMISE" | "A_COMPLETER" | "APPROUVEE" | "REFUSEE" | "ANNULEE" | "CLE_EMISE" | "EXPIREE" | "REVOQUEE" | "DECLAREE" | "RENOUVELEE";
 
+/**
+ * Statuts d'une demande pas encore décidée, ni approuvée ni refusée : soumise, ou renvoyée à son demandeur pour
+ * complément. Seule définition de ces statuts : les demandes « en cours » en partent (sortie et suppression d'une équipe,
+ * demande en double, renouvellement qui suspend la demande de résiliation à l'échéance), et le demandeur peut annuler
+ * une telle demande.
+ */
+export const STATUTS_PAS_ENCORE_DECIDES = ["SOUMISE", "A_COMPLETER"] as const satisfies readonly RequestStatus[];
+
+/** La demande n'est-elle pas encore décidée ? */
+export function pasEncoreDecidee(status: RequestStatus): boolean {
+  return (STATUTS_PAS_ENCORE_DECIDES as readonly RequestStatus[]).includes(status);
+}
+
 /** Règle 5 : seules ces transitions sont autorisées ; les autres statuts sont finaux. */
 const ALLOWED_TRANSITIONS: Partial<Record<RequestStatus, readonly RequestStatus[]>> = {
   SOUMISE: ["APPROUVEE", "REFUSEE", "A_COMPLETER", "ANNULEE"],

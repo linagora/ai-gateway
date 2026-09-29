@@ -7,9 +7,10 @@ import type { LiteLLMClient, LiteLLMTeam, LiteLLMUser } from "@/lib/litellm/clie
 import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
 import { managerEmails, requireAutorite, requireGestion } from "./autorite";
+import { DEMANDES_EN_COURS } from "./demandes-en-cours";
 import { revokeMemberKeys } from "./keys";
 import { type NotificationDeps, notifyManagerDesignated, notifyMemberAdded, notifyMemberRemoved, notifyTeamChange } from "./notifications";
-import { cancelMemberRequests, DEMANDES_EN_COURS } from "./requests";
+import { cancelMemberRequests } from "./requests";
 import { requestTerminationsOnExit, type SubscriptionToReattach, subscriptionsToReattach } from "./resiliations";
 
 /** Dépendances du service des équipes (F-53) : LiteLLM, source de vérité des équipes, et la base du portail. */

@@ -10,11 +10,12 @@ import { type Page, tranche } from "@/lib/pagination";
 import { recordAudit } from "./audit";
 import { dansEquipes, duTitulaire, type FiltreGestion, managerEmails, requireGestion } from "./autorite";
 import { JOUR, pickupDeadline, readPickupDays } from "./delais";
+import { DEMANDE_SUR_ABONNEMENT_EN_COURS } from "./demandes-en-cours";
 import { markExpired } from "./echeances";
 import { type NotificationDeps, notifyNewRequest } from "./notifications";
 import { type CatalogOffer, libelleOffre, vueCatalogue } from "./offers";
 import { enregistrerPrelevements, jourUtc } from "./prelevements";
-import { DEMANDE_SUR_ABONNEMENT_EN_COURS, exigerEngagement, type LienAbonnement, lienAbonnement, renewalInputSchema, renouvelableLe } from "./renouvellements";
+import { exigerEngagement, type LienAbonnement, lienAbonnement, renewalInputSchema, renouvelableLe } from "./renouvellements";
 import { transitionRequest } from "./requests";
 import { enregistrerResiliation } from "./resiliations";
 

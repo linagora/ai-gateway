@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { canAccessRequest, type CatalogModel, checkKeyRequest, checkTransition, isAdmin, type KeyRequestDraft, modelAcceptsLevel, type TeamForPolicy } from "./policy";
+import { canAccessRequest, type CatalogModel, checkKeyRequest, checkTransition, isAdmin, type KeyRequestDraft, modelAcceptsLevel, pasEncoreDecidee, type RequestStatus, STATUTS_PAS_ENCORE_DECIDES, type TeamForPolicy } from "./policy";
 
 describe("canAccessRequest", () => {
   const demande = { requesterUid: "mmaudet" };
@@ -40,6 +40,29 @@ describe("checkTransition", () => {
 
   test("un refus motivé est accepté", () => {
     expect(checkTransition("SOUMISE", "REFUSEE", { comment: "Projet sans budget validé" })).toEqual({ ok: true });
+  });
+});
+
+describe("pasEncoreDecidee", () => {
+  test("seule une demande soumise ou à compléter n'est pas encore décidée", () => {
+    // Tous les statuts, sans exception : un statut ajouté doit être classé ici (ticket #94).
+    const attendu: Record<RequestStatus, boolean> = {
+      SOUMISE: true,
+      A_COMPLETER: true,
+      APPROUVEE: false,
+      REFUSEE: false,
+      ANNULEE: false,
+      CLE_EMISE: false,
+      EXPIREE: false,
+      REVOQUEE: false,
+      DECLAREE: false,
+      RENOUVELEE: false,
+    };
+    for (const [statut, pasDecidee] of Object.entries(attendu)) expect(pasEncoreDecidee(statut as RequestStatus), statut).toBe(pasDecidee);
+  });
+
+  test("son demandeur peut toujours annuler une demande pas encore décidée", () => {
+    for (const statut of STATUTS_PAS_ENCORE_DECIDES) expect(checkTransition(statut, "ANNULEE"), statut).toEqual({ ok: true });
   });
 });
 

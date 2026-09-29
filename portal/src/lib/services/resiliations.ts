@@ -7,6 +7,7 @@ import type { LiteLLMClient } from "@/lib/litellm/client";
 import { recordAudit } from "./audit";
 import { managerEmails, requireAutorite } from "./autorite";
 import { JOUR, pickupDeadline, readPickupDays, SYSTEME } from "./delais";
+import { PAS_ENCORE_DECIDEES } from "./demandes-en-cours";
 import {
   type NotificationDeps,
   notifyTeamChange,
@@ -180,7 +181,7 @@ export async function requestTerminationsAtExpiry(deps: TerminationDeps, mainten
   const echus = await deps.db.subscription.findMany({ where: { status: "ACTIF", expiresAt: { lte: maintenant } }, include: { offer: true } });
   if (echus.length === 0) return 0;
   const renouvellements = await deps.db.accessRequest.findMany({
-    where: { renewsSubscriptionId: { in: echus.map((a) => a.id) }, status: { in: ["SOUMISE", "A_COMPLETER"] } },
+    where: { renewsSubscriptionId: { in: echus.map((a) => a.id) }, ...PAS_ENCORE_DECIDEES },
     select: { renewsSubscriptionId: true },
   });
   const enAttente = new Set(renouvellements.map((r) => r.renewsSubscriptionId));

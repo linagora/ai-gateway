@@ -9,6 +9,7 @@ import type { LiteLLMClient } from "@/lib/litellm/client";
 import { recordAudit } from "./audit";
 import { managerEmails } from "./autorite";
 import { calendarDaysUntil, horizonDeRappel, JOUR, RAPPELS_EXPIRATION, rappelsDus } from "./delais";
+import { DEMANDE_SUR_ABONNEMENT_EN_COURS } from "./demandes-en-cours";
 import { type NotificationDeps, notifyNewRequest, notifySubscriptionExpiryReminder } from "./notifications";
 import { type CatalogOffer, libelleOffre, vueCatalogue } from "./offers";
 import { SANS_DEMANDE_DE_RESILIATION } from "./resiliations";
@@ -51,9 +52,6 @@ export function exigerEngagement(commitment: boolean): void {
     throw new PortalError("engagement_requis", "Engagez-vous à ne pas soumettre de données d'un niveau supérieur au niveau maximal de l'offre.");
   }
 }
-
-/** Demande portant sur un abonnement (renouvellement ou changement d'offre) encore en cours : ni décidée, ni déclarée. */
-export const DEMANDE_SUR_ABONNEMENT_EN_COURS = { status: { in: ["SOUMISE" as const, "A_COMPLETER" as const, "APPROUVEE" as const] } };
 
 /** Le renouvellement est-il possible à cette date : à partir d'un mois avant l'échéance ? */
 export const renouvelableLe = (abonnement: Pick<Subscription, "expiresAt">, maintenant: Date) =>
