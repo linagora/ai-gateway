@@ -400,7 +400,7 @@ export async function requestCompletion(deps: AdminDeps, actor: SessionUser, id:
     data: { decidedBy: actor.uid, decidedAt: new Date(), decisionComment: comment.trim() || null },
   });
   await recordAudit(deps.db, { actorUid: actor.uid, action: "COMPLETION_REQUESTED", targetId: request.id, details: { commentaire: comment.trim() || null } });
-  await notifyCompletionRequested(deps, request, comment.trim() || null);
+  await notifyCompletionRequested(deps, request, comment.trim() || null, actor.isAdmin ? "admin" : "responsable");
   await annoncerDecision(deps, actor, request, "complement");
 }
 

@@ -1036,8 +1036,8 @@
     },
     "complementDemande": {
       "sujet": "Your request needs more information",
-      "corps": "{type, select, CLE {An administrator asks for more information about your API key request for the {equipe} team.} ABONNEMENT {An administrator asks for more information about your subscription request for the {equipe} team.} other {An administrator asks for more information about your request to join the {equipe} team.}}",
-      "commentaire": "Administrator's comment: {commentaire}",
+      "corps": "{par, select, responsable {A manager of the team} other {An administrator}} asks for more information about your {type, select, CLE {API key request for the {equipe} team} ABONNEMENT {subscription request for the {equipe} team} other {request to join the {equipe} team}}.",
+      "commentaire": "{par, select, responsable {Manager's comment} other {Administrator's comment}}: {commentaire}",
       "suite": "Complete it in “My requests”."
     },
     "adhesionAcceptee": {
