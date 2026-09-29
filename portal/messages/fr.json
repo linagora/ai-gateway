@@ -102,6 +102,7 @@
   "avis": {
     "succes": {
       "demandeEnvoyee": "Demande envoyée aux administrateurs.",
+      "demandeAbonnementEnvoyee": "Demande envoyée.",
       "demandeResoumise": "Demande complétée et resoumise.",
       "adhesionEnvoyee": "Demande d'accès envoyée.",
       "demandeAnnulee": "Demande annulée.",
@@ -539,6 +540,10 @@
     },
     "file": {
       "titre": "Demandes en attente de validation",
+      "aApprouver": "À approuver",
+      "aTraiter": "À traiter",
+      "attenteAccordResponsable": "En attente de l'accord d'un responsable",
+      "attenteApprobationAdmin": "En attente de l'approbation d'un administrateur",
       "colonnes": {
         "soumise": "Soumise le",
         "demandeur": "Demandeur",
@@ -1196,7 +1201,9 @@
   },
   "validation": {
     "valideePar": "Votre demande sera validée par : {valideurs}.",
-    "valideeParAdmins": "Votre demande sera validée par les administrateurs."
+    "valideeParAdmins": "Votre demande sera validée par les administrateurs.",
+    "accordPuisApprobation": "Votre demande recevra d'abord l'accord de : {responsables}, puis l'approbation d'un administrateur.",
+    "approbationParAdmins": "Votre demande sera approuvée par un administrateur."
   },
   "demandeAbonnement": {
     "titre": "Demander un abonnement",

@@ -14,6 +14,7 @@ import {
   donnerAccord,
   echapper,
   examinerDemande,
+  ligneDeLaFile,
   faireSortir,
   masquerOffre,
   nouvelleEquipe,
@@ -174,12 +175,12 @@ test("un membre demande une offre pour son équipe ; le responsable donne son ac
   await expect(pageMembre.getByRole("heading", { level: 1 })).toHaveText("Demander un abonnement");
   await expect(pageMembre.getByRole("region", { name: new RegExp(`Offre demandée.*${echapper(nomOffre)}`) })).toContainText(/23,00\s€ TTC par mois/);
   await pageMembre.getByLabel("Équipe").selectOption({ label: equipe });
-  await expect(pageMembre.getByText(`Votre demande sera validée par : ${responsable.uid}.`)).toBeVisible();
+  await expect(pageMembre.getByText(`Votre demande recevra d'abord l'accord de : ${responsable.uid}, puis l'approbation d'un administrateur.`)).toBeVisible();
   await pageMembre.getByLabel("Motif").fill("Rédaction assistée des comptes rendus");
   await pageMembre.getByLabel("Durée souhaitée").selectOption({ label: "6 mois" });
   await pageMembre.getByLabel(/Je m'engage à ne confier à cet abonnement/).check();
   await pageMembre.getByRole("button", { name: "Envoyer la demande" }).click();
-  await expect(pageMembre.getByRole("status")).toHaveText("Demande envoyée aux administrateurs.");
+  await expect(pageMembre.getByRole("status")).toHaveText("Demande envoyée.");
   await expect(pageMembre.getByRole("row", { name: new RegExp(`Abonnement.*${echapper(equipe)}.*OpenAI · ${echapper(nomOffre)}.*Soumise`) })).toBeVisible();
 
   // Le responsable l'examine : il ne l'approuve pas, il donne son accord, avec un commentaire pour les admins.
@@ -419,7 +420,7 @@ test("dès un mois avant l'échéance, le titulaire demande le renouvellement ; 
   await pageMembre.getByLabel("Durée souhaitée").selectOption({ label: "6 mois" });
   await pageMembre.getByLabel(/Je m'engage à ne confier à cet abonnement/).check();
   await pageMembre.getByRole("button", { name: "Demander le renouvellement" }).click();
-  await expect(pageMembre.getByRole("status")).toHaveText("Demande envoyée aux administrateurs.");
+  await expect(pageMembre.getByRole("status")).toHaveText("Demande envoyée.");
   await pageMembre.goto("/abonnements");
   await expect(abonnement.getByRole("link", { name: "Renouvellement demandé" })).toBeVisible();
 
@@ -464,7 +465,7 @@ test("le titulaire change d'offre ; après l'accord du responsable et l'approbat
   await pageMembre.getByLabel("Motif").fill("Besoin de plus de capacité");
   await pageMembre.getByLabel(/Je m'engage à ne confier à cet abonnement/).check();
   await pageMembre.getByRole("button", { name: "Demander le changement d'offre" }).click();
-  await expect(pageMembre.getByRole("status")).toHaveText("Demande envoyée aux administrateurs.");
+  await expect(pageMembre.getByRole("status")).toHaveText("Demande envoyée.");
 
   // Le responsable y donne son accord, puis un admin l'approuve ; le courriel annonce le remplacement.
   await examinerDemande(pageResponsable, membre);
@@ -483,4 +484,90 @@ test("le titulaire change d'offre ; après l'accord du responsable et l'approbat
 
   await nettoyer(situation);
   await masquerOffre(admin, "Anthropic", superieure);
+});
+
+test("une demande d'abonnement attend l'accord de la responsable : à traiter chez elle, à part chez l'admin ; après l'accord, à approuver chez l'admin et en lecture seule chez elle (ticket #96)", async ({ browser }) => {
+  const responsable = personne("attente-responsable");
+  const membre = personne("attente-membre");
+  const pageResponsable = await (await connecter(browser, responsable)).newPage();
+  const pageMembre = await (await connecter(browser, membre)).newPage();
+  const admin = await (await connecter(browser, ADMIN)).newPage();
+  const offre = `Offre attente ${suffixe}`;
+  await creerOffre(admin, { fournisseur: "Anthropic", nom: offre, prix: "108", niveau: "N1 Public", reglesFr: "Désactivez l'entraînement sur vos données." });
+  const equipe = `Équipe attente ${suffixe}`;
+  await nouvelleEquipe(admin, equipe);
+  await designer(admin, responsable.uid);
+  await ajouterMembre(admin, membre.uid);
+  const pageEquipe = admin.url();
+  await demanderOffre(pageMembre, offre, equipe);
+
+  // La demande part à la seule responsable ; elle l'attend, et sa pastille la compte ; chez l'admin, elle est à part.
+  const sujet = `[AI GATEWAY] Nouvelle demande d'abonnement de ${membre.name} / New subscription request from ${membre.name}`;
+  await expect.poll(async () => (await courriels(membre.uid)).find((c) => c.subject === sujet)?.to, { timeout: 15_000 }).toEqual([responsable.email]);
+  await pageResponsable.goto("/");
+  await pageResponsable.getByRole("link", { name: "Gestion (1 demande à valider)" }).click();
+  await expect(ligneDeLaFile(pageResponsable, "À traiter", membre)).toBeVisible();
+  await admin.goto("/gestion/demandes");
+  await expect(ligneDeLaFile(admin, "En attente de l'accord d'un responsable", membre)).toBeVisible();
+  await expect(ligneDeLaFile(admin, "À approuver", membre)).toHaveCount(0);
+
+  // Après l'accord, elle attend l'admin ; la responsable la suit en lecture seule.
+  await examinerDemande(pageResponsable, membre);
+  await donnerAccord(pageResponsable);
+  await expect(ligneDeLaFile(pageResponsable, "À traiter", membre)).toHaveCount(0);
+  await ligneDeLaFile(pageResponsable, "En attente de l'approbation d'un administrateur", membre).getByRole("link", { name: "Voir" }).click();
+  await expect(pageResponsable.getByText("Un responsable de l'équipe a donné son accord : la demande attend l'approbation d'un administrateur.")).toBeVisible();
+  await expect(pageResponsable.getByRole("main").getByRole("button")).toHaveCount(0);
+  await admin.reload();
+  await expect(ligneDeLaFile(admin, "À approuver", membre)).toBeVisible();
+  await approuverDemande(admin, membre);
+
+  await viderEtSupprimer(admin, pageEquipe, [membre.uid, responsable.uid]);
+  await masquerOffre(admin, "Anthropic", offre);
+});
+
+test("sans autre responsable que son demandeur, une demande d'abonnement va directement aux admins ; un second responsable désigné, elle attend son accord (ticket #96)", async ({ browser }) => {
+  const membre = personne("directe-membre");
+  const second = personne("directe-second");
+  const pageMembre = await (await connecter(browser, membre)).newPage();
+  const pageSecond = await (await connecter(browser, second)).newPage();
+  const admin = await (await connecter(browser, ADMIN)).newPage();
+  const offre = `Offre directe ${suffixe}`;
+  await creerOffre(admin, { fournisseur: "Anthropic", nom: offre, prix: "108", niveau: "N1 Public", reglesFr: "Désactivez l'entraînement sur vos données." });
+  const equipe = `Équipe directe ${suffixe}`;
+  await nouvelleEquipe(admin, equipe);
+  await ajouterMembre(admin, membre.uid);
+  await ajouterMembre(admin, second.uid);
+  const pageEquipe = admin.url();
+
+  // Équipe sans responsable : le formulaire l'annonce, la demande part aux admins et les attend.
+  await pageMembre.goto("/catalogue/abonnements");
+  await choisirOffre(pageMembre.getByRole("region", { name: "Anthropic" }), offre);
+  await pageMembre.getByRole("region", { name: "Anthropic" }).getByRole("button", { name: "Demander cet abonnement" }).click();
+  await pageMembre.getByLabel("Équipe").selectOption({ label: equipe });
+  await expect(pageMembre.getByText("Votre demande sera approuvée par un administrateur.")).toBeVisible();
+  await demanderOffre(pageMembre, offre, equipe);
+  const sujet = `[AI GATEWAY] Nouvelle demande d'abonnement de ${membre.name} / New subscription request from ${membre.name}`;
+  await expect.poll(async () => (await courriels(membre.uid)).find((c) => c.subject === sujet)?.to, { timeout: 15_000 }).toEqual(["admins-e2e@example.org"]);
+  await admin.goto("/gestion/demandes");
+  await expect(ligneDeLaFile(admin, "À approuver", membre)).toBeVisible();
+
+  // Désigné seul responsable, le demandeur ne décide pas de sa propre demande : elle attend toujours les admins.
+  await admin.goto(pageEquipe);
+  await designer(admin, membre.uid);
+  await pageMembre.goto("/gestion/demandes");
+  await expect(ligneDeLaFile(pageMembre, "À traiter", membre)).toHaveCount(0);
+  await admin.goto("/gestion/demandes");
+  await expect(ligneDeLaFile(admin, "À approuver", membre)).toBeVisible();
+
+  // Un second responsable : la demande attend désormais son accord, sans rien reprendre.
+  await admin.goto(pageEquipe);
+  await designer(admin, second.uid);
+  await pageSecond.goto("/gestion/demandes");
+  await expect(ligneDeLaFile(pageSecond, "À traiter", membre)).toBeVisible();
+  await admin.goto("/gestion/demandes");
+  await expect(ligneDeLaFile(admin, "En attente de l'accord d'un responsable", membre)).toBeVisible();
+
+  await viderEtSupprimer(admin, pageEquipe, [membre.uid, second.uid]);
+  await masquerOffre(admin, "Anthropic", offre);
 });

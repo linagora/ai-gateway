@@ -82,7 +82,10 @@ async function verifierDemandeSurAbonnement(deps: RenewalDeps, user: SessionUser
   }
 }
 
-/** Crée la demande d'abonnement (renouvellement ou changement d'offre) et l'annonce aux responsables de l'équipe et aux admins. */
+/**
+ * Crée la demande d'abonnement (renouvellement ou changement d'offre) et l'annonce aux responsables de l'équipe, ou aux
+ * admins s'il n'y en a pas (spécification #93).
+ */
 async function deposerDemandeSurAbonnement(
   deps: RenewalDeps,
   user: SessionUser,

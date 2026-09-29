@@ -55,7 +55,10 @@ export async function aAutorite(db: Db, actor: SessionUser, teamId: string): Pro
   return equipes === null || equipes.includes(teamId);
 }
 
-/** Adresses des responsables d'une équipe, hors ceux exclus (auteur d'un changement, demandeur) : destinataires en plus des admins. */
+/**
+ * Adresses des responsables d'une équipe, hors ceux exclus (auteur d'un changement, demandeur) : destinataires avec les
+ * admins, ou à leur place pour une nouvelle demande d'abonnement (spécification #93).
+ */
 export async function managerEmails(db: Db, teamId: string, exclus: string[]): Promise<string[]> {
   const rows = await db.teamManager.findMany({ where: { teamId, uid: { notIn: exclus } }, orderBy: { uid: "asc" } });
   return rows.map((m) => m.email).filter(Boolean);

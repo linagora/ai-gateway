@@ -2,20 +2,20 @@
 
 import { type ReactNode, useState } from "react";
 
-/** Équipe proposée dans un formulaire de demande, avec la phrase qui dit qui validera la demande. */
+/** Équipe proposée dans un formulaire de demande, avec la phrase qui dit qui traitera la demande. */
 export interface EquipeProposee {
   teamId: string;
   teamAlias: string;
-  valideurs: string;
+  quiTraitera: string;
 }
 
 /**
- * Choix de l'équipe d'une demande (F-22) ; en dessous, qui la validera : les responsables de l'équipe choisie, sinon
+ * Choix de l'équipe d'une demande (F-22) ; en dessous, qui la traitera : les responsables de l'équipe choisie, sinon
  * les administrateurs. Le libellé du champ est fourni par la page, dans la langue du salarié.
  */
 export function ChoixEquipe({ equipes, valeurInitiale, children }: { equipes: EquipeProposee[]; valeurInitiale?: string; children: ReactNode }) {
   const [choisie, setChoisie] = useState(valeurInitiale ?? equipes[0]?.teamId ?? "");
-  const valideurs = equipes.find((e) => e.teamId === choisie)?.valideurs;
+  const quiTraitera = equipes.find((e) => e.teamId === choisie)?.quiTraitera;
   return (
     <>
       <label>
@@ -28,9 +28,9 @@ export function ChoixEquipe({ equipes, valeurInitiale, children }: { equipes: Eq
           ))}
         </select>
       </label>
-      {valideurs && (
+      {quiTraitera && (
         <p className="text-sm text-neutral-600" aria-live="polite">
-          {valideurs}
+          {quiTraitera}
         </p>
       )}
     </>

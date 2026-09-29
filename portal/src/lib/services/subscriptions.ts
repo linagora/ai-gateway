@@ -42,7 +42,10 @@ export const subscriptionRequestInputSchema = z.object({
 
 export type SubscriptionRequestInput = z.infer<typeof subscriptionRequestInputSchema>;
 
-/** Enregistre une demande d'abonnement au statut SOUMISE, l'inscrit au journal et l'annonce aux responsables et aux admins. */
+/**
+ * Enregistre une demande d'abonnement au statut SOUMISE, l'inscrit au journal et l'annonce aux responsables de l'équipe,
+ * ou aux admins s'il n'y en a pas (spécification #93).
+ */
 export async function createSubscriptionRequest(deps: SubscriptionDeps, user: SessionUser, input: SubscriptionRequestInput): Promise<{ id: string }> {
   const { champs, offre } = await validateSubscriptionRequest(deps, user, input);
   const created = await deps.db.accessRequest.create({

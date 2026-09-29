@@ -51,7 +51,7 @@ describe("file de validation (F-30)", () => {
   test("les demandes soumises sont présentées de la plus ancienne à la plus récente", async () => {
     const premiere = await createKeyRequest(deps, demandeur, demande);
     const seconde = await createKeyRequest(deps, collegue, { ...demande, project: "veille" });
-    expect((await listPendingRequests(deps, admin)).map((r) => r.id)).toEqual([premiere.id, seconde.id]);
+    expect((await listPendingRequests(deps, admin)).aTraiter.map((r) => r.id)).toEqual([premiere.id, seconde.id]);
   });
 
   test("un salarié n'accède pas à la file de validation", async () => {

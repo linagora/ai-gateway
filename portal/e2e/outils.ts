@@ -243,8 +243,16 @@ export async function demanderOffre(pageMembre: Page, offre: string, equipe: str
   await pageMembre.getByLabel("Durée souhaitée").selectOption({ label: duree });
   await pageMembre.getByLabel(/Je m'engage à ne confier à cet abonnement/).check();
   await pageMembre.getByRole("button", { name: "Envoyer la demande" }).click();
-  await expect(pageMembre.getByRole("status")).toHaveText("Demande envoyée aux administrateurs.");
+  await expect(pageMembre.getByRole("status")).toHaveText("Demande envoyée.");
 }
+
+/**
+ * Ligne de la demande d'un collaborateur dans une partie de la file de validation (spécification #93) : « À approuver »
+ * ou « En attente de l'accord d'un responsable » pour un admin, « À traiter » ou « En attente de l'approbation d'un
+ * administrateur » pour un responsable.
+ */
+export const ligneDeLaFile = (page: Page, partie: string, demandeur: Personne) =>
+  page.getByRole("region", { name: partie }).getByRole("row", { name: new RegExp(demandeur.uid) });
 
 /** Depuis la file de validation, un responsable ou un admin (page ouverte) ouvre la fiche de la demande d'abonnement du membre. */
 export async function examinerDemande(page: Page, membre: Personne): Promise<void> {

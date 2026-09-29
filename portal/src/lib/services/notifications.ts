@@ -168,7 +168,8 @@ const avecRecap = (introduction: string, recap: string[]) => [introduction, ...r
 
 /**
  * F-30 : chaque nouvelle demande est notifiée aux admins et aux responsables de l'équipe désignés par le service (hors
- * le demandeur) : qui la dépose, ce qu'elle demande, et le lien vers sa fiche.
+ * le demandeur) : qui la dépose, ce qu'elle demande, et le lien vers sa fiche. Une demande d'abonnement attend d'abord
+ * l'accord de ces responsables : elle ne part qu'à eux, et aux admins seulement s'il n'y en a pas (spécification #93).
  */
 export async function notifyNewRequest(deps: NotificationDeps, demande: DemandeAvecOffre, responsables: string[] = []): Promise<void> {
   const qui = { nom: nom(demande), email: demande.requesterEmail };
@@ -194,7 +195,7 @@ export async function notifyNewRequest(deps: NotificationDeps, demande: DemandeA
           },
     lienVers(deps, `/gestion/demandes/${demande.id}`),
   );
-  await envoyer(deps, adminsEtResponsables(deps, responsables), message);
+  await envoyer(deps, demande.kind === "ABONNEMENT" && responsables.length > 0 ? responsables : adminsEtResponsables(deps, responsables), message);
 }
 
 /**

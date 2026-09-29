@@ -1,5 +1,21 @@
 import { expect, type Page, test } from "@playwright/test";
-import { ADMIN, ajouterAEquipe, ajouterMembre, appel, connecter, courriels, demanderEtApprouver, designer, echapper, enrichirModele, faireSortir, nouvelleEquipe, retirerCle, supprimerEquipe } from "./outils";
+import {
+  ADMIN,
+  ajouterAEquipe,
+  ajouterMembre,
+  appel,
+  connecter,
+  courriels,
+  demanderEtApprouver,
+  designer,
+  echapper,
+  enrichirModele,
+  faireSortir,
+  ligneDeLaFile,
+  nouvelleEquipe,
+  retirerCle,
+  supprimerEquipe,
+} from "./outils";
 
 /* Gestion des équipes par les admins et responsables d'équipe (spécification #35). Admins à notifier : admins-e2e@example.org (.env). */
 const suffixe = Date.now().toString(36);
@@ -297,15 +313,18 @@ test("un responsable approuve la demande d'un membre de son équipe, qui retire 
     `[AI GATEWAY] Demande traitée dans l'équipe ${nom} : ${membre.uid} / Request processed in the team ${nom}: ${membre.uid}`,
   );
 
-  // Sa propre demande : aucune décision possible ; elle ira aux administrateurs.
+  // Sa propre demande ne l'attend pas : absente de sa file, elle va aux administrateurs ; sa fiche ne lui propose
+  // aucune décision.
   await deposerDemande(pageResponsable, nom, "Demande du responsable");
   await pageResponsable.goto("/gestion/demandes");
-  await pageResponsable.getByRole("row", { name: new RegExp(`${responsable.uid}.*Clé d'API`) }).getByRole("link", { name: "Examiner" }).click();
+  await expect(ligneDeLaFile(pageResponsable, "À traiter", responsable)).toHaveCount(0);
+  await admin.goto("/gestion/demandes");
+  await ligneDeLaFile(admin, "À approuver", responsable).getByRole("link", { name: "Examiner" }).click();
+  await expect(admin.getByRole("heading", { level: 1 })).toHaveText(`Clé d'API pour ${responsable.uid}`);
+  await pageResponsable.goto(admin.url());
   await expect(pageResponsable.getByText("Vous ne pouvez pas décider de votre propre demande : un autre responsable de l'équipe ou un administrateur s'en chargera.")).toBeVisible();
   await expect(pageResponsable.getByRole("button", { name: "Approuver", exact: true })).toHaveCount(0);
-  const fiche = pageResponsable.url();
   // L'admin, lui, la refuse.
-  await admin.goto(fiche);
   await admin.getByLabel("Motif du refus").fill("Essai terminé");
   await admin.getByRole("button", { name: "Refuser" }).click();
   await expect(admin.getByRole("status")).toHaveText("Demande refusée.");

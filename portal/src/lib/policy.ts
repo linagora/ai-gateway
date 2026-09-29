@@ -135,6 +135,35 @@ export function enAttenteDeValidation(status: RequestStatus): boolean {
   return (STATUTS_EN_ATTENTE_DE_VALIDATION as readonly RequestStatus[]).includes(status);
 }
 
+export type RequestKind = "CLE" | "ADHESION_EQUIPE" | "ABONNEMENT";
+
+/** Demande de la file de validation, telle que la politique la voit. */
+export interface DemandeDeLaFile {
+  kind: RequestKind;
+  status: RequestStatus;
+  requesterUid: string;
+}
+
+/**
+ * Spécification #93 : une demande d'abonnement soumise attend l'accord d'un responsable si son équipe en a un autre que
+ * son demandeur ; sinon, elle attend directement l'approbation d'un admin. L'étape se déduit des responsables de
+ * l'équipe, sans être stockée : désigner ou retirer un responsable la change.
+ */
+export function attendUnResponsable(demande: DemandeDeLaFile, responsables: readonly string[]): boolean {
+  return demande.kind === "ABONNEMENT" && demande.status === "SOUMISE" && responsables.some((uid) => uid !== demande.requesterUid);
+}
+
+/**
+ * La demande de la file, dont l'équipe a ces responsables, attend-elle cet acteur (spécification #93) ? Un responsable
+ * traite les demandes soumises de ses équipes, hors les siennes ; une demande qui a reçu l'accord attend un admin. Un
+ * admin traite toute la file, sauf une demande d'abonnement qui attend l'accord d'un responsable qu'il n'est pas
+ * lui-même : responsable de l'équipe, il en reçoit les demandes et les approuve en un seul temps.
+ */
+export function attendLActeur(acteur: PortalUser, demande: DemandeDeLaFile, responsables: readonly string[]): boolean {
+  if (!acteur.isAdmin) return demande.status === "SOUMISE" && demande.requesterUid !== acteur.uid;
+  return !attendUnResponsable(demande, responsables) || (acteur.uid !== demande.requesterUid && responsables.includes(acteur.uid));
+}
+
 /** Règle 5 : seules ces transitions sont autorisées ; les autres statuts sont finaux. */
 const ALLOWED_TRANSITIONS: Partial<Record<RequestStatus, readonly RequestStatus[]>> = {
   SOUMISE: ["APPROUVEE", "REFUSEE", "A_COMPLETER", "ANNULEE", "ACCORD_RESPONSABLE"],

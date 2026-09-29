@@ -6,7 +6,7 @@ import { estDureeAbonnement, PERIODE_BUDGET } from "@/lib/durees";
 import { PolicyViolationError, PortalError } from "@/lib/errors";
 import type { LiteLLMClient } from "@/lib/litellm/client";
 import { type Page, tranche } from "@/lib/pagination";
-import { type DataLevel, enAttenteDeValidation, type PolicyCheck, type RequestStatus, STATUTS_EN_ATTENTE_DE_VALIDATION } from "@/lib/policy";
+import { attendLActeur, type DataLevel, type DemandeDeLaFile, enAttenteDeValidation, type PolicyCheck, type RequestStatus, STATUTS_EN_ATTENTE_DE_VALIDATION } from "@/lib/policy";
 import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
 import { dansEquipes, managerEmails, requireAutorite, requireGestion } from "./autorite";
@@ -28,6 +28,7 @@ import { reporterEcheance } from "./renouvellements";
 import { evaluateKeyRequest, transitionRequest } from "./requests";
 import { requestTerminationAfterRefusedRenewal } from "./resiliations";
 import { readSettings, type SettingValues } from "./settings";
+import { approversByTeam } from "./teams";
 
 interface AdminDeps extends NotificationDeps {
   db: Db;
@@ -51,15 +52,43 @@ export interface PendingRequest {
   createdAt: Date;
 }
 
-/** F-30 : demandes en attente, de la plus ancienne à la plus récente ; pour un responsable, celles de ses équipes. */
-export async function listPendingRequests(deps: AdminDeps, actor: SessionUser): Promise<PendingRequest[]> {
+/** File de validation (F-30), en deux parties, chacune de la plus ancienne demande à la plus récente. */
+export interface FileDeValidation {
+  /** Demandes qui attendent l'acteur : à approuver pour un admin, à traiter pour un responsable. */
+  aTraiter: PendingRequest[];
+  /**
+   * Demandes qui attendent quelqu'un d'autre (spécification #93) : pour un admin, les demandes d'abonnement qui
+   * attendent l'accord d'un responsable, qu'il peut approuver sans attendre ; pour un responsable, celles de ses équipes
+   * qui l'ont reçu et attendent l'approbation d'un admin, en lecture seule.
+   */
+  aSuivre: PendingRequest[];
+}
+
+/** F-30 : la file de validation de l'acteur ; pour un responsable, les demandes de ses équipes, hors les siennes. */
+export async function listPendingRequests(deps: AdminDeps, actor: SessionUser): Promise<FileDeValidation> {
   const equipes = await requireGestion(deps.db, actor);
-  const rows = await deps.db.accessRequest.findMany({
-    where: { status: { in: [...STATUTS_EN_ATTENTE_DE_VALIDATION] }, ...dansEquipes(equipes) },
-    orderBy: { createdAt: "asc" },
-    include: { offer: true },
-  });
-  return rows.map((r) => ({
+  const rows = await deps.db.accessRequest.findMany({ where: demandesDeLaFile(actor, equipes), orderBy: { createdAt: "asc" }, include: { offer: true } });
+  const { aTraiter, aSuivre } = await partager(deps, actor, rows);
+  return { aTraiter: aTraiter.map(ligneDeLaFile), aSuivre: aSuivre.map(ligneDeLaFile) };
+}
+
+/** Demandes de la file de l'acteur ; un responsable n'y voit ni les autres équipes, ni ses propres demandes. */
+function demandesDeLaFile(actor: SessionUser, equipes: string[] | null): Prisma.AccessRequestWhereInput {
+  return { status: { in: [...STATUTS_EN_ATTENTE_DE_VALIDATION] }, ...dansEquipes(equipes), ...(equipes === null ? {} : { requesterUid: { not: actor.uid } }) };
+}
+
+/**
+ * Partage de la file entre ce qui attend l'acteur et ce qui attend quelqu'un d'autre ; pour un admin, l'étape d'une
+ * demande d'abonnement se déduit des responsables de son équipe.
+ */
+async function partager<D extends DemandeDeLaFile & { teamId: string }>(deps: AdminDeps, actor: SessionUser, demandes: D[]) {
+  const responsables = actor.isAdmin ? await approversByTeam(deps.db, [...new Set(demandes.map((d) => d.teamId))]) : new Map<string, string[]>();
+  const attend = (d: D) => attendLActeur(actor, d, responsables.get(d.teamId) ?? []);
+  return { aTraiter: demandes.filter(attend), aSuivre: demandes.filter((d) => !attend(d)) };
+}
+
+function ligneDeLaFile(r: Prisma.AccessRequestGetPayload<{ include: { offer: true } }>): PendingRequest {
+  return {
     id: r.id,
     kind: r.kind,
     offer: r.offer && libelleOffre(r.offer),
@@ -70,20 +99,23 @@ export async function listPendingRequests(deps: AdminDeps, actor: SessionUser): 
     project: r.project,
     status: r.status,
     createdAt: r.createdAt,
-  }));
+  };
 }
 
 /**
  * Pastille de la gestion : le nombre de demandes à valider, seule action qui attend l'admin ou le responsable (retours
  * de l'utilisateur du 2026-09-26). Une clé approuvée à retirer ou un abonnement approuvé à déclarer attend son
- * titulaire : les onglets le montrent, sans pastille. Pour un responsable, les demandes soumises de ses équipes, hors
- * les siennes, qu'il ne valide pas ; une demande à laquelle un responsable a donné son accord n'attend plus qu'un admin.
+ * titulaire : les onglets le montrent, sans pastille. Elle compte ce qui attend l'acteur dans la file de validation, et
+ * non ce qui attend encore quelqu'un d'autre (spécification #93).
  */
 export async function countAdminPending(deps: AdminDeps, actor: SessionUser): Promise<number> {
   const equipes = await requireGestion(deps.db, actor);
   await markExpired(deps.db, deps.now?.() ?? new Date());
-  const aValider = equipes === null ? { status: { in: [...STATUTS_EN_ATTENTE_DE_VALIDATION] } } : { status: "SOUMISE" as const, requesterUid: { not: actor.uid } };
-  return deps.db.accessRequest.count({ where: { ...aValider, ...dansEquipes(equipes) } });
+  const demandes = await deps.db.accessRequest.findMany({
+    where: demandesDeLaFile(actor, equipes),
+    select: { kind: true, status: true, requesterUid: true, teamId: true },
+  });
+  return (await partager(deps, actor, demandes)).aTraiter.length;
 }
 
 /** Demande traitée, telle que l'archive la présente : avec la décision et son auteur. */

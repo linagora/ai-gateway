@@ -97,7 +97,7 @@ export async function demanderAbonnementAction(formData: FormData): Promise<void
       if (completing) await completeSubscriptionRequest(getDeps(), user, completing, input);
       else await createSubscriptionRequest(getDeps(), user, input);
     },
-    { path: "/demandes", message: completing ? "demandeResoumise" : "demandeEnvoyee" },
+    { path: "/demandes", message: completing ? "demandeResoumise" : "demandeAbonnementEnvoyee" },
   );
 }
 
@@ -117,7 +117,7 @@ export async function demanderRenouvellementAction(formData: FormData): Promise<
   const abonnement = text(formData, "subscriptionId");
   await run(`/demandes/abonnement?renouveler=${encodeURIComponent(abonnement)}`, () => requestRenewal(getDeps(), user, abonnement, demandeSurAbonnementDuFormulaire(formData)), {
     path: "/demandes",
-    message: "demandeEnvoyee",
+    message: "demandeAbonnementEnvoyee",
   });
 }
 
@@ -128,7 +128,7 @@ export async function demanderChangementOffreAction(formData: FormData): Promise
   await run(
     `/demandes/abonnement?changer=${encodeURIComponent(abonnement)}`,
     () => requestOfferChange(getDeps(), user, abonnement, { ...demandeSurAbonnementDuFormulaire(formData), offerId: text(formData, "offerId") }),
-    { path: "/demandes", message: "demandeEnvoyee" },
+    { path: "/demandes", message: "demandeAbonnementEnvoyee" },
   );
 }
 
@@ -516,6 +516,7 @@ async function afficherUneFois(requestId: unknown, generer: (id: string) => Prom
 /** Clés des messages de succès, traduites par l'avis (dictionnaires, espace « avis.succes »). */
 type CleSucces =
   | "demandeEnvoyee"
+  | "demandeAbonnementEnvoyee"
   | "demandeResoumise"
   | "adhesionEnvoyee"
   | "demandeAnnulee"

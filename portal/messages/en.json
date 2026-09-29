@@ -102,6 +102,7 @@
   "avis": {
     "succes": {
       "demandeEnvoyee": "Request sent to the administrators.",
+      "demandeAbonnementEnvoyee": "Request sent.",
       "demandeResoumise": "Request completed and resubmitted.",
       "adhesionEnvoyee": "Access request sent.",
       "demandeAnnulee": "Request cancelled.",
@@ -539,6 +540,10 @@
     },
     "file": {
       "titre": "Requests awaiting validation",
+      "aApprouver": "To approve",
+      "aTraiter": "To handle",
+      "attenteAccordResponsable": "Awaiting a manager's agreement",
+      "attenteApprobationAdmin": "Awaiting an administrator's approval",
       "colonnes": {
         "soumise": "Submitted on",
         "demandeur": "Requester",
@@ -1196,7 +1201,9 @@
   },
   "validation": {
     "valideePar": "Your request will be approved by: {valideurs}.",
-    "valideeParAdmins": "Your request will be approved by the administrators."
+    "valideeParAdmins": "Your request will be approved by the administrators.",
+    "accordPuisApprobation": "Your request will first need the agreement of: {responsables}, then an administrator's approval.",
+    "approbationParAdmins": "Your request will be approved by an administrator."
   },
   "demandeAbonnement": {
     "titre": "Request a subscription",

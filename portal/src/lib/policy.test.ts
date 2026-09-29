@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
+  attendLActeur,
+  attendUnResponsable,
   canAccessRequest,
   type CatalogModel,
   checkKeyRequest,
@@ -114,6 +116,44 @@ describe("enAttenteDeValidation", () => {
       expect(pasEncoreDecidee(statut), statut).toBe(true);
       expect(checkTransition(statut, "APPROUVEE"), statut).toEqual({ ok: true });
     }
+  });
+});
+
+describe("où attend une demande de la file (spécification #93, ticket #96)", () => {
+  const abonnement = { kind: "ABONNEMENT" as const, status: "SOUMISE" as const, requesterUid: "pmartin" };
+
+  test("une demande d'abonnement soumise attend l'accord d'un responsable si son équipe en a un autre que son demandeur", () => {
+    expect(attendUnResponsable(abonnement, ["lbernard"])).toBe(true);
+    expect(attendUnResponsable(abonnement, [])).toBe(false);
+    // La demande d'un responsable seul dans son équipe ; puis celle d'un responsable qui a un collègue.
+    expect(attendUnResponsable({ ...abonnement, requesterUid: "lbernard" }, ["lbernard"])).toBe(false);
+    expect(attendUnResponsable({ ...abonnement, requesterUid: "lbernard" }, ["lbernard", "pmartin"])).toBe(true);
+  });
+
+  test("une demande qui a reçu l'accord, une demande de clé ou d'accès à une équipe n'attend pas de responsable", () => {
+    expect(attendUnResponsable({ ...abonnement, status: "ACCORD_RESPONSABLE" }, ["lbernard"])).toBe(false);
+    expect(attendUnResponsable({ ...abonnement, kind: "CLE" }, ["lbernard"])).toBe(false);
+    expect(attendUnResponsable({ ...abonnement, kind: "ADHESION_EQUIPE" }, ["lbernard"])).toBe(false);
+  });
+
+  test("toute la file attend un admin, sauf une demande d'abonnement qui attend l'accord d'un responsable qu'il n'est pas lui-même", () => {
+    const admin = { uid: "jdupont", isAdmin: true };
+    expect(attendLActeur(admin, abonnement, [])).toBe(true);
+    expect(attendLActeur(admin, { ...abonnement, status: "ACCORD_RESPONSABLE" }, ["lbernard"])).toBe(true);
+    expect(attendLActeur(admin, { ...abonnement, kind: "CLE" }, ["lbernard"])).toBe(true);
+    expect(attendLActeur(admin, abonnement, ["lbernard"])).toBe(false);
+    // Responsable de l'équipe, l'admin en reçoit les demandes et les approuve en un seul temps ; sa propre demande
+    // attend l'accord de l'autre responsable.
+    expect(attendLActeur(admin, abonnement, ["jdupont", "lbernard"])).toBe(true);
+    expect(attendLActeur(admin, { ...abonnement, requesterUid: "jdupont" }, ["jdupont", "lbernard"])).toBe(false);
+  });
+
+  test("un responsable traite les demandes soumises de ses équipes, hors les siennes ; celles qui ont reçu l'accord attendent un admin", () => {
+    const responsable = { uid: "lbernard", isAdmin: false };
+    expect(attendLActeur(responsable, abonnement, ["lbernard"])).toBe(true);
+    expect(attendLActeur(responsable, { ...abonnement, kind: "CLE" }, ["lbernard"])).toBe(true);
+    expect(attendLActeur(responsable, { ...abonnement, status: "ACCORD_RESPONSABLE" }, ["lbernard"])).toBe(false);
+    expect(attendLActeur(responsable, { ...abonnement, requesterUid: "lbernard" }, ["lbernard", "pmartin"])).toBe(false);
   });
 });
 
