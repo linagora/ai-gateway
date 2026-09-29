@@ -50,6 +50,15 @@ async function decrire(admin: Page, modele: (typeof MODELES)[number]): Promise<v
   await expect(admin.getByRole("status")).toHaveText("Catalogue mis à jour.");
 }
 
+/** L'admin retire les textes anglais d'un modèle de démonstration, que les parcours de bout en bout supposent absents. */
+async function oublierAnglais(admin: Page, modele: (typeof MODELES)[number]): Promise<void> {
+  await admin.goto("/gestion/catalogue");
+  const fiche = admin.locator("section").filter({ has: admin.locator("code", { hasText: new RegExp(`^${modele.nom}$`) }) });
+  for (const champ of ["Nom affiché (anglais)", "Description courte (anglais)", "Description longue (anglais)"]) await fiche.getByLabel(champ).fill("");
+  await fiche.getByRole("button", { name: "Enregistrer" }).click();
+  await expect(admin.getByRole("status")).toHaveText("Catalogue mis à jour.");
+}
+
 /** Le collaborateur remplit une demande de clé (interface française, contenu anglais) ; `envoyer` la dépose. */
 async function remplirDemande(page: Page, demande: { niveau: RegExp; modele: RegExp; motif: string; projet: string }, envoyer = true): Promise<void> {
   await page.goto("/demandes/nouvelle");
@@ -150,4 +159,12 @@ test("captures d'écran du README", async ({ browser }) => {
   await capturer(adminEn, "integrations");
 
   await basculerOutil(admin, "Désactiver");
+});
+
+// Les modèles de démonstration perdent leurs textes anglais, même si les captures ont échoué : les parcours de bout en
+// bout, qui partagent le catalogue de dev, les supposent non traduits.
+test.afterAll(async ({ browser }) => {
+  const admin = await (await connecter(browser, ALEX)).newPage();
+  for (const modele of MODELES) await oublierAnglais(admin, modele);
+  await admin.context().close();
 });
