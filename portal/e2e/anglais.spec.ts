@@ -24,9 +24,12 @@ const AUTORISES = [
   /(?<!\p{L})[a-z0-9]+(?:-[a-z0-9]+)+(?!\p{L})/gu,
 ];
 
-/** Lettres et mots propres au français. */
+/**
+ * Lettres et mots propres au français. Un mot collé à un chiffre n'en est pas un : les identifiants de test, tirés de
+ * l'horodatage (« Employee mumzn9le »), en contiennent au hasard.
+ */
 const FRANCAIS =
-  /[éèêëàâùûçôîïœ]|(?<!\p{L})(le|la|les|des|du|une|pour|avec|sans|votre|vous|est|sont|aucune?|niveaux?|modèles?|demandes?|équipes?|clés?|données|et|ou|par|dans|aux?|cette?|qui|que|pas|ne|leur)(?!\p{L})/iu;
+  /[éèêëàâùûçôîïœ]|(?<![\p{L}\p{N}])(le|la|les|des|du|une|pour|avec|sans|votre|vous|est|sont|aucune?|niveaux?|modèles?|demandes?|équipes?|clés?|données|et|ou|par|dans|aux?|cette?|qui|que|pas|ne|leur)(?![\p{L}\p{N}])/iu;
 
 /**
  * Le texte visible de la page et ses textes d'accessibilité ne contiennent aucun français. Avec `lignesDe`, seules les

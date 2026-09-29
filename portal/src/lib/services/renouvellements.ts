@@ -9,6 +9,7 @@ import type { LiteLLMClient } from "@/lib/litellm/client";
 import { recordAudit } from "./audit";
 import { managerEmails } from "./autorite";
 import { calendarDaysUntil, horizonDeRappel, JOUR, RAPPELS_EXPIRATION, rappelsDus } from "./delais";
+import { DEMANDE_SUR_ABONNEMENT_EN_COURS } from "./demandes-en-cours";
 import { type NotificationDeps, notifyNewRequest, notifySubscriptionExpiryReminder } from "./notifications";
 import { type CatalogOffer, libelleOffre, vueCatalogue } from "./offers";
 import { SANS_DEMANDE_DE_RESILIATION } from "./resiliations";
@@ -52,9 +53,6 @@ export function exigerEngagement(commitment: boolean): void {
   }
 }
 
-/** Demande portant sur un abonnement (renouvellement ou changement d'offre) encore en cours : ni décidée, ni déclarée. */
-export const DEMANDE_SUR_ABONNEMENT_EN_COURS = { status: { in: ["SOUMISE" as const, "A_COMPLETER" as const, "APPROUVEE" as const] } };
-
 /** Le renouvellement est-il possible à cette date : à partir d'un mois avant l'échéance ? */
 export const renouvelableLe = (abonnement: Pick<Subscription, "expiresAt">, maintenant: Date) =>
   maintenant.getTime() >= abonnement.expiresAt.getTime() - RENOUVELLEMENT_POSSIBLE_AVANT * JOUR;
@@ -84,7 +82,10 @@ async function verifierDemandeSurAbonnement(deps: RenewalDeps, user: SessionUser
   }
 }
 
-/** Crée la demande d'abonnement (renouvellement ou changement d'offre) et l'annonce aux responsables de l'équipe et aux admins. */
+/**
+ * Crée la demande d'abonnement (renouvellement ou changement d'offre) et l'annonce aux responsables de l'équipe, ou aux
+ * admins s'il n'y en a pas (spécification #93).
+ */
 async function deposerDemandeSurAbonnement(
   deps: RenewalDeps,
   user: SessionUser,

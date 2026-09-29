@@ -10,6 +10,7 @@ import { COOKIE_LANGUE, LANGUES, type Langue } from "@/lib/langue";
 import type { DataLevel } from "@/lib/policy";
 import type { UseCase } from "@/lib/use-cases";
 import {
+  agreeSubscriptionRequest,
   approveKeyRequest,
   approveSubscriptionRequest,
   approveTeamJoinRequest,
@@ -96,7 +97,7 @@ export async function demanderAbonnementAction(formData: FormData): Promise<void
       if (completing) await completeSubscriptionRequest(getDeps(), user, completing, input);
       else await createSubscriptionRequest(getDeps(), user, input);
     },
-    { path: "/demandes", message: completing ? "demandeResoumise" : "demandeEnvoyee" },
+    { path: "/demandes", message: completing ? "demandeResoumise" : "demandeAbonnementEnvoyee" },
   );
 }
 
@@ -116,7 +117,7 @@ export async function demanderRenouvellementAction(formData: FormData): Promise<
   const abonnement = text(formData, "subscriptionId");
   await run(`/demandes/abonnement?renouveler=${encodeURIComponent(abonnement)}`, () => requestRenewal(getDeps(), user, abonnement, demandeSurAbonnementDuFormulaire(formData)), {
     path: "/demandes",
-    message: "demandeEnvoyee",
+    message: "demandeAbonnementEnvoyee",
   });
 }
 
@@ -127,7 +128,7 @@ export async function demanderChangementOffreAction(formData: FormData): Promise
   await run(
     `/demandes/abonnement?changer=${encodeURIComponent(abonnement)}`,
     () => requestOfferChange(getDeps(), user, abonnement, { ...demandeSurAbonnementDuFormulaire(formData), offerId: text(formData, "offerId") }),
-    { path: "/demandes", message: "demandeEnvoyee" },
+    { path: "/demandes", message: "demandeAbonnementEnvoyee" },
   );
 }
 
@@ -283,6 +284,16 @@ export async function approuverAbonnementAction(formData: FormData): Promise<voi
   await run(`/gestion/demandes/${id}`, () => approveSubscriptionRequest(getDeps(), user, id, { days: optionalNumber(formData, "days") ?? Number.NaN }), {
     path: "/gestion/demandes",
     message: "demandeApprouvee",
+  });
+}
+
+/** Spécification #93 : accord du responsable sur une demande d'abonnement, avec un commentaire facultatif pour les admins. */
+export async function accorderAbonnementAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const id = text(formData, "id");
+  await run(`/gestion/demandes/${id}`, () => agreeSubscriptionRequest(getDeps(), user, id, optionalText(formData, "comment")), {
+    path: "/gestion/demandes",
+    message: "accordDonne",
   });
 }
 
@@ -505,6 +516,7 @@ async function afficherUneFois(requestId: unknown, generer: (id: string) => Prom
 /** Clés des messages de succès, traduites par l'avis (dictionnaires, espace « avis.succes »). */
 type CleSucces =
   | "demandeEnvoyee"
+  | "demandeAbonnementEnvoyee"
   | "demandeResoumise"
   | "adhesionEnvoyee"
   | "demandeAnnulee"
@@ -516,6 +528,7 @@ type CleSucces =
   | "resiliationDemandee"
   | "abonnementRattache"
   | "demandeApprouvee"
+  | "accordDonne"
   | "adhesionApprouvee"
   | "demandeRefusee"
   | "complementDemande"

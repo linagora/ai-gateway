@@ -168,7 +168,8 @@ const avecRecap = (introduction: string, recap: string[]) => [introduction, ...r
 
 /**
  * F-30 : chaque nouvelle demande est notifiée aux admins et aux responsables de l'équipe désignés par le service (hors
- * le demandeur) : qui la dépose, ce qu'elle demande, et le lien vers sa fiche.
+ * le demandeur) : qui la dépose, ce qu'elle demande, et le lien vers sa fiche. Une demande d'abonnement attend d'abord
+ * l'accord de ces responsables : elle ne part qu'à eux, et aux admins seulement s'il n'y en a pas (spécification #93).
  */
 export async function notifyNewRequest(deps: NotificationDeps, demande: DemandeAvecOffre, responsables: string[] = []): Promise<void> {
   const qui = { nom: nom(demande), email: demande.requesterEmail };
@@ -194,7 +195,32 @@ export async function notifyNewRequest(deps: NotificationDeps, demande: DemandeA
           },
     lienVers(deps, `/gestion/demandes/${demande.id}`),
   );
-  await envoyer(deps, adminsEtResponsables(deps, responsables), message);
+  await envoyer(deps, demande.kind === "ABONNEMENT" && responsables.length > 0 ? responsables : adminsEtResponsables(deps, responsables), message);
+}
+
+/**
+ * Spécification #93 : un responsable de l'équipe a donné son accord à une demande d'abonnement. Les admins, seuls à
+ * pouvoir l'approuver, reçoivent la demande, l'auteur de l'accord et son commentaire ; le demandeur n'est pas prévenu.
+ */
+export async function notifySubscriptionAgreed(
+  deps: NotificationDeps,
+  demande: DemandeAvecOffre,
+  accord: { auteur: { uid: string; name: string }; commentaire: string | null },
+): Promise<void> {
+  const valeurs = { auteur: auteur(accord.auteur), nom: nom(demande), email: demande.requesterEmail };
+  const message = bilingue(
+    (t) => ({
+      sujet: t("courriels.abonnementAApprouver.sujet", valeurs),
+      paragraphes: [
+        t("courriels.bonjourAdmins"),
+        avecRecap(t("courriels.abonnementAApprouver.corps", valeurs), recapDemande(t, demande)),
+        ...(accord.commentaire ? [t("courriels.abonnementAApprouver.commentaire", { commentaire: accord.commentaire })] : []),
+        t("courriels.examiner"),
+      ],
+    }),
+    lienVers(deps, `/gestion/demandes/${demande.id}`),
+  );
+  await envoyer(deps, deps.adminEmails ?? [], message);
 }
 
 /** F-40 : demande de clé approuvée, avec les paramètres de la clé et l'échéance de retrait ; jamais de clé. */
@@ -520,7 +546,7 @@ export type TeamChange =
   | { type: "responsableDesigne"; responsable: string }
   | { type: "responsableRetire"; responsable: string }
   | { type: "budget"; plafond: { montant: number; periode: string } | null }
-  | { type: "decision"; decision: "approuvee" | "refusee" | "complement" | "adhesion" | "abonnement"; demandeur: string; demandeId: string }
+  | { type: "decision"; decision: "approuvee" | "refusee" | "complement" | "adhesion" | "abonnement"; sansAccord: boolean; demandeur: string; demandeId: string }
   | { type: "cle"; action: "revocation" | "blocage" | "deblocage"; alias: string; titulaire: string }
   | { type: "resiliationDemandee"; titulaire: string; offre: string };
 
@@ -541,7 +567,7 @@ export async function notifyTeamChange(
     ...("ancienNom" in changement ? { ancienNom: changement.ancienNom } : {}),
     ...("membre" in changement ? { membre: changement.membre } : {}),
     ...("responsable" in changement ? { responsable: changement.responsable } : {}),
-    ...(changement.type === "decision" ? { decision: changement.decision, demandeur: changement.demandeur } : {}),
+    ...(changement.type === "decision" ? { decision: changement.decision, demandeur: changement.demandeur, sansAccord: changement.sansAccord ? "oui" : "non" } : {}),
     ...(changement.type === "cle" ? { action: changement.action, alias: changement.alias, titulaire: changement.titulaire } : {}),
     ...(changement.type === "resiliationDemandee" ? { titulaire: changement.titulaire, offre: changement.offre } : {}),
     ...(changement.type === "budget" ? { plafond: changement.plafond ? "oui" : "non", budget: budgetEquipe(t, changement.plafond) } : {}),

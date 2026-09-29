@@ -53,11 +53,11 @@ describe("gestion limitée du responsable d'équipe (ticket #40)", () => {
     await demande("pmartin", "equipe-rd", "R&D", "APPROUVEE");
     await demande("jdupont", "equipe-data", "Data", "APPROUVEE");
     const equipes = <T extends { teamAlias: string }>(lignes: T[]) => [...new Set(lignes.map((l) => l.teamAlias))];
-    expect(equipes(await listPendingRequests(deps, responsable))).toEqual(["R&D"]);
+    expect(equipes((await listPendingRequests(deps, responsable)).aTraiter)).toEqual(["R&D"]);
     expect(equipes((await listProcessedRequests(deps, responsable)).elements)).toEqual(["R&D"]);
     expect(equipes(await listKeysToPickUp(deps, responsable))).toEqual(["R&D"]);
     expect((await listTeamOverviews(deps, responsable)).map((t) => t.teamAlias)).toEqual(["R&D"]);
-    expect(equipes(await listPendingRequests(deps, admin)).sort()).toEqual(["Data", "R&D"]);
+    expect(equipes((await listPendingRequests(deps, admin)).aTraiter).sort()).toEqual(["Data", "R&D"]);
     expect((await listTeamOverviews(deps, admin)).map((t) => t.teamAlias)).toEqual(["Data", "R&D"]);
   });
 

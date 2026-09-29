@@ -4,13 +4,14 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { PortalError } from "@/lib/errors";
 import type { Langue } from "@/lib/langue";
 import { DUREE_ABONNEMENT_PAR_DEFAUT, DUREES_ABONNEMENT } from "@/lib/durees";
-import { modelAcceptsLevel } from "@/lib/policy";
+import { decisionProposee, empechementDeDecider, enAttenteDeValidation, modelAcceptsLevel } from "@/lib/policy";
 import { getRequestReview } from "@/lib/services/admin-requests";
 import { equipesGerees } from "@/lib/services/autorite";
 import { listCatalog } from "@/lib/services/catalog";
 import { readSettings } from "@/lib/services/settings";
 import { getDeps, requireGestionPage } from "@/lib/session";
 import {
+  accorderAbonnementAction,
   approuverAbonnementAction,
   approveKeyRequestAction,
   approveTeamJoinRequestAction,
@@ -60,10 +61,9 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
       </select>
     </label>
   );
-  const pending = review.status === "SOUMISE";
-  // Un responsable d'équipe décide des demandes de ses équipes, jamais de la sienne (F-54).
-  const sienne = !admin.isAdmin && review.requesterUid === admin.uid;
-  const peutDecider = pending && !sienne;
+  // Décision proposée, toujours accompagnée du refus et du complément ; sinon, ce qui empêche l'acteur de décider.
+  const decision = decisionProposee(admin, review);
+  const empechement = empechementDeDecider(admin, review);
 
   return (
     <>
@@ -144,6 +144,20 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
             <dd>{review.decisionComment}</dd>
           </>
         )}
+        {review.agreement && (
+          <>
+            <dt>{t("accordDuResponsable")}</dt>
+            <dd>
+              <LienCollaborateur uid={review.agreement.by} /> · {date(review.agreement.at)}
+            </dd>
+            {review.agreement.comment && (
+              <>
+                <dt>{t("commentaireDuResponsable")}</dt>
+                <dd>{review.agreement.comment}</dd>
+              </>
+            )}
+          </>
+        )}
       </dl>
 
       {review.kind === "ABONNEMENT" && (
@@ -185,11 +199,18 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
         </>
       )}
 
-      {pending && sienne && <p className="mt-6 rounded border border-neutral-300 bg-neutral-50 p-3">{t("propreDemande")}</p>}
+      {empechement === "quatre_yeux" && enAttenteDeValidation(review.status) && (
+        <p className="mt-6 rounded border border-neutral-300 bg-neutral-50 p-3">{t("propreDemande")}</p>
+      )}
+      {empechement === "interdit" && <p className="mt-6 rounded border border-neutral-300 bg-neutral-50 p-3">{t("attenteApprobation")}</p>}
+      {/* Ticket #97 : l'admin peut décider sans attendre l'accord d'un responsable, et il en est averti. */}
+      {review.sansAccord && (
+        <p className="mt-6 rounded border-l-4 border-amber-500 bg-amber-50 px-3 py-2">{t("sansAccord")}</p>
+      )}
 
-      {peutDecider && <ExplicationObligatoires />}
+      {decision !== null && <ExplicationObligatoires />}
 
-      {peutDecider && review.kind === "CLE" && (
+      {decision === "approuver" && review.kind === "CLE" && (
         <>
           <h2>{t("approuverCle")}</h2>
           <form action={approveKeyRequestAction}>
@@ -235,7 +256,7 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
         </>
       )}
 
-      {peutDecider && review.kind === "ABONNEMENT" && (
+      {decision === "approuver" && review.kind === "ABONNEMENT" && (
         <>
           <h2>{t("approuverAbonnement")}</h2>
           <form action={approuverAbonnementAction}>
@@ -255,7 +276,22 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
         </>
       )}
 
-      {peutDecider && review.kind === "ADHESION_EQUIPE" && (
+      {decision === "donnerAccord" && (
+        <>
+          <h2>{t("donnerAccord")}</h2>
+          <p>{t("aideAccord")}</p>
+          <form action={accorderAbonnementAction}>
+            <input type="hidden" name="id" value={review.id} />
+            <label>
+              {t("commentaireAccord")}
+              <textarea name="comment" rows={2} />
+            </label>
+            <button type="submit">{t("donnerAccord")}</button>
+          </form>
+        </>
+      )}
+
+      {decision === "approuver" && review.kind === "ADHESION_EQUIPE" && (
         <form action={approveTeamJoinRequestAction}>
           <input type="hidden" name="id" value={review.id} />
           {choixEquipe(t("equipeAffectation"))}
@@ -263,7 +299,7 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
         </form>
       )}
 
-      {peutDecider && (
+      {decision !== null && (
         <>
           <h2>{t("refuserOuCompleter")}</h2>
           <form action={refuseRequestAction}>

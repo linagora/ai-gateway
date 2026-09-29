@@ -6,7 +6,19 @@ import { estDureeAbonnement, PERIODE_BUDGET } from "@/lib/durees";
 import { PolicyViolationError, PortalError } from "@/lib/errors";
 import type { LiteLLMClient } from "@/lib/litellm/client";
 import { type Page, tranche } from "@/lib/pagination";
-import type { DataLevel, PolicyCheck, RequestStatus } from "@/lib/policy";
+import {
+  accordDonnePar,
+  attendLActeur,
+  type DataLevel,
+  decideraitSansAccord,
+  type DemandeDeLaFile,
+  empechementDeDecider,
+  enAttenteDeValidation,
+  type PolicyCheck,
+  type RequestStatus,
+  STATUTS_EN_ATTENTE_DE_VALIDATION,
+} from "@/lib/policy";
+import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
 import { dansEquipes, managerEmails, requireAutorite, requireGestion } from "./autorite";
 import { pickupDeadline, readPickupDays } from "./delais";
@@ -18,6 +30,7 @@ import {
   notifyMembershipApproved,
   notifyRefused,
   notifyRenewalApproved,
+  notifySubscriptionAgreed,
   notifySubscriptionApproved,
   notifyTeamChange,
 } from "./notifications";
@@ -26,6 +39,7 @@ import { reporterEcheance } from "./renouvellements";
 import { evaluateKeyRequest, transitionRequest } from "./requests";
 import { requestTerminationAfterRefusedRenewal } from "./resiliations";
 import { readSettings, type SettingValues } from "./settings";
+import { approversByTeam } from "./teams";
 
 interface AdminDeps extends NotificationDeps {
   db: Db;
@@ -49,11 +63,43 @@ export interface PendingRequest {
   createdAt: Date;
 }
 
-/** F-30 : demandes en attente, de la plus ancienne à la plus récente ; pour un responsable, celles de ses équipes. */
-export async function listPendingRequests(deps: AdminDeps, actor: SessionUser): Promise<PendingRequest[]> {
+/** File de validation (F-30), en deux parties, chacune de la plus ancienne demande à la plus récente. */
+export interface FileDeValidation {
+  /** Demandes qui attendent l'acteur : à approuver pour un admin, à traiter pour un responsable. */
+  aTraiter: PendingRequest[];
+  /**
+   * Demandes qui attendent quelqu'un d'autre (spécification #93) : pour un admin, les demandes d'abonnement qui
+   * attendent l'accord d'un responsable, qu'il peut approuver sans attendre ; pour un responsable, celles de ses équipes
+   * qui l'ont reçu et attendent l'approbation d'un admin, en lecture seule.
+   */
+  aSuivre: PendingRequest[];
+}
+
+/** F-30 : la file de validation de l'acteur ; pour un responsable, les demandes de ses équipes, hors les siennes. */
+export async function listPendingRequests(deps: AdminDeps, actor: SessionUser): Promise<FileDeValidation> {
   const equipes = await requireGestion(deps.db, actor);
-  const rows = await deps.db.accessRequest.findMany({ where: { status: "SOUMISE", ...dansEquipes(equipes) }, orderBy: { createdAt: "asc" }, include: { offer: true } });
-  return rows.map((r) => ({
+  const rows = await deps.db.accessRequest.findMany({ where: demandesDeLaFile(actor, equipes), orderBy: { createdAt: "asc" }, include: { offer: true } });
+  const { aTraiter, aSuivre } = await partager(deps, actor, rows);
+  return { aTraiter: aTraiter.map(ligneDeLaFile), aSuivre: aSuivre.map(ligneDeLaFile) };
+}
+
+/** Demandes de la file de l'acteur ; un responsable n'y voit ni les autres équipes, ni ses propres demandes. */
+function demandesDeLaFile(actor: SessionUser, equipes: string[] | null): Prisma.AccessRequestWhereInput {
+  return { status: { in: [...STATUTS_EN_ATTENTE_DE_VALIDATION] }, ...dansEquipes(equipes), ...(equipes === null ? {} : { requesterUid: { not: actor.uid } }) };
+}
+
+/**
+ * Partage de la file entre ce qui attend l'acteur et ce qui attend quelqu'un d'autre ; pour un admin, l'étape d'une
+ * demande d'abonnement se déduit des responsables de son équipe.
+ */
+async function partager<D extends DemandeDeLaFile & { teamId: string }>(deps: AdminDeps, actor: SessionUser, demandes: D[]) {
+  const responsables = actor.isAdmin ? await approversByTeam(deps.db, [...new Set(demandes.map((d) => d.teamId))]) : new Map<string, string[]>();
+  const attend = (d: D) => attendLActeur(actor, d, responsables.get(d.teamId) ?? []);
+  return { aTraiter: demandes.filter(attend), aSuivre: demandes.filter((d) => !attend(d)) };
+}
+
+function ligneDeLaFile(r: Prisma.AccessRequestGetPayload<{ include: { offer: true } }>): PendingRequest {
+  return {
     id: r.id,
     kind: r.kind,
     offer: r.offer && libelleOffre(r.offer),
@@ -64,20 +110,23 @@ export async function listPendingRequests(deps: AdminDeps, actor: SessionUser): 
     project: r.project,
     status: r.status,
     createdAt: r.createdAt,
-  }));
+  };
 }
 
 /**
  * Pastille de la gestion : le nombre de demandes à valider, seule action qui attend l'admin ou le responsable (retours
  * de l'utilisateur du 2026-09-26). Une clé approuvée à retirer ou un abonnement approuvé à déclarer attend son
- * titulaire : les onglets le montrent, sans pastille. Pour un responsable, les demandes de ses équipes, hors les
- * siennes, qu'il ne valide pas.
+ * titulaire : les onglets le montrent, sans pastille. Elle compte ce qui attend l'acteur dans la file de validation, et
+ * non ce qui attend encore quelqu'un d'autre (spécification #93).
  */
 export async function countAdminPending(deps: AdminDeps, actor: SessionUser): Promise<number> {
   const equipes = await requireGestion(deps.db, actor);
   await markExpired(deps.db, deps.now?.() ?? new Date());
-  const siennes = equipes === null ? {} : { requesterUid: { not: actor.uid } };
-  return deps.db.accessRequest.count({ where: { status: "SOUMISE", ...dansEquipes(equipes), ...siennes } });
+  const demandes = await deps.db.accessRequest.findMany({
+    where: demandesDeLaFile(actor, equipes),
+    select: { kind: true, status: true, requesterUid: true, teamId: true },
+  });
+  return (await partager(deps, actor, demandes)).aTraiter.length;
 }
 
 /** Demande traitée, telle que l'archive la présente : avec la décision et son auteur. */
@@ -95,7 +144,7 @@ export interface ProcessedRequest extends PendingRequest {
 export async function listProcessedRequests(deps: AdminDeps, actor: SessionUser, page = 1): Promise<Page<ProcessedRequest>> {
   const equipes = await requireGestion(deps.db, actor);
   await markExpired(deps.db, deps.now?.() ?? new Date());
-  const where: Prisma.AccessRequestWhereInput = { status: { not: "SOUMISE" }, ...dansEquipes(equipes) };
+  const where: Prisma.AccessRequestWhereInput = { status: { notIn: [...STATUTS_EN_ATTENTE_DE_VALIDATION] }, ...dansEquipes(equipes) };
   const total = await deps.db.accessRequest.count({ where });
   const { page: courante, pages, skip, take } = tranche(total, page);
   const rows = await deps.db.accessRequest.findMany({
@@ -144,6 +193,10 @@ export interface RequestReview extends PendingRequest {
   requestedDays: number | null;
   decidedBy: string | null;
   decisionComment: string | null;
+  /** Demande d'abonnement : l'accord du responsable (spécification #93), null tant qu'aucun n'a été donné. */
+  agreement: { by: string; at: Date; comment: string | null } | null;
+  /** Pour un admin, la demande attend encore l'accord d'un responsable : en décider, c'est décider sans lui (ticket #97). */
+  sansAccord: boolean;
   /** Paramètres figés à l'approbation (F-40), null tant que la demande n'est pas approuvée. */
   approved: ApprovalInput | null;
   checks: PolicyCheck[];
@@ -191,6 +244,8 @@ export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: 
     createdAt: r.createdAt,
     decidedBy: r.decidedBy,
     decisionComment: r.decisionComment,
+    agreement: r.agreedBy && r.agreedAt ? { by: r.agreedBy, at: r.agreedAt, comment: r.agreementComment } : null,
+    sansAccord: decideraitSansAccord(actor, r, await responsablesDe(deps, r.teamId)),
     approved: r.decidedAt && r.approvedModels.length
       ? {
           models: r.approvedModels,
@@ -295,15 +350,44 @@ export async function refuseRequest(deps: AdminDeps, actor: SessionUser, id: str
   const request = await deps.db.accessRequest.findUnique({ where: { id }, include: { offer: true } });
   if (!request) throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
   await requireDecision(deps, actor, request, "demande");
+  const sansAccord = decideraitSansAccord(actor, request, await responsablesDe(deps, request.teamId));
   await transitionRequest(deps.db, request, "REFUSEE", {
     comment,
     data: { decidedBy: actor.uid, decidedAt: new Date(), decisionComment: comment.trim() },
   });
-  await recordAudit(deps.db, { actorUid: actor.uid, action: "REQUEST_REFUSED", targetId: request.id, details: { motif: comment.trim() } });
+  await recordAudit(deps.db, { actorUid: actor.uid, action: "REQUEST_REFUSED", targetId: request.id, details: { motif: comment.trim(), ...(sansAccord ? { sansAccord } : {}) } });
   await notifyRefused(deps, request, comment.trim());
-  await annoncerDecision(deps, actor, request, "refusee");
+  await annoncerDecision(deps, actor, request, "refusee", sansAccord);
   // Ticket #59 : refusé, le renouvellement d'un abonnement en fait une demande de résiliation.
   if (request.renewsSubscriptionId) await requestTerminationAfterRefusedRenewal(deps, actor, request.renewsSubscriptionId, comment.trim());
+}
+
+/**
+ * Spécification #93 : accord du responsable, premier temps de la validation d'une demande d'abonnement. Un responsable
+ * de l'équipe y consent, jamais pour sa propre demande, avec un commentaire facultatif pour l'admin, qui l'approuve
+ * ensuite.
+ */
+export async function agreeSubscriptionRequest(deps: AdminDeps, actor: SessionUser, id: string, comment?: string | null): Promise<void> {
+  await requireGestion(deps.db, actor);
+  const request = await demandeDAbonnement(deps, id);
+  await requireAutorite(deps.db, actor, request.teamId, "demande_abonnement");
+  // Réservé aux responsables de l'équipe, admins compris quand ils le sont ; un autre admin approuve directement.
+  if (!(await deps.db.teamManager.findUnique({ where: { teamId_uid: { teamId: request.teamId, uid: actor.uid } } }))) {
+    throw new PortalError("accord_reserve", "Seul un responsable de l'équipe donne son accord à une demande d'abonnement.");
+  }
+  if (request.requesterUid === actor.uid) throw new PortalError("quatre_yeux", "Un responsable ne décide pas de sa propre demande.", { cas: "demande" });
+  if (request.status !== "SOUMISE") throw new PortalError("transition_interdite", "Cette demande a déjà été traitée.", { cas: "traitee" });
+  const commentaire = comment?.trim() || null;
+  await transitionRequest(deps.db, request, "ACCORD_RESPONSABLE", {
+    data: { agreedBy: actor.uid, agreedAt: deps.now?.() ?? new Date(), agreementComment: commentaire },
+  });
+  await recordAudit(deps.db, {
+    actorUid: actor.uid,
+    action: "REQUEST_AGREED",
+    targetId: request.id,
+    details: { kind: "ABONNEMENT", offre: libelleOffre(request.offer), ...(commentaire ? { commentaire } : {}) },
+  });
+  await notifySubscriptionAgreed(deps, request, { auteur: actor, commentaire });
 }
 
 /** F-31 : renvoie la demande au demandeur pour qu'il la complète (statut A_COMPLETER). */
@@ -345,15 +429,14 @@ export const subscriptionApprovalSchema = z.object({ days: z.number().refine(est
  * Spécification #51 : approuve une demande d'abonnement en fixant sa durée de validité. Le demandeur apprend comment
  * souscrire, puis déclarer l'abonnement dans le délai de retrait ; la décision est annoncée selon les règles des équipes.
  * Un renouvellement (ticket #59) s'applique aussitôt : l'échéance de l'abonnement est reportée de la durée approuvée,
- * sans nouvelle déclaration.
+ * sans nouvelle déclaration. Seul un admin approuve un abonnement, après l'accord du responsable ou sans lui
+ * (spécification #93).
  */
 export async function approveSubscriptionRequest(deps: AdminDeps, actor: SessionUser, id: string, input: { days: number }): Promise<void> {
-  await requireGestion(deps.db, actor);
+  requireAdmin(actor);
   const { days } = subscriptionApprovalSchema.parse(input);
-  const request = await deps.db.accessRequest.findUnique({ where: { id }, include: { offer: true } });
-  if (!request || request.kind !== "ABONNEMENT" || !request.offer) throw new PortalError("introuvable", "Demande d'abonnement introuvable.", { objet: "demande_abonnement" });
-  await requireDecision(deps, actor, request, "demande_abonnement");
-  if (request.status !== "SOUMISE") throw new PortalError("transition_interdite", "Cette demande a déjà été traitée.", { cas: "traitee" });
+  const request = await demandeDAbonnement(deps, id);
+  if (!enAttenteDeValidation(request.status)) throw new PortalError("transition_interdite", "Cette demande a déjà été traitée.", { cas: "traitee" });
   const [renouvele, remplace] = await Promise.all(
     [request.renewsSubscriptionId, request.replacesSubscriptionId].map((id) => (id ? deps.db.subscription.findUnique({ where: { id }, include: { offer: true } }) : null)),
   );
@@ -361,6 +444,11 @@ export async function approveSubscriptionRequest(deps: AdminDeps, actor: Session
     throw new PortalError("transition_interdite", "L'abonnement à renouveler est résilié.", { cas: "abonnement" });
   }
   const approuveeLe = deps.now?.() ?? new Date();
+  // Le journal dit qui a donné l'accord du responsable, ou que l'admin a décidé sans l'attendre (spécification #93).
+  const responsables = await responsablesDe(deps, request.teamId);
+  const accordDe = accordDonnePar(actor, request, responsables);
+  const sansAccord = decideraitSansAccord(actor, request, responsables);
+  const accord: Record<string, string | boolean> = { ...(accordDe ? { accordDe } : {}), ...(sansAccord ? { sansAccord } : {}) };
   await transitionRequest(deps.db, request, "APPROUVEE", { data: { approvedDays: days, decidedBy: actor.uid, decidedAt: approuveeLe } });
   if (renouvele) {
     const echeance = await reporterEcheance(deps.db, renouvele, days);
@@ -369,15 +457,27 @@ export async function approveSubscriptionRequest(deps: AdminDeps, actor: Session
       actorUid: actor.uid,
       action: "REQUEST_APPROVED",
       targetId: request.id,
-      details: { kind: "ABONNEMENT", offre: libelleOffre(request.offer), jours: days, echeance: echeance.toISOString().slice(0, 10) },
+      details: { kind: "ABONNEMENT", offre: libelleOffre(request.offer), jours: days, echeance: echeance.toISOString().slice(0, 10), ...accord },
     });
     await notifyRenewalApproved(deps, request, request.offer, echeance);
   } else {
-    await recordAudit(deps.db, { actorUid: actor.uid, action: "REQUEST_APPROVED", targetId: request.id, details: { kind: "ABONNEMENT", offre: libelleOffre(request.offer), jours: days } });
+    await recordAudit(deps.db, {
+      actorUid: actor.uid,
+      action: "REQUEST_APPROVED",
+      targetId: request.id,
+      details: { kind: "ABONNEMENT", offre: libelleOffre(request.offer), jours: days, ...accord },
+    });
     const delai = await readPickupDays(deps.db);
     await notifySubscriptionApproved(deps, { ...request, approvedDays: days }, request.offer, pickupDeadline(approuveeLe, delai), remplace && libelleOffre(remplace.offer));
   }
-  await annoncerDecision(deps, actor, request, "abonnement");
+  await annoncerDecision(deps, actor, request, "abonnement", sansAccord);
+}
+
+/** Demande d'abonnement, avec son offre ; une autre demande, ou une demande disparue, est « introuvable ». */
+async function demandeDAbonnement(deps: AdminDeps, id: string) {
+  const request = await deps.db.accessRequest.findUnique({ where: { id }, include: { offer: true } });
+  if (!request || request.kind !== "ABONNEMENT" || !request.offer) throw new PortalError("introuvable", "Demande d'abonnement introuvable.", { objet: "demande_abonnement" });
+  return { ...request, offer: request.offer };
 }
 
 /**
@@ -413,28 +513,35 @@ async function teamForApproval(
 
 /**
  * Droit de décider d'une demande (F-54) : autorité sur son équipe (admin, ou responsable de cette équipe) et, pour un
- * responsable, jamais sur sa propre demande : un autre responsable de l'équipe ou un admin en décide.
+ * responsable, jamais sur sa propre demande : un autre responsable de l'équipe ou un admin en décide. Après l'accord du
+ * responsable, seul un admin décide encore d'une demande d'abonnement (spécification #93).
  */
-async function requireDecision(deps: AdminDeps, actor: SessionUser, request: { teamId: string; requesterUid: string }, objet: string): Promise<void> {
+async function requireDecision(deps: AdminDeps, actor: SessionUser, request: DemandeDeLaFile & { teamId: string }, objet: string): Promise<void> {
   await requireAutorite(deps.db, actor, request.teamId, objet);
-  if (!actor.isAdmin && request.requesterUid === actor.uid) {
-    throw new PortalError("quatre_yeux", "Un responsable ne décide pas de sa propre demande.", { cas: "demande" });
-  }
+  const empechement = empechementDeDecider(actor, request);
+  if (empechement === "quatre_yeux") throw new PortalError("quatre_yeux", "Un responsable ne décide pas de sa propre demande.", { cas: "demande" });
+  if (empechement === "interdit") throw new PortalError("interdit", "Après l'accord du responsable, seul un admin décide de la demande.");
+}
+
+/** Responsables de l'équipe d'une demande, dont se déduisent son étape et une décision sans accord (spécification #93). */
+async function responsablesDe(deps: AdminDeps, teamId: string): Promise<string[]> {
+  return (await approversByTeam(deps.db, [teamId])).get(teamId) ?? [];
 }
 
 /**
  * Une décision est annoncée aux responsables de l'équipe, hors son auteur et le demandeur, et, celle d'un responsable,
- * aux admins (F-54).
+ * aux admins (F-54) ; l'annonce dit quand un admin a décidé sans l'accord d'un responsable (ticket #97).
  */
 async function annoncerDecision(
   deps: AdminDeps,
   actor: SessionUser,
   request: { id: string; teamId: string; teamAlias: string; requesterUid: string },
   decision: "approuvee" | "refusee" | "complement" | "adhesion" | "abonnement",
+  sansAccord = false,
 ): Promise<void> {
   await notifyTeamChange(
     deps,
-    { type: "decision", decision, demandeur: request.requesterUid, demandeId: request.id, teamId: request.teamId, equipe: request.teamAlias, auteur: actor },
+    { type: "decision", decision, sansAccord, demandeur: request.requesterUid, demandeId: request.id, teamId: request.teamId, equipe: request.teamAlias, auteur: actor },
     // Le demandeur, fût-il responsable, reçoit déjà la décision sur sa demande.
     await managerEmails(deps.db, request.teamId, [actor.uid, request.requesterUid]),
   );

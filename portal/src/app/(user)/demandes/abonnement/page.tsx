@@ -42,7 +42,7 @@ async function NouvelleDemande({ offreId, completing, searchParams }: { offreId:
   const brouillon = completing ? await subscriptionRequestDraft(deps, user, completing, langue) : null;
   const [teams, catalogue] = await Promise.all([listMyTeams(deps, user), listOffers(deps, langue)]);
   const offre = brouillon?.offer ?? catalogue.find((o) => o.id === offreId);
-  const equipes = await equipesProposees(user, teams);
+  const equipes = await equipesProposees(user, teams, { abonnement: true });
 
   return (
     <>

@@ -20,6 +20,9 @@ enum DataLevel {
 enum RequestStatus {
   SOUMISE
   A_COMPLETER
+  /// Demande d'abonnement dont un responsable de l'équipe a donné son accord : elle attend l'approbation d'un admin
+  /// (spécification #93).
+  ACCORD_RESPONSABLE
   APPROUVEE
   REFUSEE
   ANNULEE
@@ -105,6 +108,10 @@ model AccessRequest {
   decidedBy       String?
   decisionComment String?
   decidedAt       DateTime?
+  /// Accord du responsable (spécification #93) : son auteur, sa date et son commentaire facultatif pour l'admin.
+  agreedBy        String?
+  agreedAt        DateTime?
+  agreementComment String?
   /// renseigné à la génération
   keyAlias        String?
   /// empreinte (token_id) — JAMAIS la clé

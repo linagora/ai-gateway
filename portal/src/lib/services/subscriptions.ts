@@ -7,14 +7,16 @@ import { estDureeAbonnement } from "@/lib/durees";
 import { PortalError } from "@/lib/errors";
 import type { LiteLLMClient } from "@/lib/litellm/client";
 import { type Page, tranche } from "@/lib/pagination";
+import { statutApresComplement } from "@/lib/policy";
 import { recordAudit } from "./audit";
 import { dansEquipes, duTitulaire, type FiltreGestion, managerEmails, requireGestion } from "./autorite";
 import { JOUR, pickupDeadline, readPickupDays } from "./delais";
+import { DEMANDE_SUR_ABONNEMENT_EN_COURS } from "./demandes-en-cours";
 import { markExpired } from "./echeances";
 import { type NotificationDeps, notifyNewRequest } from "./notifications";
 import { type CatalogOffer, libelleOffre, vueCatalogue } from "./offers";
 import { enregistrerPrelevements, jourUtc } from "./prelevements";
-import { DEMANDE_SUR_ABONNEMENT_EN_COURS, exigerEngagement, type LienAbonnement, lienAbonnement, renewalInputSchema, renouvelableLe } from "./renouvellements";
+import { exigerEngagement, type LienAbonnement, lienAbonnement, renewalInputSchema, renouvelableLe } from "./renouvellements";
 import { transitionRequest } from "./requests";
 import { enregistrerResiliation } from "./resiliations";
 
@@ -41,7 +43,10 @@ export const subscriptionRequestInputSchema = z.object({
 
 export type SubscriptionRequestInput = z.infer<typeof subscriptionRequestInputSchema>;
 
-/** Enregistre une demande d'abonnement au statut SOUMISE, l'inscrit au journal et l'annonce aux responsables et aux admins. */
+/**
+ * Enregistre une demande d'abonnement au statut SOUMISE, l'inscrit au journal et l'annonce aux responsables de l'équipe,
+ * ou aux admins s'il n'y en a pas (spécification #93).
+ */
 export async function createSubscriptionRequest(deps: SubscriptionDeps, user: SessionUser, input: SubscriptionRequestInput): Promise<{ id: string }> {
   const { champs, offre } = await validateSubscriptionRequest(deps, user, input);
   const created = await deps.db.accessRequest.create({
@@ -84,9 +89,10 @@ export async function subscriptionRequestDraft(deps: { db: Db }, user: SessionUs
 }
 
 /**
- * Le demandeur complète sa demande d'abonnement renvoyée pour complément ; elle repasse en SOUMISE. Un renouvellement
- * ou un changement d'offre (ticket #59) garde l'offre et l'équipe de sa demande : seuls le motif, le projet et la durée
- * souhaitée changent.
+ * Le demandeur complète sa demande d'abonnement renvoyée pour complément ; elle revient à l'étape qu'elle avait quittée
+ * (ticket #98) : « Accord du responsable » si l'accord avait été donné, qu'on ne redemande pas, sinon SOUMISE ; une
+ * demande qui change d'équipe ou d'offre perd cet accord. Un renouvellement ou un changement d'offre (ticket #59) garde
+ * l'offre et l'équipe de sa demande : seuls le motif, le projet et la durée souhaitée changent.
  */
 export async function completeSubscriptionRequest(deps: SubscriptionDeps, user: SessionUser, id: string, input: SubscriptionRequestInput): Promise<void> {
   const request = await deps.db.accessRequest.findUnique({ where: { id } });
@@ -96,11 +102,13 @@ export async function completeSubscriptionRequest(deps: SubscriptionDeps, user: 
   if (lienAbonnement(request)) {
     const { justification, project, requestedDays, commitment } = renewalInputSchema.parse(input);
     exigerEngagement(commitment);
-    await transitionRequest(deps.db, request, "SOUMISE", { data: { justification, project, requestedDays } });
+    await transitionRequest(deps.db, request, statutApresComplement(request, request), { data: { justification, project, requestedDays } });
     return;
   }
   const { champs } = await validateSubscriptionRequest(deps, user, input);
-  await transitionRequest(deps.db, request, "SOUMISE", { data: champs });
+  const statut = statutApresComplement(request, champs);
+  const accordPerdu = request.agreedBy && statut === "SOUMISE" ? { agreedBy: null, agreedAt: null, agreementComment: null } : {};
+  await transitionRequest(deps.db, request, statut, { data: { ...champs, ...accordPerdu } });
 }
 
 /** Saisie validée, engagement pris, offre proposée au catalogue, équipe existante dont le demandeur est membre. */

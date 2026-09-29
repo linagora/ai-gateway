@@ -2,7 +2,8 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import { DUREES_VALIDITE, optionsDuree } from "@/lib/durees";
-import type { SessionUser } from "@/lib/auth-user";
+import { parseUidList, type SessionUser } from "@/lib/auth-user";
+import { isAdmin } from "@/lib/policy";
 import { countAdminPending } from "@/lib/services/admin-requests";
 import { equipesGerees } from "@/lib/services/autorite";
 import { approversByTeam } from "@/lib/services/teams";
@@ -164,14 +165,19 @@ export async function formats() {
 }
 
 /**
- * Équipes proposées dans un formulaire de demande, chacune avec qui validera la demande (F-22) : ses responsables, hors
- * le demandeur lui-même, sinon les administrateurs.
+ * Équipes proposées dans un formulaire de demande, chacune avec qui traitera la demande (F-22) : ses responsables, hors
+ * le demandeur lui-même, sinon les administrateurs. Une demande d'abonnement reçoit d'abord l'accord de ces
+ * responsables, puis l'approbation d'un administrateur ; un administrateur responsable de l'équipe l'approuve en un seul
+ * temps (spécification #93).
  */
-export async function equipesProposees(user: SessionUser, teams: { teamId: string; teamAlias: string }[]): Promise<EquipeProposee[]> {
+export async function equipesProposees(user: SessionUser, teams: { teamId: string; teamAlias: string }[], { abonnement = false } = {}): Promise<EquipeProposee[]> {
   const [t, valideurs] = await Promise.all([getTranslations("validation"), approversByTeam(getDeps().db, teams.map((team) => team.teamId))]);
+  const admins = parseUidList(process.env.PORTAL_ADMIN_UIDS);
   return teams.map(({ teamId, teamAlias }) => {
     const autres = (valideurs.get(teamId) ?? []).filter((uid) => uid !== user.uid);
-    return { teamId, teamAlias, valideurs: autres.length > 0 ? t("valideePar", { valideurs: autres.join(", ") }) : t("valideeParAdmins") };
+    if (!abonnement) return { teamId, teamAlias, quiTraitera: autres.length > 0 ? t("valideePar", { valideurs: autres.join(", ") }) : t("valideeParAdmins") };
+    const directement = autres.length === 0 || autres.some((uid) => isAdmin(uid, admins));
+    return { teamId, teamAlias, quiTraitera: directement ? t("approbationParAdmins") : t("accordPuisApprobation", { responsables: autres.join(", ") }) };
   });
 }
 

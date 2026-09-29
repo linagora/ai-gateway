@@ -66,6 +66,7 @@
     "statuts": {
       "SOUMISE": "Soumise",
       "A_COMPLETER": "À compléter",
+      "ACCORD_RESPONSABLE": "Accord du responsable",
       "APPROUVEE": "Approuvée",
       "REFUSEE": "Refusée",
       "ANNULEE": "Annulée",
@@ -101,11 +102,13 @@
   "avis": {
     "succes": {
       "demandeEnvoyee": "Demande envoyée aux administrateurs.",
+      "demandeAbonnementEnvoyee": "Demande envoyée.",
       "demandeResoumise": "Demande complétée et resoumise.",
       "adhesionEnvoyee": "Demande d'accès envoyée.",
       "demandeAnnulee": "Demande annulée.",
       "catalogueMisAJour": "Catalogue mis à jour.",
       "demandeApprouvee": "Demande approuvée.",
+      "accordDonne": "Accord donné : la demande attend l'approbation d'un administrateur.",
       "adhesionApprouvee": "Demande d'accès approuvée : le demandeur a été ajouté à l'équipe.",
       "demandeRefusee": "Demande refusée.",
       "complementDemande": "Demande renvoyée au demandeur pour complément.",
@@ -142,6 +145,7 @@
       "renouvellement_trop_tot": "Le renouvellement se demande au plus tôt un mois avant l'échéance de l'abonnement.",
       "engagement_requis": "Engagez-vous à ne pas soumettre de données d'un niveau supérieur à celui déclaré.",
       "interdit": "Action réservée aux administrateurs.",
+      "accord_reserve": "Seul un responsable de l'équipe donne son accord à une demande d'abonnement : un administrateur l'approuve directement.",
       "introuvable": "{objet, select, modele {Le modèle {modele} n'est pas déclaré dans la passerelle.} equipe {Équipe introuvable.} demande_adhesion {Demande d'accès introuvable.} demande_cle {Demande de clé introuvable.} membre {Membre introuvable dans cette équipe.} responsable {Responsable introuvable dans cette équipe.} offre {Offre d'abonnement introuvable.} demande_abonnement {Demande d'abonnement introuvable.} abonnement {Abonnement introuvable.} transmission {Transmission introuvable.} collaborateur {Collaborateur introuvable.} integration {Intégration introuvable.} cle_integration {Clé publique introuvable, ou déjà hors service.} route {Route inconnue de l'API.} other {Demande introuvable.}}",
       "motif_obligatoire": "Un motif est obligatoire.",
       "parametre_manquant": "Budget, période du budget et durée de validité sont obligatoires : saisissez-les ou configurez des valeurs par défaut.",
@@ -419,7 +423,8 @@
     "annuler": "Annuler",
     "aucune": "Aucune demande pour l'instant.",
     "retirer": "Retirer ma clé",
-    "declarer": "Déclarer"
+    "declarer": "Déclarer",
+    "attenteApprobation": "En attente de l'approbation d'un administrateur"
   },
   "nouvelleDemande": {
     "titre": "Demander une clé d'API",
@@ -535,6 +540,10 @@
     },
     "file": {
       "titre": "Demandes en attente de validation",
+      "aApprouver": "À approuver",
+      "aTraiter": "À traiter",
+      "attenteAccordResponsable": "En attente de l'accord d'un responsable",
+      "attenteApprobationAdmin": "En attente de l'approbation d'un administrateur",
       "colonnes": {
         "soumise": "Soumise le",
         "demandeur": "Demandeur",
@@ -598,6 +607,13 @@
       "changementOffre": "Changement d'offre : cet abonnement remplace l'abonnement {offre}, résilié à la déclaration de la nouvelle offre.",
       "depenseOrigine": "Dépense de cette clé : {depense}.",
       "propreDemande": "Vous ne pouvez pas décider de votre propre demande : un autre responsable de l'équipe ou un administrateur s'en chargera.",
+      "accordDuResponsable": "Accord du responsable",
+      "commentaireDuResponsable": "Commentaire du responsable",
+      "donnerAccord": "Donner mon accord",
+      "aideAccord": "Votre accord transmet la demande aux administrateurs : seul un administrateur approuve un abonnement.",
+      "commentaireAccord": "Commentaire pour les administrateurs",
+      "attenteApprobation": "Un responsable de l'équipe a donné son accord : la demande attend l'approbation d'un administrateur.",
+      "sansAccord": "Sans accord d'un responsable : un responsable de l'équipe n'a pas encore donné son accord. Vous pouvez approuver ou refuser la demande sans l'attendre ; le journal d'audit et l'annonce aux responsables le diront.",
       "approuverAbonnement": "Approuver (durée de validité de l'abonnement)",
       "offre": "Offre",
       "prixMensuel": "Prix mensuel",
@@ -983,6 +999,11 @@
       "sujet": "Nouvelle demande d'abonnement de {nom}",
       "corps": "{nom} ({email}) demande un abonnement :"
     },
+    "abonnementAApprouver": {
+      "sujet": "Demande d'abonnement à approuver : {nom}",
+      "corps": "{auteur} a donné son accord à la demande d'abonnement de {nom} ({email}) :",
+      "commentaire": "Commentaire du responsable : {commentaire}"
+    },
     "demandeApprouvee": {
       "sujet": "Votre demande de clé est approuvée",
       "corps": "Votre demande de clé d'API pour l'équipe {equipe} est approuvée. Paramètres de votre clé :",
@@ -1119,7 +1140,7 @@
       },
       "decision": {
         "sujet": "Demande traitée dans l'équipe {equipe} : {demandeur}",
-        "corps": "{auteur} a {decision, select, approuvee {approuvé la demande de clé d'API de {demandeur}} refusee {refusé la demande de {demandeur}} complement {demandé un complément à {demandeur} sur sa demande} adhesion {accepté la demande d'accès de {demandeur}} abonnement {approuvé la demande d'abonnement de {demandeur}} other {traité la demande de {demandeur}}}."
+        "corps": "{auteur} a {decision, select, approuvee {approuvé la demande de clé d'API de {demandeur}} refusee {refusé la demande de {demandeur}} complement {demandé un complément à {demandeur} sur sa demande} adhesion {accepté la demande d'accès de {demandeur}} abonnement {approuvé la demande d'abonnement de {demandeur}} other {traité la demande de {demandeur}}}{sansAccord, select, oui {, sans attendre l'accord d'un responsable de l'équipe} other {}}."
       },
       "cle": {
         "sujet": "Action sur une clé de l'équipe {equipe} : {alias}",
@@ -1181,7 +1202,9 @@
   },
   "validation": {
     "valideePar": "Votre demande sera validée par : {valideurs}.",
-    "valideeParAdmins": "Votre demande sera validée par les administrateurs."
+    "valideeParAdmins": "Votre demande sera validée par les administrateurs.",
+    "accordPuisApprobation": "Votre demande recevra d'abord l'accord de : {responsables}, puis l'approbation d'un administrateur.",
+    "approbationParAdmins": "Votre demande sera approuvée par un administrateur."
   },
   "demandeAbonnement": {
     "titre": "Demander un abonnement",

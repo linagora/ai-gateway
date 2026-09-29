@@ -107,12 +107,124 @@ function check(id: PolicyCheckId, offending: string[]): PolicyCheck {
   return { id, ok: offending.length === 0, offending };
 }
 
-export type RequestStatus = "SOUMISE" | "A_COMPLETER" | "APPROUVEE" | "REFUSEE" | "ANNULEE" | "CLE_EMISE" | "EXPIREE" | "REVOQUEE" | "DECLAREE" | "RENOUVELEE";
+export type RequestStatus = "SOUMISE" | "A_COMPLETER" | "ACCORD_RESPONSABLE" | "APPROUVEE" | "REFUSEE" | "ANNULEE" | "CLE_EMISE" | "EXPIREE" | "REVOQUEE" | "DECLAREE" | "RENOUVELEE";
+
+/**
+ * Statuts d'une demande pas encore décidée, ni approuvée ni refusée : soumise, renvoyée à son demandeur pour
+ * complément, ou demande d'abonnement qui a reçu l'accord du responsable et attend l'approbation d'un admin
+ * (spécification #93). Seule définition de ces statuts : les demandes « en cours » en partent (sortie et suppression
+ * d'une équipe, demande en double, renouvellement qui suspend la demande de résiliation à l'échéance), et le demandeur
+ * peut annuler une telle demande.
+ */
+export const STATUTS_PAS_ENCORE_DECIDES = ["SOUMISE", "A_COMPLETER", "ACCORD_RESPONSABLE"] as const satisfies readonly RequestStatus[];
+
+/** La demande n'est-elle pas encore décidée ? */
+export function pasEncoreDecidee(status: RequestStatus): boolean {
+  return (STATUTS_PAS_ENCORE_DECIDES as readonly RequestStatus[]).includes(status);
+}
+
+/**
+ * Statuts d'une demande en attente de validation, celles que montre la file : soumise, ou demande d'abonnement qui a
+ * reçu l'accord du responsable et attend l'approbation d'un admin (spécification #93). Une demande à compléter attend
+ * son demandeur.
+ */
+export const STATUTS_EN_ATTENTE_DE_VALIDATION = ["SOUMISE", "ACCORD_RESPONSABLE"] as const satisfies readonly RequestStatus[];
+
+/** La demande est-elle en attente de validation ? */
+export function enAttenteDeValidation(status: RequestStatus): boolean {
+  return (STATUTS_EN_ATTENTE_DE_VALIDATION as readonly RequestStatus[]).includes(status);
+}
+
+export type RequestKind = "CLE" | "ADHESION_EQUIPE" | "ABONNEMENT";
+
+/** Demande de la file de validation, telle que la politique la voit. */
+export interface DemandeDeLaFile {
+  kind: RequestKind;
+  status: RequestStatus;
+  requesterUid: string;
+}
+
+/**
+ * Spécification #93 : une demande d'abonnement soumise attend l'accord d'un responsable si son équipe en a un autre que
+ * son demandeur ; sinon, elle attend directement l'approbation d'un admin. L'étape se déduit des responsables de
+ * l'équipe, sans être stockée : désigner ou retirer un responsable la change.
+ */
+export function attendUnResponsable(demande: DemandeDeLaFile, responsables: readonly string[]): boolean {
+  return demande.kind === "ABONNEMENT" && demande.status === "SOUMISE" && responsables.some((uid) => uid !== demande.requesterUid);
+}
+
+/**
+ * La demande de la file, dont l'équipe a ces responsables, attend-elle cet acteur (spécification #93) ? Un responsable
+ * traite les demandes soumises de ses équipes, hors les siennes ; une demande qui a reçu l'accord attend un admin. Un
+ * admin traite toute la file, sauf une demande d'abonnement qui attend l'accord d'un responsable qu'il n'est pas
+ * lui-même : responsable de l'équipe, il en reçoit les demandes et les approuve en un seul temps.
+ */
+export function attendLActeur(acteur: PortalUser, demande: DemandeDeLaFile, responsables: readonly string[]): boolean {
+  if (!acteur.isAdmin) return enAttenteDeValidation(demande.status) && empechementDeDecider(acteur, demande) === null;
+  return !attendUnResponsable(demande, responsables) || (acteur.uid !== demande.requesterUid && responsables.includes(acteur.uid));
+}
+
+/**
+ * L'admin déciderait-il sans attendre l'accord d'un responsable (spécification #93) ? Quand la demande d'abonnement
+ * attend encore l'accord d'un responsable de l'équipe qu'il n'est pas lui-même : responsable de l'équipe, il décide en
+ * un seul temps. La fiche l'en avertit ; le journal d'audit et l'annonce aux responsables le disent.
+ */
+export function decideraitSansAccord(acteur: PortalUser, demande: DemandeDeLaFile, responsables: readonly string[]): boolean {
+  return acteur.isAdmin && !attendLActeur(acteur, demande, responsables);
+}
+
+/**
+ * Qui a donné l'accord du responsable quand un admin approuve la demande (spécification #93) : son auteur, ou l'admin
+ * lui-même quand, responsable de l'équipe, il l'approuve en un seul temps ; null s'il n'y en a pas eu.
+ */
+export function accordDonnePar(acteur: PortalUser, demande: DemandeDeLaFile & { agreedBy: string | null }, responsables: readonly string[]): string | null {
+  if (demande.agreedBy) return demande.agreedBy;
+  return acteur.isAdmin && attendUnResponsable(demande, responsables) && attendLActeur(acteur, demande, responsables) ? acteur.uid : null;
+}
+
+/**
+ * Ce qui empêche un acteur de décider d'une demande de ses équipes, qu'il peut consulter (F-54, spécification #93) :
+ * un responsable ne décide jamais de sa propre demande (quatre yeux), ni d'une demande qui a reçu l'accord du
+ * responsable, dont seul un admin décide (interdit). Un admin décide de toute la file ; le statut de la demande est
+ * contrôlé par les transitions.
+ */
+export function empechementDeDecider(acteur: PortalUser, demande: DemandeDeLaFile): "quatre_yeux" | "interdit" | null {
+  if (acteur.isAdmin) return null;
+  if (demande.requesterUid === acteur.uid) return "quatre_yeux";
+  return demande.status === "ACCORD_RESPONSABLE" ? "interdit" : null;
+}
+
+/**
+ * Décision que la fiche d'une demande de ses équipes propose à un admin ou à un responsable (F-54, spécification #93),
+ * toujours accompagnée du refus et de la demande de complément ; null quand il ne peut pas en décider. Les services la
+ * contrôlent de nouveau. Un responsable approuve une demande de clé ou accepte une demande d'accès ; d'une demande
+ * d'abonnement, il ne donne que son accord. Un admin approuve tant que la demande attend une validation.
+ */
+export function decisionProposee(acteur: PortalUser, demande: DemandeDeLaFile): "approuver" | "donnerAccord" | null {
+  if (!enAttenteDeValidation(demande.status) || empechementDeDecider(acteur, demande) !== null) return null;
+  return !acteur.isAdmin && demande.kind === "ABONNEMENT" ? "donnerAccord" : "approuver";
+}
+
+/**
+ * Statut d'une demande complétée (ticket #98) : elle revient à l'accord du responsable s'il avait été donné, sans qu'on
+ * le redemande. Une demande qui change d'équipe ou d'offre n'a plus l'accord d'un responsable de sa nouvelle équipe :
+ * elle redevient soumise.
+ */
+export function statutApresComplement(
+  avant: { agreedBy: string | null; teamId: string; offerId: string | null },
+  apres: { teamId: string; offerId: string | null },
+): "ACCORD_RESPONSABLE" | "SOUMISE" {
+  return avant.agreedBy && avant.teamId === apres.teamId && avant.offerId === apres.offerId ? "ACCORD_RESPONSABLE" : "SOUMISE";
+}
 
 /** Règle 5 : seules ces transitions sont autorisées ; les autres statuts sont finaux. */
 const ALLOWED_TRANSITIONS: Partial<Record<RequestStatus, readonly RequestStatus[]>> = {
-  SOUMISE: ["APPROUVEE", "REFUSEE", "A_COMPLETER", "ANNULEE"],
-  A_COMPLETER: ["SOUMISE", "ANNULEE"],
+  SOUMISE: ["APPROUVEE", "REFUSEE", "A_COMPLETER", "ANNULEE", "ACCORD_RESPONSABLE"],
+  // Complétée, une demande qui avait reçu l'accord du responsable y revient, sans qu'on le redemande (ticket #98).
+  A_COMPLETER: ["SOUMISE", "ACCORD_RESPONSABLE", "ANNULEE"],
+  // ACCORD_RESPONSABLE : demande d'abonnement qui a reçu l'accord du responsable ; un admin l'approuve, la refuse ou
+  // demande un complément (spécification #93).
+  ACCORD_RESPONSABLE: ["APPROUVEE", "REFUSEE", "A_COMPLETER", "ANNULEE"],
   // ANNULEE : sortie d'une équipe avant le retrait de la clé (F-54) ; DECLAREE : abonnement déclaré, RENOUVELEE :
   // renouvellement d'abonnement appliqué à son approbation (spécification #51).
   APPROUVEE: ["CLE_EMISE", "DECLAREE", "RENOUVELEE", "EXPIREE", "ANNULEE"],
