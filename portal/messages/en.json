@@ -613,6 +613,7 @@
       "aideAccord": "Your agreement passes the request on to the administrators: only an administrator approves a subscription.",
       "commentaireAccord": "Comment for the administrators",
       "attenteApprobation": "A manager of the team has given their agreement: the request awaits an administrator's approval.",
+      "sansAccord": "No manager agreement: a manager of the team has not given their agreement yet. You can approve or refuse the request without waiting; the audit log and the announcement to the managers will say so.",
       "approuverAbonnement": "Approve (subscription validity period)",
       "offre": "Offer",
       "prixMensuel": "Monthly price",
@@ -1139,7 +1140,7 @@
       },
       "decision": {
         "sujet": "Request processed in the team {equipe}: {demandeur}",
-        "corps": "{auteur} {decision, select, approuvee {approved the API key request of {demandeur}} refusee {refused the request of {demandeur}} complement {asked {demandeur} to complete their request} adhesion {accepted the access request of {demandeur}} abonnement {approved the subscription request of {demandeur}} other {processed the request of {demandeur}}}."
+        "corps": "{auteur} {decision, select, approuvee {approved the API key request of {demandeur}} refusee {refused the request of {demandeur}} complement {asked {demandeur} to complete their request} adhesion {accepted the access request of {demandeur}} abonnement {approved the subscription request of {demandeur}} other {processed the request of {demandeur}}}{sansAccord, select, oui {, without waiting for a team manager's agreement} other {}}."
       },
       "cle": {
         "sujet": "Action on a key of the team {equipe}: {alias}",

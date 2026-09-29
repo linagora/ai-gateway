@@ -42,6 +42,8 @@ const responsable = { uid: "lbernard", email: "lbernard@linagora.com", name: "L�
 const membre = { uid: "pmartin", email: "pmartin@linagora.com", name: "Paul Martin", isAdmin: false };
 const ADMINS = ["admins@linagora.com"];
 const maintenant = new Date("2026-10-01T09:00:00Z");
+/** Annonce d'une décision sur la demande de Paul Martin aux responsables de R&D (F-54). */
+const TRAITEE = "[AI GATEWAY] Demande traitée dans l'équipe R&D : pmartin / Request processed in the team R&D: pmartin";
 
 let litellm: FakeLiteLLM;
 let mailer: FakeMailer;
@@ -249,8 +251,73 @@ describe("où attend une demande d'abonnement : responsables ou admins (ticket #
   });
 });
 
+describe("approuver ou refuser un abonnement sans attendre l'accord (ticket #97)", () => {
+
+  test("l'admin approuve une demande qui attend encore l'accord de la responsable : la fiche l'en avertit, le journal et l'annonce à la responsable le disent", async () => {
+    const { id } = await createSubscriptionRequest(deps, membre, demande());
+    expect(await getRequestReview(deps, admin, id)).toMatchObject({ sansAccord: true });
+    mailer.outbox.length = 0;
+    await approveSubscriptionRequest(deps, admin, id, { days: 90 });
+    expect((await listAudit(testDb)).at(-1)).toMatchObject({
+      action: "REQUEST_APPROVED",
+      details: { kind: "ABONNEMENT", offre: "Anthropic · Claude Max 5x", jours: 90, sansAccord: true },
+    });
+    const annonce = mailer.outbox.find((m) => m.subject === TRAITEE);
+    expect(annonce?.to).toEqual(["lbernard@linagora.com"]);
+    expect(annonce?.text).toContain("Jeanne Dupont (jdupont) a approuvé la demande d'abonnement de pmartin, sans attendre l'accord d'un responsable de l'équipe.");
+    expect(annonce?.text).toContain("Jeanne Dupont (jdupont) approved the subscription request of pmartin, without waiting for a team manager's agreement.");
+  });
+
+  test("l'admin refuse une demande qui attend encore l'accord de la responsable : le journal et l'annonce à la responsable le disent", async () => {
+    const { id } = await createSubscriptionRequest(deps, membre, demande());
+    mailer.outbox.length = 0;
+    await refuseRequest(deps, admin, id, "Hors budget");
+    expect((await listAudit(testDb)).at(-1)).toMatchObject({ action: "REQUEST_REFUSED", details: { motif: "Hors budget", sansAccord: true } });
+    const annonce = mailer.outbox.find((m) => m.subject === TRAITEE);
+    expect(annonce?.to).toEqual(["lbernard@linagora.com"]);
+    expect(annonce?.text).toContain("Jeanne Dupont (jdupont) a refusé la demande de pmartin, sans attendre l'accord d'un responsable de l'équipe.");
+  });
+
+  test("après l'accord, dans une équipe sans responsable, ou responsable lui-même de l'équipe, l'admin ne décide pas sans accord", async () => {
+    const avecAccord = await createSubscriptionRequest(deps, membre, demande());
+    await agreeSubscriptionRequest(deps, responsable, avecAccord.id);
+    expect((await getRequestReview(deps, admin, avecAccord.id)).sansAccord).toBe(false);
+    await litellm.addTeamMember("equipe-data", "pmartin");
+    const data = await createSubscriptionRequest(deps, membre, demande({ teamId: "equipe-data" }));
+    expect((await getRequestReview(deps, admin, data.id)).sansAccord).toBe(false);
+    await designateManager(deps, admin, { teamId: "equipe-data", uid: "jdupont" });
+    expect((await getRequestReview(deps, admin, data.id)).sansAccord).toBe(false);
+    await approveSubscriptionRequest(deps, admin, data.id, { days: 90 });
+    // Responsable de Data, l'admin a approuvé en un seul temps : le journal le nomme comme auteur de l'accord.
+    expect((await listAudit(testDb)).at(-1)).toMatchObject({ action: "REQUEST_APPROVED", details: { jours: 90, accordDe: "jdupont" } });
+    expect((await listAudit(testDb)).at(-1)?.details).not.toHaveProperty("sansAccord");
+  });
+
+  test("admin et co-responsable de l'équipe, il approuve en un seul temps ; l'annonce à l'autre responsable ne dit pas qu'il a décidé sans accord", async () => {
+    await designateManager(deps, admin, { teamId: "equipe-rd", uid: "jdupont" });
+    const { id } = await createSubscriptionRequest(deps, membre, demande());
+    expect((await getRequestReview(deps, admin, id)).sansAccord).toBe(false);
+    mailer.outbox.length = 0;
+    await approveSubscriptionRequest(deps, admin, id, { days: 90 });
+    expect((await listAudit(testDb)).at(-1)).toMatchObject({ action: "REQUEST_APPROVED", details: { accordDe: "jdupont" } });
+    const annonce = mailer.outbox.find((m) => m.subject === TRAITEE);
+    expect(annonce?.to).toEqual(["lbernard@linagora.com"]);
+    expect(annonce?.text).toContain("Jeanne Dupont (jdupont) a approuvé la demande d'abonnement de pmartin.");
+  });
+
+  test("la demande d'une responsable qui a un collègue attend son accord : l'admin qui ne l'attend pas le dit au seul collègue", async () => {
+    await designateManager(deps, admin, { teamId: "equipe-rd", uid: "pmartin" });
+    const { id } = await createSubscriptionRequest(deps, responsable, demande());
+    expect((await getRequestReview(deps, admin, id)).sansAccord).toBe(true);
+    mailer.outbox.length = 0;
+    await approveSubscriptionRequest(deps, admin, id, { days: 90 });
+    const annonce = mailer.outbox.find((m) => m.subject.startsWith("[AI GATEWAY] Demande traitée dans l'équipe R&D : lbernard"));
+    expect(annonce?.to).toEqual(["pmartin@linagora.com"]);
+    expect(annonce?.text).toContain("a approuvé la demande d'abonnement de lbernard, sans attendre l'accord d'un responsable de l'équipe.");
+  });
+});
+
 describe("refus, complément et annulation d'une demande d'abonnement en deux temps (ticket #98)", () => {
-  const TRAITEE = "[AI GATEWAY] Demande traitée dans l'équipe R&D : pmartin / Request processed in the team R&D: pmartin";
 
   test("la responsable refuse, avec un motif, une demande soumise de son équipe : elle est refusée définitivement, et le demandeur et les admins en sont prévenus", async () => {
     const { id } = await createSubscriptionRequest(deps, membre, demande());
@@ -1014,6 +1081,14 @@ describe("échéance, renouvellement et changement d'offre (ticket #59)", () => 
     await requestCompletion(deps, admin, demande, "Précisez le besoin");
     await completeSubscriptionRequest(deps, membre, demande, { ...changement(), offerId: max20, teamId: "equipe-rd" });
     expect(await getRequestReview(deps, admin, demande)).toMatchObject({ status: "ACCORD_RESPONSABLE", offer: "Anthropic · Claude Max 20x" });
+  });
+
+  test("approuvé sans attendre l'accord de la responsable, un renouvellement le dit au journal (ticket #97)", async () => {
+    const id = await declare();
+    deps.now = () => new Date("2026-12-01T09:00:00Z");
+    const { id: demande } = await requestRenewal(deps, membre, id, renouvellement());
+    await approveSubscriptionRequest(deps, admin, demande, { days: 180 });
+    expect((await journal("REQUEST_APPROVED")).at(-1)).toEqual(["jdupont", demande, expect.objectContaining({ jours: 180, sansAccord: true })]);
   });
 
   test("renvoyé pour complément, un renouvellement se complète sans changer d'offre ni d'équipe", async () => {

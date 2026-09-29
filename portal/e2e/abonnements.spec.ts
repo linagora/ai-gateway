@@ -632,3 +632,21 @@ test("la responsable refuse une demande soumise, définitivement ; l'admin refus
 
   await nettoyer(situation);
 });
+
+test("l'admin approuve une demande sans attendre l'accord de la responsable : la fiche l'en avertit, et l'annonce à la responsable le dit (ticket #97)", async ({ browser }) => {
+  // Un seul mot : le parcours en anglais n'excuse que les noms d'équipe de test d'un seul mot.
+  const situation = await equipeEtOffre(browser, "sansaccord");
+  const { admin, pageMembre, responsable, membre, equipe, offre } = situation;
+  await demanderOffre(pageMembre, offre, equipe);
+
+  await examinerDemande(admin, membre);
+  await expect(admin.getByText(/^Sans accord d'un responsable\s:\sun responsable de l'équipe n'a pas encore donné son accord\./)).toBeVisible();
+  await approuver(admin);
+
+  const traitee = `[AI GATEWAY] Demande traitée dans l'équipe ${equipe} : ${membre.uid} / Request processed in the team ${equipe}: ${membre.uid}`;
+  const annonce = async () => (await courriels(membre.uid)).find((c) => c.subject === traitee);
+  await expect.poll(async () => (await annonce())?.to, { timeout: 15_000 }).toEqual([responsable.email]);
+  expect((await annonce())?.text).toContain(`a approuvé la demande d'abonnement de ${membre.uid}, sans attendre l'accord d'un responsable de l'équipe.`);
+
+  await nettoyer(situation);
+});

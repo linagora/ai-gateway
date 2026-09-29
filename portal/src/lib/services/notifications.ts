@@ -546,7 +546,7 @@ export type TeamChange =
   | { type: "responsableDesigne"; responsable: string }
   | { type: "responsableRetire"; responsable: string }
   | { type: "budget"; plafond: { montant: number; periode: string } | null }
-  | { type: "decision"; decision: "approuvee" | "refusee" | "complement" | "adhesion" | "abonnement"; demandeur: string; demandeId: string }
+  | { type: "decision"; decision: "approuvee" | "refusee" | "complement" | "adhesion" | "abonnement"; sansAccord: boolean; demandeur: string; demandeId: string }
   | { type: "cle"; action: "revocation" | "blocage" | "deblocage"; alias: string; titulaire: string }
   | { type: "resiliationDemandee"; titulaire: string; offre: string };
 
@@ -567,7 +567,7 @@ export async function notifyTeamChange(
     ...("ancienNom" in changement ? { ancienNom: changement.ancienNom } : {}),
     ...("membre" in changement ? { membre: changement.membre } : {}),
     ...("responsable" in changement ? { responsable: changement.responsable } : {}),
-    ...(changement.type === "decision" ? { decision: changement.decision, demandeur: changement.demandeur } : {}),
+    ...(changement.type === "decision" ? { decision: changement.decision, demandeur: changement.demandeur, sansAccord: changement.sansAccord ? "oui" : "non" } : {}),
     ...(changement.type === "cle" ? { action: changement.action, alias: changement.alias, titulaire: changement.titulaire } : {}),
     ...(changement.type === "resiliationDemandee" ? { titulaire: changement.titulaire, offre: changement.offre } : {}),
     ...(changement.type === "budget" ? { plafond: changement.plafond ? "oui" : "non", budget: budgetEquipe(t, changement.plafond) } : {}),

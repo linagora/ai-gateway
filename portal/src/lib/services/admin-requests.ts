@@ -7,8 +7,10 @@ import { PolicyViolationError, PortalError } from "@/lib/errors";
 import type { LiteLLMClient } from "@/lib/litellm/client";
 import { type Page, tranche } from "@/lib/pagination";
 import {
+  accordDonnePar,
   attendLActeur,
   type DataLevel,
+  decideraitSansAccord,
   type DemandeDeLaFile,
   empechementDeDecider,
   enAttenteDeValidation,
@@ -193,6 +195,8 @@ export interface RequestReview extends PendingRequest {
   decisionComment: string | null;
   /** Demande d'abonnement : l'accord du responsable (spécification #93), null tant qu'aucun n'a été donné. */
   agreement: { by: string; at: Date; comment: string | null } | null;
+  /** Pour un admin, la demande attend encore l'accord d'un responsable : en décider, c'est décider sans lui (ticket #97). */
+  sansAccord: boolean;
   /** Paramètres figés à l'approbation (F-40), null tant que la demande n'est pas approuvée. */
   approved: ApprovalInput | null;
   checks: PolicyCheck[];
@@ -241,6 +245,7 @@ export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: 
     decidedBy: r.decidedBy,
     decisionComment: r.decisionComment,
     agreement: r.agreedBy && r.agreedAt ? { by: r.agreedBy, at: r.agreedAt, comment: r.agreementComment } : null,
+    sansAccord: decideraitSansAccord(actor, r, await responsablesDe(deps, r.teamId)),
     approved: r.decidedAt && r.approvedModels.length
       ? {
           models: r.approvedModels,
@@ -345,13 +350,14 @@ export async function refuseRequest(deps: AdminDeps, actor: SessionUser, id: str
   const request = await deps.db.accessRequest.findUnique({ where: { id }, include: { offer: true } });
   if (!request) throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
   await requireDecision(deps, actor, request, "demande");
+  const sansAccord = decideraitSansAccord(actor, request, await responsablesDe(deps, request.teamId));
   await transitionRequest(deps.db, request, "REFUSEE", {
     comment,
     data: { decidedBy: actor.uid, decidedAt: new Date(), decisionComment: comment.trim() },
   });
-  await recordAudit(deps.db, { actorUid: actor.uid, action: "REQUEST_REFUSED", targetId: request.id, details: { motif: comment.trim() } });
+  await recordAudit(deps.db, { actorUid: actor.uid, action: "REQUEST_REFUSED", targetId: request.id, details: { motif: comment.trim(), ...(sansAccord ? { sansAccord } : {}) } });
   await notifyRefused(deps, request, comment.trim());
-  await annoncerDecision(deps, actor, request, "refusee");
+  await annoncerDecision(deps, actor, request, "refusee", sansAccord);
   // Ticket #59 : refusé, le renouvellement d'un abonnement en fait une demande de résiliation.
   if (request.renewsSubscriptionId) await requestTerminationAfterRefusedRenewal(deps, actor, request.renewsSubscriptionId, comment.trim());
 }
@@ -438,8 +444,11 @@ export async function approveSubscriptionRequest(deps: AdminDeps, actor: Session
     throw new PortalError("transition_interdite", "L'abonnement à renouveler est résilié.", { cas: "abonnement" });
   }
   const approuveeLe = deps.now?.() ?? new Date();
-  // Le journal dit qui a donné l'accord du responsable, s'il a été donné (spécification #93).
-  const accord: Record<string, string> = request.agreedBy ? { accordDe: request.agreedBy } : {};
+  // Le journal dit qui a donné l'accord du responsable, ou que l'admin a décidé sans l'attendre (spécification #93).
+  const responsables = await responsablesDe(deps, request.teamId);
+  const accordDe = accordDonnePar(actor, request, responsables);
+  const sansAccord = decideraitSansAccord(actor, request, responsables);
+  const accord: Record<string, string | boolean> = { ...(accordDe ? { accordDe } : {}), ...(sansAccord ? { sansAccord } : {}) };
   await transitionRequest(deps.db, request, "APPROUVEE", { data: { approvedDays: days, decidedBy: actor.uid, decidedAt: approuveeLe } });
   if (renouvele) {
     const echeance = await reporterEcheance(deps.db, renouvele, days);
@@ -461,7 +470,7 @@ export async function approveSubscriptionRequest(deps: AdminDeps, actor: Session
     const delai = await readPickupDays(deps.db);
     await notifySubscriptionApproved(deps, { ...request, approvedDays: days }, request.offer, pickupDeadline(approuveeLe, delai), remplace && libelleOffre(remplace.offer));
   }
-  await annoncerDecision(deps, actor, request, "abonnement");
+  await annoncerDecision(deps, actor, request, "abonnement", sansAccord);
 }
 
 /** Demande d'abonnement, avec son offre ; une autre demande, ou une demande disparue, est « introuvable ». */
@@ -514,19 +523,25 @@ async function requireDecision(deps: AdminDeps, actor: SessionUser, request: Dem
   if (empechement === "interdit") throw new PortalError("interdit", "Après l'accord du responsable, seul un admin décide de la demande.");
 }
 
+/** Responsables de l'équipe d'une demande, dont se déduisent son étape et une décision sans accord (spécification #93). */
+async function responsablesDe(deps: AdminDeps, teamId: string): Promise<string[]> {
+  return (await approversByTeam(deps.db, [teamId])).get(teamId) ?? [];
+}
+
 /**
  * Une décision est annoncée aux responsables de l'équipe, hors son auteur et le demandeur, et, celle d'un responsable,
- * aux admins (F-54).
+ * aux admins (F-54) ; l'annonce dit quand un admin a décidé sans l'accord d'un responsable (ticket #97).
  */
 async function annoncerDecision(
   deps: AdminDeps,
   actor: SessionUser,
   request: { id: string; teamId: string; teamAlias: string; requesterUid: string },
   decision: "approuvee" | "refusee" | "complement" | "adhesion" | "abonnement",
+  sansAccord = false,
 ): Promise<void> {
   await notifyTeamChange(
     deps,
-    { type: "decision", decision, demandeur: request.requesterUid, demandeId: request.id, teamId: request.teamId, equipe: request.teamAlias, auteur: actor },
+    { type: "decision", decision, sansAccord, demandeur: request.requesterUid, demandeId: request.id, teamId: request.teamId, equipe: request.teamAlias, auteur: actor },
     // Le demandeur, fût-il responsable, reçoit déjà la décision sur sa demande.
     await managerEmails(deps.db, request.teamId, [actor.uid, request.requesterUid]),
   );

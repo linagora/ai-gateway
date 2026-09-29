@@ -203,6 +203,10 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
         <p className="mt-6 rounded border border-neutral-300 bg-neutral-50 p-3">{t("propreDemande")}</p>
       )}
       {empechement === "interdit" && <p className="mt-6 rounded border border-neutral-300 bg-neutral-50 p-3">{t("attenteApprobation")}</p>}
+      {/* Ticket #97 : l'admin peut décider sans attendre l'accord d'un responsable, et il en est averti. */}
+      {review.sansAccord && (
+        <p className="mt-6 rounded border-l-4 border-amber-500 bg-amber-50 px-3 py-2">{t("sansAccord")}</p>
+      )}
 
       {decision !== null && <ExplicationObligatoires />}
 

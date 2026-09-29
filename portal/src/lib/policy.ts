@@ -165,6 +165,24 @@ export function attendLActeur(acteur: PortalUser, demande: DemandeDeLaFile, resp
 }
 
 /**
+ * L'admin déciderait-il sans attendre l'accord d'un responsable (spécification #93) ? Quand la demande d'abonnement
+ * attend encore l'accord d'un responsable de l'équipe qu'il n'est pas lui-même : responsable de l'équipe, il décide en
+ * un seul temps. La fiche l'en avertit ; le journal d'audit et l'annonce aux responsables le disent.
+ */
+export function decideraitSansAccord(acteur: PortalUser, demande: DemandeDeLaFile, responsables: readonly string[]): boolean {
+  return acteur.isAdmin && !attendLActeur(acteur, demande, responsables);
+}
+
+/**
+ * Qui a donné l'accord du responsable quand un admin approuve la demande (spécification #93) : son auteur, ou l'admin
+ * lui-même quand, responsable de l'équipe, il l'approuve en un seul temps ; null s'il n'y en a pas eu.
+ */
+export function accordDonnePar(acteur: PortalUser, demande: DemandeDeLaFile & { agreedBy: string | null }, responsables: readonly string[]): string | null {
+  if (demande.agreedBy) return demande.agreedBy;
+  return acteur.isAdmin && attendUnResponsable(demande, responsables) && attendLActeur(acteur, demande, responsables) ? acteur.uid : null;
+}
+
+/**
  * Ce qui empêche un acteur de décider d'une demande de ses équipes, qu'il peut consulter (F-54, spécification #93) :
  * un responsable ne décide jamais de sa propre demande (quatre yeux), ni d'une demande qui a reçu l'accord du
  * responsable, dont seul un admin décide (interdit). Un admin décide de toute la file ; le statut de la demande est

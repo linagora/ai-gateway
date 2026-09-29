@@ -613,6 +613,7 @@
       "aideAccord": "Votre accord transmet la demande aux administrateurs : seul un administrateur approuve un abonnement.",
       "commentaireAccord": "Commentaire pour les administrateurs",
       "attenteApprobation": "Un responsable de l'équipe a donné son accord : la demande attend l'approbation d'un administrateur.",
+      "sansAccord": "Sans accord d'un responsable : un responsable de l'équipe n'a pas encore donné son accord. Vous pouvez approuver ou refuser la demande sans l'attendre ; le journal d'audit et l'annonce aux responsables le diront.",
       "approuverAbonnement": "Approuver (durée de validité de l'abonnement)",
       "offre": "Offre",
       "prixMensuel": "Prix mensuel",
@@ -1139,7 +1140,7 @@
       },
       "decision": {
         "sujet": "Demande traitée dans l'équipe {equipe} : {demandeur}",
-        "corps": "{auteur} a {decision, select, approuvee {approuvé la demande de clé d'API de {demandeur}} refusee {refusé la demande de {demandeur}} complement {demandé un complément à {demandeur} sur sa demande} adhesion {accepté la demande d'accès de {demandeur}} abonnement {approuvé la demande d'abonnement de {demandeur}} other {traité la demande de {demandeur}}}."
+        "corps": "{auteur} a {decision, select, approuvee {approuvé la demande de clé d'API de {demandeur}} refusee {refusé la demande de {demandeur}} complement {demandé un complément à {demandeur} sur sa demande} adhesion {accepté la demande d'accès de {demandeur}} abonnement {approuvé la demande d'abonnement de {demandeur}} other {traité la demande de {demandeur}}}{sansAccord, select, oui {, sans attendre l'accord d'un responsable de l'équipe} other {}}."
       },
       "cle": {
         "sujet": "Action sur une clé de l'équipe {equipe} : {alias}",

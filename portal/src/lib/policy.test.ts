@@ -1,11 +1,13 @@
 import { describe, expect, test } from "vitest";
 import {
+  accordDonnePar,
   attendLActeur,
   attendUnResponsable,
   canAccessRequest,
   type CatalogModel,
   checkKeyRequest,
   checkTransition,
+  decideraitSansAccord,
   decisionProposee,
   empechementDeDecider,
   enAttenteDeValidation,
@@ -164,6 +166,33 @@ describe("où attend une demande de la file (spécification #93, ticket #96)", (
     expect(attendLActeur(responsable, { ...abonnement, kind: "CLE" }, ["lbernard"])).toBe(true);
     expect(attendLActeur(responsable, { ...abonnement, status: "ACCORD_RESPONSABLE" }, ["lbernard"])).toBe(false);
     expect(attendLActeur(responsable, { ...abonnement, requesterUid: "lbernard" }, ["lbernard", "pmartin"])).toBe(false);
+  });
+});
+
+describe("décider sans attendre l'accord (spécification #93, ticket #97)", () => {
+  const admin = { uid: "jdupont", isAdmin: true };
+  const abonnement = { kind: "ABONNEMENT" as const, status: "SOUMISE" as const, requesterUid: "pmartin" };
+
+  test("un admin décide sans accord d'une demande d'abonnement qui attend encore l'accord d'un responsable de l'équipe", () => {
+    expect(decideraitSansAccord(admin, abonnement, ["lbernard"])).toBe(true);
+  });
+
+  test("pas sans accord après l'accord, sans responsable dans l'équipe, pour une clé, ni quand l'admin est lui-même responsable de l'équipe", () => {
+    expect(decideraitSansAccord(admin, { ...abonnement, status: "ACCORD_RESPONSABLE" }, ["lbernard"])).toBe(false);
+    expect(decideraitSansAccord(admin, abonnement, [])).toBe(false);
+    expect(decideraitSansAccord(admin, { ...abonnement, kind: "CLE" }, ["lbernard"])).toBe(false);
+    expect(decideraitSansAccord(admin, abonnement, ["jdupont", "lbernard"])).toBe(false);
+  });
+
+  test("un responsable ne décide jamais sans accord : le sien suffit", () => {
+    expect(decideraitSansAccord({ uid: "lbernard", isAdmin: false }, abonnement, ["lbernard"])).toBe(false);
+  });
+
+  test("le journal de l'approbation nomme qui a donné l'accord : son auteur, ou l'admin qui, responsable de l'équipe, en tient lieu", () => {
+    expect(accordDonnePar(admin, { ...abonnement, status: "ACCORD_RESPONSABLE", agreedBy: "lbernard" }, ["lbernard"])).toBe("lbernard");
+    expect(accordDonnePar(admin, { ...abonnement, agreedBy: null }, ["jdupont", "lbernard"])).toBe("jdupont");
+    expect(accordDonnePar(admin, { ...abonnement, agreedBy: null }, ["lbernard"])).toBeNull();
+    expect(accordDonnePar(admin, { ...abonnement, agreedBy: null }, [])).toBeNull();
   });
 });
 
