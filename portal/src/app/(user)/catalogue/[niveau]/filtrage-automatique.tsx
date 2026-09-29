@@ -39,6 +39,8 @@ export function FiltrageAutomatique({ minimum }: { minimum: number }) {
     };
     form.addEventListener("input", surSaisie);
     form.addEventListener("submit", surEnvoi);
+    // Critère changé avant que la page soit prête, quand rien ne l'écoutait encore : il s'applique maintenant.
+    if (critereChange(form)) appliquer();
     return () => {
       clearTimeout(minuterie);
       form.removeEventListener("input", surSaisie);
@@ -47,4 +49,19 @@ export function FiltrageAutomatique({ minimum }: { minimum: number }) {
   }, [minimum, router]);
 
   return <span ref={ancre} hidden />;
+}
+
+/**
+ * Un champ du formulaire diffère de la valeur rendue par le serveur. Sans changement, rien ne s'applique : un lien
+ * partagé garde ses paramètres hors du formulaire, comme le modèle dont le détail est ouvert.
+ */
+function critereChange(form: HTMLFormElement): boolean {
+  return [...form.elements].some((champ) => {
+    if (champ instanceof HTMLSelectElement) {
+      const initial = [...champ.options].findIndex((option) => option.defaultSelected);
+      return champ.selectedIndex !== Math.max(initial, 0);
+    }
+    if (!(champ instanceof HTMLInputElement)) return false;
+    return champ.type === "checkbox" ? champ.checked !== champ.defaultChecked : champ.value !== champ.defaultValue;
+  });
 }

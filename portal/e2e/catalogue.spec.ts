@@ -367,6 +367,28 @@ test.describe("filtres appliqués sans bouton (retours de recette du 2026-09-25)
     await context.close();
   });
 
+  test("un critère choisi avant que la page soit prête s'applique dès qu'elle l'est", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    // Le JavaScript de la page est retenu : le formulaire s'affiche, mais le filtrage automatique n'est pas encore actif.
+    let liberer = () => {};
+    const retenu = new Promise<void>((resolve) => (liberer = resolve));
+    await page.route(
+      (url) => url.pathname.startsWith("/_next/static/") && url.pathname.endsWith(".js"),
+      async (route) => {
+        await retenu;
+        await route.continue();
+      },
+    );
+    await page.goto("/catalogue/n1", { waitUntil: "commit" });
+    await page.getByRole("combobox", { name: "Cas d'usage" }).selectOption({ label: "Code" });
+    liberer();
+    await expect(page).toHaveURL(/cas=CODING/);
+    await expect(page.getByRole("article")).toHaveCount(1);
+    await expect(page.getByRole("article", { name: "Modèle interne" })).toBeVisible();
+    await context.close();
+  });
+
   test("le filtre propose les quatre cas d'usage, dont la création d'images", async ({ browser }) => {
     const context = await connecter(browser, salarie);
     const page = await context.newPage();
