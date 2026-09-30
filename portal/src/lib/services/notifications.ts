@@ -331,15 +331,23 @@ export async function notifyRefused(deps: NotificationDeps, demande: DemandeAvec
   await envoyer(deps, [demande.requesterEmail], message);
 }
 
-/** Complément demandé, avec le commentaire de l'admin et le rappel de la demande. */
-export async function notifyCompletionRequested(deps: NotificationDeps, demande: DemandeAvecOffre, commentaire: string | null): Promise<void> {
+/**
+ * Complément demandé, avec le commentaire et le rappel de la demande. Le courriel dit qui le demande, un responsable
+ * de l'équipe ou un administrateur, sans le nommer, comme le refus.
+ */
+export async function notifyCompletionRequested(
+  deps: NotificationDeps,
+  demande: DemandeAvecOffre,
+  commentaire: string | null,
+  demandePar: "admin" | "responsable",
+): Promise<void> {
   const message = bilingue(
     (t) => ({
       sujet: t("courriels.complementDemande.sujet"),
       paragraphes: [
         t("courriels.bonjour", { nom: nom(demande) }),
-        t("courriels.complementDemande.corps", { type: demande.kind, equipe: demande.teamAlias }),
-        ...(commentaire ? [t("courriels.complementDemande.commentaire", { commentaire })] : []),
+        t("courriels.complementDemande.corps", { type: demande.kind, equipe: demande.teamAlias, par: demandePar }),
+        ...(commentaire ? [t("courriels.complementDemande.commentaire", { commentaire, par: demandePar })] : []),
         avecRecap(t("courriels.rappelDemande"), recapDemande(t, demande)),
         t("courriels.complementDemande.suite"),
       ],

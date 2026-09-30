@@ -1036,8 +1036,8 @@
     },
     "complementDemande": {
       "sujet": "Votre demande est à compléter",
-      "corps": "{type, select, CLE {Un administrateur demande un complément sur votre demande de clé d'API pour l'équipe {equipe}.} ABONNEMENT {Un administrateur demande un complément sur votre demande d'abonnement pour l'équipe {equipe}.} other {Un administrateur demande un complément sur votre demande d'accès à l'équipe {equipe}.}}",
-      "commentaire": "Commentaire de l'administrateur : {commentaire}",
+      "corps": "{par, select, responsable {Un responsable de l'équipe} other {Un administrateur}} demande un complément sur votre {type, select, CLE {demande de clé d'API pour l'équipe {equipe}} ABONNEMENT {demande d'abonnement pour l'équipe {equipe}} other {demande d'accès à l'équipe {equipe}}}.",
+      "commentaire": "{par, select, responsable {Commentaire du responsable} other {Commentaire de l'administrateur}} : {commentaire}",
       "suite": "Complétez-la dans « Mes demandes »."
     },
     "adhesionAcceptee": {

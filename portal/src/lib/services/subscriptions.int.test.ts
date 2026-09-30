@@ -150,7 +150,10 @@ describe("demander un abonnement et le faire valider (ticket #54)", () => {
     expect(refus).toContain("Motif du refus : Offre trop coûteuse pour ce besoin");
     expect(refus).toMatch(/- Offre : Anthropic · Claude Max 5x/);
     const complement = mailer.outbox.find((m) => m.subject === "[AI GATEWAY] Votre demande est à compléter / Your request needs more information")?.text ?? "";
-    expect(complement).toContain("Un administrateur demande un complément sur votre demande d'abonnement pour l'équipe R&D.");
+    // C'est la responsable qui le demande, et le courriel le dit.
+    expect(complement).toContain("Un responsable de l'équipe demande un complément sur votre demande d'abonnement pour l'équipe R&D.");
+    expect(complement).toContain("Commentaire du responsable : Précisez le projet");
+    expect(complement).toContain("A manager of the team asks for more information about your subscription request for the R&D team.");
     await completeSubscriptionRequest(deps, membre, aCompleter.id, demande({ justification: "Rapports de veille pour le projet Twake", project: "Twake" }));
     expect(await getRequestReview(deps, responsable, aCompleter.id)).toMatchObject({ status: "SOUMISE", justification: "Rapports de veille pour le projet Twake", project: "Twake" });
     await cancelRequest(deps, membre, aCompleter.id);
@@ -376,7 +379,11 @@ describe("refus, complément et annulation d'une demande d'abonnement en deux te
 
   test("renvoyée pour complément par l'admin avant l'accord, la demande complétée redevient soumise et attend la responsable", async () => {
     const { id } = await createSubscriptionRequest(deps, membre, demande());
+    mailer.outbox.length = 0;
     await requestCompletion(deps, admin, id, "Précisez le projet");
+    const complement = mailer.outbox.find((m) => m.to[0] === "pmartin@linagora.com")?.text ?? "";
+    expect(complement).toContain("Un administrateur demande un complément sur votre demande d'abonnement pour l'équipe R&D.");
+    expect(complement).toContain("Commentaire de l'administrateur : Précisez le projet");
     await completeSubscriptionRequest(deps, membre, id, demande({ project: "Twake" }));
     expect((await listPendingRequests(deps, responsable)).aTraiter).toEqual([expect.objectContaining({ id, status: "SOUMISE" })]);
   });
