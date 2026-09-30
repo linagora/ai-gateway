@@ -1,12 +1,14 @@
-"""Déclare dans LiteLLM les modèles joints sans OpenRouter : Qwen3.8 (OVHcloud, N3) et JEV (Typesafe,
-niveau Expérimental). Idempotent : un modèle absent est déclaré ; un modèle présent reçoit les
-informations ci-dessous (toutes, pour ne rien réécrire de ce que LiteLLM dérive lui-même) et sa
-route (litellm_params.model) ; son adresse, sa clé et ses tarifs restent inchangés.
+"""Déclare dans LiteLLM les modèles hors de la liste blanche OpenRouter : Qwen3.8 (OVHcloud, N3) et JEV
+(Typesafe, niveau Expérimental, par l'API System One d'OpenRouter, ticket #104). Idempotent : un modèle
+absent est déclaré ; un modèle présent reçoit les informations ci-dessous (toutes, pour ne rien réécrire
+de ce que LiteLLM dérive lui-même), sa route, son adresse et sa clé (des références à l'environnement) ;
+ses tarifs restent inchangés.
 
   cd /opt/linagora-ia && docker compose exec -T litellm python3 - < scripts/declare-modeles-directs.py
 
-JEV passe par le fournisseur personnalisé « typesafe » (litellm/jev.py) : clés, budgets et coûts
-comme pour tout modèle, coût calculé sur les jetons comptés par Typesafe.
+JEV passe par le fournisseur personnalisé « typesafe » (litellm/jev.py), qui appelle l'API System One
+d'OpenRouter avec la clé OpenRouter : clés, budgets et coûts comme pour tout modèle, coût calculé sur
+les jetons comptés par Typesafe.
 """
 import json
 import os
@@ -46,15 +48,16 @@ MODELES = [
     {
         "model_name": "jev-latest",
         "litellm_params": {
-            "model": "typesafe/jev-latest",
-            "api_base": "https://api.typesafe.ai/v1",
-            "api_key": "os.environ/TYPESAFE_API_KEY",
+            # Alias de la dernière version de JEV chez OpenRouter (typesafe/jev-1.13 le 2026-09-30).
+            "model": "typesafe/~typesafe/jev-latest",
+            "api_base": "https://openrouter.ai/api/v1",
+            "api_key": "os.environ/OPENROUTER_API_KEY",
             "input_cost_per_token": float(f"{0.042e-6 * TAUX_USD_EUR:.6g}"),  # 0,042 $ par million de jetons d'entrée
             "output_cost_per_token": 0.0,  # sortie gratuite
         },
         "model_info": {
-            "source": "typesafe",
-            "fournisseur": "Typesafe",
+            "source": "openrouter-system-one",
+            "fournisseur": "OpenRouter",
             "editeur": "Typesafe",
             "capacites": [],
             "hebergeurs": ["Typesafe"],
@@ -81,10 +84,10 @@ existants = {m["model_name"]: m for m in http("GET", "/model/info")["data"]}
 for modele in MODELES:
     nom = modele["model_name"]
     if nom in existants:
-        # PATCH : LiteLLM fusionne ; seule la route change parmi les paramètres d'appel.
-        route = modele["litellm_params"]["model"]
-        http("PATCH", f"/model/{existants[nom]['model_info']['id']}/update", {"model_info": modele["model_info"], "litellm_params": {"model": route}})
-        print(f"• {nom} : informations complétées, route {route}")
+        # PATCH : LiteLLM fusionne ; parmi les paramètres d'appel, la route, l'adresse et la clé changent, pas les tarifs.
+        acces = {k: modele["litellm_params"][k] for k in ("model", "api_base", "api_key")}
+        http("PATCH", f"/model/{existants[nom]['model_info']['id']}/update", {"model_info": modele["model_info"], "litellm_params": acces})
+        print(f"• {nom} : informations complétées, route {acces['model']}")
     else:
         http("POST", "/model/new", modele)
         print(f"• {nom} : déclaré")
