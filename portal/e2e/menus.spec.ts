@@ -69,3 +69,30 @@ test("la gestion souligne « Gestion » dans l'en-tête et, dans son menu, l'ong
   await ongletCourant(entete, /^Gestion/);
   await ongletCourant(menu, /^Équipes$/);
 });
+
+test("l'onglet suit l'adresse même quand elle change avant la fin de l'hydratation, sans erreur d'hydratation", async ({ browser }) => {
+  const admin = await (await connecter(browser, ADMIN)).newPage();
+  const erreurs: string[] = [];
+  admin.on("console", (message) => {
+    if (message.type() === "error" && message.text().includes("hydrated")) erreurs.push(message.text());
+  });
+  // Le JavaScript de la page est retenu, le temps que l'adresse change : ainsi quand un clic lance une navigation avant
+  // la fin de l'hydratation, le HTML du serveur (la file) ne correspond plus à l'adresse (une fiche).
+  let liberer = () => {};
+  const retenu = new Promise<void>((resolve) => (liberer = resolve));
+  await admin.route(
+    (url) => url.pathname.startsWith("/_next/static/") && url.pathname.endsWith(".js"),
+    async (route) => {
+      await retenu;
+      await route.continue();
+    },
+  );
+  await admin.goto("/gestion/demandes", { waitUntil: "commit" });
+  await expect(admin.getByRole("heading", { level: 1 })).toHaveText("Demandes en attente de validation");
+  await admin.evaluate(() => history.replaceState(null, "", "/gestion/demandes/une-fiche"));
+  liberer();
+  // Sur une fiche, « Gestion » et « Demandes » sont les onglets de la section, et non de la page elle-même.
+  await expect(admin.getByRole("banner").getByRole("link", { name: /^Gestion/ })).toHaveAttribute("aria-current", "true");
+  await expect(admin.getByRole("navigation", { name: "Administration" }).getByRole("link", { name: /^Demandes/ })).toHaveAttribute("aria-current", "true");
+  expect(erreurs).toEqual([]);
+});

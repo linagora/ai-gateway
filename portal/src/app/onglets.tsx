@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { type ReactNode, useSyncExternalStore } from "react";
 
 /** Onglet d'un menu : son lien, son contenu, et les chemins des pages qui en relèvent (par défaut, son lien). */
 export interface Onglet {
@@ -19,6 +19,10 @@ export interface Onglet {
  */
 export function Onglets({ onglets }: { onglets: Onglet[] }) {
   const chemin = usePathname();
+  // Une navigation lancée avant la fin de l'hydratation (clic pendant le chargement) change l'adresse sous le HTML du
+  // serveur, et React ne corrige pas les attributs à l'hydratation : les liens sont recréés une fois la page hydratée,
+  // avec ceux de l'adresse réelle.
+  const hydratee = useSyncExternalStore(sansAbonnement, () => true, () => false);
   const longueurs = onglets.map((o) =>
     Math.max(0, ...(o.sections ?? [o.href]).filter((s) => chemin === s || chemin.startsWith(`${s}/`)).map((s) => s.length)),
   );
@@ -26,7 +30,8 @@ export function Onglets({ onglets }: { onglets: Onglet[] }) {
   const actif = plusLongue > 0 ? longueurs.indexOf(plusLongue) : -1;
   return onglets.map((o, i) => (
     <Link
-      key={o.href}
+      key={hydratee ? o.href : `${o.href} (serveur)`}
+      suppressHydrationWarning
       href={o.href}
       aria-current={i === actif ? (chemin === o.href ? "page" : "true") : undefined}
       className={`border-y-[3px] border-t-transparent py-0.5 ${i === actif ? "border-b-linagora text-neutral-900" : "border-b-transparent"}`}
@@ -35,3 +40,6 @@ export function Onglets({ onglets }: { onglets: Onglet[] }) {
     </Link>
   ));
 }
+
+/** Aucun abonnement : l'état « hydratée » ne change qu'une fois, à la fin de l'hydratation. */
+const sansAbonnement = () => () => {};
