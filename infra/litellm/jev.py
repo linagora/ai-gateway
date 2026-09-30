@@ -1,26 +1,28 @@
 """JEV (Typesafe, niveau Expérimental) comme modèle de la passerelle : fournisseur personnalisé de
 LiteLLM (CustomLLM, édition communautaire), déclaré dans config.yaml (litellm_settings.custom_provider_map).
+Typesafe n'ouvrant plus de compte, JEV passe par l'API System One d'OpenRouter, au format de Typesafe
+(décision de l'utilisateur du 2026-09-30, ticket #104).
 
 JEV n'est pas un modèle de conversation : son API System One reçoit un état et des questions typées,
 et renvoie des réponses structurées. Convention de la passerelle : le dernier message contient la
-requête System One en JSON, sans le champ « model » ; la réponse du modèle est le JSON renvoyé par
-Typesafe (modèle et réponses). Les clés, budgets et coûts sont ceux de LiteLLM, comme pour tout
-modèle (coût calculé sur les jetons d'entrée et de sortie comptés par Typesafe).
+requête System One en JSON, sans le champ « model » ; la réponse du modèle est le JSON renvoyé
+(modèle et réponses). Seuls l'état et les questions sont transmis : aucune préférence de routage.
+Les clés, budgets et coûts sont ceux de LiteLLM, comme pour tout modèle (coût calculé sur les jetons
+d'entrée et de sortie comptés par Typesafe).
 
   {"model": "jev-latest", "messages": [{"role": "user", "content":
     "{\"state\": \"…\", \"questions\": {\"urgent\": {\"type\": \"noul\", \"instructions\": \"…\"}}}"}]}
 """
 import json
-import os
 import time
 
 import httpx
 from litellm import CustomLLM, ModelResponse
 from litellm.llms.custom_llm import CustomLLMError
 
-API_PAR_DEFAUT = "https://api.typesafe.ai/v1"
+API_PAR_DEFAUT = "https://openrouter.ai/api/v1"
 FORMAT = ('JEV attend dans le dernier message la requête System One de Typesafe en JSON : '
-          '{"state": …, "questions": {…}} (voir https://docs.typesafe.ai/api).')
+          '{"state": …, "questions": {…}} (voir https://openrouter.ai/docs/guides/community/jev).')
 
 
 def requete(model, messages, api_base, api_key):
@@ -32,14 +34,14 @@ def requete(model, messages, api_base, api_key):
         raise CustomLLMError(status_code=400, message=FORMAT)
     return {
         "url": f"{(api_base or API_PAR_DEFAUT).rstrip('/')}/systemone",
-        "json": {**contenu, "model": model},
-        "headers": {"Authorization": f"Bearer {api_key or os.environ['TYPESAFE_API_KEY']}"},
+        "json": {"model": model, "state": contenu["state"], "questions": contenu["questions"]},
+        "headers": {"Authorization": f"Bearer {api_key}"},
     }
 
 
 def reponse(r: httpx.Response, model: str) -> ModelResponse:
     if r.status_code != 200:
-        raise CustomLLMError(status_code=r.status_code, message=f"Typesafe : {r.text[:500]}")
+        raise CustomLLMError(status_code=r.status_code, message=f"JEV : {r.text[:500]}")
     corps = r.json()
     usage = corps.get("usage") or {}
     entree, sortie = usage.get("input_tokens", 0), usage.get("output_tokens", 0)

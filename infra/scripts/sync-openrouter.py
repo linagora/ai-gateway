@@ -154,6 +154,10 @@ def ecarts(voulu, existant):
 
 def est_openrouter(m):
     lp = m.get("litellm_params") or {}
+    # JEV passe par l'API System One d'OpenRouter : ce n'est pas un modèle de conversation de la liste blanche, mais
+    # un modèle déclaré par declare-modeles-directs.py, avec son fournisseur personnalisé (typesafe/…, ticket #104).
+    if str(lp.get("model", "")).startswith("typesafe/"):
+        return False
     return "openrouter" in str(lp.get("model", "")) or "openrouter.ai" in str(lp.get("api_base", "")) or (m.get("model_info") or {}).get("source") == SOURCE
 
 
