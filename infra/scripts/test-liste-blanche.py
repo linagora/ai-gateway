@@ -58,7 +58,13 @@ assert MODELE in liste, f"{MODELE} n'est pas dans la liste blanche"
 # 1. Déclarations
 modeles = http("GET", "/model/info")[1]["data"]
 tarifs = {m["model_name"]: m["litellm_params"] for m in modeles}
-openrouter = {m["model_name"]: m for m in modeles if "openrouter" in json.dumps(m.get("litellm_params") or {})}
+# JEV passe par l'API System One d'OpenRouter, avec son fournisseur personnalisé (typesafe/…) : ce n'est pas un modèle de
+# conversation de la liste blanche (même règle que sync-openrouter.py, ticket #104).
+route = lambda m: str((m.get("litellm_params") or {}).get("model", ""))
+openrouter = {m["model_name"]: m for m in modeles if "openrouter" in json.dumps(m.get("litellm_params") or {}) and not route(m).startswith("typesafe/")}
+jev = next((m.get("litellm_params") or {} for m in modeles if m["model_name"] == JEV), {})
+controle(f"{JEV} : API System One d'OpenRouter, par le fournisseur personnalisé", str(jev.get("model", "")).startswith("typesafe/")
+         and jev.get("api_base") == "https://openrouter.ai/api/v1", f"route {jev.get('model')}, adresse {jev.get('api_base')}")
 controle("aucun joker déclaré", not [m["model_name"] for m in modeles if "*" in m["model_name"] or "*" in str((m.get("litellm_params") or {}).get("model"))])
 controle("les modèles OpenRouter déclarés sont exactement ceux de la liste blanche", set(openrouter) == set(liste),
          f"hors liste : {sorted(set(openrouter) - set(liste))} ; manquants : {sorted(set(liste) - set(openrouter))}")
