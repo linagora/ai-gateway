@@ -61,6 +61,10 @@ modeles:
   - {nom: kimi-k2.5, openrouter: moonshotai/kimi-k2.5, zone: monde}
   - {nom: kimi-k3, openrouter: moonshotai/kimi-k3, zone: monde, prix_max_usd: [3, 15]}   # hors offres « fast »
 
+  # --- MiMo (Xiaomi) : aucun point d'accès en UE, zone monde ; le point d'accès de Xiaomi (fournisseur chinois) est
+  # exclu, seuls DeepInfra et GMICloud le servent (décision de l'utilisateur du 2026-10-01) ---
+  - {nom: mimo-v2.6-pro, openrouter: xiaomi/mimo-v2.6-pro, zone: monde}
+
   # --- Modèles d'images : aucun point d'accès OpenRouter en UE, zone monde (décision du 2026-09-25) ---
   # Black Forest Labs facture au moins un mégapixel (4 096 jetons d'image), alors qu'une image par défaut
   # en fait 3 072 (1024 × 768) : majoration de 4/3, pour que le coût compté ne soit jamais sous la facture.
