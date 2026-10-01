@@ -52,7 +52,6 @@ modeles:
   # --- Modèles ouverts servis en UE (Inceptron : Suède/Finlande ; NextBit : Espagne) ---
   - {nom: glm-5.3, openrouter: z-ai/glm-5.3, zone: UE}
   - {nom: glm-5.3-flash, openrouter: z-ai/glm-5.3-flash, zone: UE}
-  - {nom: glm-5.2, openrouter: z-ai/glm-5.2, zone: UE, prix_max_usd: [1, 4]}   # Inceptron seul : mistral/eu, près de 4 fois plus cher en entrée, est exclu (2026-09-29)
   - {nom: deepseek-v4.1-flash, openrouter: deepseek/deepseek-v4.1-flash, zone: UE}
   - {nom: deepseek-v4-pro, openrouter: deepseek/deepseek-v4-pro-0813, zone: UE}
   - {nom: deepseek-v4-flash, openrouter: deepseek/deepseek-v4-flash-0731, zone: UE}
