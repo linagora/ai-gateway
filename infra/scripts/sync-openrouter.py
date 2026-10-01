@@ -6,6 +6,8 @@ et vérifie qu'aucun autre modèle OpenRouter, ni aucun joker, n'y est déclaré
 Sans option : affiche le plan et sort en erreur s'il reste un écart. --appliquer crée ou met à jour les
 modèles de la liste ; --seulement=nom,nom limite ces créations et mises à jour aux modèles nommés (les autres
 écarts restent signalés) ; --supprimer-hors-liste supprime en plus les modèles OpenRouter qui n'y figurent pas.
+Un modèle de la liste sans point d'accès retenu (aucun dans sa zone, ou aucun sous son plafond) est un écart :
+signalé, sa déclaration laissée en l'état, sans arrêter le passage pour les autres modèles.
 
 Pour chaque modèle : points d'accès OpenRouter de sa zone (API publique /models/<id>/endpoints), prix
 en € = prix le plus élevé de ces points d'accès × (1 + frais) × taux, routage limité à ces points
@@ -55,6 +57,10 @@ def http(methode, url, corps=None, auth=True):
         raise SystemExit(f"{methode} {url} : HTTP {e.code} {e.read()[:300]!r}")
 
 
+class SansPointDAcces(Exception):
+    """Aucun point d'accès OpenRouter retenu pour un modèle de la liste : écart signalé, sans arrêter le passage."""
+
+
 def dans_zone(tag, zone):
     return [z for z in zone if tag == z or tag.startswith(z + "/")]
 
@@ -72,8 +78,11 @@ def declaration(entree, cfg):
     retenus = [e for e in tous if dans_zone(e["tag"], zone) and (
         plafond is None or (float(e["pricing"]["prompt"]) * 1e6 <= plafond[0] and float(e["pricing"]["completion"]) * 1e6 <= plafond[1]))]
     if not retenus:
-        raise SystemExit(f"✘ {entree['nom']} : aucun point d'accès OpenRouter dans la zone {entree['zone']} "
-                         f"(disponibles : {', '.join(e['tag'] for e in tous)})")
+        # Des points d'accès de la zone, tous au-dessus du plafond : leurs prix disent de combien.
+        if hors_plafond := [e for e in tous if dans_zone(e["tag"], zone)]:
+            raise SansPointDAcces(f"plafond de {plafond[0]} $ / {plafond[1]} $ dépassé dans la zone {entree['zone']} (" + ", ".join(
+                f"{e['tag']} : {float(e['pricing']['prompt']) * 1e6:g} $ / {float(e['pricing']['completion']) * 1e6:g} $" for e in hors_plafond) + ")")
+        raise SansPointDAcces(f"aucun point d'accès OpenRouter dans la zone {entree['zone']} (disponibles : {', '.join(e['tag'] for e in tous)})")
     usd_in = max(float(e["pricing"]["prompt"]) for e in retenus)
     usd_out = max(float(e["pricing"]["completion"]) for e in retenus)
     # Modèle d'images : ses jetons de sortie sont surtout des jetons d'image, au prix le plus élevé. La majoration
@@ -162,12 +171,22 @@ def est_openrouter(m):
 
 
 cfg = yaml.safe_load(open(LISTE))
-voulus = {e["nom"]: declaration(e, cfg) for e in cfg["modeles"]}
+noms = [e["nom"] for e in cfg["modeles"]]
+voulus, sans_acces = {}, {}
+for e in cfg["modeles"]:
+    try:
+        voulus[e["nom"]] = declaration(e, cfg)
+    except SansPointDAcces as raison:
+        sans_acces[e["nom"]] = raison
 deja = {}
 for m in http("GET", f"{PROXY}/model/info")["data"]:
     deja.setdefault(m["model_name"], []).append(m)
 
 reste = 0
+for nom, raison in sans_acces.items():
+    etat = "déclaration laissée en l'état" if nom in deja else "non déclaré"
+    print(f"✘ {nom} : {raison} ; {etat}")
+    reste += 1
 for nom, v in voulus.items():
     eur = [v["litellm_params"]["input_cost_per_token"] * 1e6, v["litellm_params"]["output_cost_per_token"] * 1e6]
     resume = f"{v['model_info']['zone']} via {', '.join(v['litellm_params']['provider']['only'])} ; {eur[0]:.4f} € / {eur[1]:.4f} € par Mtoken"
@@ -196,7 +215,7 @@ for nom, liste in deja.items():
         if "*" in nom or "*" in str(lp.get("model", "")):
             print(f"✘ {nom} : joker interdit ({lp.get('model')})")
             reste += 1
-        elif est_openrouter(m) and nom not in voulus:
+        elif est_openrouter(m) and nom not in noms:
             print(f"✘ {nom} : modèle OpenRouter hors liste blanche ({lp.get('model')})")
             if supprimer:
                 http("POST", f"{PROXY}/model/delete", {"id": m["model_info"]["id"]})
@@ -204,5 +223,5 @@ for nom, liste in deja.items():
             else:
                 reste += 1
 
-print(f"\n{len(voulus)} modèles dans la liste blanche ; {'écarts restants : ' + str(reste) if reste else 'aucun écart'}")
+print(f"\n{len(noms)} modèles dans la liste blanche ; {'écarts restants : ' + str(reste) if reste else 'aucun écart'}")
 sys.exit(1 if reste else 0)
