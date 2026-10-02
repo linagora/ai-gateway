@@ -85,8 +85,8 @@ def contenus(modalites):
     return [c for m, c in CONTENUS.items() if m in modalites]
 
 
-def declaration(entree, cfg, catalogue):
-    """Déclaration LiteLLM d'un modèle de la liste blanche ; `catalogue` : liste des modèles d'OpenRouter, par identifiant."""
+def declaration(entree, cfg, modeles_openrouter):
+    """Déclaration LiteLLM d'un modèle de la liste blanche ; `modeles_openrouter` : liste publique d'OpenRouter, par identifiant."""
     zone = cfg["zones"][entree["zone"]]
     donnees = http("GET", f"{OPENROUTER}/models/{entree['openrouter']}/endpoints", auth=False)["data"]
     tous = donnees["endpoints"]
@@ -131,19 +131,19 @@ def declaration(entree, cfg, catalogue):
     capacites = [c for c, oui in [("images", "image" in entrees), ("generation_images", image),
                                   ("audio_video", bool(entrees & {"audio", "video"})), ("raisonnement", raisonne)] if oui]
     # Configuration d'OpenCode (portail) : sortie maximale, efforts de raisonnement et contenus acceptés.
-    publie = catalogue.get(entree["openrouter"]) or {}
+    publie = modeles_openrouter.get(entree["openrouter"]) or {}
     maximums = [e["max_completion_tokens"] for e in retenus if e.get("max_completion_tokens")]
     if limite_modele := (publie.get("top_provider") or {}).get("max_completion_tokens"):
         maximums.append(limite_modele)
-    faits_opencode = {"contenus_entree": contenus(entrees), "contenus_sortie": contenus(sorties)}
+    faits_techniques = {"contenus_entree": contenus(entrees), "contenus_sortie": contenus(sorties)}
     if maximums:
-        faits_opencode["max_output_tokens"] = min(maximums)
+        faits_techniques["max_output_tokens"] = min(maximums)
     raisonnement = publie.get("reasoning") or {}
     efforts = sorted({e for e in raisonnement.get("supported_efforts") or [] if e in ORDRE_EFFORTS}, key=ORDRE_EFFORTS.index)
     if raisonne and efforts:
-        faits_opencode["efforts_raisonnement"] = efforts
+        faits_techniques["efforts_raisonnement"] = efforts
         if raisonnement.get("default_effort") in efforts:
-            faits_opencode["effort_par_defaut"] = raisonnement["default_effort"]
+            faits_techniques["effort_par_defaut"] = raisonnement["default_effort"]
     if image:
         if "jetons_par_image" not in entree:
             raise SystemExit(f"✘ {entree['nom']} : modèle d'images sans jetons_par_image dans la liste blanche")
@@ -179,7 +179,7 @@ def declaration(entree, cfg, catalogue):
             "frais_openrouter": cfg["frais_openrouter"],
             "prix_usd_par_mtoken": [arrondi(usd_in * 1e6), arrondi(usd_out * 1e6)],
             "max_input_tokens": min(e["context_length"] for e in retenus),
-            **faits_opencode,
+            **faits_techniques,
             **supplements_info,
         },
     }
@@ -204,11 +204,11 @@ def est_openrouter(m):
 cfg = yaml.safe_load(open(LISTE))
 noms = [e["nom"] for e in cfg["modeles"]]
 # Liste publique des modèles d'OpenRouter, lue une fois : limite de sortie et efforts de raisonnement de chaque modèle.
-catalogue = {m["id"]: m for m in http("GET", f"{OPENROUTER}/models", auth=False)["data"]}
+modeles_openrouter = {m["id"]: m for m in http("GET", f"{OPENROUTER}/models", auth=False)["data"]}
 voulus, sans_acces = {}, {}
 for e in cfg["modeles"]:
     try:
-        voulus[e["nom"]] = declaration(e, cfg, catalogue)
+        voulus[e["nom"]] = declaration(e, cfg, modeles_openrouter)
     except SansPointDAcces as raison:
         sans_acces[e["nom"]] = raison
 deja = {}
