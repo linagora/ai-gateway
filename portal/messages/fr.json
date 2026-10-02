@@ -967,6 +967,15 @@
       "decision": "API de décision",
       "non_declare": "la passerelle ne le déclare plus"
     },
+    "modeleParDefaut": "Modèle par défaut",
+    "aucunModeleParDefaut": "Aucun : OpenCode garde son choix",
+    "miseAJour": "Mises à jour d'OpenCode",
+    "misesAJour": {
+      "aucune": "Garder le réglage d'OpenCode",
+      "notify": "Signaler les nouvelles versions",
+      "auto": "Les installer automatiquement",
+      "disable": "Ne pas vérifier"
+    },
     "clesNonProposees": "Clés non proposées",
     "raisonsCle": {
       "etat_inconnu": "la passerelle ne donne pas son état",

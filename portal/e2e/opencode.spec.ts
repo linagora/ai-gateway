@@ -35,6 +35,21 @@ test("depuis « Mes clés », le titulaire ouvre la configuration d'OpenCode de 
   expect(await page.content()).not.toContain(cle);
 });
 
+test("le modèle par défaut et la politique de mise à jour choisis s'écrivent en tête de la configuration (ticket #116)", async ({ browser }) => {
+  const salarie = personne("defaut");
+  const page = await (await connecter(browser, salarie)).newPage();
+  await demandeApprouvee(browser, page, salarie, "Essai défaut");
+  await retirerCle(page);
+
+  await page.goto("/cles/opencode");
+  await page.getByLabel("Modèle par défaut").selectOption({ label: "Modèle public" });
+  await expect(page).toHaveURL(/modele=/);
+  await page.getByLabel("Mises à jour d'OpenCode").selectOption({ label: "Les installer automatiquement" });
+  const configuration = page.getByRole("region", { name: "Configuration" });
+  await expect(configuration).toContainText('"model": "linagora-n1-r-d-essai-defaut/dev-public"');
+  await expect(configuration).toContainText('"update": "auto"');
+});
+
 test("la page de configuration d'OpenCode existe en anglais", async ({ browser }) => {
   const salarie = personne("anglais");
   const page = await (await connecter(browser, salarie)).newPage();

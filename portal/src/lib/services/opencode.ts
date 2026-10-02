@@ -13,6 +13,10 @@ export interface TextesOpenCode {
   invite: (cle: { alias: string; niveau: string; equipe: string }) => string;
 }
 
+/** Politique de mise à jour d'OpenCode : signaler les nouvelles versions, les installer, ou ne pas vérifier. */
+export const MISES_A_JOUR = ["notify", "auto", "disable"] as const;
+export type MiseAJour = (typeof MISES_A_JOUR)[number];
+
 /** Options de la page « Configurer OpenCode ». */
 export interface OptionsOpenCode {
   langue: Langue;
@@ -21,6 +25,10 @@ export interface OptionsOpenCode {
   textes: TextesOpenCode;
   /** Demandes des clés choisies ; null à l'arrivée sans choix : toutes les clés proposées. */
   cles: string[] | null;
+  /** Modèle par défaut, « entrée/modèle » ; ignoré s'il n'est pas parmi les modèles des clés choisies. */
+  modeleParDefaut: string | null;
+  /** Politique de mise à jour ; null : le réglage d'OpenCode reste. */
+  miseAJour: MiseAJour | null;
 }
 
 /** Raison pour laquelle un modèle d'une clé n'entre pas dans la configuration. */
@@ -33,6 +41,8 @@ export interface CleOpenCode {
   teamAlias: string;
   dataLevel: DataLevel;
   project: string | null;
+  /** Identifiant de l'entrée de la clé dans OpenCode : un modèle par défaut s'y désigne par « entrée/modèle ». */
+  entree: string;
   /** La clé entre dans la configuration. */
   choisie: boolean;
   /** Modèles de conversation de la clé, sous le nom affiché de leur fiche. */
@@ -58,6 +68,8 @@ export interface ConfigurationOpenCode {
   /** Clés émises proposées, dans l'ordre de « Mes clés ». */
   cles: CleOpenCode[];
   clesEcartees: CleEcartee[];
+  /** Modèle par défaut retenu, « entrée/modèle » : celui des options s'il est parmi les modèles des clés choisies. */
+  modeleParDefaut: string | null;
   /** Texte du fichier de configuration d'OpenCode ; null sans clé choisie. */
   configuration: string | null;
   /** Commandes du terminal qui enregistrent les clés choisies, demandées en saisie masquée ; null sans clé choisie. */
@@ -114,15 +126,21 @@ export async function configurationOpenCode(deps: KeyDeps, user: SessionUser, op
   }
   const choisie = (cle: ClePreparee) => options.cles === null || options.cles.includes(cle.requestId);
   const choisies = cles.filter(choisie);
+  const possibles = choisies.flatMap((cle) => cle.retenus.map((m) => `${cle.entree}/${m.modelName}`));
+  const model = options.modeleParDefaut !== null && possibles.includes(options.modeleParDefaut) ? options.modeleParDefaut : null;
+  const providers = Object.fromEntries(choisies.map((cle) => [cle.entree, entreeDeLaCle(cle, options)]));
   return {
     cles: cles.map((cle) => {
-      const { requestId, alias, teamAlias, dataLevel, project, retenus, modelesEcartes } = cle;
+      const { requestId, alias, teamAlias, dataLevel, project, entree, retenus, modelesEcartes } = cle;
       const modeles = retenus.map(({ modelName, displayName }) => ({ modelName, displayName }));
-      return { requestId, alias, teamAlias, dataLevel, project, choisie: choisie(cle), modeles, modelesEcartes };
+      return { requestId, alias, teamAlias, dataLevel, project, entree, choisie: choisie(cle), modeles, modelesEcartes };
     }),
     clesEcartees,
+    modeleParDefaut: model,
     configuration:
-      choisies.length === 0 ? null : JSON.stringify({ providers: Object.fromEntries(choisies.map((cle) => [cle.entree, entreeDeLaCle(cle, options)])) }, null, 2),
+      choisies.length === 0
+        ? null
+        : JSON.stringify({ ...(model && { model }), ...(options.miseAJour && { update: options.miseAJour }), providers }, null, 2),
     commandes: choisies.length === 0 ? null : commandes(choisies, options.textes),
     verification: "opencode reload && opencode models | grep linagora-",
   };

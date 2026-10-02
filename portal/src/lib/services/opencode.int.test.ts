@@ -19,6 +19,8 @@ const OPTIONS: OptionsOpenCode = {
     invite: ({ alias, niveau, equipe }) => `Clé LINAGORA ${alias} (${niveau}, ${equipe}) : `,
   },
   cles: null,
+  modeleParDefaut: null,
+  miseAJour: null,
 };
 
 /** Date du jour injectée, avancée d'une minute à chaque retrait : « Mes clés » range les clés de la plus récente à la plus ancienne. */
@@ -368,5 +370,29 @@ describe("coût dans la configuration d'OpenCode (ticket #115)", () => {
     const models = await modelesDeLEntree(["mistral-small"]);
 
     expect(models["mistral-small"]).not.toHaveProperty("cost");
+  });
+});
+
+describe("modèle par défaut et mises à jour d'OpenCode (ticket #116)", () => {
+  test("le modèle par défaut, choisi parmi les modèles des clés choisies, est écrit en tête de la configuration ; celui d'une clé décochée est abandonné", async () => {
+    const hebdo = await cleEmise();
+    const revue = await cleEmise({ project: "Revue de code" });
+    const configuration = async (cles: string[]) =>
+      JSON.parse(
+        (await configurationOpenCode(deps, titulaire, { ...OPTIONS, cles, modeleParDefaut: "linagora-n2-r-d-revue-de-code/mistral-small" })).configuration ?? "null",
+      );
+
+    expect((await configuration([hebdo, revue])).model).toBe("linagora-n2-r-d-revue-de-code/mistral-small");
+    expect(await configuration([hebdo])).not.toHaveProperty("model");
+  });
+
+  test("la politique de mise à jour choisie est écrite en tête de la configuration ; sans choix, le réglage d'OpenCode reste", async () => {
+    await cleEmise();
+    const configuration = async (miseAJour: "notify" | "auto" | "disable" | null) =>
+      JSON.parse((await configurationOpenCode(deps, titulaire, { ...OPTIONS, miseAJour })).configuration ?? "null");
+
+    expect((await configuration("auto")).update).toBe("auto");
+    expect((await configuration("disable")).update).toBe("disable");
+    expect(await configuration(null)).not.toHaveProperty("update");
   });
 });

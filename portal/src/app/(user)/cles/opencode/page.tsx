@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { PortalError } from "@/lib/errors";
 import { DATA_LEVELS, type DataLevel } from "@/lib/policy";
-import { type ConfigurationOpenCode, configurationOpenCode } from "@/lib/services/opencode";
+import { type ConfigurationOpenCode, configurationOpenCode, MISES_A_JOUR, type MiseAJour } from "@/lib/services/opencode";
 import { getDeps, requireUser } from "@/lib/session";
 import { BoutonCopier } from "../../../bouton-copier";
 import { adresseApi } from "../../../exemples-appel";
@@ -19,6 +19,11 @@ function clesChoisies(parametres: Parametres): string[] | null {
   return parametres.choix === undefined && cles.length === 0 ? null : cles;
 }
 
+/** Politique de mise à jour d'après l'adresse ; null si elle est absente ou inconnue. */
+function miseAJour(parametres: Parametres): MiseAJour | null {
+  return MISES_A_JOUR.find((m) => m === parametres.maj) ?? null;
+}
+
 /** Ticket #113 : configuration d'OpenCode à partir des clés émises du collaborateur, sans que sa clé passe par le portail. */
 export default async function ConfigurerOpenCodePage(props: PageProps<"/cles/opencode">) {
   const user = await requireUser();
@@ -31,6 +36,8 @@ export default async function ConfigurerOpenCodePage(props: PageProps<"/cles/ope
       adresseApi: adresseApi(),
       textes: { niveaux, invite: (cle) => t("invite", cle) },
       cles: clesChoisies(parametres),
+      modeleParDefaut: typeof parametres.modele === "string" ? parametres.modele : null,
+      miseAJour: miseAJour(parametres),
     });
   } catch (e) {
     if (!(e instanceof PortalError && e.code === "passerelle_indisponible")) throw e;
@@ -43,7 +50,7 @@ export default async function ConfigurerOpenCodePage(props: PageProps<"/cles/ope
       </>
     );
   }
-  const { cles, clesEcartees, configuration, commandes, verification } = resultat;
+  const { cles, clesEcartees, modeleParDefaut, configuration, commandes, verification } = resultat;
 
   return (
     <>
@@ -77,6 +84,36 @@ export default async function ConfigurerOpenCodePage(props: PageProps<"/cles/ope
               ))}
             </ul>
           </fieldset>
+          <div className="mt-4 flex flex-wrap gap-6">
+            <label className="flex flex-col gap-1">
+              <span className="font-medium">{t("modeleParDefaut")}</span>
+              <select name="modele" defaultValue={modeleParDefaut ?? ""}>
+                <option value="">{t("aucunModeleParDefaut")}</option>
+                {cles
+                  .filter((cle) => cle.choisie)
+                  .map((cle) => (
+                    <optgroup key={cle.requestId} label={`${cle.alias} · ${cle.teamAlias} · ${niveaux[cle.dataLevel]}`}>
+                      {cle.modeles.map((m) => (
+                        <option key={m.modelName} value={`${cle.entree}/${m.modelName}`}>
+                          {m.displayName}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="font-medium">{t("miseAJour")}</span>
+              <select name="maj" defaultValue={miseAJour(parametres) ?? ""}>
+                <option value="">{t("misesAJour.aucune")}</option>
+                {MISES_A_JOUR.map((m) => (
+                  <option key={m} value={m}>
+                    {t(`misesAJour.${m}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
           <input type="hidden" name="choix" value="1" />
           <FiltrageAutomatique minimum={0} />
         </form>

@@ -967,6 +967,15 @@
       "decision": "decision API",
       "non_declare": "no longer declared by the gateway"
     },
+    "modeleParDefaut": "Default model",
+    "aucunModeleParDefaut": "None: OpenCode keeps its choice",
+    "miseAJour": "OpenCode updates",
+    "misesAJour": {
+      "aucune": "Keep OpenCode's setting",
+      "notify": "Report new versions",
+      "auto": "Install them automatically",
+      "disable": "Do not check"
+    },
     "clesNonProposees": "Keys not offered",
     "raisonsCle": {
       "etat_inconnu": "the gateway does not report its state",
