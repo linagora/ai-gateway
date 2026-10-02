@@ -16,6 +16,8 @@
 #
 # Prix déclarés en € = prix OpenRouter en $ (le plus élevé des points d'accès autorisés)
 #                      × (1 + frais d'achat de crédits) × taux USD→EUR.
+# Lecture et écriture du cache : même calcul sur les prix de cache publiés, à défaut le prix d'entrée
+# (sans prix de cache déclaré, LiteLLM compterait les jetons lus depuis le cache à 0 €).
 # prix_max_usd (facultatif) : plafond en $ par million de jetons (entrée, sortie), transmis à
 # OpenRouter (provider.max_price) : les points d'accès plus chers sont exclus du routage.
 #

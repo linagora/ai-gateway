@@ -11,7 +11,8 @@ signalé, sa déclaration laissée en l'état, sans arrêter le passage pour les
 
 Pour chaque modèle : points d'accès OpenRouter de sa zone (API publique /models/<id>/endpoints), prix
 en € = prix le plus élevé de ces points d'accès × (1 + frais) × taux, routage limité à ces points
-d'accès sans repli. Déclaration « openai/<id> » sur l'API d'OpenRouter, et non par la route
+d'accès sans repli. Jetons lus depuis le cache (et écrits) : même calcul sur les prix de cache publiés, à défaut
+le prix d'entrée ; sans prix de cache déclaré, LiteLLM les compterait à 0 €. Déclaration « openai/<id> » sur l'API d'OpenRouter, et non par la route
 « openrouter/ » de LiteLLM : celle-ci enregistre le coût renvoyé par OpenRouter, en dollars, à la
 place de nos tarifs en euros (vérifié sur la 1.102.1).
 Modèles d'images (sortie « image ») : appelés par la conversation (modalities), où LiteLLM compte les jetons
@@ -118,6 +119,11 @@ def declaration(entree, cfg, modeles_openrouter):
     # seconde pour Voxtral) et le contexte long (au-delà de 200 000 jetons). Sans eux, LiteLLM compterait l'audio au
     # prix du texte, et les budgets des clés sous-estimeraient la dépense.
     supplements = {}
+    # Jetons lus depuis le cache, et écrits pour les points d'accès qui facturent l'écriture : prix le plus élevé publié
+    # par les points d'accès retenus, à défaut le prix d'entrée. Sans prix déclaré, LiteLLM 1.102.1 compte les jetons lus
+    # depuis le cache à 0 € (prix personnalisés), alors qu'OpenRouter les facture.
+    usd_cache = {champ: max((float(p) for e in retenus if (p := (e.get("pricing") or {}).get(champ)) is not None), default=usd_in)
+                 for champ in ("input_cache_read", "input_cache_write")}
     audio = max(float((e.get("pricing") or {}).get("audio") or 0) for e in retenus)
     if audio > 0:
         supplements["input_cost_per_audio_token"] = arrondi(audio * k)
@@ -160,6 +166,8 @@ def declaration(entree, cfg, modeles_openrouter):
             "api_key": "os.environ/OPENROUTER_API_KEY",
             "input_cost_per_token": arrondi(usd_in * k * majoration),
             "output_cost_per_token": arrondi(usd_out * k * majoration),
+            "cache_read_input_token_cost": arrondi(usd_cache["input_cache_read"] * k * majoration),
+            "cache_creation_input_token_cost": arrondi(usd_cache["input_cache_write"] * k * majoration),
             **supplements,
             "provider": provider,
         },
@@ -221,8 +229,8 @@ for nom, raison in sans_acces.items():
     print(f"✘ {nom} : {raison} ; {etat}")
     reste += 1
 for nom, v in voulus.items():
-    eur = [v["litellm_params"]["input_cost_per_token"] * 1e6, v["litellm_params"]["output_cost_per_token"] * 1e6]
-    resume = f"{v['model_info']['zone']} via {', '.join(v['litellm_params']['provider']['only'])} ; {eur[0]:.4f} € / {eur[1]:.4f} € par Mtoken"
+    eur = [v["litellm_params"][c] * 1e6 for c in ("input_cost_per_token", "output_cost_per_token", "cache_read_input_token_cost")]
+    resume = f"{v['model_info']['zone']} via {', '.join(v['litellm_params']['provider']['only'])} ; {eur[0]:.4f} € / {eur[1]:.4f} € par Mtoken, cache lu {eur[2]:.4f} €"
     existants = deja.get(nom, [])
     if len(existants) > 1:
         print(f"✘ {nom} : déclaré {len(existants)} fois, à corriger à la main")
