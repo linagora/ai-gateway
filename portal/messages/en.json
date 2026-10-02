@@ -922,6 +922,7 @@
     "infoIndisponible": "Spend and budget unavailable for now: the gateway is not responding.",
     "bloquee": "blocked",
     "commentUtiliser": "How to use it",
+    "configurerOpenCode": "Set up OpenCode with this key",
     "exemplesPour": "With {modele}",
     "emplacement": "Keep your key in the LINAGORA_API_KEY environment variable: the examples read it from there, it never appears in them.",
     "langages": {
@@ -951,6 +952,40 @@
     "adresseApi": "API address",
     "copierAdresse": "Copy the address",
     "adresseCopiee": "Address copied"
+  },
+  "opencode": {
+    "titre": "Set up OpenCode",
+    "intro": "OpenCode is an open source coding assistant that works in the terminal. This page builds its configuration from your issued keys: each key becomes an entry, with its chat models. Your key never goes through the portal: the commands ask you for it in the terminal, without displaying it.",
+    "indisponible": "The gateway is not responding: the configuration cannot be built for now. Please try again in a few moments.",
+    "aucuneCle": "None of your issued keys is suitable for OpenCode.",
+    "versMesCles": "See my keys",
+    "clesAInclure": "Keys to include",
+    "modeles": "Models: {liste}",
+    "modelesEcartes": "Left out: {liste}",
+    "raisonsModele": {
+      "images": "image model",
+      "decision": "decision API",
+      "non_declare": "no longer declared by the gateway"
+    },
+    "clesNonProposees": "Keys not offered",
+    "raisonsCle": {
+      "etat_inconnu": "the gateway does not report its state",
+      "bloquee": "blocked key",
+      "sans_modele": "no chat model"
+    },
+    "aucuneChoisie": "Tick at least one key to get the configuration.",
+    "configuration": "Configuration",
+    "configurationExplication": "Save it in the ~/.config/opencode/opencode.json file on your computer.",
+    "copierConfiguration": "Copy the configuration",
+    "configurationCopiee": "Configuration copied",
+    "commandes": "Save your keys",
+    "commandesExplication": "Run these commands in a terminal: they ask you for each key, without displaying it, then restart OpenCode.",
+    "copierCommandes": "Copy the commands",
+    "commandesCopiees": "Commands copied",
+    "verification": "Then check that your models are recognized:",
+    "copierVerification": "Copy the command",
+    "verificationCopiee": "Command copied",
+    "invite": "LINAGORA key {alias} ({niveau}, {equipe}): "
   },
   "courriels": {
     "lien": "Link: {url}",

@@ -922,6 +922,7 @@
     "infoIndisponible": "Dépense et budget indisponibles pour l'instant : la passerelle ne répond pas.",
     "bloquee": "bloquée",
     "commentUtiliser": "Comment l'utiliser",
+    "configurerOpenCode": "Configurer OpenCode avec cette clé",
     "exemplesPour": "Avec {modele}",
     "emplacement": "Gardez votre clé dans la variable d'environnement LINAGORA_API_KEY : les exemples la lisent là, elle n'y figure jamais.",
     "langages": {
@@ -951,6 +952,40 @@
     "adresseApi": "Adresse de l'API",
     "copierAdresse": "Copier l'adresse",
     "adresseCopiee": "Adresse copiée"
+  },
+  "opencode": {
+    "titre": "Configurer OpenCode",
+    "intro": "OpenCode est un assistant de code open source qui travaille dans le terminal. Cette page en produit la configuration à partir de vos clés émises : chaque clé y devient une entrée, avec ses modèles de conversation. Votre clé ne passe jamais par le portail : les commandes vous la demandent dans le terminal, sans l'afficher.",
+    "indisponible": "La passerelle ne répond pas : la configuration ne peut pas être produite pour l'instant. Réessayez dans quelques instants.",
+    "aucuneCle": "Aucune de vos clés émises ne convient à OpenCode.",
+    "versMesCles": "Voir mes clés",
+    "clesAInclure": "Clés à inclure",
+    "modeles": "Modèles : {liste}",
+    "modelesEcartes": "Non repris : {liste}",
+    "raisonsModele": {
+      "images": "modèle d'images",
+      "decision": "API de décision",
+      "non_declare": "la passerelle ne le déclare plus"
+    },
+    "clesNonProposees": "Clés non proposées",
+    "raisonsCle": {
+      "etat_inconnu": "la passerelle ne donne pas son état",
+      "bloquee": "clé bloquée",
+      "sans_modele": "aucun modèle de conversation"
+    },
+    "aucuneChoisie": "Cochez au moins une clé pour obtenir la configuration.",
+    "configuration": "Configuration",
+    "configurationExplication": "Enregistrez-la dans le fichier ~/.config/opencode/opencode.json de votre poste.",
+    "copierConfiguration": "Copier la configuration",
+    "configurationCopiee": "Configuration copiée",
+    "commandes": "Enregistrer vos clés",
+    "commandesExplication": "Lancez ces commandes dans un terminal : elles vous demandent chaque clé, sans l'afficher, puis redémarrent OpenCode.",
+    "copierCommandes": "Copier les commandes",
+    "commandesCopiees": "Commandes copiées",
+    "verification": "Vérifiez ensuite que vos modèles sont reconnus :",
+    "copierVerification": "Copier la commande",
+    "verificationCopiee": "Commande copiée",
+    "invite": "Clé LINAGORA {alias} ({niveau}, {equipe}) : "
   },
   "courriels": {
     "lien": "Lien : {url}",

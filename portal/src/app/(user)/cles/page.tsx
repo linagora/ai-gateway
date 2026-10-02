@@ -143,6 +143,11 @@ export default async function MesClesPage(props: PageProps<"/cles">) {
                   <details className="mt-3">
                     <summary className="cursor-pointer font-medium">{t("commentUtiliser")}</summary>
                     <p className="mt-2 text-sm">{t("emplacement")}</p>
+                    {k.examples.some((e) => e.apiKind === "conversation") && (
+                      <p className="mt-2 text-sm">
+                        <Link href={`/cles/opencode?cle=${k.requestId}`}>{t("configurerOpenCode")}</Link>
+                      </p>
+                    )}
                     {k.examples.map(({ model, apiKind }) => {
                       const exemples = exemplesAppel(model, apiKind, textesExemple);
                       return (
