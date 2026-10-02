@@ -249,18 +249,16 @@ describe("configuration d'OpenCode (ticket #113)", () => {
     expect(await variableEtEntree()).toEqual(attendu);
   });
 
-  test("deux clés qui auraient la même entrée sont départagées par la fin de l'identifiant de leur demande", async () => {
-    const premiere = await cleEmise();
+  test("une seconde clé qui aurait la même entrée ne renomme pas la première : la fin de l'identifiant de sa demande la départage", async () => {
+    await cleEmise();
+    const entrees = async () => Object.keys(JSON.parse((await configurationOpenCode(deps, titulaire, OPTIONS)).configuration ?? "null").providers);
+    expect(await entrees()).toEqual(["linagora-n2-r-d-compte-rendu-hebdo"]);
+
     const seconde = await cleEmise();
 
-    const resultat = await configurationOpenCode(deps, titulaire, OPTIONS);
-
-    const fin = (id: string) => id.slice(-4);
-    expect(Object.keys(JSON.parse(resultat.configuration ?? "null").providers)).toEqual([
-      `linagora-n2-r-d-compte-rendu-hebdo-${fin(seconde)}`,
-      `linagora-n2-r-d-compte-rendu-hebdo-${fin(premiere)}`,
-    ]);
-    expect(resultat.commandes).toContain(`opencode service set env LINAGORA_N2_R_D_COMPTE_RENDU_HEBDO_${fin(premiere).toUpperCase()}_KEY "$K"`);
+    const fin = seconde.slice(-4);
+    expect(await entrees()).toEqual([`linagora-n2-r-d-compte-rendu-hebdo-${fin}`, "linagora-n2-r-d-compte-rendu-hebdo"]);
+    expect((await configurationOpenCode(deps, titulaire, OPTIONS)).commandes).toContain(`opencode service set env LINAGORA_N2_R_D_COMPTE_RENDU_HEBDO_${fin.toUpperCase()}_KEY "$K"`);
   });
 
   test("quand la passerelle ne répond pas, aucune configuration n'est produite : la passerelle est dite indisponible", async () => {

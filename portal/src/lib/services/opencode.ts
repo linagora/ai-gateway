@@ -149,12 +149,15 @@ function reference(cle: { entree: string }, modelName: string): string {
 
 /**
  * Identifiant de l'entrée de chaque clé, d'où vient aussi sa variable d'environnement : tiré du niveau, de l'équipe et du
- * projet de la clé, il ne change ni à son remplacement ni à son renouvellement. Deux clés qui auraient le même sont
- * départagées par la fin de leur demande.
+ * projet de la clé, il ne change ni à son remplacement ni à son renouvellement. Entre deux clés qui auraient le même, la
+ * plus ancienne le garde ; la fin de leur demande départage les suivantes.
  */
 function nomsDesEntrees(cles: IssuedKey[]): string[] {
   const noms = cles.map((cle) => [PREFIXE, cle.dataLevel, cle.teamAlias, ...(cle.project ? [cle.project] : [])].map(slug).join("-"));
-  return cles.map((cle, i) => (noms.indexOf(noms[i]) === noms.lastIndexOf(noms[i]) ? noms[i] : `${noms[i]}-${slug(cle.requestId.slice(-4))}`));
+  return cles.map((cle, i) => {
+    const plusAncienne = cles.filter((_, j) => noms[j] === noms[i]).reduce((a, b) => (b.issuedAt < a.issuedAt ? b : a));
+    return plusAncienne === cle ? noms[i] : `${noms[i]}-${slug(cle.requestId.slice(-4))}`;
+  });
 }
 
 /** Modèles retenus et écartés d'une clé, avec le nom de sa variable d'environnement. */
