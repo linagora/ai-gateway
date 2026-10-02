@@ -95,6 +95,7 @@ describe("configuration d'OpenCode (ticket #113)", () => {
               settings: { apiKey: "{env:LINAGORA_N2_R_D_COMPTE_RENDU_HEBDO_KEY}" },
               capabilities: { tools: true, input: ["text"], output: ["text"] },
               limit: { context: 128000 },
+              variants: [],
             },
           },
         },
@@ -273,5 +274,52 @@ describe("configuration d'OpenCode (ticket #113)", () => {
 
     expect(resultat.cles.map((c) => c.requestId)).toEqual([connue]);
     expect(resultat.clesEcartees).toEqual([expect.objectContaining({ requestId: perdue, raison: "etat_inconnu" })]);
+  });
+});
+
+describe("faits techniques dans la configuration d'OpenCode (ticket #114)", () => {
+  /** Entrée OpenCode de la clé par défaut, pour les modèles donnés. */
+  async function modelesDeLEntree(models: string[]) {
+    await cleEmise({ models });
+    const resultat = await configurationOpenCode(deps, titulaire, OPTIONS);
+    return JSON.parse(resultat.configuration ?? "null").providers["linagora-n2-r-d-compte-rendu-hebdo"].models;
+  }
+
+  test("la limite de sortie est la sortie maximale déclarée, plafonnée par le contexte", async () => {
+    litellm.withModel({ modelName: "devstral", maxInputTokens: 262144, maxOutputTokens: 65536 }).withModel({ modelName: "glm", maxInputTokens: 131072, maxOutputTokens: 943718 });
+    await fiche("devstral", "Devstral", "N2");
+    await fiche("glm", "GLM", "N2");
+
+    const models = await modelesDeLEntree(["devstral", "glm"]);
+
+    expect(models.devstral.limit).toEqual({ context: 262144, output: 65536 });
+    expect(models.glm.limit).toEqual({ context: 131072, output: 131072 });
+  });
+
+  test("les variantes sont les efforts déclarés ; aucune pour un modèle sans raisonnement ; omises quand les efforts d'un modèle qui raisonne sont inconnus", async () => {
+    litellm
+      .withModel({ modelName: "glm", capabilities: ["raisonnement"], reasoningEfforts: ["low", "high", "max"], defaultReasoningEffort: "max" })
+      .withModel({ modelName: "kimi", capabilities: ["images", "raisonnement"] });
+    await fiche("glm", "GLM", "N2");
+    await fiche("kimi", "Kimi", "N2");
+
+    const models = await modelesDeLEntree(["glm", "kimi", "mistral-small"]);
+
+    expect(models.glm.variants).toEqual([
+      { id: "low", settings: { reasoningEffort: "low" } },
+      { id: "high", settings: { reasoningEffort: "high" } },
+      { id: "max", settings: { reasoningEffort: "max" } },
+    ]);
+    expect(models["mistral-small"].variants).toEqual([]);
+    expect(models.kimi).not.toHaveProperty("variants");
+  });
+
+  test("les contenus acceptés en entrée et en sortie sont ceux que déclare la passerelle", async () => {
+    litellm.withModel({ modelName: "gemini", capabilities: ["images", "audio_video"], inputContents: ["text", "image", "pdf", "audio", "video"], outputContents: ["text"] });
+    await fiche("gemini", "Gemini", "N2");
+
+    const models = await modelesDeLEntree(["gemini"]);
+
+    expect(models.gemini.capabilities).toEqual({ tools: true, input: ["text", "image", "pdf", "audio", "video"], output: ["text"] });
   });
 });

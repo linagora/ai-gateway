@@ -185,6 +185,11 @@ export class FakeLiteLLM implements LiteLLMClient {
       dataLevel: null,
       hosting: null,
       maxInputTokens: 128000,
+      maxOutputTokens: null,
+      reasoningEfforts: null,
+      defaultReasoningEffort: null,
+      inputContents: null,
+      outputContents: null,
       ...model,
     });
     return this;

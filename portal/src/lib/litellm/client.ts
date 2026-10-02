@@ -70,6 +70,11 @@ export const CAPABILITIES: readonly Capability[] = ["images", "generation_images
 /** Zone d'exécution d'un modèle (glossaire) : UE ou hors UE. */
 export type ExecutionRegion = "UE" | "HORS_UE";
 
+/** Contenu qu'un modèle accepte en entrée ou produit en sortie, tel que le déclare la passerelle. */
+export type Contenu = "text" | "image" | "pdf" | "audio" | "video";
+
+export const CONTENUS: readonly Contenu[] = ["text", "image", "pdf", "audio", "video"];
+
 /**
  * Manière d'appeler un modèle : conversation (par défaut), API de décision comme JEV (« System One »), qui
  * attend dans le dernier message une requête JSON et non un texte libre, ou modèle d'images, appelé comme un
@@ -98,6 +103,14 @@ export interface LiteLLMModel {
   dataLevel: string | null;
   hosting: string | null;
   maxInputTokens: number | null;
+  /** Sortie maximale en jetons ; null si la passerelle ne la déclare pas. */
+  maxOutputTokens: number | null;
+  /** Efforts de raisonnement acceptés, dans l'ordre croissant, et effort par défaut ; null s'ils ne sont pas connus. */
+  reasoningEfforts: string[] | null;
+  defaultReasoningEffort: string | null;
+  /** Contenus acceptés en entrée et produits en sortie ; null si la passerelle ne les déclare pas. */
+  inputContents: Contenu[] | null;
+  outputContents: Contenu[] | null;
 }
 
 /** Paramètres d'une clé à générer (F-40), figés à l'approbation de la demande. Durées au format LiteLLM : 30d, 3600s… */
@@ -233,10 +246,20 @@ const modelInfoSchema = z.object({
         data_level: z.string().nullish(),
         hosting: z.string().nullish(),
         max_input_tokens: z.number().nullish(),
+        max_output_tokens: z.number().nullish(),
+        efforts_raisonnement: z.array(z.string()).nullish(),
+        effort_par_defaut: z.string().nullish(),
+        contenus_entree: z.array(z.string()).nullish(),
+        contenus_sortie: z.array(z.string()).nullish(),
       }),
     }),
   ),
 });
+
+/** Contenus déclarés, réduits à ceux que le portail connaît ; null sans déclaration. */
+function contenus(declares: string[] | null | undefined): Contenu[] | null {
+  return declares ? declares.filter((c): c is Contenu => CONTENUS.includes(c as Contenu)) : null;
+}
 
 const generatedKeySchema = z.object({
   key: z.string(),
@@ -358,6 +381,11 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
         dataLevel: mi.data_level ?? null,
         hosting: mi.hosting ?? null,
         maxInputTokens: mi.max_input_tokens ?? null,
+        maxOutputTokens: mi.max_output_tokens ?? null,
+        reasoningEfforts: mi.efforts_raisonnement ?? null,
+        defaultReasoningEffort: mi.effort_par_defaut ?? null,
+        inputContents: contenus(mi.contenus_entree),
+        outputContents: contenus(mi.contenus_sortie),
       }));
     },
 

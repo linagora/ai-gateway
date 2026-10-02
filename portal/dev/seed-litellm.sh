@@ -6,11 +6,12 @@ set -euo pipefail
 B="${LITELLM_BASE_URL:-http://127.0.0.1:54400/admin}"
 H=(-H "Authorization: Bearer ${LITELLM_MASTER_KEY:-sk-dev-master-key}" -H "Content-Type: application/json")
 
-model() { # nom, niveau, hébergement, prix entrée, prix sortie (€ par jeton), fournisseur, éditeur, capacités, hébergeurs (JSON), zone[, contexte[, type d'API[, prix d'une image (€)]]]
-  local info id
-  info=$(jq -n --arg l "$2" --arg h "$3" --arg f "$6" --arg e "$7" --argjson c "$8" --argjson hb "$9" --arg z "${10}" --argjson ctx "${11:-128000}" --arg t "${12:-}" --argjson pi "${13:-null}" \
+model() { # nom, niveau, hébergement, prix entrée, prix sortie (€ par jeton), fournisseur, éditeur, capacités, hébergeurs (JSON), zone[, contexte[, type d'API[, prix d'une image (€)[, autres faits (JSON)]]]]
+  local info id autres="${14:-}"
+  [[ -n "$autres" ]] || autres='{}'
+  info=$(jq -n --arg l "$2" --arg h "$3" --arg f "$6" --arg e "$7" --argjson c "$8" --argjson hb "$9" --arg z "${10}" --argjson ctx "${11:-128000}" --arg t "${12:-}" --argjson pi "${13:-null}" --argjson x "$autres" \
     '{data_level: $l, hosting: $h, pricing_currency: "EUR", max_input_tokens: $ctx, fournisseur: $f, editeur: $e, capacites: $c, hebergeurs: $hb, zone: $z}
-     + (if $t == "" then {} else {type_api: $t} end) + (if $pi == null then {} else {prix_image_eur: $pi} end)')
+     + (if $t == "" then {} else {type_api: $t} end) + (if $pi == null then {} else {prix_image_eur: $pi} end) + $x')
   id=$(curl -fsS "${H[@]}" "$B/model/info" | jq -r --arg n "$1" 'first(.data[] | select(.model_name == $n) | .model_info.id) // empty')
   if [[ -n "$id" ]]; then
     curl -fsS "${H[@]}" -X PATCH "$B/model/$id/update" -d "$(jq -n --argjson i "$info" '{model_info: $i}')" >/dev/null
@@ -25,14 +26,21 @@ model() { # nom, niveau, hébergement, prix entrée, prix sortie (€ par jeton)
   echo "• modèle $1 ($2) : créé"
 }
 
-# Faits techniques comme les déclare la passerelle de production : fournisseur, éditeur, capacités, hébergeurs, zone.
-model dev-public N1 HORS_UE 0.0000001 0.0000004 OpenRouter "Moonshot AI" '["images","raisonnement"]' '["Fireworks"]' monde
-model dev-interne N2 UE 0.0000002 0.0000006 OpenRouter "Mistral AI" '["images"]' '["Mistral"]' UE
-model dev-confidentiel N3 INTERNE 0.0000004 0.0000027 OVHcloud "Alibaba (Qwen)" '["images","raisonnement"]' '["OVHcloud"]' UE 262144
+# Faits techniques comme les déclare la passerelle de production : fournisseur, éditeur, capacités, hébergeurs, zone ;
+# pour la configuration d'OpenCode, sortie maximale, efforts de raisonnement et contenus acceptés.
+model dev-public N1 HORS_UE 0.0000001 0.0000004 OpenRouter "Moonshot AI" '["images","raisonnement"]' '["Fireworks"]' monde 128000 "" null \
+  '{"max_output_tokens": 32768, "efforts_raisonnement": ["low", "medium", "high"], "effort_par_defaut": "medium", "contenus_entree": ["text", "image"], "contenus_sortie": ["text"]}'
+model dev-interne N2 UE 0.0000002 0.0000006 OpenRouter "Mistral AI" '["images"]' '["Mistral"]' UE 128000 "" null \
+  '{"max_output_tokens": 16384, "contenus_entree": ["text", "image", "pdf"], "contenus_sortie": ["text"]}'
+# Comme Qwen3.8 : un modèle qui raisonne, sans efforts connus.
+model dev-confidentiel N3 INTERNE 0.0000004 0.0000027 OVHcloud "Alibaba (Qwen)" '["images","raisonnement"]' '["OVHcloud"]' UE 262144 "" null \
+  '{"max_output_tokens": 262144, "contenus_entree": ["text", "image"], "contenus_sortie": ["text"]}'
 # Comme JEV : une API de décision (« System One »), et non un modèle de conversation.
-model dev-experimental EXP HORS_UE 0.0000001 0.0000004 Typesafe Typesafe '[]' '["Typesafe"]' monde 128000 decision
+model dev-experimental EXP HORS_UE 0.0000001 0.0000004 Typesafe Typesafe '[]' '["Typesafe"]' monde 128000 decision null \
+  '{"contenus_entree": ["text"], "contenus_sortie": ["text"]}'
 # Comme FLUX.2 [pro] : un modèle d'images, facturé au jeton d'image, avec un prix indicatif par image.
-model dev-image N1 HORS_UE 0 0.00001 OpenRouter "Black Forest Labs" '["images","generation_images"]' '["Black Forest Labs"]' monde 46864 image 0.03
+model dev-image N1 HORS_UE 0 0.00001 OpenRouter "Black Forest Labs" '["images","generation_images"]' '["Black Forest Labs"]' monde 46864 image 0.03 \
+  '{"contenus_entree": ["text", "image"], "contenus_sortie": ["image"]}'
 
 MODELS='["dev-public", "dev-interne", "dev-confidentiel", "dev-experimental", "dev-image"]'
 

@@ -180,6 +180,23 @@ function preparer(cle: IssuedKey, entree: string, modeles: LiteLLMModel[], fiche
   return preparee;
 }
 
+/**
+ * Limites d'un modèle pour OpenCode : son contexte, et sa sortie maximale quand la passerelle la déclare, plafonnée par
+ * le contexte (OpenCode réserve la sortie dans le contexte).
+ */
+function limite(contexte: number, sortie: number | null): { context: number; output?: number } {
+  return sortie === null ? { context: contexte } : { context: contexte, output: Math.min(sortie, contexte) };
+}
+
+/**
+ * Variantes d'effort d'un modèle, choisies dans OpenCode : les efforts déclarés ; aucune pour un modèle sans raisonnement,
+ * à qui OpenCode prêterait sinon des efforts inventés ; rien quand les efforts d'un modèle qui raisonne sont inconnus.
+ */
+function variantes(faits: LiteLLMModel): { variants?: { id: string; settings: { reasoningEffort: string } }[] } {
+  if (!faits.capabilities.includes("raisonnement")) return { variants: [] };
+  return faits.reasoningEfforts === null ? {} : { variants: faits.reasoningEfforts.map((effort) => ({ id: effort, settings: { reasoningEffort: effort } })) };
+}
+
 /** Entrée d'une clé dans le bloc `providers` d'OpenCode. */
 function entreeDeLaCle(cle: ClePreparee, options: OptionsOpenCode) {
   const name = ["LINAGORA", options.textes.niveaux[cle.dataLevel], cle.teamAlias, ...(cle.project ? [cle.project] : [])].join(" · ");
@@ -190,9 +207,15 @@ function entreeDeLaCle(cle: ClePreparee, options: OptionsOpenCode) {
         modelID: modelName,
         name: displayName,
         settings: { apiKey: `{env:${cle.variable}}` },
-        // OpenCode ignore toute l'entrée si un modèle ne déclare pas `tools` : il est toujours déclaré.
-        capabilities: { tools: true, input: faits.capabilities.includes("images") ? ["text", "image"] : ["text"], output: ["text"] },
-        ...(faits.maxInputTokens === null ? {} : { limit: { context: faits.maxInputTokens } }),
+        // OpenCode ignore toute l'entrée si un modèle ne déclare pas `tools` : il est toujours déclaré. Sans contenus
+        // déclarés, un modèle accepte le texte, et les images s'il les lit.
+        capabilities: {
+          tools: true,
+          input: faits.inputContents ?? (faits.capabilities.includes("images") ? ["text", "image"] : ["text"]),
+          output: faits.outputContents ?? ["text"],
+        },
+        ...(faits.maxInputTokens === null ? {} : { limit: limite(faits.maxInputTokens, faits.maxOutputTokens) }),
+        ...variantes(faits),
       },
     ]),
   );

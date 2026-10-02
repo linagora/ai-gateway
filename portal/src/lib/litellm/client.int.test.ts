@@ -55,6 +55,13 @@ describe("modèles", () => {
       dataLevel: "N2",
       hosting: "UE",
       maxInputTokens: 128000,
+      // Sortie maximale non déclarée : LiteLLM la reprend de sa propre table pour un modèle qu'il connaît (gpt-4o-mini),
+      // ce que ne sont pas les routes openai/<identifiant OpenRouter> de la production.
+      maxOutputTokens: 16384,
+      reasoningEfforts: null,
+      defaultReasoningEffort: null,
+      inputContents: null,
+      outputContents: null,
     });
   });
 
@@ -113,6 +120,31 @@ describe("modèles", () => {
       capabilities: ["images", "generation_images"],
       imagePrice: 0.0278,
       executionRegion: "HORS_UE",
+    });
+  });
+
+  test("un modèle expose sa sortie maximale, ses efforts de raisonnement et les contenus qu'il accepte, déclarés par la passerelle (ticket #114)", async () => {
+    const modelName = uniqueId("modele");
+    const created = await admin<{ model_info: { id: string } }>("POST", "/model/new", {
+      model_name: modelName,
+      litellm_params: { model: "openai/z-ai/glm-5.3", api_key: "sk-factice", mock_response: "OK", input_cost_per_token: 0.0000006, output_cost_per_token: 0.0000031 },
+      model_info: {
+        data_level: "N1",
+        pricing_currency: "EUR",
+        max_output_tokens: 131072,
+        efforts_raisonnement: ["low", "high", "max"],
+        effort_par_defaut: "max",
+        contenus_entree: ["text", "image", "pdf"],
+        contenus_sortie: ["text"],
+      },
+    });
+    createdModels.push(created.model_info.id);
+    expect((await client.listModels()).find((m) => m.modelName === modelName)).toMatchObject({
+      maxOutputTokens: 131072,
+      reasoningEfforts: ["low", "high", "max"],
+      defaultReasoningEffort: "max",
+      inputContents: ["text", "image", "pdf"],
+      outputContents: ["text"],
     });
   });
 
