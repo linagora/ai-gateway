@@ -135,15 +135,17 @@ describe("configuration d'OpenCode (ticket #113)", () => {
     expect(Object.keys(JSON.parse(resultat.configuration ?? "null").providers["linagora-n2-r-d-compte-rendu-hebdo"].models)).toEqual(["mistral-small"]);
   });
 
-  test("en anglais, chaque modèle porte le nom anglais de sa fiche, à défaut son nom français", async () => {
+  test("en anglais, l'entrée porte le nom anglais du niveau, et chaque modèle le nom anglais de sa fiche, à défaut son nom français", async () => {
     litellm.withModel({ modelName: "codestral" });
     await fiche("codestral", "Codestral (code)", "N2", "Codestral (coding)");
     await cleEmise({ models: ["mistral-small", "codestral"] });
+    const niveaux = { N1: "N1 Public", N2: "N2 Internal", N3: "N3 Confidential", EXP: "Experimental (beta)" };
 
-    const resultat = await configurationOpenCode(deps, titulaire, { ...OPTIONS, langue: "en" });
+    const resultat = await configurationOpenCode(deps, titulaire, { ...OPTIONS, langue: "en", textes: { ...OPTIONS.textes, niveaux } });
 
     expect(resultat.cles[0].modeles.map((m) => m.displayName)).toEqual(["Mistral Small", "Codestral (coding)"]);
-    const { models } = JSON.parse(resultat.configuration ?? "null").providers["linagora-n2-r-d-compte-rendu-hebdo"];
+    const { name, models } = JSON.parse(resultat.configuration ?? "null").providers["linagora-n2-r-d-compte-rendu-hebdo"];
+    expect(name).toBe("LINAGORA · N2 Internal · R&D · Compte-rendu hebdo");
     expect([models["mistral-small"].name, models.codestral.name]).toEqual(["Mistral Small", "Codestral (coding)"]);
   });
 
