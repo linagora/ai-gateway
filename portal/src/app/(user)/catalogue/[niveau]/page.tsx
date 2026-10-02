@@ -12,10 +12,10 @@ import { USE_CASES } from "@/lib/use-cases";
 import { formats, Notice } from "../../../components";
 import { BoutonCopier } from "../../../bouton-copier";
 import { exemplesAppel } from "../../../exemples-appel";
+import { FiltrageAutomatique } from "../../../filtrage-automatique";
 import { COULEURS_NIVEAUX } from "../couleurs";
 import { PastillesClassification } from "../pastilles-classification";
 import { BoutonSelection } from "./bouton-selection";
-import { FiltrageAutomatique } from "./filtrage-automatique";
 
 /** Pictogrammes des capacités (jeu Lucide, comme le reste du catalogue), toujours accompagnés de leur libellé. */
 const ICONES: Record<Capability, LucideIcon> = { images: ImageIcon, generation_images: WandSparkles, audio_video: Headphones, raisonnement: Brain };
