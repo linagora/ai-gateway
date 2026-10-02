@@ -957,13 +957,11 @@
     "titre": "Set up OpenCode",
     "intro": "OpenCode is an open source coding assistant that works in the terminal. This page builds its configuration from your issued keys: each key becomes an entry, with its chat models. Your key never goes through the portal: the commands ask you for it in the terminal, without displaying it.",
     "indisponible": "The gateway is not responding: the configuration cannot be built for now. Please try again in a few moments.",
-    "aucuneCle": "None of your issued keys is suitable for OpenCode.",
-    "versMesCles": "See my keys",
     "clesAInclure": "Keys to include",
     "modeles": "Models: {liste}",
     "modelesEcartes": "Left out: {liste}",
     "raisonsModele": {
-      "images": "image model",
+      "image": "image model",
       "decision": "decision API",
       "non_declare": "no longer declared by the gateway"
     },
@@ -993,7 +991,7 @@
     "copierCommande": "Copy the command",
     "commandeCopiee": "Command copied",
     "invite": "LINAGORA key {alias} ({niveau}, {equipe}): ",
-    "ou": {
+    "endroits": {
       "terminal": "Terminal",
       "navigateur": "Browser",
       "editeur": "Text editor",

@@ -6,7 +6,7 @@ import { PortalError } from "@/lib/errors";
 import type { Langue } from "@/lib/langue";
 import { DATA_LEVELS, type DataLevel } from "@/lib/policy";
 import { recommendedModels } from "@/lib/services/catalog";
-import { type ConfigurationOpenCode, configurationOpenCode, MISES_A_JOUR, type MiseAJour } from "@/lib/services/opencode";
+import { type ConfigurationOpenCode, configurationOpenCode, type IdentiteCle, MISES_A_JOUR, type MiseAJour } from "@/lib/services/opencode";
 import { getDeps, requireUser } from "@/lib/session";
 import { BoutonCopier } from "../../../bouton-copier";
 import { adresseApi } from "../../../exemples-appel";
@@ -21,18 +21,18 @@ const VERSION = "opencode --version";
 const MISE_A_JOUR = "opencode upgrade";
 const OUVERTURE = "mkdir -p ~/.config/opencode && gedit ~/.config/opencode/opencode.json";
 
-/** Où agir à chaque étape du tutoriel, avec son pictogramme (jeu Lucide). */
-const OU = { terminal: SquareTerminal, navigateur: Globe, editeur: FilePen, opencode: Bot } satisfies Record<string, LucideIcon>;
-type Ou = keyof typeof OU;
+/** Endroits où agir dans le tutoriel, chacun avec son pictogramme (jeu Lucide). */
+const ENDROITS = { terminal: SquareTerminal, navigateur: Globe, editeur: FilePen, opencode: Bot } satisfies Record<string, LucideIcon>;
+type Endroit = keyof typeof ENDROITS;
 
 /** Niveaux qu'un dépôt peut avoir : le niveau Expérimental n'accepte que des données publiques, à part. */
 const NIVEAUX_DU_CODE = ["N1", "N2", "N3"] as const;
 
 /**
- * Clés choisies d'après l'adresse : le formulaire envoie `choix` avec les clés cochées, même aucune ; le lien d'une clé
- * de « Mes clés » n'envoie que `cle` ; sans l'un ni l'autre, toutes les clés proposées sont choisies (null).
+ * Demandes des clés choisies, d'après l'adresse : le formulaire envoie `choix` avec les clés cochées, même aucune ; le lien
+ * d'une clé de « Mes clés » n'envoie que `cle` ; sans l'un ni l'autre, toutes les clés proposées sont choisies (null).
  */
-function clesChoisies(parametres: Parametres): string[] | null {
+function demandesChoisies(parametres: Parametres): string[] | null {
   const cles = [parametres.cle ?? []].flat();
   return parametres.choix === undefined && cles.length === 0 ? null : cles;
 }
@@ -48,8 +48,8 @@ const BALISES = {
   code: (texte: ReactNode) => <code>{texte}</code>,
 };
 
-/** Étape du tutoriel : son numéro, son titre et où agir, chaque endroit avec son pictogramme. */
-async function Etape({ id, numero, titre, ou, children }: { id: string; numero: number; titre: string; ou: Ou[]; children: ReactNode }) {
+/** Étape du tutoriel : son numéro, son titre et les endroits où agir, chacun avec son pictogramme. */
+async function Etape({ id, numero, titre, endroits, children }: { id: string; numero: number; titre: string; endroits: Endroit[]; children: ReactNode }) {
   const t = await getTranslations("opencode");
   return (
     <section aria-labelledby={id} className="mt-8">
@@ -60,12 +60,12 @@ async function Etape({ id, numero, titre, ou, children }: { id: string; numero: 
         {titre}
       </h2>
       <p className="mt-1 flex flex-wrap gap-2">
-        {ou.map((endroit) => {
-          const Pictogramme = OU[endroit];
+        {endroits.map((endroit) => {
+          const Pictogramme = ENDROITS[endroit];
           return (
             <span key={endroit} className="inline-flex items-center gap-1 rounded-full border border-neutral-300 px-2 text-xs">
               <Pictogramme aria-hidden="true" className="size-3.5" />
-              {t(`ou.${endroit}`)}
+              {t(`endroits.${endroit}`)}
             </span>
           );
         })}
@@ -75,16 +75,25 @@ async function Etape({ id, numero, titre, ou, children }: { id: string; numero: 
   );
 }
 
-/** Commande à copier dans le terminal. */
-async function Commande({ texte }: { texte: string }) {
+/** Texte à copier, une commande par défaut : la configuration et les commandes des clés ont leurs propres libellés. */
+async function ACopier({ texte, libelle, libelleCopie }: { texte: string; libelle?: string; libelleCopie?: string }) {
   const t = await getTranslations("opencode");
   return (
     <div>
-      <pre className="overflow-x-auto rounded bg-neutral-900 p-3 text-xs text-neutral-100">
+      <pre className="max-h-[32rem] overflow-auto rounded bg-neutral-900 p-3 text-xs text-neutral-100">
         <code>{texte}</code>
       </pre>
-      <BoutonCopier texte={texte} libelle={t("copierCommande")} libelleCopie={t("commandeCopiee")} />
+      <BoutonCopier texte={texte} libelle={libelle ?? t("copierCommande")} libelleCopie={libelleCopie ?? t("commandeCopiee")} />
     </div>
+  );
+}
+
+/** Clé désignée par son alias, son équipe et son niveau de confidentialité. */
+function IdentiteDeLaCle({ cle, niveau }: { cle: IdentiteCle; niveau: string }) {
+  return (
+    <>
+      <code>{cle.alias}</code> · {cle.teamAlias} · {niveau}
+    </>
   );
 }
 
@@ -106,7 +115,7 @@ export default async function ConfigurerOpenCodePage(props: PageProps<"/cles/ope
       langue,
       adresseApi: adresseApi(),
       textes: { niveaux, invite: (cle) => t("invite", cle) },
-      cles: clesChoisies(parametres),
+      requestIds: demandesChoisies(parametres),
       modeleParDefaut: typeof parametres.modele === "string" ? parametres.modele : null,
       miseAJour: miseAJour(parametres),
     });
@@ -131,7 +140,7 @@ export default async function ConfigurerOpenCodePage(props: PageProps<"/cles/ope
       <ul className="mt-2 list-disc pl-6 text-sm">
         {clesEcartees.map((cle) => (
           <li key={cle.requestId}>
-            <code>{cle.alias}</code> · {cle.teamAlias} · {niveaux[cle.dataLevel]} ({t(`raisonsCle.${cle.raison}`)})
+            <IdentiteDeLaCle cle={cle} niveau={niveaux[cle.dataLevel]} /> ({t(`raisonsCle.${cle.raison}`)})
           </li>
         ))}
       </ul>
@@ -183,18 +192,18 @@ export default async function ConfigurerOpenCodePage(props: PageProps<"/cles/ope
       <h1>{t("titre")}</h1>
       <p className="max-w-prose">{t("intro")}</p>
 
-      <Etape id="installer" numero={1} titre={t("etapeInstaller.titre")} ou={["terminal"]}>
+      <Etape id="installer" numero={1} titre={t("etapeInstaller.titre")} endroits={["terminal"]}>
         <p>{t.rich("etapeInstaller.terminal", BALISES)}</p>
         <p>{t.rich("etapeInstaller.coller", BALISES)}</p>
         <p>{t("etapeInstaller.installer")}</p>
-        <Commande texte={INSTALLATION} />
+        <ACopier texte={INSTALLATION} />
         <p>{t.rich("etapeInstaller.verifier", BALISES)}</p>
-        <Commande texte={VERSION} />
+        <ACopier texte={VERSION} />
         <p>{t("etapeInstaller.mettreAJour")}</p>
-        <Commande texte={MISE_A_JOUR} />
+        <ACopier texte={MISE_A_JOUR} />
       </Etape>
 
-      <Etape id="cles" numero={2} titre={t("etapeCles.titre")} ou={["navigateur"]}>
+      <Etape id="cles" numero={2} titre={t("etapeCles.titre")} endroits={["navigateur"]}>
         <p>{t("etapeCles.rappel")}</p>
         <ul className="flex flex-col gap-2">
           {NIVEAUX_DU_CODE.map((niveau) => (
@@ -213,7 +222,7 @@ export default async function ConfigurerOpenCodePage(props: PageProps<"/cles/ope
                   <label className="flex items-start gap-2">
                     <input type="checkbox" name="cle" value={cle.requestId} defaultChecked={cle.choisie} className="mt-1" />
                     <span>
-                      <code>{cle.alias}</code> · {cle.teamAlias} · {niveaux[cle.dataLevel]}
+                      <IdentiteDeLaCle cle={cle} niveau={niveaux[cle.dataLevel]} />
                       <span className="block text-sm">{t("modeles", { liste: cle.modeles.map((m) => m.displayName).join(", ") })}</span>
                       {cle.modelesEcartes.length > 0 && (
                         <span className="block text-sm text-neutral-600">
@@ -237,7 +246,7 @@ export default async function ConfigurerOpenCodePage(props: PageProps<"/cles/ope
                   .map((cle) => (
                     <optgroup key={cle.requestId} label={`${cle.alias} · ${cle.teamAlias} · ${niveaux[cle.dataLevel]}`}>
                       {cle.modeles.map((m) => (
-                        <option key={m.modelName} value={`${cle.entree}/${m.modelName}`}>
+                        <option key={m.modelName} value={m.reference}>
                           {m.displayName}
                         </option>
                       ))}
@@ -267,35 +276,25 @@ export default async function ConfigurerOpenCodePage(props: PageProps<"/cles/ope
         <p className="mt-8">{t("aucuneChoisie")}</p>
       ) : (
         <>
-          <Etape id="configuration" numero={3} titre={t("etapeConfiguration.titre")} ou={["terminal", "editeur"]}>
+          <Etape id="configuration" numero={3} titre={t("etapeConfiguration.titre")} endroits={["terminal", "editeur"]}>
             <p>{t("etapeConfiguration.ouvrir")}</p>
-            <Commande texte={OUVERTURE} />
+            <ACopier texte={OUVERTURE} />
             <p className="text-sm">{t.rich("etapeConfiguration.gedit", BALISES)}</p>
             <p>{t.rich("etapeConfiguration.coller", BALISES)}</p>
             <p className="text-sm">{t.rich("etapeConfiguration.existant", BALISES)}</p>
             <p className="text-sm">{t("couts")}</p>
-            <div>
-              <pre className="max-h-[32rem] overflow-auto rounded bg-neutral-900 p-3 text-xs text-neutral-100">
-                <code>{configuration}</code>
-              </pre>
-              <BoutonCopier texte={configuration} libelle={t("copierConfiguration")} libelleCopie={t("configurationCopiee")} />
-            </div>
+            <ACopier texte={configuration} libelle={t("copierConfiguration")} libelleCopie={t("configurationCopiee")} />
           </Etape>
-          <Etape id="commandes" numero={4} titre={t("etapeCommandes.titre")} ou={["terminal"]}>
+          <Etape id="commandes" numero={4} titre={t("etapeCommandes.titre")} endroits={["terminal"]}>
             <p>{t("commandesExplication")}</p>
-            <div>
-              <pre className="overflow-x-auto rounded bg-neutral-900 p-3 text-xs text-neutral-100">
-                <code>{commandes}</code>
-              </pre>
-              <BoutonCopier texte={commandes} libelle={t("copierCommandes")} libelleCopie={t("commandesCopiees")} />
-            </div>
+            <ACopier texte={commandes} libelle={t("copierCommandes")} libelleCopie={t("commandesCopiees")} />
             <p>{t("verification")}</p>
-            <Commande texte={verification} />
+            <ACopier texte={verification} />
           </Etape>
         </>
       )}
 
-      <Etape id="utiliser" numero={5} titre={t("etapeUtiliser.titre")} ou={["terminal", "opencode"]}>
+      <Etape id="utiliser" numero={5} titre={t("etapeUtiliser.titre")} endroits={["terminal", "opencode"]}>
         <ul className="list-disc pl-6">
           <li>{t.rich("etapeUtiliser.lancer", BALISES)}</li>
           <li>{t.rich("etapeUtiliser.choisir", BALISES)}</li>

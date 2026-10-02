@@ -18,7 +18,7 @@ const OPTIONS: OptionsOpenCode = {
     niveaux: { N1: "N1 Public", N2: "N2 Interne", N3: "N3 Confidentiel", EXP: "Expérimental (bêta)" },
     invite: ({ alias, niveau, equipe }) => `Clé LINAGORA ${alias} (${niveau}, ${equipe}) : `,
   },
-  cles: null,
+  requestIds: null,
   modeleParDefaut: null,
   miseAJour: null,
 };
@@ -78,6 +78,13 @@ async function cleEmise(input: Partial<KeyRequestInput> = {}, jours = 60): Promi
   return id;
 }
 
+/** Modèles de l'entrée OpenCode d'une clé émise par défaut, pour les modèles donnés. */
+async function modelesDeLEntree(models: string[]) {
+  await cleEmise({ models });
+  const resultat = await configurationOpenCode(deps, titulaire, OPTIONS);
+  return JSON.parse(resultat.configuration ?? "null").providers["linagora-n2-r-d-compte-rendu-hebdo"].models;
+}
+
 describe("configuration d'OpenCode (ticket #113)", () => {
   test("une clé émise devient une entrée de la configuration, avec ses modèles de conversation", async () => {
     await cleEmise();
@@ -117,9 +124,9 @@ describe("configuration d'OpenCode (ticket #113)", () => {
 
     expect(resultat.cles).toEqual([
       expect.objectContaining({
-        modeles: [{ modelName: "mistral-small", displayName: "Mistral Small" }],
+        modeles: [{ modelName: "mistral-small", displayName: "Mistral Small", reference: "linagora-n2-r-d-compte-rendu-hebdo/mistral-small" }],
         modelesEcartes: [
-          { modelName: "flux-pro", raison: "images" },
+          { modelName: "flux-pro", raison: "image" },
           { modelName: "jev", raison: "decision" },
           { modelName: "ancien", raison: "non_declare" },
         ],
@@ -135,10 +142,7 @@ describe("configuration d'OpenCode (ticket #113)", () => {
 
     const resultat = await configurationOpenCode(deps, titulaire, { ...OPTIONS, langue: "en" });
 
-    expect(resultat.cles[0].modeles).toEqual([
-      { modelName: "mistral-small", displayName: "Mistral Small" },
-      { modelName: "codestral", displayName: "Codestral (coding)" },
-    ]);
+    expect(resultat.cles[0].modeles.map((m) => m.displayName)).toEqual(["Mistral Small", "Codestral (coding)"]);
     const { models } = JSON.parse(resultat.configuration ?? "null").providers["linagora-n2-r-d-compte-rendu-hebdo"];
     expect([models["mistral-small"].name, models.codestral.name]).toEqual(["Mistral Small", "Codestral (coding)"]);
   });
@@ -189,8 +193,8 @@ describe("configuration d'OpenCode (ticket #113)", () => {
   test("depuis une clé, seule cette clé est choisie ; sans choix, toutes les clés proposées le sont ; sans clé choisie, pas de configuration", async () => {
     const hebdo = await cleEmise();
     const revue = await cleEmise({ project: "Revue de code" });
-    const choix = async (cles: string[] | null) => {
-      const resultat = await configurationOpenCode(deps, titulaire, { ...OPTIONS, cles });
+    const choix = async (requestIds: string[] | null) => {
+      const resultat = await configurationOpenCode(deps, titulaire, { ...OPTIONS, requestIds });
       const entrees = resultat.configuration === null ? null : Object.keys(JSON.parse(resultat.configuration).providers);
       return { choisies: resultat.cles.filter((c) => c.choisie).map((c) => c.requestId), entrees };
     };
@@ -280,13 +284,6 @@ describe("configuration d'OpenCode (ticket #113)", () => {
 });
 
 describe("faits techniques dans la configuration d'OpenCode (ticket #114)", () => {
-  /** Entrée OpenCode de la clé par défaut, pour les modèles donnés. */
-  async function modelesDeLEntree(models: string[]) {
-    await cleEmise({ models });
-    const resultat = await configurationOpenCode(deps, titulaire, OPTIONS);
-    return JSON.parse(resultat.configuration ?? "null").providers["linagora-n2-r-d-compte-rendu-hebdo"].models;
-  }
-
   test("la limite de sortie est la sortie maximale déclarée, plafonnée par le contexte", async () => {
     litellm.withModel({ modelName: "devstral", maxInputTokens: 262144, maxOutputTokens: 65536 }).withModel({ modelName: "glm", maxInputTokens: 131072, maxOutputTokens: 943718 });
     await fiche("devstral", "Devstral", "N2");
@@ -327,13 +324,6 @@ describe("faits techniques dans la configuration d'OpenCode (ticket #114)", () =
 });
 
 describe("coût dans la configuration d'OpenCode (ticket #115)", () => {
-  /** Entrée OpenCode de la clé par défaut, pour les modèles donnés. */
-  async function modelesDeLEntree(models: string[]) {
-    await cleEmise({ models });
-    const resultat = await configurationOpenCode(deps, titulaire, OPTIONS);
-    return JSON.parse(resultat.configuration ?? "null").providers["linagora-n2-r-d-compte-rendu-hebdo"].models;
-  }
-
   test("le coût est en dollars par million de jetons, au taux interne ; le cache sans prix déclaré coûte le prix d'entrée", async () => {
     // Prix en euros de GLM-5.3 (2026-10-02) : 0,5569 € / 3,1463 € par million de jetons, 0,1704 € lus depuis le cache.
     litellm.withModel({ modelName: "glm", inputCostPerToken: 0.0000005569, outputCostPerToken: 0.0000031463, cacheReadCostPerToken: 0.0000001704, fxRateUsdEur: 0.87974 });
@@ -377,9 +367,9 @@ describe("modèle par défaut et mises à jour d'OpenCode (ticket #116)", () => 
   test("le modèle par défaut, choisi parmi les modèles des clés choisies, est écrit en tête de la configuration ; celui d'une clé décochée est abandonné", async () => {
     const hebdo = await cleEmise();
     const revue = await cleEmise({ project: "Revue de code" });
-    const configuration = async (cles: string[]) =>
+    const configuration = async (requestIds: string[]) =>
       JSON.parse(
-        (await configurationOpenCode(deps, titulaire, { ...OPTIONS, cles, modeleParDefaut: "linagora-n2-r-d-revue-de-code/mistral-small" })).configuration ?? "null",
+        (await configurationOpenCode(deps, titulaire, { ...OPTIONS, requestIds, modeleParDefaut: "linagora-n2-r-d-revue-de-code/mistral-small" })).configuration ?? "null",
       );
 
     expect((await configuration([hebdo, revue])).model).toBe("linagora-n2-r-d-revue-de-code/mistral-small");

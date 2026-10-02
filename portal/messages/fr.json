@@ -957,13 +957,11 @@
     "titre": "Configurer OpenCode",
     "intro": "OpenCode est un assistant de code open source qui travaille dans le terminal. Cette page en produit la configuration à partir de vos clés émises : chaque clé y devient une entrée, avec ses modèles de conversation. Votre clé ne passe jamais par le portail : les commandes vous la demandent dans le terminal, sans l'afficher.",
     "indisponible": "La passerelle ne répond pas : la configuration ne peut pas être produite pour l'instant. Réessayez dans quelques instants.",
-    "aucuneCle": "Aucune de vos clés émises ne convient à OpenCode.",
-    "versMesCles": "Voir mes clés",
     "clesAInclure": "Clés à inclure",
     "modeles": "Modèles : {liste}",
     "modelesEcartes": "Non repris : {liste}",
     "raisonsModele": {
-      "images": "modèle d'images",
+      "image": "modèle d'images",
       "decision": "API de décision",
       "non_declare": "la passerelle ne le déclare plus"
     },
@@ -993,7 +991,7 @@
     "copierCommande": "Copier la commande",
     "commandeCopiee": "Commande copiée",
     "invite": "Clé LINAGORA {alias} ({niveau}, {equipe}) : ",
-    "ou": {
+    "endroits": {
       "terminal": "Terminal",
       "navigateur": "Navigateur",
       "editeur": "Éditeur de texte",

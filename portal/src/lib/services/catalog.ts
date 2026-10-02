@@ -75,6 +75,12 @@ export async function listCatalog(deps: CatalogDeps, language: Langue = "fr"): P
   })).sort((a, b) => a.displayName.localeCompare(b.displayName, language));
 }
 
+/** Nom affiché de chaque modèle qui a une fiche, visible ou non, dans la langue demandée (repli sur le français). */
+export async function displayNames(deps: { db: Db }, language: Langue): Promise<Map<string, string>> {
+  const text = inLanguage(language);
+  return new Map((await deps.db.catalogEntry.findMany()).map((entry) => [entry.modelName, text(entry.displayNameFr, entry.displayNameEn)]));
+}
+
 /** Modèle recommandé pour un cas d'usage, avec son niveau maximal. */
 export interface RecommendedModel {
   modelName: string;

@@ -15,9 +15,9 @@ test.beforeAll(async ({ browser }) => {
 });
 
 test("depuis « Mes clés », le titulaire ouvre la configuration d'OpenCode de sa clé : ses modèles y sont, jamais la clé", async ({ browser }) => {
-  const salarie = personne("cle");
-  const page = await (await connecter(browser, salarie)).newPage();
-  await demandeApprouvee(browser, page, salarie, "Essai OpenCode");
+  const collaborateur = personne("cle");
+  const page = await (await connecter(browser, collaborateur)).newPage();
+  await demandeApprouvee(browser, page, collaborateur, "Essai OpenCode");
   const cle = await retirerCle(page);
 
   const carte = page.getByRole("region", { name: "Clés émises" }).getByRole("article");
@@ -25,7 +25,7 @@ test("depuis « Mes clés », le titulaire ouvre la configuration d'OpenCode de 
   await carte.getByRole("link", { name: "Configurer OpenCode avec cette clé" }).click();
 
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Configurer OpenCode");
-  await expect(page.getByRole("checkbox", { name: new RegExp(`^${salarie.uid}-r-d-essai-opencode-`) })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: new RegExp(`^${collaborateur.uid}-r-d-essai-opencode-`) })).toBeChecked();
   const configuration = page.getByRole("region", { name: "Enregistrer la configuration" });
   await expect(configuration).toContainText('"linagora-n1-r-d-essai-opencode": {');
   await expect(configuration).toContainText('"name": "LINAGORA · N1 Public · R&D · Essai OpenCode"');
@@ -39,9 +39,9 @@ test("depuis « Mes clés », le titulaire ouvre la configuration d'OpenCode de 
 });
 
 test("le modèle par défaut et la politique de mise à jour choisis s'écrivent en tête de la configuration (ticket #116)", async ({ browser }) => {
-  const salarie = personne("defaut");
-  const page = await (await connecter(browser, salarie)).newPage();
-  await demandeApprouvee(browser, page, salarie, "Essai défaut");
+  const collaborateur = personne("defaut");
+  const page = await (await connecter(browser, collaborateur)).newPage();
+  await demandeApprouvee(browser, page, collaborateur, "Essai défaut");
   await retirerCle(page);
 
   await page.goto("/cles/opencode");
@@ -54,8 +54,8 @@ test("le modèle par défaut et la politique de mise à jour choisis s'écrivent
 });
 
 test("sans clé, la page donne les étapes pour en obtenir une et les modèles recommandés pour le code (ticket #117)", async ({ browser }) => {
-  const salarie = personne("sans-cle");
-  const page = await (await connecter(browser, salarie)).newPage();
+  const collaborateur = personne("sans-cle");
+  const page = await (await connecter(browser, collaborateur)).newPage();
 
   await page.goto("/cles/opencode");
   await expect(page.getByText("il vous faut une clé émise avec au moins un modèle de conversation")).toBeVisible();
@@ -64,17 +64,17 @@ test("sans clé, la page donne les étapes pour en obtenir une et les modèles r
 });
 
 test("en anglais, le tutoriel guide pas à pas, avec le rappel des niveaux de confidentialité (ticket #117)", async ({ browser }) => {
-  const salarie = personne("anglais");
-  const page = await (await connecter(browser, salarie)).newPage();
-  await demandeApprouvee(browser, page, salarie, "Essai anglais");
+  const collaborateur = personne("anglais");
+  const page = await (await connecter(browser, collaborateur)).newPage();
+  await demandeApprouvee(browser, page, collaborateur, "Essai anglais");
   await retirerCle(page);
 
-  const anglais = await (await connecter(browser, salarie, "en-US")).newPage();
+  const anglais = await (await connecter(browser, collaborateur, "en-US")).newPage();
   await anglais.goto("/cles/opencode");
   await expect(anglais.getByRole("heading", { level: 1 })).toHaveText("Set up OpenCode");
   await expect(anglais.getByRole("heading", { level: 2 })).toHaveText(["1Install OpenCode", "2Choose your keys", "3Save the configuration", "4Save your keys", "5Use OpenCode"]);
   await expect(anglais.getByRole("region", { name: "Install OpenCode" })).toContainText("curl -fsSL https://opencode.ai/v2/install | bash");
   await expect(anglais.getByRole("region", { name: "Choose your keys" })).toContainText("N3 Confidential: secret code or code of a customer");
   await expect(anglais.getByRole("region", { name: "Save the configuration" })).toContainText('"name": "LINAGORA · N1 Public · R&D · Essai anglais"');
-  await expect(anglais.getByRole("region", { name: "Save your keys" })).toContainText(`LINAGORA key ${salarie.uid}-r-d-essai-anglais-`);
+  await expect(anglais.getByRole("region", { name: "Save your keys" })).toContainText(`LINAGORA key ${collaborateur.uid}-r-d-essai-anglais-`);
 });
