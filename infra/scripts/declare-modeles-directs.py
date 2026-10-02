@@ -40,6 +40,8 @@ MODELES = [
             "data_level": "N3",
             "hosting": "INTERNE_OVH",
             "pricing_currency": "EUR",
+            # Taux interne, comme pour les autres modèles : le portail convertit le prix en dollars pour OpenCode.
+            "fx_rate_usd_eur": TAUX_USD_EUR,
             "pricing_source": "Tarif public OVH AI Endpoints : 0,40 € / 2,70 € HT par million de jetons (entrée / sortie), validé par Linagora le 2026-09-24",
             "max_input_tokens": 262144,
             "max_output_tokens": 262144,
