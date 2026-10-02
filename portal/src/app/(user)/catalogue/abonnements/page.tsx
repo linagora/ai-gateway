@@ -7,7 +7,7 @@ import type { DataLevel } from "@/lib/policy";
 import { type CatalogOffer, listOffers } from "@/lib/services/offers";
 import { getDeps, requireUser } from "@/lib/session";
 import { formats, Notice } from "../../../components";
-import { PastillesClassification } from "../pastilles-classification";
+import { PastillesClassification } from "../../../pastilles-classification";
 import { ChoixOffre } from "./choix-offre";
 import { LogoFournisseur } from "./logo-fournisseur";
 

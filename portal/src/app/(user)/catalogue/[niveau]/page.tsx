@@ -13,8 +13,8 @@ import { formats, Notice } from "../../../components";
 import { BoutonCopier } from "../../../bouton-copier";
 import { exemplesAppel } from "../../../exemples-appel";
 import { FiltrageAutomatique } from "../../../filtrage-automatique";
+import { PastillesClassification } from "../../../pastilles-classification";
 import { COULEURS_NIVEAUX } from "../couleurs";
-import { PastillesClassification } from "../pastilles-classification";
 import { BoutonSelection } from "./bouton-selection";
 
 /** Pictogrammes des capacités (jeu Lucide, comme le reste du catalogue), toujours accompagnés de leur libellé. */
