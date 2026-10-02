@@ -32,9 +32,10 @@ afterAll(async () => {
 describe("modèles", () => {
   test("un modèle expose son tarif en euros, son niveau et son hébergement", async () => {
     const modelName = uniqueId("modele");
+    // Route inconnue de LiteLLM, comme celles de la production : rien n'y vient de sa propre table des modèles.
     const created = await admin<{ model_info: { id: string } }>("POST", "/model/new", {
       model_name: modelName,
-      litellm_params: { model: "openai/gpt-4o-mini", api_key: "sk-factice", mock_response: "OK", input_cost_per_token: 0.000001, output_cost_per_token: 0.000004 },
+      litellm_params: { model: `openai/essai/${modelName}`, api_key: "sk-factice", mock_response: "OK", input_cost_per_token: 0.000001, output_cost_per_token: 0.000004 },
       model_info: { data_level: "N2", pricing_currency: "EUR", hosting: "UE", max_input_tokens: 128000 },
     });
     createdModels.push(created.model_info.id);
@@ -51,13 +52,16 @@ describe("modèles", () => {
       imagePrice: null,
       inputCostPerToken: 0.000001,
       outputCostPerToken: 0.000004,
+      cacheReadCostPerToken: null,
+      cacheWriteCostPerToken: null,
+      inputCostPerTokenAbove200k: null,
+      outputCostPerTokenAbove200k: null,
+      fxRateUsdEur: null,
       pricingCurrency: "EUR",
       dataLevel: "N2",
       hosting: "UE",
       maxInputTokens: 128000,
-      // Sortie maximale non déclarée : LiteLLM la reprend de sa propre table pour un modèle qu'il connaît (gpt-4o-mini),
-      // ce que ne sont pas les routes openai/<identifiant OpenRouter> de la production.
-      maxOutputTokens: 16384,
+      maxOutputTokens: null,
       reasoningEfforts: null,
       defaultReasoningEffort: null,
       inputContents: null,
@@ -145,6 +149,33 @@ describe("modèles", () => {
       defaultReasoningEffort: "max",
       inputContents: ["text", "image", "pdf"],
       outputContents: ["text"],
+    });
+  });
+
+  test("un modèle expose ses prix du cache, ses prix au-delà de 200 000 jetons et son taux de change, déclarés par la passerelle (ticket #115)", async () => {
+    const modelName = uniqueId("modele");
+    const created = await admin<{ model_info: { id: string } }>("POST", "/model/new", {
+      model_name: modelName,
+      litellm_params: {
+        model: "openai/google/gemini-2.5-flash",
+        api_key: "sk-factice",
+        mock_response: "OK",
+        input_cost_per_token: 0.000000278,
+        output_cost_per_token: 0.00000232,
+        cache_read_input_token_cost: 0.0000000278,
+        cache_creation_input_token_cost: 0.0000000773,
+        input_cost_per_token_above_200k_tokens: 0.000000557,
+        output_cost_per_token_above_200k_tokens: 0.00000464,
+      },
+      model_info: { data_level: "N1", pricing_currency: "EUR", fx_rate_usd_eur: 0.87974 },
+    });
+    createdModels.push(created.model_info.id);
+    expect((await client.listModels()).find((m) => m.modelName === modelName)).toMatchObject({
+      cacheReadCostPerToken: 0.0000000278,
+      cacheWriteCostPerToken: 0.0000000773,
+      inputCostPerTokenAbove200k: 0.000000557,
+      outputCostPerTokenAbove200k: 0.00000464,
+      fxRateUsdEur: 0.87974,
     });
   });
 

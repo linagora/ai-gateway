@@ -976,6 +976,7 @@
     "aucuneChoisie": "Tick at least one key to get the configuration.",
     "configuration": "Configuration",
     "configurationExplication": "Save it in the ~/.config/opencode/opencode.json file on your computer.",
+    "couts": "OpenCode shows costs in dollars: the configuration converts the gateway's prices at LINAGORA's internal rate.",
     "copierConfiguration": "Copy the configuration",
     "configurationCopiee": "Configuration copied",
     "commandes": "Save your keys",

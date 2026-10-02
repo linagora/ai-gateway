@@ -188,6 +188,29 @@ function limite(contexte: number, sortie: number | null): { context: number; out
   return sortie === null ? { context: contexte } : { context: contexte, output: Math.min(sortie, contexte) };
 }
 
+/** Tarif d'un modèle pour OpenCode, en dollars par million de jetons. */
+interface TarifOpenCode {
+  input: number;
+  output: number;
+  cache: { read: number; write: number };
+}
+
+/**
+ * Coût d'un modèle pour OpenCode, qui n'affiche que des dollars par million de jetons : les prix en euros de la passerelle
+ * divisés par son taux interne. Le cache sans prix déclaré coûte le prix d'entrée ; le palier au-delà de 200 000 jetons
+ * s'ajoute quand il est déclaré. Sans taux ni prix, pas de coût.
+ */
+function cout(faits: LiteLLMModel): { cost?: TarifOpenCode | [TarifOpenCode, TarifOpenCode & { tier: { type: "context"; size: number } }] } {
+  const { fxRateUsdEur: taux, inputCostPerToken: prixEntree, outputCostPerToken: prixSortie } = faits;
+  if (taux === null || prixEntree === null || prixSortie === null) return {};
+  const dollars = (eurosParJeton: number) => Number(((eurosParJeton * 1_000_000) / taux).toPrecision(6));
+  const cache = { read: dollars(faits.cacheReadCostPerToken ?? prixEntree), write: dollars(faits.cacheWriteCostPerToken ?? prixEntree) };
+  const tarif = { input: dollars(prixEntree), output: dollars(prixSortie), cache };
+  if (faits.inputCostPerTokenAbove200k === null) return { cost: tarif };
+  const palier = { input: dollars(faits.inputCostPerTokenAbove200k), output: dollars(faits.outputCostPerTokenAbove200k ?? prixSortie), cache };
+  return { cost: [tarif, { tier: { type: "context", size: 200_000 }, ...palier }] };
+}
+
 /**
  * Variantes d'effort d'un modèle, choisies dans OpenCode : les efforts déclarés ; aucune pour un modèle sans raisonnement,
  * à qui OpenCode prêterait sinon des efforts inventés ; rien quand les efforts d'un modèle qui raisonne sont inconnus.
@@ -215,6 +238,7 @@ function entreeDeLaCle(cle: ClePreparee, options: OptionsOpenCode) {
           output: faits.outputContents ?? ["text"],
         },
         ...(faits.maxInputTokens === null ? {} : { limit: limite(faits.maxInputTokens, faits.maxOutputTokens) }),
+        ...cout(faits),
         ...variantes(faits),
       },
     ]),

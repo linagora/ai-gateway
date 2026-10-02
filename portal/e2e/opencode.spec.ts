@@ -28,6 +28,9 @@ test("depuis « Mes clés », le titulaire ouvre la configuration d'OpenCode de 
   await expect(configuration).toContainText('"name": "LINAGORA · N1 Public · R&D · Essai OpenCode"');
   await expect(configuration).toContainText('"modelID": "dev-public"');
   await expect(configuration).toContainText('"apiKey": "{env:LINAGORA_N1_R_D_ESSAI_OPENCODE_KEY}"');
+  // Ticket #115 : coût en dollars, converti au taux interne, que la page explique.
+  await expect(configuration).toContainText('"cost": [');
+  await expect(configuration).toContainText("OpenCode affiche les coûts en dollars");
   await expect(page.getByRole("region", { name: "Enregistrer vos clés" })).toContainText('opencode service set env LINAGORA_N1_R_D_ESSAI_OPENCODE_KEY "$K"');
   expect(await page.content()).not.toContain(cle);
 });

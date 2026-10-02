@@ -99,6 +99,14 @@ export interface LiteLLMModel {
   imagePrice: number | null;
   inputCostPerToken: number | null;
   outputCostPerToken: number | null;
+  /** Prix d'un jeton lu depuis le cache et d'un jeton écrit dans le cache ; null s'ils ne sont pas déclarés. */
+  cacheReadCostPerToken: number | null;
+  cacheWriteCostPerToken: number | null;
+  /** Prix d'un jeton d'entrée et de sortie au-delà de 200 000 jetons d'entrée ; null sans palier déclaré. */
+  inputCostPerTokenAbove200k: number | null;
+  outputCostPerTokenAbove200k: number | null;
+  /** Taux interne USD → EUR des prix convertis (euros pour un dollar) ; null s'il n'est pas déclaré. */
+  fxRateUsdEur: number | null;
   pricingCurrency: string | null;
   dataLevel: string | null;
   hosting: string | null;
@@ -230,6 +238,13 @@ const modelInfoSchema = z.object({
   data: z.array(
     z.object({
       model_name: z.string(),
+      /** Prix au-delà de 200 000 jetons : LiteLLM 1.102.1 ne les recopie pas dans model_info, contrairement aux autres prix. */
+      litellm_params: z
+        .object({
+          input_cost_per_token_above_200k_tokens: z.number().nullish(),
+          output_cost_per_token_above_200k_tokens: z.number().nullish(),
+        })
+        .nullish(),
       model_info: z.object({
         id: z.string(),
         /** Déclarés par la passerelle : la route de LiteLLM (openai/…) ne dit rien du vrai fournisseur. */
@@ -242,6 +257,9 @@ const modelInfoSchema = z.object({
         prix_image_eur: z.number().nullish(),
         input_cost_per_token: z.number().nullish(),
         output_cost_per_token: z.number().nullish(),
+        cache_read_input_token_cost: z.number().nullish(),
+        cache_creation_input_token_cost: z.number().nullish(),
+        fx_rate_usd_eur: z.number().nullish(),
         pricing_currency: z.string().nullish(),
         data_level: z.string().nullish(),
         hosting: z.string().nullish(),
@@ -365,7 +383,7 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
     async listModels() {
       const { status, data } = await call("GET", "/model/info");
       if (status !== 200) fail("GET", "/model/info", status, data);
-      return modelInfoSchema.parse(data).data.map(({ model_name, model_info: mi }) => ({
+      return modelInfoSchema.parse(data).data.map(({ model_name, litellm_params: lp, model_info: mi }) => ({
         modelId: mi.id,
         modelName: model_name,
         supplier: mi.fournisseur ?? null,
@@ -377,6 +395,11 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
         imagePrice: mi.prix_image_eur ?? null,
         inputCostPerToken: mi.input_cost_per_token ?? null,
         outputCostPerToken: mi.output_cost_per_token ?? null,
+        cacheReadCostPerToken: mi.cache_read_input_token_cost ?? null,
+        cacheWriteCostPerToken: mi.cache_creation_input_token_cost ?? null,
+        inputCostPerTokenAbove200k: lp?.input_cost_per_token_above_200k_tokens ?? null,
+        outputCostPerTokenAbove200k: lp?.output_cost_per_token_above_200k_tokens ?? null,
+        fxRateUsdEur: mi.fx_rate_usd_eur ?? null,
         pricingCurrency: mi.pricing_currency ?? null,
         dataLevel: mi.data_level ?? null,
         hosting: mi.hosting ?? null,

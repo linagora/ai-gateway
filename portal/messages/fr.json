@@ -976,6 +976,7 @@
     "aucuneChoisie": "Cochez au moins une clé pour obtenir la configuration.",
     "configuration": "Configuration",
     "configurationExplication": "Enregistrez-la dans le fichier ~/.config/opencode/opencode.json de votre poste.",
+    "couts": "OpenCode affiche les coûts en dollars : la configuration y convertit les prix de la passerelle au taux interne de LINAGORA.",
     "copierConfiguration": "Copier la configuration",
     "configurationCopiee": "Configuration copiée",
     "commandes": "Enregistrer vos clés",

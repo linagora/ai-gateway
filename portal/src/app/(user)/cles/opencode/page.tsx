@@ -102,6 +102,7 @@ export default async function ConfigurerOpenCodePage(props: PageProps<"/cles/ope
           <section aria-labelledby="configuration" className="mt-6">
             <h2 id="configuration">{t("configuration")}</h2>
             <p className="text-sm">{t("configurationExplication")}</p>
+            <p className="text-sm">{t("couts")}</p>
             <pre className="mt-2 max-h-[32rem] overflow-auto rounded bg-neutral-900 p-3 text-xs text-neutral-100">
               <code>{configuration}</code>
             </pre>

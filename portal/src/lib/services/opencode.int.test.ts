@@ -323,3 +323,50 @@ describe("faits techniques dans la configuration d'OpenCode (ticket #114)", () =
     expect(models.gemini.capabilities).toEqual({ tools: true, input: ["text", "image", "pdf", "audio", "video"], output: ["text"] });
   });
 });
+
+describe("coût dans la configuration d'OpenCode (ticket #115)", () => {
+  /** Entrée OpenCode de la clé par défaut, pour les modèles donnés. */
+  async function modelesDeLEntree(models: string[]) {
+    await cleEmise({ models });
+    const resultat = await configurationOpenCode(deps, titulaire, OPTIONS);
+    return JSON.parse(resultat.configuration ?? "null").providers["linagora-n2-r-d-compte-rendu-hebdo"].models;
+  }
+
+  test("le coût est en dollars par million de jetons, au taux interne ; le cache sans prix déclaré coûte le prix d'entrée", async () => {
+    // Prix en euros de GLM-5.3 (2026-10-02) : 0,5569 € / 3,1463 € par million de jetons, 0,1704 € lus depuis le cache.
+    litellm.withModel({ modelName: "glm", inputCostPerToken: 0.0000005569, outputCostPerToken: 0.0000031463, cacheReadCostPerToken: 0.0000001704, fxRateUsdEur: 0.87974 });
+    await fiche("glm", "GLM", "N2");
+
+    const models = await modelesDeLEntree(["glm"]);
+
+    expect(models.glm.cost).toEqual({ input: 0.633028, output: 3.5764, cache: { read: 0.193694, write: 0.633028 } });
+  });
+
+  test("le palier au-delà de 200 000 jetons s'ajoute quand la passerelle le déclare", async () => {
+    litellm.withModel({
+      modelName: "gemini",
+      inputCostPerToken: 0.0000003,
+      outputCostPerToken: 0.0000025,
+      cacheReadCostPerToken: 0.00000003,
+      cacheWriteCostPerToken: 0.0000000773,
+      inputCostPerTokenAbove200k: 0.0000006,
+      outputCostPerTokenAbove200k: 0.000005,
+      fxRateUsdEur: 0.87974,
+    });
+    await fiche("gemini", "Gemini", "N2");
+
+    const models = await modelesDeLEntree(["gemini"]);
+
+    const cache = { read: 0.034101, write: 0.0878669 };
+    expect(models.gemini.cost).toEqual([
+      { input: 0.34101, output: 2.84175, cache },
+      { tier: { type: "context", size: 200000 }, input: 0.68202, output: 5.6835, cache },
+    ]);
+  });
+
+  test("sans taux de change déclaré, la configuration ne donne pas de coût", async () => {
+    const models = await modelesDeLEntree(["mistral-small"]);
+
+    expect(models["mistral-small"]).not.toHaveProperty("cost");
+  });
+});
