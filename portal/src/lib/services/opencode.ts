@@ -52,8 +52,8 @@ export interface CleOpenCode extends IdentiteCle {
   modelesEcartes: { modelName: string; raison: RaisonModeleEcarte }[];
 }
 
-/** Raison pour laquelle une clé émise n'est pas proposée ; état inconnu : la passerelle ne dit pas si elle est bloquée. */
-export type RaisonCleEcartee = "etat_inconnu" | "bloquee" | "sans_modele";
+/** Raison pour laquelle une clé émise n'est pas proposée. */
+export type RaisonCleEcartee = "bloquee" | "sans_modele";
 
 /** Clé émise qui n'est pas proposée pour OpenCode. */
 export interface CleEcartee extends IdentiteCle {
@@ -102,13 +102,14 @@ export async function configurationOpenCode(deps: KeyDeps, user: SessionUser, op
     displayNames(deps, options.langue),
   ]);
   const emises = keys.filter((k) => k.status === "CLE_EMISE");
+  // Sans l'état d'une clé, on ne sait pas si elle est bloquée : pas de configuration partielle.
+  if (emises.some((k) => k.gatewayState === null)) throw indisponible();
   const entrees = nomsDesEntrees(emises);
   const cles: ClePreparee[] = [];
   const clesEcartees: CleEcartee[] = [];
   for (const [i, cle] of emises.entries()) {
     const preparee = preparer(cle, entrees[i], modeles, noms);
-    if (!cle.gatewayState) clesEcartees.push({ ...identite(cle), raison: "etat_inconnu" });
-    else if (cle.gatewayState.blocked) clesEcartees.push({ ...identite(cle), raison: "bloquee" });
+    if (cle.gatewayState?.blocked) clesEcartees.push({ ...identite(cle), raison: "bloquee" });
     else if (preparee.retenus.length === 0) clesEcartees.push({ ...identite(cle), raison: "sans_modele" });
     else cles.push(preparee);
   }

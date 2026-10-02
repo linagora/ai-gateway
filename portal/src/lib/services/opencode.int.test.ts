@@ -272,16 +272,13 @@ describe("configuration d'OpenCode (ticket #113)", () => {
     await expect(configurationOpenCode(deps, titulaire, OPTIONS)).rejects.toMatchObject({ code: "passerelle_indisponible" });
   });
 
-  test("une clé dont la passerelle ne donne pas l'état n'est pas proposée, avec la raison", async () => {
-    const connue = await cleEmise();
+  test("quand la passerelle ne donne pas l'état d'une clé émise, aucune configuration n'est produite : la passerelle est dite indisponible", async () => {
+    await cleEmise();
     const perdue = await cleEmise({ project: "Perdue" });
     const empreinte = [...litellm.keys.values()].find((k) => k.metadata.request_id === perdue)?.tokenId ?? "";
     litellm.keys.delete(empreinte);
 
-    const resultat = await configurationOpenCode(deps, titulaire, OPTIONS);
-
-    expect(resultat.cles.map((c) => c.requestId)).toEqual([connue]);
-    expect(resultat.clesEcartees).toEqual([expect.objectContaining({ requestId: perdue, raison: "etat_inconnu" })]);
+    await expect(configurationOpenCode(deps, titulaire, OPTIONS)).rejects.toMatchObject({ code: "passerelle_indisponible" });
   });
 });
 

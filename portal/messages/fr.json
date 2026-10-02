@@ -976,7 +976,6 @@
     },
     "clesNonProposees": "Clés non proposées",
     "raisonsCle": {
-      "etat_inconnu": "la passerelle ne donne pas son état",
       "bloquee": "clé bloquée",
       "sans_modele": "aucun modèle de conversation"
     },

@@ -976,7 +976,6 @@
     },
     "clesNonProposees": "Keys not offered",
     "raisonsCle": {
-      "etat_inconnu": "the gateway does not report its state",
       "bloquee": "blocked key",
       "sans_modele": "no chat model"
     },
