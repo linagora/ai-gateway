@@ -891,6 +891,7 @@
   },
   "cles": {
     "titre": "My keys",
+    "opencode": "Do you use OpenCode, the coding assistant? <lien>Set it up with your keys</lien>.",
     "aRetirer": "To pick up",
     "aRetirerIntro": "These requests are approved: generate your key before the deadline.",
     "echeance": "Pick up before {date}",

@@ -891,6 +891,7 @@
   },
   "cles": {
     "titre": "Mes clés",
+    "opencode": "Vous utilisez OpenCode, l'assistant de code ? <lien>Configurez-le avec vos clés</lien>.",
     "aRetirer": "À retirer",
     "aRetirerIntro": "Ces demandes sont approuvées : générez votre clé avant l'échéance.",
     "echeance": "À retirer avant le {date}",

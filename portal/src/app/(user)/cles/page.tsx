@@ -24,6 +24,7 @@ export default async function MesClesPage(props: PageProps<"/cles">) {
   return (
     <>
       <h1>{t("titre")}</h1>
+      <p className="text-sm">{t.rich("opencode", { lien: (texte) => <Link href="/cles/opencode">{texte}</Link> })}</p>
       <Notice searchParams={searchParams} />
       {toPickUp.length > 0 && (
         <section aria-labelledby="a-retirer">

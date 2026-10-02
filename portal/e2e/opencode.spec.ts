@@ -57,7 +57,10 @@ test("sans clé, la page donne les étapes pour en obtenir une et les modèles r
   const collaborateur = personne("sans-cle");
   const page = await (await connecter(browser, collaborateur)).newPage();
 
-  await page.goto("/cles/opencode");
+  // Un lien de « Mes clés » mène à la page, même sans clé.
+  await page.goto("/cles");
+  await page.getByRole("link", { name: "Configurez-le avec vos clés" }).click();
+  await expect(page).toHaveURL(/\/cles\/opencode$/);
   await expect(page.getByText("il vous faut une clé émise avec au moins un modèle de conversation")).toBeVisible();
   await expect(page.getByRole("link", { name: "Faire une demande de clé" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Modèles recommandés pour le code" })).toContainText("Modèle interne · N2 Interne");
