@@ -983,19 +983,62 @@
       "sans_modele": "aucun modèle de conversation"
     },
     "aucuneChoisie": "Cochez au moins une clé pour obtenir la configuration.",
-    "configuration": "Configuration",
-    "configurationExplication": "Enregistrez-la dans le fichier ~/.config/opencode/opencode.json de votre poste.",
     "couts": "OpenCode affiche les coûts en dollars : la configuration y convertit les prix de la passerelle au taux interne de LINAGORA.",
     "copierConfiguration": "Copier la configuration",
     "configurationCopiee": "Configuration copiée",
-    "commandes": "Enregistrer vos clés",
     "commandesExplication": "Lancez ces commandes dans un terminal : elles vous demandent chaque clé, sans l'afficher, puis redémarrent OpenCode.",
     "copierCommandes": "Copier les commandes",
     "commandesCopiees": "Commandes copiées",
     "verification": "Vérifiez ensuite que vos modèles sont reconnus :",
-    "copierVerification": "Copier la commande",
-    "verificationCopiee": "Commande copiée",
-    "invite": "Clé LINAGORA {alias} ({niveau}, {equipe}) : "
+    "copierCommande": "Copier la commande",
+    "commandeCopiee": "Commande copiée",
+    "invite": "Clé LINAGORA {alias} ({niveau}, {equipe}) : ",
+    "ou": {
+      "terminal": "Terminal",
+      "navigateur": "Navigateur",
+      "editeur": "Éditeur de texte",
+      "opencode": "OpenCode"
+    },
+    "etapeInstaller": {
+      "titre": "Installer OpenCode",
+      "terminal": "Le terminal est la fenêtre où l'on tape des commandes. Pour l'ouvrir : <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>T</kbd>.",
+      "coller": "Pour lancer une commande de cette page : copiez-la, collez-la dans le terminal avec <kbd>Ctrl</kbd> + <kbd>Maj</kbd> + <kbd>V</kbd>, puis appuyez sur <kbd>Entrée</kbd>.",
+      "installer": "Installez OpenCode avec son script officiel, puis fermez le terminal et ouvrez-en un nouveau :",
+      "verifier": "Vérifiez la version installée : elle doit afficher <code>opencode v2.x</code>.",
+      "mettreAJour": "Plus tard, pour mettre OpenCode à jour :"
+    },
+    "etapeCles": {
+      "titre": "Choisir vos clés",
+      "rappel": "Le code du projet ouvert dans OpenCode est envoyé au modèle : choisissez une clé dont le niveau de confidentialité couvre la classification de votre dépôt.",
+      "niveau": "{niveau} : {description}",
+      "niveaux": {
+        "N1": "code open source, ou diffusé à tous les collaborateurs",
+        "N2": "dépôt à diffusion restreinte",
+        "N3": "code secret ou code d'un client"
+      }
+    },
+    "etapeConfiguration": {
+      "titre": "Enregistrer la configuration",
+      "ouvrir": "Ouvrez le fichier de configuration d'OpenCode dans l'éditeur de texte gedit :",
+      "gedit": "gedit ne s'ouvre pas ? Installez-le avec <code>sudo apt install gedit</code>.",
+      "coller": "Copiez la configuration ci-dessous, collez-la dans gedit avec <kbd>Ctrl</kbd> + <kbd>V</kbd>, enregistrez avec <kbd>Ctrl</kbd> + <kbd>S</kbd>, puis fermez gedit.",
+      "existant": "Le fichier contient déjà du texte ? Ne l'effacez pas : ajoutez seulement les entrées du bloc <code>providers</code>, et les lignes <code>model</code> et <code>update</code> s'il y en a, en gardant les accolades et les virgules valides."
+    },
+    "etapeCommandes": {
+      "titre": "Enregistrer vos clés"
+    },
+    "etapeUtiliser": {
+      "titre": "Utiliser OpenCode",
+      "lancer": "Lancez OpenCode dans votre projet : allez dans son dossier, puis tapez <code>opencode</code>. OpenCode ne travaille que dans ce dossier.",
+      "choisir": "Pour choisir un modèle : tapez <code>/models</code> puis <kbd>Entrée</kbd>, tapez <code>LINAGORA</code> pour filtrer, choisissez avec les flèches, puis <kbd>Entrée</kbd>.",
+      "favori": "Pour mettre un modèle en favori : dans cette liste, <kbd>Ctrl</kbd> + <kbd>F</kbd> l'épingle en haut.",
+      "changer": "Pour changer vite de modèle : <kbd>F2</kbd> passe au modèle récent suivant, <kbd>Maj</kbd> + <kbd>F2</kbd> au précédent."
+    },
+    "sansCle": {
+      "intro": "Pour configurer OpenCode, il vous faut une clé émise avec au moins un modèle de conversation. Pour en obtenir une :",
+      "recommandes": "Modèles recommandés pour le code",
+      "aucunRecommande": "Aucun modèle n'est encore recommandé pour le code."
+    }
   },
   "courriels": {
     "lien": "Lien : {url}",
