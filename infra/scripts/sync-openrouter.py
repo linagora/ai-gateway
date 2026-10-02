@@ -18,6 +18,10 @@ Modèles d'images (sortie « image ») : appelés par la conversation (modalitie
 d'image au prix de sortie déclaré ; son API d'images, qui enregistre 0 €, est refusée par la garde. Prix de
 sortie = prix du jeton d'image × majoration (facultative, pour un minimum facturé par image) ; prix indicatif
 d'une image = ce prix × jetons_par_image, pour le catalogue du portail.
+Faits lus par le portail pour la configuration d'OpenCode : sortie maximale (le plus petit maximum des points
+d'accès retenus, plafonné par la limite du modèle que publie OpenRouter, car certains points d'accès annoncent
+plus qu'ils n'acceptent), efforts de raisonnement et effort par défaut (liste des modèles d'OpenRouter), contenus
+acceptés en entrée et produits en sortie.
 """
 import json
 import os
@@ -70,7 +74,19 @@ def arrondi(x):
     return float(f"{x:.6g}")
 
 
-def declaration(entree, cfg):
+# Efforts de raisonnement, du plus faible au plus fort : OpenRouter les publie dans le désordre.
+ORDRE_EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"]
+# Modalités d'OpenRouter dans le vocabulaire du portail (« file » : documents PDF), dans un ordre fixe.
+CONTENUS = {"text": "text", "image": "image", "file": "pdf", "audio": "audio", "video": "video"}
+
+
+def contenus(modalites):
+    """Contenus déclarés pour le portail, d'après les modalités d'OpenRouter."""
+    return [c for m, c in CONTENUS.items() if m in modalites]
+
+
+def declaration(entree, cfg, catalogue):
+    """Déclaration LiteLLM d'un modèle de la liste blanche ; `catalogue` : liste des modèles d'OpenRouter, par identifiant."""
     zone = cfg["zones"][entree["zone"]]
     donnees = http("GET", f"{OPENROUTER}/models/{entree['openrouter']}/endpoints", auth=False)["data"]
     tous = donnees["endpoints"]
@@ -114,6 +130,20 @@ def declaration(entree, cfg):
     raisonne = any({"reasoning", "include_reasoning"} & set(e.get("supported_parameters") or []) for e in retenus)
     capacites = [c for c, oui in [("images", "image" in entrees), ("generation_images", image),
                                   ("audio_video", bool(entrees & {"audio", "video"})), ("raisonnement", raisonne)] if oui]
+    # Configuration d'OpenCode (portail) : sortie maximale, efforts de raisonnement et contenus acceptés.
+    publie = catalogue.get(entree["openrouter"]) or {}
+    maximums = [e["max_completion_tokens"] for e in retenus if e.get("max_completion_tokens")]
+    if limite_modele := (publie.get("top_provider") or {}).get("max_completion_tokens"):
+        maximums.append(limite_modele)
+    faits_opencode = {"contenus_entree": contenus(entrees), "contenus_sortie": contenus(sorties)}
+    if maximums:
+        faits_opencode["max_output_tokens"] = min(maximums)
+    raisonnement = publie.get("reasoning") or {}
+    efforts = sorted({e for e in raisonnement.get("supported_efforts") or [] if e in ORDRE_EFFORTS}, key=ORDRE_EFFORTS.index)
+    if raisonne and efforts:
+        faits_opencode["efforts_raisonnement"] = efforts
+        if raisonnement.get("default_effort") in efforts:
+            faits_opencode["effort_par_defaut"] = raisonnement["default_effort"]
     if image:
         if "jetons_par_image" not in entree:
             raise SystemExit(f"✘ {entree['nom']} : modèle d'images sans jetons_par_image dans la liste blanche")
@@ -149,6 +179,7 @@ def declaration(entree, cfg):
             "frais_openrouter": cfg["frais_openrouter"],
             "prix_usd_par_mtoken": [arrondi(usd_in * 1e6), arrondi(usd_out * 1e6)],
             "max_input_tokens": min(e["context_length"] for e in retenus),
+            **faits_opencode,
             **supplements_info,
         },
     }
@@ -172,10 +203,12 @@ def est_openrouter(m):
 
 cfg = yaml.safe_load(open(LISTE))
 noms = [e["nom"] for e in cfg["modeles"]]
+# Liste publique des modèles d'OpenRouter, lue une fois : limite de sortie et efforts de raisonnement de chaque modèle.
+catalogue = {m["id"]: m for m in http("GET", f"{OPENROUTER}/models", auth=False)["data"]}
 voulus, sans_acces = {}, {}
 for e in cfg["modeles"]:
     try:
-        voulus[e["nom"]] = declaration(e, cfg)
+        voulus[e["nom"]] = declaration(e, cfg, catalogue)
     except SansPointDAcces as raison:
         sans_acces[e["nom"]] = raison
 deja = {}

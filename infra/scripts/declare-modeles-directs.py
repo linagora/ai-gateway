@@ -43,6 +43,9 @@ MODELES = [
             "pricing_source": "Tarif public OVH AI Endpoints : 0,40 € / 2,70 € HT par million de jetons (entrée / sortie), validé par Linagora le 2026-09-24",
             "max_input_tokens": 262144,
             "max_output_tokens": 262144,
+            # Contenus acceptés et produits, lus par le portail pour la configuration d'OpenCode.
+            "contenus_entree": ["text", "image"],
+            "contenus_sortie": ["text"],
         },
     },
     {
@@ -68,6 +71,8 @@ MODELES = [
             "fx_rate_usd_eur": TAUX_USD_EUR,
             "type_api": "decision",  # lu par le portail : JEV n'est pas un modèle de conversation
             "usage": "API System One : requête JSON {state, questions} dans le dernier message (jev.py)",
+            "contenus_entree": ["text"],
+            "contenus_sortie": ["text"],
         },
     },
 ]
