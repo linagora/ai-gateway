@@ -70,6 +70,11 @@ export const CAPABILITIES: readonly Capability[] = ["images", "generation_images
 /** Zone d'exécution d'un modèle (glossaire) : UE ou hors UE. */
 export type ExecutionRegion = "UE" | "HORS_UE";
 
+/** Contenu qu'un modèle accepte en entrée ou produit en sortie, tel que le déclare la passerelle. */
+export type Contenu = "text" | "image" | "pdf" | "audio" | "video";
+
+export const CONTENUS: readonly Contenu[] = ["text", "image", "pdf", "audio", "video"];
+
 /**
  * Manière d'appeler un modèle : conversation (par défaut), API de décision comme JEV (« System One »), qui
  * attend dans le dernier message une requête JSON et non un texte libre, ou modèle d'images, appelé comme un
@@ -94,10 +99,26 @@ export interface LiteLLMModel {
   imagePrice: number | null;
   inputCostPerToken: number | null;
   outputCostPerToken: number | null;
+  /** Prix d'un jeton lu depuis le cache et d'un jeton écrit dans le cache ; null s'ils ne sont pas déclarés. */
+  cacheReadCostPerToken: number | null;
+  cacheWriteCostPerToken: number | null;
+  /** Prix d'un jeton d'entrée et de sortie au-delà de 200 000 jetons d'entrée ; null sans palier déclaré. */
+  inputCostPerTokenAbove200k: number | null;
+  outputCostPerTokenAbove200k: number | null;
+  /** Taux interne USD → EUR des prix convertis (euros pour un dollar) ; null s'il n'est pas déclaré. */
+  fxRateUsdEur: number | null;
   pricingCurrency: string | null;
   dataLevel: string | null;
   hosting: string | null;
   maxInputTokens: number | null;
+  /** Sortie maximale en jetons ; null si la passerelle ne la déclare pas. */
+  maxOutputTokens: number | null;
+  /** Efforts de raisonnement acceptés, dans l'ordre croissant, et effort par défaut ; null s'ils ne sont pas connus. */
+  reasoningEfforts: string[] | null;
+  defaultReasoningEffort: string | null;
+  /** Contenus acceptés en entrée et produits en sortie ; null si la passerelle ne les déclare pas. */
+  inputContents: Contenu[] | null;
+  outputContents: Contenu[] | null;
 }
 
 /** Paramètres d'une clé à générer (F-40), figés à l'approbation de la demande. Durées au format LiteLLM : 30d, 3600s… */
@@ -217,6 +238,13 @@ const modelInfoSchema = z.object({
   data: z.array(
     z.object({
       model_name: z.string(),
+      /** Prix au-delà de 200 000 jetons : LiteLLM 1.102.1 ne les recopie pas dans model_info, contrairement aux autres prix. */
+      litellm_params: z
+        .object({
+          input_cost_per_token_above_200k_tokens: z.number().nullish(),
+          output_cost_per_token_above_200k_tokens: z.number().nullish(),
+        })
+        .nullish(),
       model_info: z.object({
         id: z.string(),
         /** Déclarés par la passerelle : la route de LiteLLM (openai/…) ne dit rien du vrai fournisseur. */
@@ -229,14 +257,27 @@ const modelInfoSchema = z.object({
         prix_image_eur: z.number().nullish(),
         input_cost_per_token: z.number().nullish(),
         output_cost_per_token: z.number().nullish(),
+        cache_read_input_token_cost: z.number().nullish(),
+        cache_creation_input_token_cost: z.number().nullish(),
+        fx_rate_usd_eur: z.number().nullish(),
         pricing_currency: z.string().nullish(),
         data_level: z.string().nullish(),
         hosting: z.string().nullish(),
         max_input_tokens: z.number().nullish(),
+        max_output_tokens: z.number().nullish(),
+        efforts_raisonnement: z.array(z.string()).nullish(),
+        effort_par_defaut: z.string().nullish(),
+        contenus_entree: z.array(z.string()).nullish(),
+        contenus_sortie: z.array(z.string()).nullish(),
       }),
     }),
   ),
 });
+
+/** Contenus déclarés, réduits à ceux que le portail connaît ; null sans déclaration. */
+function contenus(declares: string[] | null | undefined): Contenu[] | null {
+  return declares ? declares.filter((c): c is Contenu => CONTENUS.includes(c as Contenu)) : null;
+}
 
 const generatedKeySchema = z.object({
   key: z.string(),
@@ -342,7 +383,7 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
     async listModels() {
       const { status, data } = await call("GET", "/model/info");
       if (status !== 200) fail("GET", "/model/info", status, data);
-      return modelInfoSchema.parse(data).data.map(({ model_name, model_info: mi }) => ({
+      return modelInfoSchema.parse(data).data.map(({ model_name, litellm_params: lp, model_info: mi }) => ({
         modelId: mi.id,
         modelName: model_name,
         supplier: mi.fournisseur ?? null,
@@ -354,10 +395,20 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
         imagePrice: mi.prix_image_eur ?? null,
         inputCostPerToken: mi.input_cost_per_token ?? null,
         outputCostPerToken: mi.output_cost_per_token ?? null,
+        cacheReadCostPerToken: mi.cache_read_input_token_cost ?? null,
+        cacheWriteCostPerToken: mi.cache_creation_input_token_cost ?? null,
+        inputCostPerTokenAbove200k: lp?.input_cost_per_token_above_200k_tokens ?? null,
+        outputCostPerTokenAbove200k: lp?.output_cost_per_token_above_200k_tokens ?? null,
+        fxRateUsdEur: mi.fx_rate_usd_eur ?? null,
         pricingCurrency: mi.pricing_currency ?? null,
         dataLevel: mi.data_level ?? null,
         hosting: mi.hosting ?? null,
         maxInputTokens: mi.max_input_tokens ?? null,
+        maxOutputTokens: mi.max_output_tokens ?? null,
+        reasoningEfforts: mi.efforts_raisonnement ?? null,
+        defaultReasoningEffort: mi.effort_par_defaut ?? null,
+        inputContents: contenus(mi.contenus_entree),
+        outputContents: contenus(mi.contenus_sortie),
       }));
     },
 

@@ -891,6 +891,7 @@
   },
   "cles": {
     "titre": "My keys",
+    "opencode": "Do you use OpenCode, the coding assistant? <lien>Set it up with your keys</lien>.",
     "aRetirer": "To pick up",
     "aRetirerIntro": "These requests are approved: generate your key before the deadline.",
     "echeance": "Pick up before {date}",
@@ -922,6 +923,7 @@
     "infoIndisponible": "Spend and budget unavailable for now: the gateway is not responding.",
     "bloquee": "blocked",
     "commentUtiliser": "How to use it",
+    "configurerOpenCode": "Set up OpenCode with this key",
     "exemplesPour": "With {modele}",
     "emplacement": "Keep your key in the LINAGORA_API_KEY environment variable: the examples read it from there, it never appears in them.",
     "langages": {
@@ -951,6 +953,90 @@
     "adresseApi": "API address",
     "copierAdresse": "Copy the address",
     "adresseCopiee": "Address copied"
+  },
+  "opencode": {
+    "titre": "Set up OpenCode",
+    "intro": "OpenCode is an open source coding assistant that works in the terminal. This page builds its configuration from your issued keys: each key becomes an entry, with its chat models. Your key never goes through the portal: the commands ask you for it in the terminal, without displaying it.",
+    "indisponible": "The gateway is not responding: the configuration cannot be built for now. Please try again in a few moments.",
+    "clesAInclure": "Keys to include",
+    "modeles": "Models: {liste}",
+    "modelesEcartes": "Left out: {liste}",
+    "raisonsModele": {
+      "image": "image model",
+      "decision": "decision API",
+      "non_declare": "no longer declared by the gateway"
+    },
+    "modeleParDefaut": "Default model",
+    "aucunModeleParDefaut": "None: OpenCode keeps its choice",
+    "miseAJour": "OpenCode updates",
+    "misesAJour": {
+      "aucune": "Keep OpenCode's setting",
+      "notify": "Report new versions",
+      "auto": "Install them automatically",
+      "disable": "Do not check"
+    },
+    "clesNonProposees": "Keys not offered",
+    "raisonsCle": {
+      "bloquee": "blocked key",
+      "sans_modele": "no chat model"
+    },
+    "aucuneChoisie": "Tick at least one key to get the configuration.",
+    "couts": "OpenCode shows costs in dollars: the configuration converts the gateway's prices at LINAGORA's internal rate.",
+    "copierConfiguration": "Copy the configuration",
+    "configurationCopiee": "Configuration copied",
+    "commandesExplication": "Run these commands in a terminal: they ask you for each key, without displaying it, then restart OpenCode.",
+    "copierCommandes": "Copy the commands",
+    "commandesCopiees": "Commands copied",
+    "verification": "Then check that your models are recognized:",
+    "copierCommande": "Copy the command",
+    "commandeCopiee": "Command copied",
+    "invite": "LINAGORA key {alias} ({niveau}, {equipe}): ",
+    "endroits": {
+      "terminal": "Terminal",
+      "navigateur": "Browser",
+      "editeur": "Text editor",
+      "opencode": "OpenCode"
+    },
+    "etapeInstaller": {
+      "titre": "Install OpenCode",
+      "terminal": "The terminal is the window where you type commands. To open it: <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>T</kbd>.",
+      "coller": "To run a command from this page: copy it, paste it into the terminal with <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd>, then press <kbd>Enter</kbd>.",
+      "installer": "Install OpenCode with its official script, then close the terminal and open a new one:",
+      "verifier": "Check the installed version: it should display <code>opencode v2.x</code>.",
+      "mettreAJour": "Later, to update OpenCode:"
+    },
+    "etapeCles": {
+      "titre": "Choose your keys",
+      "rappel": "The code of the project opened in OpenCode is sent to the model: choose a key whose confidentiality level covers the classification of your repository.",
+      "niveau": "{niveau}: {description}",
+      "niveaux": {
+        "N1": "open source code, or code shared with all employees",
+        "N2": "repository with restricted access",
+        "N3": "secret code or code of a customer"
+      }
+    },
+    "etapeConfiguration": {
+      "titre": "Save the configuration",
+      "ouvrir": "Open the OpenCode configuration file in the gedit text editor:",
+      "gedit": "gedit does not open? Install it with <code>sudo apt install gedit</code>.",
+      "coller": "Copy the configuration below, paste it into gedit with <kbd>Ctrl</kbd> + <kbd>V</kbd>, save with <kbd>Ctrl</kbd> + <kbd>S</kbd>, then close gedit.",
+      "existant": "The file already contains text? Do not erase it: only add the entries of the <code>providers</code> block, and the <code>model</code> and <code>update</code> lines if any, keeping braces and commas valid."
+    },
+    "etapeCommandes": {
+      "titre": "Save your keys"
+    },
+    "etapeUtiliser": {
+      "titre": "Use OpenCode",
+      "lancer": "Start OpenCode in your project: go to its folder, then type <code>opencode</code>. OpenCode only works in that folder.",
+      "choisir": "To pick a model: type <code>/models</code> then <kbd>Enter</kbd>, type <code>LINAGORA</code> to filter, choose with the arrow keys, then <kbd>Enter</kbd>.",
+      "favori": "To add a model to your favorites: in that list, <kbd>Ctrl</kbd> + <kbd>F</kbd> pins it at the top.",
+      "changer": "To switch models quickly: <kbd>F2</kbd> moves to the next recent model, <kbd>Shift</kbd> + <kbd>F2</kbd> to the previous one."
+    },
+    "sansCle": {
+      "intro": "To set up OpenCode, you need an issued key with at least one chat model. To get one:",
+      "recommandes": "Models recommended for code",
+      "aucunRecommande": "No model is recommended for code yet."
+    }
   },
   "courriels": {
     "lien": "Link: {url}",

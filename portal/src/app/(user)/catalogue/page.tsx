@@ -6,8 +6,8 @@ import { levelOverview } from "@/lib/services/catalog";
 import { listOffers } from "@/lib/services/offers";
 import { getDeps, requireUser } from "@/lib/session";
 import { formats, Notice } from "../../components";
+import { PastillesClassification } from "../../pastilles-classification";
 import { BORDURES_GAUCHES_NIVEAUX } from "./couleurs";
-import { PastillesClassification } from "./pastilles-classification";
 
 /** Intitulé discret d'une rubrique de carte. */
 const RUBRIQUE = "mt-2.5 text-xs font-semibold uppercase tracking-wide text-neutral-500";

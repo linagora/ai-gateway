@@ -4,7 +4,18 @@ import { DATA_LEVELS, type DataLevel } from "@/lib/policy";
 import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
 import type { UseCase } from "@/lib/use-cases";
-import { type CatalogEntryInput, type LevelCriteria, type LevelSort, levelModels, levelOverview, modelDetail, listCatalog, listCatalogForAdmin, saveCatalogEntry } from "./catalog";
+import {
+  type CatalogEntryInput,
+  type LevelCriteria,
+  type LevelSort,
+  levelModels,
+  levelOverview,
+  modelDetail,
+  listCatalog,
+  listCatalogForAdmin,
+  recommendedModels,
+  saveCatalogEntry,
+} from "./catalog";
 
 beforeEach(resetDb);
 
@@ -262,6 +273,24 @@ describe("filtres, tri et recommandations (ticket #8)", () => {
     expect(await ordre("price")).toEqual(["Ministral 8B", "Mistral Medium 3.5", "Kimi K3"]);
     expect(await ordre("context")).toEqual(["Kimi K3", "Mistral Medium 3.5", "Ministral 8B"]);
     expect(await ordre("name")).toEqual(["Kimi K3", "Ministral 8B", "Mistral Medium 3.5"]);
+  });
+});
+
+describe("modèles recommandés pour un cas d'usage (ticket #117)", () => {
+  test("les modèles visibles recommandés pour un cas d'usage, avec leur niveau maximal, du niveau N1 au niveau N3, dans la langue demandée", async () => {
+    const litellm = new FakeLiteLLM().withModel({ modelName: "qwen3.8" }).withModel({ modelName: "devstral" }).withModel({ modelName: "kimi-k3" }).withModel({ modelName: "masque" });
+    const fiche = (modelName: string, displayNameFr: string, dataLevel: DataLevel, recommendedFor: UseCase[], visible = true, displayNameEn: string | null = null) =>
+      saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName, displayNameFr, displayNameEn, dataLevel, useCases: ["WRITING_ANALYSIS", "CODING"], recommendedFor, visible });
+    await fiche("qwen3.8", "Qwen 3.8 27B", "N3", ["CODING"], true, "Qwen 3.8 27B (EN)");
+    await fiche("devstral", "Devstral 2", "N1", ["CODING"]);
+    await fiche("kimi-k3", "Kimi K3", "N1", ["WRITING_ANALYSIS"]);
+    await fiche("masque", "Modèle masqué", "N1", ["CODING"], false);
+
+    expect(await recommendedModels({ db: testDb, litellm }, "CODING", "fr")).toEqual([
+      { modelName: "devstral", displayName: "Devstral 2", dataLevel: "N1" },
+      { modelName: "qwen3.8", displayName: "Qwen 3.8 27B", dataLevel: "N3" },
+    ]);
+    expect((await recommendedModels({ db: testDb, litellm }, "CODING", "en")).map((m) => m.displayName)).toEqual(["Devstral 2", "Qwen 3.8 27B (EN)"]);
   });
 });
 

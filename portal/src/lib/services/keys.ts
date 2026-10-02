@@ -521,7 +521,7 @@ function keyAlias(request: { requesterUid: string; teamAlias: string; project: s
 }
 
 /** Minuscules, sans accents ni caractères autres que lettres et chiffres (séparés par des tirets). */
-function slug(texte: string): string {
+export function slug(texte: string): string {
   return texte
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")

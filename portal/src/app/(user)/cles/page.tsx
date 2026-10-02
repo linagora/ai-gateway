@@ -24,6 +24,7 @@ export default async function MesClesPage(props: PageProps<"/cles">) {
   return (
     <>
       <h1>{t("titre")}</h1>
+      <p className="text-sm">{t.rich("opencode", { lien: (texte) => <Link href="/cles/opencode">{texte}</Link> })}</p>
       <Notice searchParams={searchParams} />
       {toPickUp.length > 0 && (
         <section aria-labelledby="a-retirer">
@@ -143,6 +144,11 @@ export default async function MesClesPage(props: PageProps<"/cles">) {
                   <details className="mt-3">
                     <summary className="cursor-pointer font-medium">{t("commentUtiliser")}</summary>
                     <p className="mt-2 text-sm">{t("emplacement")}</p>
+                    {k.examples.some((e) => e.apiKind === "conversation") && (
+                      <p className="mt-2 text-sm">
+                        <Link href={`/cles/opencode?cle=${k.requestId}`}>{t("configurerOpenCode")}</Link>
+                      </p>
+                    )}
                     {k.examples.map(({ model, apiKind }) => {
                       const exemples = exemplesAppel(model, apiKind, textesExemple);
                       return (

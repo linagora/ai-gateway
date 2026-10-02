@@ -75,6 +75,31 @@ export async function listCatalog(deps: CatalogDeps, language: Langue = "fr"): P
   })).sort((a, b) => a.displayName.localeCompare(b.displayName, language));
 }
 
+/** Nom affiché de chaque modèle qui a une fiche, visible ou non, dans la langue demandée (repli sur le français). */
+export async function displayNames(deps: { db: Db }, language: Langue): Promise<Map<string, string>> {
+  const text = inLanguage(language);
+  return new Map((await deps.db.catalogEntry.findMany()).map((entry) => [entry.modelName, text(entry.displayNameFr, entry.displayNameEn)]));
+}
+
+/** Modèle recommandé pour un cas d'usage, avec son niveau maximal. */
+export interface RecommendedModel {
+  modelName: string;
+  displayName: string;
+  dataLevel: DataLevel;
+}
+
+/**
+ * Modèles visibles que l'admin recommande pour un cas d'usage, du niveau le moins confidentiel au plus confidentiel
+ * (Expérimental en dernier), puis par nom affiché, dans la langue demandée (repli sur le français).
+ */
+export async function recommendedModels(deps: CatalogDeps, useCase: UseCase, language: Langue): Promise<RecommendedModel[]> {
+  const text = inLanguage(language);
+  return (await visibleModels(deps))
+    .filter(({ entry }) => entry.recommendedFor.includes(useCase))
+    .map(({ entry }) => ({ modelName: entry.modelName, displayName: text(entry.displayNameFr, entry.displayNameEn), dataLevel: entry.dataLevel }))
+    .sort((a, b) => DATA_LEVELS.indexOf(a.dataLevel) - DATA_LEVELS.indexOf(b.dataLevel) || a.displayName.localeCompare(b.displayName, language));
+}
+
 /** Fiche visible et modèle LiteLLM correspondant, avec ses prix en euros par million de jetons. */
 type VisibleModel = Awaited<ReturnType<typeof visibleModels>>[number];
 

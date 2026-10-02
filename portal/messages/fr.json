@@ -891,6 +891,7 @@
   },
   "cles": {
     "titre": "Mes clés",
+    "opencode": "Vous utilisez OpenCode, l'assistant de code ? <lien>Configurez-le avec vos clés</lien>.",
     "aRetirer": "À retirer",
     "aRetirerIntro": "Ces demandes sont approuvées : générez votre clé avant l'échéance.",
     "echeance": "À retirer avant le {date}",
@@ -922,6 +923,7 @@
     "infoIndisponible": "Dépense et budget indisponibles pour l'instant : la passerelle ne répond pas.",
     "bloquee": "bloquée",
     "commentUtiliser": "Comment l'utiliser",
+    "configurerOpenCode": "Configurer OpenCode avec cette clé",
     "exemplesPour": "Avec {modele}",
     "emplacement": "Gardez votre clé dans la variable d'environnement LINAGORA_API_KEY : les exemples la lisent là, elle n'y figure jamais.",
     "langages": {
@@ -951,6 +953,90 @@
     "adresseApi": "Adresse de l'API",
     "copierAdresse": "Copier l'adresse",
     "adresseCopiee": "Adresse copiée"
+  },
+  "opencode": {
+    "titre": "Configurer OpenCode",
+    "intro": "OpenCode est un assistant de code open source qui travaille dans le terminal. Cette page en produit la configuration à partir de vos clés émises : chaque clé y devient une entrée, avec ses modèles de conversation. Votre clé ne passe jamais par le portail : les commandes vous la demandent dans le terminal, sans l'afficher.",
+    "indisponible": "La passerelle ne répond pas : la configuration ne peut pas être produite pour l'instant. Réessayez dans quelques instants.",
+    "clesAInclure": "Clés à inclure",
+    "modeles": "Modèles : {liste}",
+    "modelesEcartes": "Non repris : {liste}",
+    "raisonsModele": {
+      "image": "modèle d'images",
+      "decision": "API de décision",
+      "non_declare": "la passerelle ne le déclare plus"
+    },
+    "modeleParDefaut": "Modèle par défaut",
+    "aucunModeleParDefaut": "Aucun : OpenCode garde son choix",
+    "miseAJour": "Mises à jour d'OpenCode",
+    "misesAJour": {
+      "aucune": "Garder le réglage d'OpenCode",
+      "notify": "Signaler les nouvelles versions",
+      "auto": "Les installer automatiquement",
+      "disable": "Ne pas vérifier"
+    },
+    "clesNonProposees": "Clés non proposées",
+    "raisonsCle": {
+      "bloquee": "clé bloquée",
+      "sans_modele": "aucun modèle de conversation"
+    },
+    "aucuneChoisie": "Cochez au moins une clé pour obtenir la configuration.",
+    "couts": "OpenCode affiche les coûts en dollars : la configuration y convertit les prix de la passerelle au taux interne de LINAGORA.",
+    "copierConfiguration": "Copier la configuration",
+    "configurationCopiee": "Configuration copiée",
+    "commandesExplication": "Lancez ces commandes dans un terminal : elles vous demandent chaque clé, sans l'afficher, puis redémarrent OpenCode.",
+    "copierCommandes": "Copier les commandes",
+    "commandesCopiees": "Commandes copiées",
+    "verification": "Vérifiez ensuite que vos modèles sont reconnus :",
+    "copierCommande": "Copier la commande",
+    "commandeCopiee": "Commande copiée",
+    "invite": "Clé LINAGORA {alias} ({niveau}, {equipe}) : ",
+    "endroits": {
+      "terminal": "Terminal",
+      "navigateur": "Navigateur",
+      "editeur": "Éditeur de texte",
+      "opencode": "OpenCode"
+    },
+    "etapeInstaller": {
+      "titre": "Installer OpenCode",
+      "terminal": "Le terminal est la fenêtre où l'on tape des commandes. Pour l'ouvrir : <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>T</kbd>.",
+      "coller": "Pour lancer une commande de cette page : copiez-la, collez-la dans le terminal avec <kbd>Ctrl</kbd> + <kbd>Maj</kbd> + <kbd>V</kbd>, puis appuyez sur <kbd>Entrée</kbd>.",
+      "installer": "Installez OpenCode avec son script officiel, puis fermez le terminal et ouvrez-en un nouveau :",
+      "verifier": "Vérifiez la version installée : elle doit afficher <code>opencode v2.x</code>.",
+      "mettreAJour": "Plus tard, pour mettre OpenCode à jour :"
+    },
+    "etapeCles": {
+      "titre": "Choisir vos clés",
+      "rappel": "Le code du projet ouvert dans OpenCode est envoyé au modèle : choisissez une clé dont le niveau de confidentialité couvre la classification de votre dépôt.",
+      "niveau": "{niveau} : {description}",
+      "niveaux": {
+        "N1": "code open source, ou diffusé à tous les collaborateurs",
+        "N2": "dépôt à diffusion restreinte",
+        "N3": "code secret ou code d'un client"
+      }
+    },
+    "etapeConfiguration": {
+      "titre": "Enregistrer la configuration",
+      "ouvrir": "Ouvrez le fichier de configuration d'OpenCode dans l'éditeur de texte gedit :",
+      "gedit": "gedit ne s'ouvre pas ? Installez-le avec <code>sudo apt install gedit</code>.",
+      "coller": "Copiez la configuration ci-dessous, collez-la dans gedit avec <kbd>Ctrl</kbd> + <kbd>V</kbd>, enregistrez avec <kbd>Ctrl</kbd> + <kbd>S</kbd>, puis fermez gedit.",
+      "existant": "Le fichier contient déjà du texte ? Ne l'effacez pas : ajoutez seulement les entrées du bloc <code>providers</code>, et les lignes <code>model</code> et <code>update</code> s'il y en a, en gardant les accolades et les virgules valides."
+    },
+    "etapeCommandes": {
+      "titre": "Enregistrer vos clés"
+    },
+    "etapeUtiliser": {
+      "titre": "Utiliser OpenCode",
+      "lancer": "Lancez OpenCode dans votre projet : allez dans son dossier, puis tapez <code>opencode</code>. OpenCode ne travaille que dans ce dossier.",
+      "choisir": "Pour choisir un modèle : tapez <code>/models</code> puis <kbd>Entrée</kbd>, tapez <code>LINAGORA</code> pour filtrer, choisissez avec les flèches, puis <kbd>Entrée</kbd>.",
+      "favori": "Pour mettre un modèle en favori : dans cette liste, <kbd>Ctrl</kbd> + <kbd>F</kbd> l'épingle en haut.",
+      "changer": "Pour changer vite de modèle : <kbd>F2</kbd> passe au modèle récent suivant, <kbd>Maj</kbd> + <kbd>F2</kbd> au précédent."
+    },
+    "sansCle": {
+      "intro": "Pour configurer OpenCode, il vous faut une clé émise avec au moins un modèle de conversation. Pour en obtenir une :",
+      "recommandes": "Modèles recommandés pour le code",
+      "aucunRecommande": "Aucun modèle n'est encore recommandé pour le code."
+    }
   },
   "courriels": {
     "lien": "Lien : {url}",
