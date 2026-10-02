@@ -5,7 +5,8 @@ une complétion, la dépense calculée au tarif EUR du modèle, le prix des jeto
 (même requête longue envoyée deux fois), un message au format Anthropic (/v1/messages, utilisé par
 des assistants de code), puis révoque la clé (critère 7 : 401) et supprime l'équipe. N'affiche
 jamais la clé maître ni la clé de test. Sort en erreur si les jetons lus depuis le cache ne sont pas
-comptés à leur prix déclaré ; sans jeton lu depuis le cache, ce contrôle n'est pas concluant.
+comptés à leur prix déclaré, dans le coût calculé comme dans la dépense enregistrée sur la clé ; sans jeton
+lu depuis le cache, ce contrôle n'est pas concluant.
 
 Exécuté DANS le conteneur litellm (la clé maître y est déjà en variable d'environnement) :
   docker compose exec -T litellm python3 - <model_name> < scripts/smoke-test.py
@@ -51,12 +52,29 @@ def step(msg):
     print(f"• {msg}", flush=True)
 
 
+def cout_attendu(usage, prix_cache):
+    """Coût d'une réponse au tarif du modèle ; les jetons lus depuis le cache au prix de lecture déclaré (0 sans prix)."""
+    lus = (usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0
+    return (usage.get("prompt_tokens", 0) - lus) * in_cost + lus * (prix_cache or 0) + usage.get("completion_tokens", 0) * out_cost
+
+
+def proche(valeur, attendue):
+    return abs(valeur - attendue) <= 1e-12 + 1e-6 * abs(attendue)
+
+
+def depense(token):
+    """Dépense enregistrée sur une clé."""
+    _, ki, _ = call("GET", f"/key/info?key={token}")
+    return ((ki or {}).get("info") or {}).get("spend") or 0
+
+
 st, info, _ = call("GET", "/model/info")
 deployments = [m for m in (info or {}).get("data", []) if m.get("model_name") == MODEL]
 if not deployments:
     sys.exit(f"modèle {MODEL} introuvable dans /model/info (HTTP {st})")
 mi = deployments[0].get("model_info") or {}
 in_cost, out_cost = mi.get("input_cost_per_token"), mi.get("output_cost_per_token")
+cache_cost = mi.get("cache_read_input_token_cost")
 step(f"modèle {MODEL} : niveau {mi.get('data_level')}, devise {mi.get('pricing_currency')}, tarifs {in_cost} / {out_cost} par jeton")
 
 st, team, _ = call("POST", "/team/new", {"team_alias": "test-install", "models": [MODEL]})
@@ -102,12 +120,10 @@ try:
     if st != 200:
         print(json.dumps(comp, ensure_ascii=False)[:500])
     elif in_cost is not None and out_cost is not None:
-        expected = usage.get("prompt_tokens", 0) * in_cost + usage.get("completion_tokens", 0) * out_cost
-        step(f"coût calculé par LiteLLM : {hdr.get('x-litellm-response-cost')} ; attendu au tarif du modèle : {expected:.10f}")
+        step(f"coût calculé par LiteLLM : {hdr.get('x-litellm-response-cost')} ; attendu au tarif du modèle : {cout_attendu(usage, cache_cost):.10f}")
 
         for i in range(20):
-            st, ki, _ = call("GET", f"/key/info?key={token_id}")
-            spend = ((ki or {}).get("info") or {}).get("spend") or 0
+            spend = depense(token_id)
             if spend > 0:
                 step(f"/key/info → dépense enregistrée sur la clé : {spend:.10f} (après ~{i * 5} s)")
                 break
@@ -118,12 +134,16 @@ try:
     # Jetons lus depuis le cache : la même requête longue deux fois, la seconde lisant en général son début dans le cache
     # implicite du fournisseur. LiteLLM doit les compter au prix de lecture déclaré ; sans ce prix, la 1.102.1 les
     # compte à 0 €. Sans jeton lu depuis le cache, le contrôle n'est pas concluant (ce n'est pas un échec).
-    cache_cost = mi.get("cache_read_input_token_cost")
     longue = {"model": MODEL, "messages": [{"role": "user", "content": TEXTE_LONG}], "max_tokens": 300}
-    st, comp, hdr = call("POST", "/v1/chat/completions", longue, key=test_key)
-    if st == 200:
-        time.sleep(5)
+    avant = depense(token_id)
+    couts = []
+    for passage in range(2):
+        if passage:
+            time.sleep(5)
         st, comp, hdr = call("POST", "/v1/chat/completions", longue, key=test_key)
+        if st != 200:
+            break
+        couts.append(float(hdr.get("x-litellm-response-cost") or 0))
     usage = (comp or {}).get("usage") or {}
     lus = (usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0
     step(f"cache — requête longue rejouée → HTTP {st} ; jetons : {usage.get('prompt_tokens')} entrée, dont {lus} lus depuis le cache, + {usage.get('completion_tokens')} sortie")
@@ -138,12 +158,20 @@ try:
         echecs.append("cache (prix de lecture non déclaré)")
         step("cache — échec : prix de lecture du cache non déclaré, LiteLLM compte ces jetons à 0 €")
     else:
-        attendu = (usage["prompt_tokens"] - lus) * in_cost + lus * cache_cost + usage.get("completion_tokens", 0) * out_cost
-        calcule = float(hdr.get("x-litellm-response-cost") or 0)
-        conforme = abs(calcule - attendu) <= 1e-12 + 1e-6 * attendu
-        if not conforme:
+        attendu = cout_attendu(usage, cache_cost)
+        calcule = proche(couts[1], attendu)
+        step(f"cache — coût calculé par LiteLLM : {couts[1]:.10f} ; attendu, jetons lus au prix de lecture du cache ({cache_cost} par jeton) : {attendu:.10f} → {'conforme' if calcule else 'échec'}")
+        # La dépense enregistrée sur la clé doit compter ces jetons au même prix ; LiteLLM l'écrit en différé.
+        total = avant + couts[0] + attendu
+        for i in range(20):
+            enregistree = depense(token_id)
+            if proche(enregistree, total):
+                break
+            time.sleep(5)
+        enregistre = proche(enregistree, total)
+        step(f"cache — dépense enregistrée sur la clé : {enregistree:.10f} ; attendue : {total:.10f} → {'conforme' if enregistre else 'échec'}")
+        if not (calcule and enregistre):
             echecs.append("cache (coût)")
-        step(f"cache — coût calculé par LiteLLM : {calcule:.10f} ; attendu, jetons lus au prix de lecture du cache ({cache_cost} par jeton) : {attendu:.10f} → {'conforme' if conforme else 'échec'}")
 
     # Format Anthropic, utilisé par des assistants de code : LiteLLM le traduit selon la route du modèle (2026-09-26 :
     # la route openai/… de Qwen3.8 passait par l'API Responses, refusée par OVH, alors que chat/completions répondait).
