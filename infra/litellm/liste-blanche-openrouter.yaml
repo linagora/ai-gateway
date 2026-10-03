@@ -63,7 +63,8 @@ modeles:
   - {nom: kimi-k3, openrouter: moonshotai/kimi-k3, zone: monde, prix_max_usd: [3, 15]}   # hors offres « fast »
 
   # --- MiMo (Xiaomi) : aucun point d'accès en UE, zone monde ; le point d'accès de Xiaomi (fournisseur chinois) est
-  # exclu, seuls DeepInfra et GMICloud le servent (décision de l'utilisateur du 2026-10-01) ---
+  # exclu (décision de l'utilisateur du 2026-10-01). Servi par DeepInfra et GMICloud, puis aussi par Novita, apparu
+  # chez OpenRouter le 2026-10-02 et accepté par l'utilisateur le 2026-10-03 ---
   - {nom: mimo-v2.6-pro, openrouter: xiaomi/mimo-v2.6-pro, zone: monde}
 
   # --- Modèles d'images : aucun point d'accès OpenRouter en UE, zone monde (décision du 2026-09-25) ---
