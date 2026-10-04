@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Données de démonstration pour le LiteLLM de dev : 5 modèles à réponses simulées (aucun appel externe),
+# Données de démonstration pour le LiteLLM de dev : 6 modèles à réponses simulées (aucun appel externe),
 # tarifés en euros, et une équipe « R&D » sans membre. Idempotent. Valeurs FACTICES.
 #   ./dev/seed-litellm.sh
 set -euo pipefail
@@ -45,8 +45,13 @@ model dev-experimental EXP HORS_UE 0.0000001 0.0000004 Typesafe Typesafe '[]' '[
 # Comme FLUX.2 [pro] : un modèle d'images, facturé au jeton d'image, avec un prix indicatif par image.
 model dev-image N1 HORS_UE 0 0.00001 OpenRouter "Black Forest Labs" '["images","generation_images"]' '["Black Forest Labs"]' monde 46864 image 0.03 \
   '{"contenus_entree": ["text", "image"], "contenus_sortie": ["image"]}'
+# Comme bge-m3 : un modèle d'embeddings, facturé à l'entrée seule, avec la taille de ses vecteurs. Sa route est propre
+# et inconnue de la table de LiteLLM, pour que ses faits techniques soient ceux déclarés ici. Jamais appelé en dev.
+model dev-embeddings N3 INTERNE 0.00000001 0 OVHcloud BAAI '[]' '["OVHcloud"]' UE 8192 embeddings null \
+  '{"output_vector_size": 1024, "mode": "embedding"}' \
+  '{"model": "hosted_vllm/dev-embeddings", "api_base": "http://127.0.0.1:9/v1"}'
 
-MODELS='["dev-public", "dev-interne", "dev-confidentiel", "dev-experimental", "dev-image"]'
+MODELS='["dev-public", "dev-interne", "dev-confidentiel", "dev-experimental", "dev-image", "dev-embeddings"]'
 
 TEAM_ID=$(curl -fsS "${H[@]}" "$B/team/list" | jq -r 'first(.[] | select(.team_alias == "R&D") | .team_id) // empty')
 if [[ -n "$TEAM_ID" ]]; then

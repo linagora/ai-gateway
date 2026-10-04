@@ -179,6 +179,44 @@ describe("page d'un niveau (ticket #7)", () => {
   });
 });
 
+describe("modèle d'embeddings (ticket #126)", () => {
+  const bgeM3 = { modelName: "bge-m3", apiKind: "embeddings" as const, dimensions: 1024, inputCostPerToken: 0.00000001, outputCostPerToken: 0, maxInputTokens: 8192 };
+
+  test("la carte d'un modèle d'embeddings donne son type d'API, la taille de ses vecteurs, son prix d'entrée sans prix de sortie et son contexte", async () => {
+    const litellm = new FakeLiteLLM().withModel(bgeM3).withModel({ modelName: "qwen3.8" });
+    for (const modelName of ["bge-m3", "qwen3.8"]) await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName });
+    expect(Object.fromEntries((await levelModels({ db: testDb, litellm }, { level: "N3", language: "fr" })).models.map((m) => [m.modelName, m]))).toMatchObject({
+      "bge-m3": { apiKind: "embeddings", dimensions: 1024, inputPricePerMillion: 0.01, outputPricePerMillion: 0, context: { tokens: 8000, pages: 11 } },
+      "qwen3.8": { apiKind: "conversation", dimensions: null },
+    });
+  });
+
+  test("le prix mixte d'un modèle d'embeddings, qui ne produit pas de jetons de sortie, est son prix d'entrée : il fixe son repère et sa place au tri par prix", async () => {
+    const litellm = new FakeLiteLLM()
+      .withModel({ ...bgeM3, modelName: "vecteurs", inputCostPerToken: 0.00000032 }) // 0,32 € : €€ ; le calcul 3 pour 1 donnerait 0,24 €, soit €
+      .withModel({ modelName: "conversation-0,30", inputCostPerToken: 0.0000002, outputCostPerToken: 0.0000006 }); // (3 × 0,20 + 0,60) / 4 = 0,30 €
+    for (const { modelName } of litellm.models) await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName, dataLevel: "N1" });
+    const { models } = await levelModels({ db: testDb, litellm }, { level: "N1", language: "fr", criteria: { sort: "price" } });
+    expect(models.map((m) => [m.modelName, m.priceTier])).toEqual([
+      ["conversation-0,30", "€€"],
+      ["vecteurs", "€€"],
+    ]);
+  });
+
+  test("le prix de départ d'un niveau ne compte pas les modèles d'embeddings, que le nombre de modèles compte ; un niveau qui n'a qu'eux n'a pas de prix de départ", async () => {
+    // Le modèle confidentiel (N3, 0,975 €) est masqué : la page N3 n'a plus que bge-m3, à 0,01 €.
+    const litellm = (await catalogueDeDemonstration(["public", "interne", "beta"])).withModel(bgeM3);
+    await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName: "bge-m3", dataLevel: "N3" });
+    expect((await levelOverview({ db: testDb, litellm })).map((n) => [n.level, n.modelCount, n.startingPricePerMillion])).toEqual([
+      ["N1", 3, 0.175],
+      ["N2", 2, 0.3],
+      ["N3", 1, null],
+      ["EXP", 1, 0.15],
+    ]);
+    expect((await levelModels({ db: testDb, litellm }, { level: "N1", language: "fr" })).models.find((m) => m.modelName === "bge-m3")?.acceptsUpTo).toBe("N3");
+  });
+});
+
 describe("filtres, tri et recommandations (ticket #8)", () => {
   // Trois modèles N1. Prix mixtes : Mistral Medium 0,80 €, Kimi K3 1,075 €, Ministral 0,10 €.
   async function catalogueFiltrable() {

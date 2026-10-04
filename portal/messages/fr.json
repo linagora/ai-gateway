@@ -358,6 +358,8 @@
       "eleve": "Prix élevé"
     },
     "prix": "{entree} en entrée, {sortie} en sortie, par million de jetons",
+    "prixEntree": "{entree} en entrée, par million de jetons",
+    "dimensions": "Vecteurs de {dimensions} dimensions",
     "prixImage": "Environ {prix} par image",
     "contexte": "{jetons} jetons, soit environ {pages} pages",
     "hypothesePages": "Hypothèse : une page de texte en français compte environ 750 jetons.",
@@ -964,6 +966,7 @@
     "raisonsModele": {
       "image": "modèle d'images",
       "decision": "API de décision",
+      "embeddings": "modèle d'embeddings",
       "non_declare": "la passerelle ne le déclare plus"
     },
     "modeleParDefaut": "Modèle par défaut",

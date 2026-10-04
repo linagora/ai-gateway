@@ -181,9 +181,13 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
                       </span>
                       <span className="text-xs text-neutral-600">
                         {" · "}
-                        {t("prix", { entree: euros(m.inputPricePerMillion), sortie: euros(m.outputPricePerMillion) })}
+                        {m.apiKind === "embeddings"
+                          ? // Un modèle d'embeddings ne produit pas de jetons de sortie : seul son prix d'entrée compte.
+                            t("prixEntree", { entree: euros(m.inputPricePerMillion) })
+                          : t("prix", { entree: euros(m.inputPricePerMillion), sortie: euros(m.outputPricePerMillion) })}
                       </span>
                     </p>
+                    {m.dimensions !== null && <p className="text-sm">{t("dimensions", { dimensions: nombre(m.dimensions) })}</p>}
                     <p className="text-sm">
                       {m.context ? (
                         <span title={t("hypothesePages")}>

@@ -195,6 +195,7 @@ export class FakeLiteLLM implements LiteLLMClient {
       defaultReasoningEffort: null,
       inputContents: null,
       outputContents: null,
+      dimensions: null,
       ...model,
     });
     return this;

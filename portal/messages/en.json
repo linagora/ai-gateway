@@ -358,6 +358,8 @@
       "eleve": "High price"
     },
     "prix": "{entree} input, {sortie} output, per million tokens",
+    "prixEntree": "{entree} input, per million tokens",
+    "dimensions": "{dimensions}-dimension vectors",
     "prixImage": "About {prix} per image",
     "contexte": "{jetons} tokens, or about {pages} pages",
     "hypothesePages": "Assumption: a page of text in French is about 750 tokens.",
@@ -964,6 +966,7 @@
     "raisonsModele": {
       "image": "image model",
       "decision": "decision API",
+      "embeddings": "embedding model",
       "non_declare": "no longer declared by the gateway"
     },
     "modeleParDefaut": "Default model",

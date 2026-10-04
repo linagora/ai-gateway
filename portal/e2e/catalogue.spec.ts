@@ -14,6 +14,7 @@ test.beforeAll(async ({ browser }) => {
     { nom: "dev-confidentiel", nomAffiche: "Modèle confidentiel", niveau: "N3", casUsage: ["Rédaction et analyse"], recommandePour: ["Rédaction et analyse"] },
     { nom: "dev-experimental", nomAffiche: "Modèle expérimental", niveau: "EXP", casUsage: [], recommandePour: [] },
     { nom: "dev-image", nomAffiche: "Modèle graphique", niveau: "N1", casUsage: ["Création d'images"], recommandePour: ["Création d'images"] },
+    { nom: "dev-embeddings", nomAffiche: "Modèle vectoriel", niveau: "N3", casUsage: ["Extraction et automatisation"], recommandePour: [] },
   ]) {
     await enrichirModele(page, modele);
   }
@@ -175,10 +176,11 @@ test.describe("vue d'ensemble des niveaux (ticket #5)", () => {
     const page = await context.newPage();
     await page.goto("/catalogue");
     // Données de démonstration : prix mixtes 0,175 € (public, expérimental), 0,30 € (interne), 0,975 € (confidentiel),
-    // 2,50 € (modèle d'images, prix de sortie par jeton d'image).
-    await expect(carte(page, "N1 Public")).toContainText(/4 modèles.*à partir de 0,175\s€/);
-    await expect(carte(page, "N2 Interne")).toContainText(/2 modèles.*à partir de 0,30\s€/);
-    await expect(carte(page, "N3 Confidentiel")).toContainText(/1 modèle.*à partir de 0,975\s€/);
+    // 2,50 € (modèle d'images, prix de sortie par jeton d'image). Le modèle d'embeddings (N3, 0,01 € en entrée) compte
+    // parmi les modèles des niveaux N1 à N3, mais pas dans leur prix de départ (ticket #126).
+    await expect(carte(page, "N1 Public")).toContainText(/5 modèles.*à partir de 0,175\s€/);
+    await expect(carte(page, "N2 Interne")).toContainText(/3 modèles.*à partir de 0,30\s€/);
+    await expect(carte(page, "N3 Confidentiel")).toContainText(/2 modèles.*à partir de 0,975\s€/);
     await expect(carte(page, "Expérimental (bêta)")).toContainText(/1 modèle.*à partir de 0,175\s€/);
     await context.close();
   });
@@ -226,7 +228,8 @@ test.describe("page d'un niveau (ticket #7)", () => {
     await expect(modele(page, "Modèle interne")).toContainText("Mistral AI · UE");
     await expect(modele(page, "Modèle interne")).not.toContainText("Accepte jusqu'à");
     await expect(modele(page, "Modèle confidentiel")).toContainText("Accepte jusqu'à N3");
-    await expect(page.getByRole("article")).toHaveCount(2);
+    await expect(modele(page, "Modèle vectoriel")).toContainText("Accepte jusqu'à N3");
+    await expect(page.getByRole("article")).toHaveCount(3);
     await context.close();
   });
 
@@ -337,7 +340,7 @@ test.describe("filtres, tri et recommandations (ticket #8)", () => {
     await page.getByRole("searchbox", { name: "Rechercher un modèle ou un éditeur" }).fill("introuvable");
     await expect(page.getByRole("main")).toContainText("Aucun modèle ne correspond à ces critères. Élargissez la recherche ou retirez des filtres.");
     await page.getByRole("link", { name: "Réinitialiser les filtres" }).click();
-    await expect(page.getByRole("article")).toHaveCount(4);
+    await expect(page.getByRole("article")).toHaveCount(5);
     await context.close();
   });
 });
@@ -352,7 +355,7 @@ test.describe("filtres appliqués sans bouton (retours de recette du 2026-09-25)
     await recherche.fill("in");
     await page.waitForTimeout(800);
     await expect(page).not.toHaveURL(/q=/);
-    await expect(page.getByRole("article")).toHaveCount(4);
+    await expect(page.getByRole("article")).toHaveCount(5);
     await recherche.fill("int");
     await expect(page).toHaveURL(/q=int/);
     await expect(page.getByRole("article")).toHaveCount(1);
@@ -360,10 +363,10 @@ test.describe("filtres appliqués sans bouton (retours de recette du 2026-09-25)
     await expect(recherche).toBeFocused();
     await recherche.fill("");
     await expect(page).not.toHaveURL(/q=/);
-    await expect(page.getByRole("article")).toHaveCount(4);
+    await expect(page.getByRole("article")).toHaveCount(5);
     await page.getByRole("checkbox", { name: "UE uniquement" }).check();
     await expect(page).toHaveURL(/ue=1/);
-    await expect(page.getByRole("article")).toHaveCount(2);
+    await expect(page.getByRole("article")).toHaveCount(3);
     await context.close();
   });
 
@@ -493,6 +496,18 @@ test.describe("détail d'un modèle (ticket #9)", () => {
     await context.close();
   });
 
+  test("un modèle d'embeddings annonce son prix d'entrée seul, la taille de ses vecteurs et son contexte (ticket #126)", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    await page.goto("/catalogue/n3");
+    const carte = page.getByRole("article", { name: "Modèle vectoriel" });
+    await expect(carte).toContainText(/0,01\s€ en entrée, par\smillion\sde\sjetons/);
+    await expect(carte).not.toContainText("en sortie");
+    await expect(carte).toContainText(/Vecteurs de 1\s024 dimensions/);
+    await expect(carte).toContainText(/8\s000 jetons/);
+    await context.close();
+  });
+
   test("un lien partagé ouvre la page du niveau avec le détail de JEV, présenté comme une API de décision", async ({ browser }) => {
     const context = await connecter(browser, salarie);
     const page = await context.newPage();
@@ -585,9 +600,9 @@ test.describe("sélection de modèles et demande préremplie (ticket #10)", () =
     await expect(page.getByText("Choisissez d'abord le niveau de confidentialité")).toBeVisible();
     expect(await proposes()).toEqual([]);
     for (const [niveau, attendus] of [
-      [/^N3 Confidentiel/, ["dev-confidentiel"]],
-      [/^N2 Interne/, ["dev-confidentiel", "dev-interne"]],
-      [/^N1 Public/, ["dev-confidentiel", "dev-image", "dev-interne", "dev-public"]],
+      [/^N3 Confidentiel/, ["dev-confidentiel", "dev-embeddings"]],
+      [/^N2 Interne/, ["dev-confidentiel", "dev-embeddings", "dev-interne"]],
+      [/^N1 Public/, ["dev-confidentiel", "dev-embeddings", "dev-image", "dev-interne", "dev-public"]],
       [/^Expérimental/, ["dev-experimental"]],
     ] as const) {
       await page.getByRole("radio", { name: niveau }).check();
