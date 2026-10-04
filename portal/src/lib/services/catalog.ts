@@ -203,6 +203,9 @@ export async function levelModels(
   const models: LevelModel[] = modelsOfLevel(await visibleModels(deps), level, language);
   const { search: saisie = "", useCase, capabilities = [], euOnly = false, apiKind, sort = "recommended" } = criteria;
   const search = saisie.trim().length >= RECHERCHE_MINIMUM ? saisie.trim() : "";
+  const apiKinds = API_KINDS.filter((type) => models.some((m) => m.apiKind === type));
+  // Un type absent de la page (adresse ancienne ou modifiée) est ignoré, comme le filtre qui ne le propose pas.
+  const typeRetenu = apiKind && apiKinds.includes(apiKind) ? apiKind : undefined;
   const blended = modelBlendedPrice;
   const byName = (a: LevelModel, b: LevelModel) => a.displayName.localeCompare(b.displayName, language);
   const comparators: Record<LevelSort, (a: LevelModel, b: LevelModel) => number> = {
@@ -213,7 +216,7 @@ export async function levelModels(
   };
   return {
     modelCount: models.length,
-    apiKinds: API_KINDS.filter((type) => models.some((m) => m.apiKind === type)),
+    apiKinds,
     models: models
       .filter(
         (m) =>
@@ -221,7 +224,7 @@ export async function levelModels(
           (!useCase || m.useCases.includes(useCase)) &&
           capabilities.every((c) => m.capabilities.includes(c)) &&
           (!euOnly || m.executionRegion === "UE") &&
-          (!apiKind || m.apiKind === apiKind),
+          (!typeRetenu || m.apiKind === typeRetenu),
       )
       .sort(comparators[sort]),
   };

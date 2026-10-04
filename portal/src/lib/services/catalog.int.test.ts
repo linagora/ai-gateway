@@ -244,6 +244,12 @@ describe("filtre par type d'API (ticket #128)", () => {
     expect(await types("N1", { apiKind: "image", search: "introuvable" })).toEqual(["conversation", "image", "embeddings", "decision"]);
     expect(await types("N2")).toEqual([]);
   });
+
+  test("un type d'API absent de la page, venu d'une adresse ancienne ou modifiée, est ignoré : la page montre tous ses modèles", async () => {
+    const litellm = await catalogueDeTypes([{ modelName: "conversation" }, vecteursUe]);
+    const { models } = await levelModels({ db: testDb, litellm }, { level: "N1", language: "fr", criteria: { apiKind: "decision" } });
+    expect(models.map((m) => m.modelName).sort()).toEqual(["conversation", "vecteurs-ue"]);
+  });
 });
 
 describe("filtres, tri et recommandations (ticket #8)", () => {
