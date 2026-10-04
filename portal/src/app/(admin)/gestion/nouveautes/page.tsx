@@ -1,21 +1,22 @@
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { CATEGORIES_NOUVEAUTE, nouveautesPourAdmin } from "@/lib/services/nouveautes";
+import { nouveautesPourAdmin } from "@/lib/services/nouveautes";
 import { getDeps, requireAdminPage } from "@/lib/session";
-import { creerNouveauteAction, publierNouveauteAction } from "../../../actions";
+import { publierNouveauteAction, supprimerNouveauteAction } from "../../../actions";
 import { CategorieNouveaute } from "../../../categorie-nouveaute";
 import { ExplicationObligatoires, formats, Notice } from "../../../components";
-import { Obligatoire } from "../../../obligatoire";
 import { AdminNav } from "../admin-nav";
+import { FormulaireNouveaute } from "./formulaire";
 
 /**
- * Spécification #124, ticket #130 : les admins rédigent une nouveauté en brouillon, puis la publient ; tous les
- * collaborateurs la voient alors signalée par la cloche, jusqu'à ce qu'ils l'aient lue.
+ * Spécification #124, tickets #130 et #134 : les admins rédigent une nouveauté en brouillon, la prévisualisent, puis la
+ * publient ; tous les collaborateurs la voient alors signalée par la cloche, jusqu'à ce qu'ils l'aient lue. Ils la
+ * corrigent ou la suppriment ensuite, et voient combien de collaborateurs l'ont lue, sans leurs noms.
  */
 export default async function GestionNouveautesPage(props: PageProps<"/gestion/nouveautes">) {
   const admin = await requireAdminPage();
-  const [t, domaine, { jour }, searchParams, liste] = await Promise.all([
+  const [t, { jour, nombre }, searchParams, liste] = await Promise.all([
     getTranslations("gestionNouveautes"),
-    getTranslations("domaine"),
     formats(),
     props.searchParams,
     nouveautesPourAdmin(getDeps(), admin),
@@ -38,6 +39,7 @@ export default async function GestionNouveautesPage(props: PageProps<"/gestion/n
                 <th>{t("colonnes.categorie")}</th>
                 <th>{t("colonnes.titre")}</th>
                 <th>{t("colonnes.etat")}</th>
+                <th>{t("colonnes.lectures")}</th>
                 <th>{t("colonnes.actions")}</th>
               </tr>
             </thead>
@@ -49,15 +51,34 @@ export default async function GestionNouveautesPage(props: PageProps<"/gestion/n
                   </td>
                   <td>{n.title}</td>
                   <td>{n.publishedAt ? t("publieeLe", { date: jour(n.publishedAt) }) : t("brouillon")}</td>
+                  <td>{n.publishedAt ? nombre(n.lectures) : "—"}</td>
                   <td>
-                    {!n.publishedAt && (
-                      <form action={publierNouveauteAction}>
-                        <input type="hidden" name="id" value={n.id} />
-                        <button type="submit" className="mt-0" aria-label={t("publierLaNouveaute", { titre: n.title })}>
-                          {t("publier")}
-                        </button>
-                      </form>
-                    )}
+                    <div className="flex flex-wrap items-start gap-x-4 gap-y-1">
+                      <Link href={`/gestion/nouveautes/${n.id}`} aria-label={t("corrigerLaNouveaute", { titre: n.title })}>
+                        {t("corriger")}
+                      </Link>
+                      <Link href={`/nouveautes/${n.id}`} aria-label={t("apercuDeLaNouveaute", { titre: n.title })}>
+                        {t("apercu")}
+                      </Link>
+                      {!n.publishedAt && (
+                        <form action={publierNouveauteAction}>
+                          <input type="hidden" name="id" value={n.id} />
+                          <button type="submit" className="mt-0" aria-label={t("publierLaNouveaute", { titre: n.title })}>
+                            {t("publier")}
+                          </button>
+                        </form>
+                      )}
+                      <details>
+                        <summary className="cursor-pointer" aria-label={t("supprimerLaNouveaute", { titre: n.title })}>
+                          {t("supprimer")}
+                        </summary>
+                        <p className="text-sm">{t("suppressionAvertissement")}</p>
+                        <form action={supprimerNouveauteAction}>
+                          <input type="hidden" name="id" value={n.id} />
+                          <button type="submit">{t("confirmerSuppression")}</button>
+                        </form>
+                      </details>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -67,55 +88,7 @@ export default async function GestionNouveautesPage(props: PageProps<"/gestion/n
       )}
       <h2>{t("rediger")}</h2>
       <ExplicationObligatoires />
-      <form action={creerNouveauteAction} aria-label={t("rediger")} className="max-w-3xl">
-        <label>
-          {t("categorie")}
-          <select name="category" defaultValue="MODELES">
-            {CATEGORIES_NOUVEAUTE.map((c) => (
-              <option key={c} value={c}>
-                {domaine(`categoriesNouveaute.${c}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {t("titreFr")}
-          <Obligatoire />
-          <input name="titleFr" required maxLength={120} />
-        </label>
-        <label>
-          {t("resumeFr")}
-          <Obligatoire />
-          <textarea name="summaryFr" required maxLength={300} rows={2} aria-describedby="aide-resume" />
-        </label>
-        <p id="aide-resume" className="text-xs text-neutral-600">
-          {t("aideResume")}
-        </p>
-        <label>
-          {t("texteFr")}
-          <Obligatoire />
-          <textarea name="bodyFr" required maxLength={20000} rows={8} aria-describedby="aide-texte" />
-        </label>
-        <p id="aide-texte" className="text-xs text-neutral-600">
-          {t("aideTexte")}
-        </p>
-        <fieldset>
-          <legend>{t("anglais")}</legend>
-          <label>
-            {t("titreEn")}
-            <input name="titleEn" maxLength={120} />
-          </label>
-          <label>
-            {t("resumeEn")}
-            <textarea name="summaryEn" maxLength={300} rows={2} />
-          </label>
-          <label>
-            {t("texteEn")}
-            <textarea name="bodyEn" maxLength={20000} rows={8} />
-          </label>
-        </fieldset>
-        <button type="submit">{t("enregistrer")}</button>
-      </form>
+      <FormulaireNouveaute />
     </>
   );
 }

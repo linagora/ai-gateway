@@ -62,29 +62,66 @@ export async function creerNouveaute(deps: NouveautesDeps, actor: SessionUser, i
   return id;
 }
 
+/**
+ * Corrige une nouveauté, brouillon ou publiée : une nouveauté publiée garde sa date de publication et ses accusés de
+ * lecture, et ne redevient donc pas non lue. Réservé aux admins.
+ */
+export async function modifierNouveaute(deps: NouveautesDeps, actor: SessionUser, id: string, input: NouveauteInput): Promise<void> {
+  requireAdmin(actor);
+  const nouveaute = nouveauteInputSchema.parse(input);
+  await existante(deps, id);
+  await deps.db.newsItem.update({ where: { id }, data: { ...nouveaute, updatedBy: actor.uid } });
+  await recordAudit(deps.db, { actorUid: actor.uid, action: "NEWS_UPDATED", targetId: id, details: { categorie: nouveaute.category, titre: nouveaute.titleFr } });
+}
+
+/** Supprime une nouveauté, avec ses accusés de lecture. Réservé aux admins. */
+export async function supprimerNouveaute(deps: NouveautesDeps, actor: SessionUser, id: string): Promise<void> {
+  requireAdmin(actor);
+  const nouveaute = await existante(deps, id);
+  await deps.db.newsItem.delete({ where: { id } });
+  await recordAudit(deps.db, { actorUid: actor.uid, action: "NEWS_DELETED", targetId: id, details: { categorie: nouveaute.category, titre: nouveaute.titleFr } });
+}
+
+/** Nouveauté connue, brouillon ou publiée. */
+async function existante(deps: NouveautesDeps, id: string): Promise<NewsItem> {
+  const nouveaute = await deps.db.newsItem.findUnique({ where: { id } });
+  if (!nouveaute) throw new PortalError("introuvable", `Nouveauté inconnue : ${id}`);
+  return nouveaute;
+}
+
 /** Publie un brouillon : il apparaît dès lors à tous les collaborateurs. Une nouveauté déjà publiée garde sa date. */
 export async function publierNouveaute(deps: NouveautesDeps, actor: SessionUser, id: string): Promise<void> {
   requireAdmin(actor);
-  const nouveaute = await deps.db.newsItem.findUnique({ where: { id } });
-  if (!nouveaute) throw new PortalError("introuvable", `Nouveauté inconnue : ${id}`);
+  const nouveaute = await existante(deps, id);
   if (nouveaute.publishedAt) return;
   await deps.db.newsItem.update({ where: { id }, data: { publishedAt: deps.now?.() ?? new Date(), updatedBy: actor.uid } });
   await recordAudit(deps.db, { actorUid: actor.uid, action: "NEWS_PUBLISHED", targetId: id, details: { categorie: nouveaute.category, titre: nouveaute.titleFr } });
 }
 
-/** Ligne de la gestion des nouveautés : un brouillon n'a pas de date de publication. */
+/** Ligne de la gestion des nouveautés : un brouillon n'a pas de date de publication ; ses lecteurs ne sont que comptés. */
 export interface NouveauteAdmin {
   id: string;
   category: NewsCategory;
   title: string;
   publishedAt: Date | null;
+  lectures: number;
 }
 
 /** Toutes les nouveautés, brouillons compris, de la plus récemment créée à la plus ancienne. Réservé aux admins. */
 export async function nouveautesPourAdmin(deps: NouveautesDeps, actor: SessionUser): Promise<NouveauteAdmin[]> {
   requireAdmin(actor);
-  const rows = await deps.db.newsItem.findMany({ orderBy: [{ createdAt: "desc" }, { id: "desc" }] });
-  return rows.map((n) => ({ id: n.id, category: n.category, title: n.titleFr, publishedAt: n.publishedAt }));
+  const rows = await deps.db.newsItem.findMany({ orderBy: [{ createdAt: "desc" }, { id: "desc" }], include: { _count: { select: { receipts: true } } } });
+  return rows.map((n) => ({ id: n.id, category: n.category, title: n.titleFr, publishedAt: n.publishedAt, lectures: n._count.receipts }));
+}
+
+/** Nouveauté telle que le formulaire de correction la reprend : ses textes dans les deux langues. */
+export type NouveauteEditable = Pick<NewsItem, "id" | "category" | "titleFr" | "titleEn" | "summaryFr" | "summaryEn" | "bodyFr" | "bodyEn" | "publishedAt">;
+
+/** Nouveauté à corriger, brouillon ou publiée ; null si elle est inconnue. Réservé aux admins. */
+export async function nouveautePourAdmin(deps: NouveautesDeps, actor: SessionUser, id: string): Promise<NouveauteEditable | null> {
+  requireAdmin(actor);
+  const n = await deps.db.newsItem.findUnique({ where: { id } });
+  return n && { id: n.id, category: n.category, titleFr: n.titleFr, titleEn: n.titleEn, summaryFr: n.summaryFr, summaryEn: n.summaryEn, bodyFr: n.bodyFr, bodyEn: n.bodyEn, publishedAt: n.publishedAt };
 }
 
 /** Fenêtre d'un nouveau collaborateur : il ne doit acquitter que les nouveautés publiées ces jours-là avant sa première visite. */
@@ -133,25 +170,35 @@ function etat(n: NewsItem & { receipts: NewsReceipt[] }, debut: Date): EtatNouve
 
 /**
  * État d'une nouveauté pour un collaborateur : non lue, lue à la date de son accusé de lecture, ou antérieure à sa
- * fenêtre (publiée plus de 30 jours avant sa première visite : ni non lue, ni à acquitter).
+ * fenêtre (publiée plus de 30 jours avant sa première visite : ni non lue, ni à acquitter). Un admin voit aussi un
+ * brouillon, en aperçu.
  */
-export type EtatNouveaute = { statut: "non_lue" } | { statut: "lue"; le: Date } | { statut: "anterieure" };
+export type EtatNouveaute = { statut: "non_lue" } | { statut: "lue"; le: Date } | { statut: "anterieure" } | { statut: "brouillon" };
 
-/** Page d'une nouveauté : son texte complet, mis en forme (HTML sûr), et son état pour le collaborateur. */
-export interface Nouveaute extends ResumeNouveaute {
+/** Page d'une nouveauté : son texte complet, mis en forme (HTML sûr), et son état ; un brouillon n'a pas de date. */
+export interface Nouveaute extends Omit<ResumeNouveaute, "publishedAt"> {
+  publishedAt: Date | null;
   html: string;
   etat: EtatNouveaute;
 }
 
-/** Nouveauté publiée, dans la langue et avec l'état du collaborateur ; null pour un brouillon ou une nouveauté inconnue. */
+/**
+ * Nouveauté publiée, dans la langue et avec l'état du collaborateur ; pour un admin, un brouillon aussi, en aperçu. Null
+ * pour une nouveauté inconnue, ou un brouillon demandé par un collaborateur qui n'est pas admin.
+ */
 export async function nouveaute(deps: NouveautesDeps, user: SessionUser, id: string, langue: Langue = "fr"): Promise<Nouveaute | null> {
   const [n, debut] = await Promise.all([
     deps.db.newsItem.findUnique({ where: { id }, include: { receipts: { where: { uid: user.uid } } } }),
     debutDeFenetre(deps, user.uid),
   ]);
-  if (!n?.publishedAt) return null;
+  if (!n || (!n.publishedAt && !user.isAdmin)) return null;
   const anglais = langue === "en" && n.bodyEn;
-  return { ...resume(n, langue), html: texteMisEnForme(anglais || n.bodyFr, { francais: !anglais }), etat: etat(n, debut) };
+  return {
+    ...resume(n, langue),
+    publishedAt: n.publishedAt,
+    html: texteMisEnForme(anglais || n.bodyFr, { francais: !anglais }),
+    etat: n.publishedAt ? etat(n, debut) : { statut: "brouillon" },
+  };
 }
 
 /** Nouveauté de l'archive : son résumé et son état pour le collaborateur. */

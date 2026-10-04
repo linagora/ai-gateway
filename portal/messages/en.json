@@ -151,7 +151,9 @@
       "cleIntegrationHorsService": "Public key retired: tokens it signs are now rejected.",
       "nouveauteCreee": "Draft saved.",
       "nouveautePubliee": "News item published.",
-      "lectureEnregistree": "Marked as read."
+      "lectureEnregistree": "Marked as read.",
+      "nouveauteModifiee": "News item updated.",
+      "nouveauteSupprimee": "News item deleted."
     },
     "erreurs": {
       "controles_en_echec": "The request does not comply with the model access policy. Failed checks: {controles}.",
@@ -295,6 +297,7 @@
       "categorie": "Category",
       "titre": "Title",
       "etat": "Status",
+      "lectures": "Reads",
       "actions": "Actions"
     },
     "brouillon": "Draft",
@@ -312,7 +315,18 @@
     "titreEn": "Title (English)",
     "resumeEn": "Summary (English)",
     "texteEn": "Text (English)",
-    "enregistrer": "Save draft"
+    "enregistrer": "Save draft",
+    "corriger": "Edit",
+    "corrigerTitre": "Edit a news item",
+    "corrigerLaNouveaute": "Edit “{titre}”",
+    "apercu": "Preview",
+    "apercuDeLaNouveaute": "Preview of “{titre}”",
+    "supprimer": "Delete",
+    "supprimerLaNouveaute": "Delete “{titre}”",
+    "suppressionAvertissement": "The news item disappears for every employee, along with its read receipts. This deletion is final.",
+    "confirmerSuppression": "Confirm deletion",
+    "enregistrerCorrection": "Save changes",
+    "correctionPubliee": "This news item is published: once edited, it keeps its publication date and does not become unread again for those who read it."
   },
   "catalogue": {
     "titre": "Model catalog",
@@ -480,7 +494,8 @@
     "pagination": "News archive pages",
     "position": "Page {page} of {pages} ({total, plural, one {# news item} other {# news items}})",
     "plusRecentes": "Newer news",
-    "plusAnciennes": "Older news"
+    "plusAnciennes": "Older news",
+    "apercuBrouillon": "Draft: preview for admins only"
   },
   "mesDemandes": {
     "titre": "My requests",

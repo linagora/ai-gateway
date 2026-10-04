@@ -20,7 +20,7 @@ async function nonLues(page: Page): Promise<number> {
   return (await pastille.count()) === 0 ? 0 : Number(await pastille.textContent());
 }
 
-/** Rédige une nouveauté depuis la gestion et la publie (session admin). */
+/** Rédige une nouveauté depuis la gestion, la prévisualise, puis la publie (session admin). */
 async function publier(page: Page, titre: string): Promise<void> {
   await page.goto("/gestion/nouveautes");
   const formulaire = page.getByRole("form", { name: "Rédiger une nouveauté" });
@@ -31,9 +31,25 @@ async function publier(page: Page, titre: string): Promise<void> {
   await formulaire.getByRole("button", { name: "Enregistrer le brouillon" }).click();
   await expect(page.getByRole("status")).toHaveText("Brouillon enregistré.");
   await expect(page.getByRole("row", { name: new RegExp(titre) })).toContainText("Brouillon");
+  // Aperçu : la page du brouillon, marquée comme telle, sans « J'ai lu ».
+  await page.getByRole("link", { name: `Aperçu de « ${titre} »` }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(titre);
+  await expect(page.getByRole("main")).toContainText("Brouillon : aperçu réservé aux admins");
+  await expect(page.getByRole("button", { name: "J'ai lu" })).toHaveCount(0);
+  await page.goto("/gestion/nouveautes");
   await page.getByRole("button", { name: `Publier « ${titre} »` }).click();
   await expect(page.getByRole("status")).toHaveText("Nouveauté publiée.");
   await expect(page.getByRole("row", { name: new RegExp(titre) })).toContainText("Publiée le");
+}
+
+/** Supprime une nouveauté depuis la gestion, après confirmation (session admin) : les parcours ne laissent rien derrière eux. */
+async function supprimer(page: Page, titre: string): Promise<void> {
+  await page.goto("/gestion/nouveautes");
+  const ligne = page.getByRole("row", { name: new RegExp(titre) });
+  await ligne.getByText("Supprimer", { exact: true }).click();
+  await ligne.getByRole("button", { name: "Confirmer la suppression" }).click();
+  await expect(page.getByRole("status")).toHaveText("Nouveauté supprimée.");
+  await expect(page.getByRole("row", { name: new RegExp(titre) })).toHaveCount(0);
 }
 
 test("un admin publie une nouveauté ; un collaborateur la voit signalée par la cloche, l'ouvre et l'acquitte (ticket #130)", async ({ browser }) => {
@@ -63,6 +79,7 @@ test("un admin publie une nouveauté ; un collaborateur la voit signalée par la
   expect(await nonLues(lecteur)).toBe(avant);
   await cloche(lecteur).click();
   await expect(panneau(lecteur).getByRole("link", { name: titre })).toHaveCount(0);
+  await supprimer(admin, titre);
 });
 
 test("l'archive, ouverte depuis le panneau, montre une nouveauté non lue, puis lue une fois acquittée (ticket #131)", async ({ browser }) => {
@@ -84,6 +101,7 @@ test("l'archive, ouverte depuis le panneau, montre une nouveauté non lue, puis 
   await lecteur.getByRole("link", { name: "Toutes les nouveautés" }).click();
   await expect(entree).toContainText("Lue le");
   await expect(entree).not.toContainText("Non lue");
+  await supprimer(admin, titre);
 });
 
 test("en anglais, la cloche, le panneau et la page d'une nouveauté traduite sont en anglais (ticket #133)", async ({ browser }) => {
@@ -117,5 +135,6 @@ test("en anglais, la cloche, le panneau et la page d'une nouveauté traduite son
   await lecteur.getByRole("button", { name: "I've read it" }).click();
   await expect(lecteur.getByRole("status")).toHaveText("Marked as read.");
   await expect(lecteur.getByRole("main")).toContainText("Read on");
+  await supprimer(admin, titre);
 });
 

@@ -1,7 +1,19 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { listAudit } from "./audit";
 import { resetDb, testDb } from "@/test/db";
-import { archiveNouveautes, creerNouveaute, marquerLue, type NouveauteInput, nouveaute, nouveautesNonLues, nouveautesPourAdmin, publierNouveaute } from "./nouveautes";
+import {
+  archiveNouveautes,
+  creerNouveaute,
+  marquerLue,
+  modifierNouveaute,
+  type NouveauteInput,
+  nouveaute,
+  nouveautePourAdmin,
+  nouveautesNonLues,
+  nouveautesPourAdmin,
+  publierNouveaute,
+  supprimerNouveaute,
+} from "./nouveautes";
 
 beforeEach(resetDb);
 
@@ -78,8 +90,8 @@ describe("gestion des nouveautés (ticket #130)", () => {
     maintenant = new Date("2026-10-05T10:00:00Z");
     const brouillon = await creerNouveaute(deps, admin, { ...annonce, category: "SERVICE", titleFr: "Maintenance de la passerelle" });
     expect(await nouveautesPourAdmin(deps, admin)).toEqual([
-      { id: brouillon, category: "SERVICE", title: "Maintenance de la passerelle", publishedAt: null },
-      { id: publiee, category: "MODELES", title: annonce.titleFr, publishedAt: new Date("2026-10-05T09:00:00Z") },
+      { id: brouillon, category: "SERVICE", title: "Maintenance de la passerelle", publishedAt: null, lectures: 0 },
+      { id: publiee, category: "MODELES", title: annonce.titleFr, publishedAt: new Date("2026-10-05T09:00:00Z"), lectures: 0 },
     ]);
   });
 
@@ -241,6 +253,66 @@ describe("nouveautés en anglais (ticket #133)", () => {
   test("les champs anglais ont les mêmes longueurs maximales que les champs français", async () => {
     const refus = await creerNouveaute(deps, admin, { ...annonce, titleEn: "T".repeat(121), summaryEn: "R".repeat(301), bodyEn: "C".repeat(20_001) }).catch((e) => e);
     expect((refus as { issues: { path: string[] }[] }).issues.map((i) => i.path.join("."))).toEqual(["titleEn", "summaryEn", "bodyEn"]);
+  });
+});
+
+describe("gestion complète des nouveautés (ticket #134)", () => {
+  test("un admin prévisualise un brouillon, marqué comme tel, sans « J'ai lu » ; un collaborateur ne le voit pas", async () => {
+    const id = await creerNouveaute(deps, admin, annonce);
+    expect(await nouveaute(deps, admin, id)).toMatchObject({ id, title: annonce.titleFr, publishedAt: null, etat: { statut: "brouillon" } });
+    expect(await nouveaute(deps, collaborateur, id)).toBeNull();
+  });
+
+  test("corriger une nouveauté publiée garde sa date de publication et ses accusés de lecture : elle ne redevient pas non lue", async () => {
+    const id = await creerNouveaute(deps, admin, annonce);
+    await publierNouveaute(deps, admin, id);
+    maintenant = new Date("2026-10-05T11:00:00Z");
+    await marquerLue(deps, collaborateur, id);
+    maintenant = new Date("2026-10-06T09:00:00Z");
+    await modifierNouveaute(deps, admin, id, { ...annonce, titleFr: "Trois modèles d'embeddings au niveau N3 (corrigé)", titleEn: "Three embedding models" });
+    expect(await nouveautesNonLues(deps, collaborateur)).toEqual([]);
+    expect(await nouveaute(deps, collaborateur, id)).toMatchObject({
+      title: "Trois modèles d'embeddings au niveau N3 (corrigé)",
+      publishedAt: new Date("2026-10-05T09:00:00Z"),
+      etat: { statut: "lue", le: new Date("2026-10-05T11:00:00Z") },
+    });
+    expect(await nouveautePourAdmin(deps, admin, id)).toMatchObject({ titleFr: "Trois modèles d'embeddings au niveau N3 (corrigé)", titleEn: "Three embedding models", bodyFr: annonce.bodyFr });
+  });
+
+  test("supprimer une nouveauté la retire de la cloche, de l'archive et de la gestion", async () => {
+    const id = await creerNouveaute(deps, admin, annonce);
+    await publierNouveaute(deps, admin, id);
+    await marquerLue(deps, collaborateur, id);
+    await supprimerNouveaute(deps, admin, id);
+    expect(await nouveaute(deps, collaborateur, id)).toBeNull();
+    expect((await archiveNouveautes(deps, collaborateur)).total).toBe(0);
+    expect(await nouveautesPourAdmin(deps, admin)).toEqual([]);
+    await expect(supprimerNouveaute(deps, admin, id)).rejects.toMatchObject({ code: "introuvable" });
+  });
+
+  test("la gestion compte les lectures de chaque nouveauté, sans nommer les lecteurs", async () => {
+    const id = await creerNouveaute(deps, admin, annonce);
+    await publierNouveaute(deps, admin, id);
+    for (const uid of ["jdupont", "pmartin"]) await marquerLue(deps, { ...collaborateur, uid }, id);
+    expect(await nouveautesPourAdmin(deps, admin)).toEqual([{ id, category: "MODELES", title: annonce.titleFr, publishedAt: new Date("2026-10-05T09:00:00Z"), lectures: 2 }]);
+  });
+
+  test("seul un admin corrige ou supprime une nouveauté, et voit ses textes dans les deux langues", async () => {
+    const id = await creerNouveaute(deps, admin, annonce);
+    await expect(modifierNouveaute(deps, collaborateur, id, annonce)).rejects.toMatchObject({ code: "interdit" });
+    await expect(supprimerNouveaute(deps, collaborateur, id)).rejects.toMatchObject({ code: "interdit" });
+    await expect(nouveautePourAdmin(deps, collaborateur, id)).rejects.toMatchObject({ code: "interdit" });
+  });
+
+  test("la correction et la suppression sont inscrites au journal d'audit, avec la catégorie et le titre", async () => {
+    const id = await creerNouveaute(deps, admin, annonce);
+    await modifierNouveaute(deps, admin, id, { ...annonce, category: "PRIX", titleFr: "Nouveau titre" });
+    await supprimerNouveaute(deps, admin, id);
+    expect((await listAudit(testDb)).map((e) => [e.action, e.targetId, e.details])).toEqual([
+      ["NEWS_CREATED", id, { categorie: "MODELES", titre: annonce.titleFr }],
+      ["NEWS_UPDATED", id, { categorie: "PRIX", titre: "Nouveau titre" }],
+      ["NEWS_DELETED", id, { categorie: "PRIX", titre: "Nouveau titre" }],
+    ]);
   });
 });
 

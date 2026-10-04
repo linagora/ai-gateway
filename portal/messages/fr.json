@@ -151,7 +151,9 @@
       "cleIntegrationHorsService": "Clé publique mise hors service : les jetons qu'elle signe sont désormais refusés.",
       "nouveauteCreee": "Brouillon enregistré.",
       "nouveautePubliee": "Nouveauté publiée.",
-      "lectureEnregistree": "Lecture enregistrée."
+      "lectureEnregistree": "Lecture enregistrée.",
+      "nouveauteModifiee": "Nouveauté corrigée.",
+      "nouveauteSupprimee": "Nouveauté supprimée."
     },
     "erreurs": {
       "controles_en_echec": "La demande ne respecte pas la politique d'accès aux modèles. Contrôles en échec : {controles}.",
@@ -295,6 +297,7 @@
       "categorie": "Catégorie",
       "titre": "Titre",
       "etat": "État",
+      "lectures": "Lectures",
       "actions": "Actions"
     },
     "brouillon": "Brouillon",
@@ -312,7 +315,18 @@
     "titreEn": "Titre (anglais)",
     "resumeEn": "Résumé (anglais)",
     "texteEn": "Texte (anglais)",
-    "enregistrer": "Enregistrer le brouillon"
+    "enregistrer": "Enregistrer le brouillon",
+    "corriger": "Corriger",
+    "corrigerTitre": "Corriger une nouveauté",
+    "corrigerLaNouveaute": "Corriger « {titre} »",
+    "apercu": "Aperçu",
+    "apercuDeLaNouveaute": "Aperçu de « {titre} »",
+    "supprimer": "Supprimer",
+    "supprimerLaNouveaute": "Supprimer « {titre} »",
+    "suppressionAvertissement": "La nouveauté disparaît pour tous les collaborateurs, avec ses accusés de lecture. Cette suppression est définitive.",
+    "confirmerSuppression": "Confirmer la suppression",
+    "enregistrerCorrection": "Enregistrer la correction",
+    "correctionPubliee": "Cette nouveauté est publiée : corrigée, elle garde sa date de publication et ne redevient pas non lue pour ceux qui l'ont lue."
   },
   "catalogue": {
     "titre": "Catalogue des modèles",
@@ -480,7 +494,8 @@
     "pagination": "Pages de l'archive des nouveautés",
     "position": "Page {page} sur {pages} ({total, plural, one {# nouveauté} other {# nouveautés}})",
     "plusRecentes": "Nouveautés plus récentes",
-    "plusAnciennes": "Nouveautés plus anciennes"
+    "plusAnciennes": "Nouveautés plus anciennes",
+    "apercuBrouillon": "Brouillon : aperçu réservé aux admins"
   },
   "mesDemandes": {
     "titre": "Mes demandes",

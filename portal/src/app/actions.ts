@@ -19,7 +19,7 @@ import {
 } from "@/lib/services/admin-requests";
 import { saveCatalogEntry } from "@/lib/services/catalog";
 import { addIntegrationKey, createIntegration, removeIntegrationKey, setIntegrationActive, updateIntegration } from "@/lib/services/integrations";
-import { creerNouveaute, marquerLue, type NouveauteInput, publierNouveaute } from "@/lib/services/nouveautes";
+import { creerNouveaute, marquerLue, modifierNouveaute, type NouveauteInput, publierNouveaute, supprimerNouveaute } from "@/lib/services/nouveautes";
 import { saveOffer } from "@/lib/services/offers";
 import { transmitCharges } from "@/lib/services/remboursements";
 import { requestOfferChange, requestRenewal } from "@/lib/services/renouvellements";
@@ -241,20 +241,23 @@ export async function saveCatalogEntryAction(formData: FormData): Promise<void> 
 /** Spécification #124, ticket #130 : un admin enregistre une nouveauté en brouillon. */
 export async function creerNouveauteAction(formData: FormData): Promise<void> {
   const user = await requireUser();
-  await run(
-    "/gestion/nouveautes",
-    () =>
-      creerNouveaute(getDeps(), user, {
-        category: text(formData, "category") as NouveauteInput["category"],
-        titleFr: text(formData, "titleFr"),
-        titleEn: optionalText(formData, "titleEn"),
-        summaryFr: text(formData, "summaryFr"),
-        summaryEn: optionalText(formData, "summaryEn"),
-        bodyFr: text(formData, "bodyFr"),
-        bodyEn: optionalText(formData, "bodyEn"),
-      }),
-    { path: "/gestion/nouveautes", message: "nouveauteCreee" },
-  );
+  await run("/gestion/nouveautes", () => creerNouveaute(getDeps(), user, nouveauteFromForm(formData)), { path: "/gestion/nouveautes", message: "nouveauteCreee" });
+}
+
+/** Ticket #134 : un admin corrige une nouveauté ; publiée, elle garde sa date et ses accusés de lecture. */
+export async function modifierNouveauteAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const id = text(formData, "id");
+  await run(`/gestion/nouveautes/${encodeURIComponent(id)}`, () => modifierNouveaute(getDeps(), user, id, nouveauteFromForm(formData)), {
+    path: "/gestion/nouveautes",
+    message: "nouveauteModifiee",
+  });
+}
+
+/** Ticket #134 : un admin supprime une nouveauté, avec ses accusés de lecture, après confirmation dans la page. */
+export async function supprimerNouveauteAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  await run("/gestion/nouveautes", () => supprimerNouveaute(getDeps(), user, text(formData, "id")), { path: "/gestion/nouveautes", message: "nouveauteSupprimee" });
 }
 
 /** Ticket #130 : un admin publie un brouillon, signalé dès lors à tous les collaborateurs par la cloche. */
@@ -585,7 +588,9 @@ type CleSucces =
   | "integrationActivee"
   | "integrationDesactivee"
   | "nouveauteCreee"
+  | "nouveauteModifiee"
   | "nouveautePubliee"
+  | "nouveauteSupprimee"
   | "lectureEnregistree";
 
 /** Exécute le cas d'usage ; en cas d'erreur métier, revient sur `errorPath` avec le message. */
@@ -613,6 +618,18 @@ function describeError(e: unknown): URLSearchParams {
     return new URLSearchParams({ erreur: "saisie_invalide", details: JSON.stringify({ champs: e.issues.map((i) => i.path.join(".")).join(", ") }) });
   }
   throw e;
+}
+
+function nouveauteFromForm(formData: FormData): NouveauteInput {
+  return {
+    category: text(formData, "category") as NouveauteInput["category"],
+    titleFr: text(formData, "titleFr"),
+    titleEn: optionalText(formData, "titleEn"),
+    summaryFr: text(formData, "summaryFr"),
+    summaryEn: optionalText(formData, "summaryEn"),
+    bodyFr: text(formData, "bodyFr"),
+    bodyEn: optionalText(formData, "bodyEn"),
+  };
 }
 
 function keyRequestFromForm(formData: FormData) {

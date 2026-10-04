@@ -49,7 +49,9 @@ export type AuditAction =
   | "INTEGRATION_DEACTIVATED"
   | "INTEGRATION_IDENTITY_REFUSED"
   | "NEWS_CREATED"
-  | "NEWS_PUBLISHED";
+  | "NEWS_UPDATED"
+  | "NEWS_PUBLISHED"
+  | "NEWS_DELETED";
 
 /** Entrée du journal d'audit : qui, quoi, sur quelle cible, avec quels détails. Jamais de secret. */
 export interface AuditEntry {

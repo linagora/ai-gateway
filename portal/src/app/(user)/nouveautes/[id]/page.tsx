@@ -37,7 +37,11 @@ export default async function NouveautePage(props: PageProps<"/nouveautes/[id]">
       <Notice searchParams={searchParams} />
       <p className="flex flex-wrap gap-x-3 text-sm text-neutral-600">
         <CategorieNouveaute category={n.category} />
-        <span>{t("publieeLe", { date: jour(n.publishedAt) })}</span>
+        {n.publishedAt ? (
+          <span>{t("publieeLe", { date: jour(n.publishedAt) })}</span>
+        ) : (
+          <span className="rounded-xl bg-amber-100 px-2 font-medium text-amber-900">{t("apercuBrouillon")}</span>
+        )}
       </p>
       <h1 className="mt-1">{n.title}</h1>
       {/* HTML produit par le rendu Markdown des nouveautés : HTML brut échappé, images et liens douteux neutralisés. */}
