@@ -19,7 +19,13 @@ export default async function MesClesPage(props: PageProps<"/cles">) {
     props.searchParams,
   ]);
   const { toPickUp, keys } = await listMyKeys(getDeps(), user);
-  const textesExemple = { message: detail("exemple.message"), etat: detail("exemple.etat"), question: detail("exemple.question"), image: detail("exemple.image") };
+  const textesExemple = {
+    message: detail("exemple.message"),
+    etat: detail("exemple.etat"),
+    question: detail("exemple.question"),
+    image: detail("exemple.image"),
+    aVectoriser: [detail("exemple.aVectoriser1"), detail("exemple.aVectoriser2")] as const,
+  };
 
   return (
     <>

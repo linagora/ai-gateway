@@ -398,12 +398,18 @@
       "titre": "Image model",
       "explication": "This model creates an image from your description. Call it like a chat model, asking for an image as output (\"modalities\"): the image comes back base64-encoded in the response, ready to save."
     },
+    "apiEmbeddings": {
+      "titre": "Embedding model",
+      "explication": "This model does not chat: it turns each text into a vector of numbers, for semantic search, RAG, document clustering or duplicate detection. Call it through /v1/embeddings, with one or more texts. Vectors from two different models cannot be compared: switching models means recomputing every vector."
+    },
     "exempleAppel": "Example call",
     "exemple": {
       "message": "Hello! Summarize the benefits of free software in three points.",
       "etat": "My transfers have been failing for three days and payroll is blocked.",
       "question": "Does the message express urgency?",
-      "image": "Watercolor of a Breton lighthouse at sunset"
+      "image": "Watercolor of a Breton lighthouse at sunset",
+      "aVectoriser1": "The LINAGORA AI gateway gives access to models hosted in France.",
+      "aVectoriser2": "Embedding models power semantic search."
     },
     "copier": "Copy the example",
     "copie": "Example copied"

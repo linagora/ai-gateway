@@ -264,6 +264,12 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
               <p>{detailT("apiImage.explication")}</p>
             </>
           )}
+          {detail.apiKind === "embeddings" && (
+            <>
+              <h3 className="mt-3 font-medium">{detailT("apiEmbeddings.titre")}</h3>
+              <p>{detailT("apiEmbeddings.explication")}</p>
+            </>
+          )}
           <h3 className="mt-3 font-medium">{detailT("exempleAppel")}</h3>
           {(() => {
             const exemple = exemplesAppel(detail.modelName, detail.apiKind, {
@@ -271,6 +277,7 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
               etat: detailT("exemple.etat"),
               question: detailT("exemple.question"),
               image: detailT("exemple.image"),
+              aVectoriser: [detailT("exemple.aVectoriser1"), detailT("exemple.aVectoriser2")],
             }).curl;
             return (
               <>

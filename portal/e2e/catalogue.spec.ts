@@ -508,6 +508,25 @@ test.describe("détail d'un modèle (ticket #9)", () => {
     await context.close();
   });
 
+  test("la fiche d'un modèle d'embeddings explique qu'il ne converse pas, et son exemple appelle /v1/embeddings, en français et en anglais (ticket #127)", async ({ browser }) => {
+    for (const [langue, titre, explication] of [
+      ["fr-FR", "Modèle d'embeddings", "ne converse pas"],
+      ["en-US", "Embedding model", "does not chat"],
+    ] as const) {
+      const context = await connecter(browser, salarie, langue);
+      const page = await context.newPage();
+      await page.goto("/catalogue/n3?modele=dev-embeddings");
+      await expect(panneau(page).getByRole("heading", { name: titre })).toBeVisible();
+      await expect(panneau(page)).toContainText(explication);
+      const exemple = panneau(page).locator("pre");
+      await expect(exemple).toContainText("/v1/embeddings");
+      await expect(exemple).toContainText('"model": "dev-embeddings"');
+      await expect(exemple).toContainText('"input": [');
+      await expect(exemple).not.toContainText("chat/completions");
+      await context.close();
+    }
+  });
+
   test("un lien partagé ouvre la page du niveau avec le détail de JEV, présenté comme une API de décision", async ({ browser }) => {
     const context = await connecter(browser, salarie);
     const page = await context.newPage();
