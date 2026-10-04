@@ -130,12 +130,12 @@ describe("modèles", () => {
 
   test("un modèle d'embeddings l'expose, avec la taille de ses vecteurs ; sans taille déclarée, ses dimensions sont nulles (ticket #126)", async () => {
     const [avecTaille, sansTaille] = [uniqueId("embeddings"), uniqueId("embeddings")];
-    for (const [modelName, taille] of [[avecTaille, { output_vector_size: 1024 }], [sansTaille, {}]] as const) {
+    for (const [modelName, declaration] of [[avecTaille, { output_vector_size: 1024 }], [sansTaille, {}]] as const) {
       const created = await admin<{ model_info: { id: string } }>("POST", "/model/new", {
         model_name: modelName,
         // Route inconnue de la table de LiteLLM : ses informations sont celles déclarées ici.
         litellm_params: { model: `hosted_vllm/essai/${modelName}`, api_key: "sk-factice", input_cost_per_token: 0.00000001, output_cost_per_token: 0 },
-        model_info: { data_level: "N3", pricing_currency: "EUR", type_api: "embeddings", mode: "embedding", ...taille },
+        model_info: { data_level: "N3", pricing_currency: "EUR", type_api: "embeddings", mode: "embedding", ...declaration },
       });
       createdModels.push(created.model_info.id);
     }

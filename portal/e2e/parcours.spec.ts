@@ -156,8 +156,8 @@ for (const T of LANGUES) {
       await validation.getByRole("row", { name: new RegExp(`${salarie.uid}.*${T.cle}`) }).getByRole("link", { name: T.admin.examiner }).click();
       // Seuls les modèles qui acceptent le niveau N2 de la demande peuvent être accordés.
       const accordables = validation.locator('input[name="models"]');
-      await expect(accordables).toHaveCount(2);
-      expect((await accordables.evaluateAll((cases) => cases.map((c) => (c as HTMLInputElement).value))).sort()).toEqual(["dev-confidentiel", "dev-interne"]);
+      await expect(accordables).toHaveCount(3);
+      expect((await accordables.evaluateAll((cases) => cases.map((c) => (c as HTMLInputElement).value))).sort()).toEqual(["dev-confidentiel", "dev-embeddings", "dev-interne"]);
       // Tous les contrôles de politique passent : aucun en échec, et la liste en montre de réussis.
       await expect(validation.getByText(T.admin.controleEchoue)).toHaveCount(0);
       expect(await validation.getByText(T.admin.controleReussi).count()).toBeGreaterThan(0);

@@ -447,7 +447,7 @@ test.describe("filtre par type d'API (ticket #128)", () => {
     const page = await context.newPage();
     await page.goto("/catalogue/n1");
     const filtre = page.getByRole("combobox", { name: "Type d'API" });
-    await expect(filtre.locator("option")).toHaveText(["Tous les types", "Conversation", "Images", "Embeddings"]);
+    await expect(filtre.getByRole("option")).toHaveText(["Tous les types", "Conversation", "Images", "Embeddings"]);
     await filtre.selectOption({ label: "Embeddings" });
     await expect(page).toHaveURL(/type=embeddings/);
     await expect(page.getByRole("article")).toHaveCount(1);
