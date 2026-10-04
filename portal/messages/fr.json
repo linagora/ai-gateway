@@ -57,6 +57,12 @@
       "EXTRACTION_AUTOMATION": "Extraction et automatisation",
       "IMAGE_CREATION": "Création d'images"
     },
+    "typesApi": {
+      "conversation": "Conversation",
+      "image": "Images",
+      "embeddings": "Embeddings",
+      "decision": "Décision"
+    },
     "capacites": {
       "images": "Lecture d'images",
       "generation_images": "Génération d'images",
@@ -368,6 +374,8 @@
     "filtres": "Filtres",
     "recherche": "Rechercher un modèle ou un éditeur",
     "tousCasUsage": "Tous les cas d'usage",
+    "typeApi": "Type d'API",
+    "tousTypesApi": "Tous les types",
     "ueUniquement": "UE uniquement",
     "tri": "Trier par",
     "tris": {

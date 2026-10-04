@@ -217,6 +217,35 @@ describe("modèle d'embeddings (ticket #126)", () => {
   });
 });
 
+describe("filtre par type d'API (ticket #128)", () => {
+  /** Modèles de niveau maximal N1 de chaque type, insérés dans le désordre. */
+  async function catalogueDeTypes(modeles: Parameters<FakeLiteLLM["withModel"]>[0][]) {
+    const litellm = new FakeLiteLLM();
+    for (const m of modeles) litellm.withModel(m);
+    for (const { modelName } of modeles) await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName, dataLevel: "N1" });
+    return litellm;
+  }
+  const vecteursUe = { modelName: "vecteurs-ue", apiKind: "embeddings" as const, dimensions: 1024, executionRegion: "UE" as const, outputCostPerToken: 0 };
+  const vecteursMonde = { ...vecteursUe, modelName: "vecteurs-monde", executionRegion: "HORS_UE" as const };
+
+  test("le filtre par type d'API ne garde que les modèles de ce type, seul ou combiné à un autre critère", async () => {
+    const litellm = await catalogueDeTypes([vecteursMonde, { modelName: "conversation" }, vecteursUe, { modelName: "image", apiKind: "image" }]);
+    const noms = async (criteria: LevelCriteria) =>
+      (await levelModels({ db: testDb, litellm }, { level: "N1", language: "fr", criteria })).models.map((m) => m.modelName).sort();
+    expect(await noms({ apiKind: "embeddings" })).toEqual(["vecteurs-monde", "vecteurs-ue"]);
+    expect(await noms({ apiKind: "embeddings", euOnly: true })).toEqual(["vecteurs-ue"]);
+    expect(await noms({ apiKind: "image" })).toEqual(["image"]);
+  });
+
+  test("la page d'un niveau reçoit les types d'API présents parmi ses modèles, dans l'ordre conversation, images, embeddings, décision, quels que soient les critères", async () => {
+    const litellm = await catalogueDeTypes([{ modelName: "decision", apiKind: "decision" }, vecteursUe, { modelName: "image", apiKind: "image" }, { modelName: "conversation" }]);
+    const types = async (level: DataLevel, criteria: LevelCriteria = {}) => (await levelModels({ db: testDb, litellm }, { level, language: "fr", criteria })).apiKinds;
+    expect(await types("N1")).toEqual(["conversation", "image", "embeddings", "decision"]);
+    expect(await types("N1", { apiKind: "image", search: "introuvable" })).toEqual(["conversation", "image", "embeddings", "decision"]);
+    expect(await types("N2")).toEqual([]);
+  });
+});
+
 describe("filtres, tri et recommandations (ticket #8)", () => {
   // Trois modèles N1. Prix mixtes : Mistral Medium 0,80 €, Kimi K3 1,075 €, Ministral 0,10 €.
   async function catalogueFiltrable() {
@@ -289,7 +318,7 @@ describe("filtres, tri et recommandations (ticket #8)", () => {
     expect(await noms(litellm, { euOnly: true })).toEqual(["Ministral 8B", "Mistral Medium 3.5"]);
     expect(await noms(litellm, { useCase: "CODING", capabilities: ["images"], euOnly: true })).toEqual(["Mistral Medium 3.5"]);
     const aucun = await levelModels({ db: testDb, litellm }, { level: "N1", language: "fr", criteria: { useCase: "CODING", capabilities: ["raisonnement"], euOnly: true } });
-    expect(aucun).toEqual({ modelCount: 3, models: [] });
+    expect(aucun).toEqual({ modelCount: 3, apiKinds: ["conversation"], models: [] });
   });
 
   test("une recommandation ne vaut que sur la page du niveau maximal du modèle", async () => {

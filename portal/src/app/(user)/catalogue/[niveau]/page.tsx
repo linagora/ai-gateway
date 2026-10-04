@@ -44,7 +44,7 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
   ]);
   const criteria = levelCriteria(searchParams);
   const modeleOuvert = typeof searchParams.modele === "string" ? searchParams.modele : null;
-  const [{ modelCount, models }, detail] = await Promise.all([
+  const [{ modelCount, apiKinds, models }, detail] = await Promise.all([
     levelModels(getDeps(), { level, language, criteria }),
     modeleOuvert ? modelDetail(getDeps(), { level, modelName: modeleOuvert, language }) : null,
   ]);
@@ -91,6 +91,20 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
                 ))}
               </select>
             </label>
+            {/* Seuls les types présents sur la page ; avec un seul type, le filtre n'apporterait rien. */}
+            {apiKinds.length > 1 && (
+              <label>
+                {t("typeApi")}
+                <select name="type" defaultValue={criteria.apiKind ?? ""}>
+                  <option value="">{t("tousTypesApi")}</option>
+                  {apiKinds.map((type) => (
+                    <option key={type} value={type}>
+                      {domaine(`typesApi.${type}`)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <fieldset className="flex flex-col">
               <legend className="font-medium">{t("capacites")}</legend>
               {CAPABILITIES.map((c) => {

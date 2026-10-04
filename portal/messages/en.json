@@ -57,6 +57,12 @@
       "EXTRACTION_AUTOMATION": "Extraction & automation",
       "IMAGE_CREATION": "Image creation"
     },
+    "typesApi": {
+      "conversation": "Chat",
+      "image": "Images",
+      "embeddings": "Embeddings",
+      "decision": "Decision"
+    },
     "capacites": {
       "images": "Image input",
       "generation_images": "Image generation",
@@ -368,6 +374,8 @@
     "filtres": "Filters",
     "recherche": "Search for a model or a publisher",
     "tousCasUsage": "All use cases",
+    "typeApi": "API type",
+    "tousTypesApi": "All types",
     "ueUniquement": "EU only",
     "tri": "Sort by",
     "tris": {

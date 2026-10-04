@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
-import type { ApiKind, Capability, ExecutionRegion, LiteLLMClient, LiteLLMModel } from "@/lib/litellm/client";
+import { API_KINDS, type ApiKind, type Capability, type ExecutionRegion, type LiteLLMClient, type LiteLLMModel } from "@/lib/litellm/client";
 import { PortalError } from "@/lib/errors";
 import type { Langue } from "@/lib/langue";
 import { DATA_LEVELS, type DataLevel, modelAcceptsLevel } from "@/lib/policy";
@@ -173,6 +173,8 @@ export interface LevelCriteria {
   capabilities?: Capability[];
   /** Seulement les modèles exécutés dans l'Union européenne. */
   euOnly?: boolean;
+  /** Seulement les modèles de ce type d'API. */
+  apiKind?: ApiKind;
   sort?: LevelSort;
 }
 
@@ -180,9 +182,13 @@ export interface LevelCriteria {
 export const LEVEL_SORTS = ["recommended", "price", "context", "name"] as const;
 export type LevelSort = (typeof LEVEL_SORTS)[number];
 
-/** Page d'un niveau : les modèles qui répondent aux critères, et le nombre de modèles du niveau avant tout critère. */
+/**
+ * Page d'un niveau : les modèles qui répondent aux critères, et, avant tout critère, le nombre de modèles du niveau et
+ * leurs types d'API, dans l'ordre où le catalogue les présente (ce que propose le filtre par type d'API).
+ */
 export interface LevelModels {
   modelCount: number;
+  apiKinds: ApiKind[];
   models: LevelModel[];
 }
 
@@ -195,7 +201,7 @@ export async function levelModels(
   { level, language, criteria = {} }: { level: DataLevel; language: Langue; criteria?: LevelCriteria },
 ): Promise<LevelModels> {
   const models: LevelModel[] = modelsOfLevel(await visibleModels(deps), level, language);
-  const { search: saisie = "", useCase, capabilities = [], euOnly = false, sort = "recommended" } = criteria;
+  const { search: saisie = "", useCase, capabilities = [], euOnly = false, apiKind, sort = "recommended" } = criteria;
   const search = saisie.trim().length >= RECHERCHE_MINIMUM ? saisie.trim() : "";
   const blended = modelBlendedPrice;
   const byName = (a: LevelModel, b: LevelModel) => a.displayName.localeCompare(b.displayName, language);
@@ -207,13 +213,15 @@ export async function levelModels(
   };
   return {
     modelCount: models.length,
+    apiKinds: API_KINDS.filter((type) => models.some((m) => m.apiKind === type)),
     models: models
       .filter(
         (m) =>
           [m.displayName, m.modelName, m.publisher ?? ""].some((champ) => normalized(champ).includes(normalized(search))) &&
           (!useCase || m.useCases.includes(useCase)) &&
           capabilities.every((c) => m.capabilities.includes(c)) &&
-          (!euOnly || m.executionRegion === "UE"),
+          (!euOnly || m.executionRegion === "UE") &&
+          (!apiKind || m.apiKind === apiKind),
       )
       .sort(comparators[sort]),
   };

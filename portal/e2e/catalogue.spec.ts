@@ -441,6 +441,24 @@ test.describe("filtres appliqués sans bouton (retours de recette du 2026-09-25)
   });
 });
 
+test.describe("filtre par type d'API (ticket #128)", () => {
+  test("le filtre ne propose que les types présents sur la page ; il garde les seuls modèles du type choisi, et manque à une page d'un seul type", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    await page.goto("/catalogue/n1");
+    const filtre = page.getByRole("combobox", { name: "Type d'API" });
+    await expect(filtre.locator("option")).toHaveText(["Tous les types", "Conversation", "Images", "Embeddings"]);
+    await filtre.selectOption({ label: "Embeddings" });
+    await expect(page).toHaveURL(/type=embeddings/);
+    await expect(page.getByRole("article")).toHaveCount(1);
+    await expect(page.getByRole("article", { name: "Modèle vectoriel" })).toBeVisible();
+    await page.goto("/catalogue/experimental");
+    await expect(page.getByRole("article")).toHaveCount(1);
+    await expect(page.getByRole("combobox", { name: "Type d'API" })).toHaveCount(0);
+    await context.close();
+  });
+});
+
 test.describe("détail d'un modèle (ticket #9)", () => {
   const panneau = (page: Page) => page.getByRole("dialog");
 
