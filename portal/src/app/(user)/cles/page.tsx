@@ -5,7 +5,7 @@ import { getDeps, requireUser } from "@/lib/session";
 import { BoutonCopier } from "../../bouton-copier";
 import { remplacerCleAction, retirerCleAction, revoquerCleAction } from "../../actions";
 import { DepenseSurBudget, formats, Notice } from "../../components";
-import { adresseApi, exemplesAppel, LANGAGES } from "../../exemples-appel";
+import { adresseApi, exemplesAppel, LANGAGES, textesExemple } from "../../exemples-appel";
 import { GenerationCle } from "./generation-cle";
 
 /** Tickets #15 et suivants : les demandes approuvées à retirer, puis les clés émises du titulaire. */
@@ -19,7 +19,7 @@ export default async function MesClesPage(props: PageProps<"/cles">) {
     props.searchParams,
   ]);
   const { toPickUp, keys } = await listMyKeys(getDeps(), user);
-  const textesExemple = { message: detail("exemple.message"), etat: detail("exemple.etat"), question: detail("exemple.question"), image: detail("exemple.image") };
+  const textes = textesExemple(detail);
 
   return (
     <>
@@ -150,7 +150,7 @@ export default async function MesClesPage(props: PageProps<"/cles">) {
                       </p>
                     )}
                     {k.examples.map(({ model, apiKind }) => {
-                      const exemples = exemplesAppel(model, apiKind, textesExemple);
+                      const exemples = exemplesAppel(model, apiKind, textes);
                       return (
                         <div key={model}>
                           <h4 className="mt-3 font-medium">{t("exemplesPour", { modele: model })}</h4>

@@ -186,6 +186,19 @@ describe("dépense, budget et exemple d'appel dans « Mes clés » (ticket #16)"
       [idConversation]: [{ model: "mistral-small", apiKind: "conversation" }],
     });
   });
+
+  test("une clé qui contient un modèle d'embeddings reçoit un exemple d'appel de ce type, à côté de celui de ses modèles de conversation (ticket #127)", async () => {
+    litellm.withModel({ modelName: "bge-m3", apiKind: "embeddings", dimensions: 1024 });
+    await saveCatalogEntry(deps, admin, { shortDescriptionFr: "…", longDescriptionFr: "…", useCases: [], recommendedFor: [], visible: true, modelName: "bge-m3", displayNameFr: "BGE-M3", dataLevel: "N3" });
+    const modeles = ["mistral-small", "bge-m3"];
+    const { id } = await createKeyRequest(deps, titulaire, { ...demande, models: modeles });
+    await approveKeyRequest(deps, admin, id, { models: modeles, budget: 5, budgetDuration: "30d", days: 30, rpmLimit: null, tpmLimit: null });
+    await pickUpKey(deps, titulaire, id);
+    expect((await listMyKeys(deps, titulaire)).keys[0].examples).toEqual([
+      { model: "mistral-small", apiKind: "conversation" },
+      { model: "bge-m3", apiKind: "embeddings" },
+    ]);
+  });
 });
 
 describe("révocation par le titulaire (ticket #17)", () => {

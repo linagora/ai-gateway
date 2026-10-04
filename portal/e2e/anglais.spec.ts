@@ -17,7 +17,7 @@ const salarie = { uid: `anglais-${suffixe}`, email: `anglais-${suffixe}@example.
  * noms de modèles).
  */
 const AUTORISES = [
-  /Modèle (public|interne|confidentiel|expérimental)/g,
+  /Modèle (public|interne|confidentiel|expérimental|vectoriel)/g,
   /Équipe \p{L}+ [a-z0-9]+/gu,
   /Modèle de démonstration (N1|N2|N3|EXP)(, à réponses simulées\.)?/g,
   /Français/g,

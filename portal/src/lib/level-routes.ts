@@ -1,4 +1,4 @@
-import { CAPABILITIES } from "@/lib/litellm/client";
+import { API_KINDS, CAPABILITIES } from "@/lib/litellm/client";
 import { DATA_LEVELS, type DataLevel } from "@/lib/policy";
 import { LEVEL_SORTS, type LevelCriteria, type LevelSort } from "@/lib/services/catalog";
 import { USE_CASES } from "@/lib/use-cases";
@@ -23,7 +23,7 @@ export function sortParam(sort: LevelSort): string {
 
 /**
  * Critères de la page d'un niveau lus dans son adresse, pour qu'une recherche puisse être partagée :
- * ?q=<texte>&cas=<cas d'usage>&capacite=<capacité>…&ue=1&tri=<tri>. Une valeur inconnue est ignorée.
+ * ?q=<texte>&cas=<cas d'usage>&capacite=<capacité>…&ue=1&type=<type d'API>&tri=<tri>. Une valeur inconnue est ignorée.
  */
 export function levelCriteria(searchParams: Record<string, string | string[] | undefined>): LevelCriteria {
   const valeurs = (nom: string) => [searchParams[nom]].flat().filter((v): v is string => typeof v === "string");
@@ -33,6 +33,7 @@ export function levelCriteria(searchParams: Record<string, string | string[] | u
     useCase: USE_CASES.find((u) => u === premiere("cas")),
     capabilities: CAPABILITIES.filter((c) => valeurs("capacite").includes(c)),
     euOnly: premiere("ue") === "1",
+    apiKind: API_KINDS.find((type) => type === premiere("type")),
     sort: LEVEL_SORTS.find((s) => TRIS[s] === premiere("tri")) ?? "recommended",
   };
 }

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
-import type { ApiKind, Capability, ExecutionRegion, LiteLLMClient, LiteLLMModel } from "@/lib/litellm/client";
+import { API_KINDS, type ApiKind, type Capability, type ExecutionRegion, type LiteLLMClient, type LiteLLMModel } from "@/lib/litellm/client";
 import { PortalError } from "@/lib/errors";
 import type { Langue } from "@/lib/langue";
 import { DATA_LEVELS, type DataLevel, modelAcceptsLevel } from "@/lib/policy";
@@ -136,6 +136,9 @@ export interface LevelModel {
    * ou pour un modèle d'images, dont le contexte en jetons ne dit rien d'utile au salarié.
    */
   context: { tokens: number; pages: number } | null;
+  apiKind: ApiKind;
+  /** Taille des vecteurs d'un modèle d'embeddings ; null pour les autres modèles, ou si la passerelle ne la déclare pas. */
+  dimensions: number | null;
 }
 
 /** Hypothèse de conversion, indiquée en infobulle : une page de texte en français compte environ 750 jetons. */
@@ -170,6 +173,8 @@ export interface LevelCriteria {
   capabilities?: Capability[];
   /** Seulement les modèles exécutés dans l'Union européenne. */
   euOnly?: boolean;
+  /** Seulement les modèles de ce type d'API. */
+  apiKind?: ApiKind;
   sort?: LevelSort;
 }
 
@@ -177,9 +182,13 @@ export interface LevelCriteria {
 export const LEVEL_SORTS = ["recommended", "price", "context", "name"] as const;
 export type LevelSort = (typeof LEVEL_SORTS)[number];
 
-/** Page d'un niveau : les modèles qui répondent aux critères, et le nombre de modèles du niveau avant tout critère. */
+/**
+ * Page d'un niveau : les modèles qui répondent aux critères, et, avant tout critère, le nombre de modèles du niveau et
+ * leurs types d'API, dans l'ordre où le catalogue les présente (ce que propose le filtre par type d'API).
+ */
 export interface LevelModels {
   modelCount: number;
+  apiKinds: ApiKind[];
   models: LevelModel[];
 }
 
@@ -192,25 +201,30 @@ export async function levelModels(
   { level, language, criteria = {} }: { level: DataLevel; language: Langue; criteria?: LevelCriteria },
 ): Promise<LevelModels> {
   const models: LevelModel[] = modelsOfLevel(await visibleModels(deps), level, language);
-  const { search: saisie = "", useCase, capabilities = [], euOnly = false, sort = "recommended" } = criteria;
+  const { search: saisie = "", useCase, capabilities = [], euOnly = false, apiKind, sort = "recommended" } = criteria;
   const search = saisie.trim().length >= RECHERCHE_MINIMUM ? saisie.trim() : "";
-  const blended = (m: LevelModel) => blendedPricePerMillion(m.inputPricePerMillion, m.outputPricePerMillion);
+  const apiKinds = API_KINDS.filter((type) => models.some((m) => m.apiKind === type));
+  // Un type absent de la page (adresse ancienne ou modifiée) est ignoré, comme le filtre qui ne le propose pas.
+  const typeRetenu = apiKind && apiKinds.includes(apiKind) ? apiKind : undefined;
   const byName = (a: LevelModel, b: LevelModel) => a.displayName.localeCompare(b.displayName, language);
   const comparators: Record<LevelSort, (a: LevelModel, b: LevelModel) => number> = {
-    recommended: (a, b) => Number(b.recommendedFor.length > 0) - Number(a.recommendedFor.length > 0) || blended(a) - blended(b) || byName(a, b),
-    price: (a, b) => blended(a) - blended(b) || byName(a, b),
+    recommended: (a, b) =>
+      Number(b.recommendedFor.length > 0) - Number(a.recommendedFor.length > 0) || modelBlendedPrice(a) - modelBlendedPrice(b) || byName(a, b),
+    price: (a, b) => modelBlendedPrice(a) - modelBlendedPrice(b) || byName(a, b),
     context: (a, b) => (b.context?.tokens ?? -1) - (a.context?.tokens ?? -1) || byName(a, b),
     name: byName,
   };
   return {
     modelCount: models.length,
+    apiKinds,
     models: models
       .filter(
         (m) =>
           [m.displayName, m.modelName, m.publisher ?? ""].some((champ) => normalized(champ).includes(normalized(search))) &&
           (!useCase || m.useCases.includes(useCase)) &&
           capabilities.every((c) => m.capabilities.includes(c)) &&
-          (!euOnly || m.executionRegion === "UE"),
+          (!euOnly || m.executionRegion === "UE") &&
+          (!typeRetenu || m.apiKind === typeRetenu),
       )
       .sort(comparators[sort]),
   };
@@ -221,7 +235,6 @@ export interface ModelDetail extends LevelModel {
   longDescription: string;
   limitations: string | null;
   hosts: string[];
-  apiKind: ApiKind;
 }
 
 /** Détail d'un modèle de la page d'un niveau ; null si le modèle n'est pas parmi les modèles de ce niveau. */
@@ -257,13 +270,14 @@ function modelsOfLevel(visible: VisibleModel[], level: DataLevel, language: Lang
       useCases: entry.useCases,
       acceptsUpTo: entry.dataLevel === level ? null : entry.dataLevel,
       recommendedFor: entry.dataLevel === level ? entry.recommendedFor : [],
-      priceTier: priceTier(blendedPricePerMillion(inputPricePerMillion, outputPricePerMillion)),
+      priceTier: priceTier(modelBlendedPrice({ apiKind: model.apiKind, inputPricePerMillion, outputPricePerMillion })),
       pricePerImage: model.apiKind === "image" ? model.imagePrice : null,
       context: model.apiKind === "image" ? null : context(model.maxInputTokens),
+      apiKind: model.apiKind,
+      dimensions: model.apiKind === "embeddings" ? model.dimensions : null,
       longDescription: text(entry.longDescriptionFr, entry.longDescriptionEn),
       limitations: text(entry.limitationsFr, entry.limitationsEn),
       hosts: model.hosts,
-      apiKind: model.apiKind,
     }));
 }
 
@@ -280,7 +294,11 @@ function normalized(text: string): string {
 export interface LevelOverview {
   level: DataLevel;
   modelCount: number;
-  /** Plus petit prix mixte des modèles du niveau, en euros par million de jetons ; null sans modèle. */
+  /**
+   * Plus petit prix mixte des modèles du niveau, hors modèles d'embeddings, en euros par million de jetons ; null
+   * sans autre modèle. Le prix d'entrée seul d'un modèle d'embeddings ne se compare pas au prix d'un modèle qui
+   * produit du texte ou des images.
+   */
   startingPricePerMillion: number | null;
 }
 
@@ -292,14 +310,20 @@ export async function levelOverview(deps: CatalogDeps): Promise<LevelOverview[]>
   const visible = await visibleModels(deps);
   return DATA_LEVELS.map((level) => {
     // La langue est sans effet sur le nombre de modèles et les prix.
-    const prix = modelsOfLevel(visible, level, "fr").map((m) => blendedPricePerMillion(m.inputPricePerMillion, m.outputPricePerMillion));
-    return { level, modelCount: prix.length, startingPricePerMillion: prix.length > 0 ? Math.min(...prix) : null };
+    const modeles = modelsOfLevel(visible, level, "fr");
+    const prix = modeles.filter((m) => m.apiKind !== "embeddings").map(modelBlendedPrice);
+    return { level, modelCount: modeles.length, startingPricePerMillion: prix.length > 0 ? Math.min(...prix) : null };
   });
 }
 
 /** Prix mixte : 3 jetons d'entrée pour 1 jeton de sortie, convention courante des comparatifs de prix. */
 export function blendedPricePerMillion(entree: number, sortie: number): number {
   return Number(((3 * entree + sortie) / 4).toFixed(6));
+}
+
+/** Prix mixte d'un modèle ; celui d'un modèle d'embeddings, qui ne produit pas de jetons de sortie, est son prix d'entrée. */
+function modelBlendedPrice(m: Pick<LevelModel, "apiKind" | "inputPricePerMillion" | "outputPricePerMillion">): number {
+  return m.apiKind === "embeddings" ? m.inputPricePerMillion : blendedPricePerMillion(m.inputPricePerMillion, m.outputPricePerMillion);
 }
 
 /**

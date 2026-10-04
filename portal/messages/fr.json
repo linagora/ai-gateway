@@ -57,6 +57,12 @@
       "EXTRACTION_AUTOMATION": "Extraction et automatisation",
       "IMAGE_CREATION": "Création d'images"
     },
+    "typesApi": {
+      "conversation": "Conversation",
+      "image": "Images",
+      "embeddings": "Embeddings",
+      "decision": "Décision"
+    },
     "capacites": {
       "images": "Lecture d'images",
       "generation_images": "Génération d'images",
@@ -358,6 +364,8 @@
       "eleve": "Prix élevé"
     },
     "prix": "{entree} en entrée, {sortie} en sortie, par million de jetons",
+    "prixEntree": "{entree} en entrée, par million de jetons",
+    "dimensions": "Vecteurs de {dimensions} dimensions",
     "prixImage": "Environ {prix} par image",
     "contexte": "{jetons} jetons, soit environ {pages} pages",
     "hypothesePages": "Hypothèse : une page de texte en français compte environ 750 jetons.",
@@ -366,6 +374,8 @@
     "filtres": "Filtres",
     "recherche": "Rechercher un modèle ou un éditeur",
     "tousCasUsage": "Tous les cas d'usage",
+    "typeApi": "Type d'API",
+    "tousTypesApi": "Tous les types",
     "ueUniquement": "UE uniquement",
     "tri": "Trier par",
     "tris": {
@@ -396,12 +406,18 @@
       "titre": "Modèle d'images",
       "explication": "Ce modèle crée une image à partir de votre description. Appelez-le comme un modèle de conversation, en demandant une image en sortie (« modalities ») : l'image revient encodée en base64 dans la réponse, prête à enregistrer."
     },
+    "apiEmbeddings": {
+      "titre": "Modèle d'embeddings",
+      "explication": "Ce modèle ne converse pas : il transforme chaque texte en un vecteur de nombres, pour la recherche sémantique, le RAG, le regroupement de documents ou la détection de doublons. Il s'appelle par /v1/embeddings, avec un ou plusieurs textes. Les vecteurs de deux modèles différents ne se comparent pas : changer de modèle impose de recalculer tous les vecteurs."
+    },
     "exempleAppel": "Exemple d'appel",
     "exemple": {
       "message": "Bonjour ! Résume en trois points les avantages du logiciel libre.",
       "etat": "Mes virements échouent depuis trois jours et cela bloque la paie.",
       "question": "Le message exprime-t-il une urgence ?",
-      "image": "Aquarelle d'un phare breton au coucher du soleil"
+      "image": "Aquarelle d'un phare breton au coucher du soleil",
+      "aVectoriser1": "La passerelle IA de LINAGORA donne accès à des modèles hébergés en France.",
+      "aVectoriser2": "Les modèles d'embeddings servent à la recherche sémantique."
     },
     "copier": "Copier l'exemple",
     "copie": "Exemple copié"
@@ -964,6 +980,7 @@
     "raisonsModele": {
       "image": "modèle d'images",
       "decision": "API de décision",
+      "embeddings": "modèle d'embeddings",
       "non_declare": "la passerelle ne le déclare plus"
     },
     "modeleParDefaut": "Modèle par défaut",

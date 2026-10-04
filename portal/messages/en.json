@@ -57,6 +57,12 @@
       "EXTRACTION_AUTOMATION": "Extraction & automation",
       "IMAGE_CREATION": "Image creation"
     },
+    "typesApi": {
+      "conversation": "Chat",
+      "image": "Images",
+      "embeddings": "Embeddings",
+      "decision": "Decision"
+    },
     "capacites": {
       "images": "Image input",
       "generation_images": "Image generation",
@@ -358,6 +364,8 @@
       "eleve": "High price"
     },
     "prix": "{entree} input, {sortie} output, per million tokens",
+    "prixEntree": "{entree} input, per million tokens",
+    "dimensions": "{dimensions}-dimension vectors",
     "prixImage": "About {prix} per image",
     "contexte": "{jetons} tokens, or about {pages} pages",
     "hypothesePages": "Assumption: a page of text in French is about 750 tokens.",
@@ -366,6 +374,8 @@
     "filtres": "Filters",
     "recherche": "Search for a model or a publisher",
     "tousCasUsage": "All use cases",
+    "typeApi": "API type",
+    "tousTypesApi": "All types",
     "ueUniquement": "EU only",
     "tri": "Sort by",
     "tris": {
@@ -396,12 +406,18 @@
       "titre": "Image model",
       "explication": "This model creates an image from your description. Call it like a chat model, asking for an image as output (\"modalities\"): the image comes back base64-encoded in the response, ready to save."
     },
+    "apiEmbeddings": {
+      "titre": "Embedding model",
+      "explication": "This model does not chat: it turns each text into a vector of numbers, for semantic search, RAG, document clustering or duplicate detection. Call it through /v1/embeddings, with one or more texts. Vectors from two different models cannot be compared: switching models means recomputing every vector."
+    },
     "exempleAppel": "Example call",
     "exemple": {
       "message": "Hello! Summarize the benefits of free software in three points.",
       "etat": "My transfers have been failing for three days and payroll is blocked.",
       "question": "Does the message express urgency?",
-      "image": "Watercolor of a Breton lighthouse at sunset"
+      "image": "Watercolor of a Breton lighthouse at sunset",
+      "aVectoriser1": "The LINAGORA AI gateway gives access to models hosted in France.",
+      "aVectoriser2": "Embedding models power semantic search."
     },
     "copier": "Copy the example",
     "copie": "Example copied"
@@ -964,6 +980,7 @@
     "raisonsModele": {
       "image": "image model",
       "decision": "decision API",
+      "embeddings": "embedding model",
       "non_declare": "no longer declared by the gateway"
     },
     "modeleParDefaut": "Default model",

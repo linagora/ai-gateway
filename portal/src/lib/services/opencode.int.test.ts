@@ -112,12 +112,17 @@ describe("configuration d'OpenCode (ticket #113)", () => {
     });
   });
 
-  test("les modèles d'images, les API de décision et les modèles que la passerelle ne déclare plus sont écartés, avec la raison", async () => {
-    litellm.withModel({ modelName: "flux-pro", apiKind: "image" }).withModel({ modelName: "jev", apiKind: "decision" }).withModel({ modelName: "ancien" });
+  test("les modèles d'images, les API de décision, les modèles d'embeddings et les modèles que la passerelle ne déclare plus sont écartés, avec la raison", async () => {
+    litellm
+      .withModel({ modelName: "flux-pro", apiKind: "image" })
+      .withModel({ modelName: "jev", apiKind: "decision" })
+      .withModel({ modelName: "bge-m3", apiKind: "embeddings", dimensions: 1024 })
+      .withModel({ modelName: "ancien" });
     await fiche("flux-pro", "FLUX.2 [pro]", "N2");
     await fiche("jev", "JEV", "N2");
+    await fiche("bge-m3", "BGE-M3", "N3");
     await fiche("ancien", "Ancien modèle", "N2");
-    await cleEmise({ models: ["mistral-small", "flux-pro", "jev", "ancien"] });
+    await cleEmise({ models: ["mistral-small", "flux-pro", "jev", "bge-m3", "ancien"] });
     litellm.models = litellm.models.filter((m) => m.modelName !== "ancien");
 
     const resultat = await configurationOpenCode(deps, titulaire, OPTIONS);
@@ -128,6 +133,7 @@ describe("configuration d'OpenCode (ticket #113)", () => {
         modelesEcartes: [
           { modelName: "flux-pro", raison: "image" },
           { modelName: "jev", raison: "decision" },
+          { modelName: "bge-m3", raison: "embeddings" },
           { modelName: "ancien", raison: "non_declare" },
         ],
       }),

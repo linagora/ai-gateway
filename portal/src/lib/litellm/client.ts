@@ -77,10 +77,13 @@ export const CONTENUS: readonly Contenu[] = ["text", "image", "pdf", "audio", "v
 
 /**
  * Manière d'appeler un modèle : conversation (par défaut), API de décision comme JEV (« System One »), qui
- * attend dans le dernier message une requête JSON et non un texte libre, ou modèle d'images, appelé comme un
- * modèle de conversation en demandant une image en sortie.
+ * attend dans le dernier message une requête JSON et non un texte libre, modèle d'images, appelé comme un
+ * modèle de conversation en demandant une image en sortie, ou modèle d'embeddings, appelé par /v1/embeddings.
  */
-export type ApiKind = "conversation" | "decision" | "image";
+export type ApiKind = "conversation" | "decision" | "image" | "embeddings";
+
+/** Types d'API connus du portail, dans l'ordre où le catalogue les présente. */
+export const API_KINDS: readonly ApiKind[] = ["conversation", "image", "embeddings", "decision"];
 
 /**
  * Modèle déclaré dans LiteLLM. Les prix, déclarés dans litellm_params, sont relus via model_info.
@@ -119,6 +122,8 @@ export interface LiteLLMModel {
   /** Contenus acceptés en entrée et produits en sortie ; null si la passerelle ne les déclare pas. */
   inputContents: Contenu[] | null;
   outputContents: Contenu[] | null;
+  /** Taille des vecteurs d'un modèle d'embeddings ; null si la passerelle ne la déclare pas. */
+  dimensions: number | null;
 }
 
 /** Paramètres d'une clé à générer (F-40), figés à l'approbation de la demande. Durées au format LiteLLM : 30d, 3600s… */
@@ -269,6 +274,8 @@ const modelInfoSchema = z.object({
         effort_par_defaut: z.string().nullish(),
         contenus_entree: z.array(z.string()).nullish(),
         contenus_sortie: z.array(z.string()).nullish(),
+        /** Champ standard de LiteLLM pour la taille des vecteurs d'un modèle d'embeddings. */
+        output_vector_size: z.number().nullish(),
       }),
     }),
   ),
@@ -391,7 +398,7 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
         capabilities: (mi.capacites ?? []).filter((c): c is Capability => CAPABILITIES.includes(c as Capability)),
         hosts: mi.hebergeurs ?? [],
         executionRegion: mi.zone === "UE" ? "UE" : mi.zone === "monde" ? "HORS_UE" : null,
-        apiKind: mi.type_api === "decision" ? "decision" : mi.type_api === "image" ? "image" : "conversation",
+        apiKind: API_KINDS.find((type) => type === mi.type_api) ?? "conversation",
         imagePrice: mi.prix_image_eur ?? null,
         inputCostPerToken: mi.input_cost_per_token ?? null,
         outputCostPerToken: mi.output_cost_per_token ?? null,
@@ -409,6 +416,7 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
         defaultReasoningEffort: mi.effort_par_defaut ?? null,
         inputContents: contenus(mi.contenus_entree),
         outputContents: contenus(mi.contenus_sortie),
+        dimensions: mi.output_vector_size ?? null,
       }));
     },
 
