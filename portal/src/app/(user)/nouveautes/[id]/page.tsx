@@ -1,3 +1,5 @@
+import { ArrowLeft } from "lucide-react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { nouveaute } from "@/lib/services/nouveautes";
@@ -19,6 +21,12 @@ export default async function NouveautePage(props: PageProps<"/nouveautes/[id]">
 
   return (
     <article>
+      <p>
+        <Link href="/nouveautes" className="inline-flex items-center gap-1">
+          <ArrowLeft aria-hidden="true" className="size-4" />
+          {t("toutes")}
+        </Link>
+      </p>
       <Notice searchParams={searchParams} />
       <p className="flex flex-wrap gap-x-3 text-sm text-neutral-600">
         <CategorieNouveaute category={n.category} />

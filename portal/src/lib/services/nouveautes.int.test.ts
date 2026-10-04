@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { listAudit } from "./audit";
 import { resetDb, testDb } from "@/test/db";
-import { creerNouveaute, marquerLue, type NouveauteInput, nouveaute, nouveautesNonLues, nouveautesPourAdmin, publierNouveaute } from "./nouveautes";
+import { archiveNouveautes, creerNouveaute, marquerLue, type NouveauteInput, nouveaute, nouveautesNonLues, nouveautesPourAdmin, publierNouveaute } from "./nouveautes";
 
 beforeEach(resetDb);
 
@@ -114,6 +114,31 @@ describe("gestion des nouveautés (ticket #130)", () => {
       ["mmaudet", "NEWS_CREATED", id, { categorie: "MODELES", titre: annonce.titleFr }],
       ["mmaudet", "NEWS_PUBLISHED", id, { categorie: "MODELES", titre: annonce.titleFr }],
     ]);
+  });
+});
+
+describe("archive des nouveautés (ticket #131)", () => {
+  test("l'archive donne les nouveautés publiées, la plus récente d'abord, avec leur état pour le collaborateur, par pages de 50", async () => {
+    const publiees: string[] = [];
+    for (let i = 0; i < 51; i++) {
+      maintenant = new Date(Date.UTC(2026, 9, 5, 9, i));
+      const id = await creerNouveaute(deps, admin, { ...annonce, titleFr: `Annonce ${i}` });
+      await publierNouveaute(deps, admin, id);
+      publiees.push(id);
+    }
+    await creerNouveaute(deps, admin, { ...annonce, titleFr: "Brouillon" });
+    maintenant = new Date("2026-10-06T08:00:00Z");
+    await marquerLue(deps, collaborateur, publiees[50]);
+
+    const premiere = await archiveNouveautes(deps, collaborateur, 1);
+    expect([premiere.page, premiere.pages, premiere.total, premiere.elements.length]).toEqual([1, 2, 51, 50]);
+    expect(premiere.elements.slice(0, 2)).toEqual([
+      expect.objectContaining({ id: publiees[50], title: "Annonce 50", etat: { statut: "lue", le: new Date("2026-10-06T08:00:00Z") } }),
+      expect.objectContaining({ id: publiees[49], title: "Annonce 49", etat: { statut: "non_lue" } }),
+    ]);
+    const seconde = await archiveNouveautes(deps, collaborateur, 2);
+    expect(seconde.elements.map((n) => n.title)).toEqual(["Annonce 0"]);
+    expect((await archiveNouveautes(deps, collaborateur, 9)).page).toBe(2);
   });
 });
 

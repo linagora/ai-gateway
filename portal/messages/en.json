@@ -465,7 +465,14 @@
     "aucune": "No unread news.",
     "publieeLe": "Published on {date}",
     "jaiLu": "I've read it",
-    "lueLe": "Read on {date}"
+    "lueLe": "Read on {date}",
+    "toutes": "All news",
+    "aucunePubliee": "No news published yet.",
+    "nonLue": "Unread",
+    "pagination": "News archive pages",
+    "position": "Page {page} of {pages} ({total, plural, one {# news item} other {# news items}})",
+    "plusRecentes": "Newer news",
+    "plusAnciennes": "Older news"
   },
   "mesDemandes": {
     "titre": "My requests",

@@ -465,7 +465,14 @@
     "aucune": "Aucune nouveauté non lue.",
     "publieeLe": "Publiée le {date}",
     "jaiLu": "J'ai lu",
-    "lueLe": "Lue le {date}"
+    "lueLe": "Lue le {date}",
+    "toutes": "Toutes les nouveautés",
+    "aucunePubliee": "Aucune nouveauté publiée pour l'instant.",
+    "nonLue": "Non lue",
+    "pagination": "Pages de l'archive des nouveautés",
+    "position": "Page {page} sur {pages} ({total, plural, one {# nouveauté} other {# nouveautés}})",
+    "plusRecentes": "Nouveautés plus récentes",
+    "plusAnciennes": "Nouveautés plus anciennes"
   },
   "mesDemandes": {
     "titre": "Mes demandes",

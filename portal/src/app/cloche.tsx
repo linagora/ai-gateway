@@ -1,5 +1,4 @@
 import { Bell } from "lucide-react";
-import Link from "next/link";
 import { getFormatter, getTranslations } from "next-intl/server";
 import type { SessionUser } from "@/lib/auth-user";
 import { nouveautesNonLues } from "@/lib/services/nouveautes";
@@ -7,10 +6,14 @@ import { getDeps } from "@/lib/session";
 import { CategorieNouveaute } from "./categorie-nouveaute";
 import { Pastille } from "./pastille";
 
+/** Archive des nouveautés, au pied du panneau ; comme ses autres liens, elle recharge la page (voir Cloche). */
+const ARCHIVE = "/nouveautes";
+
 /**
  * Spécification #124, ticket #130 : cloche des nouveautés, avec la pastille du nombre de non lues. Le panneau est un
  * popover natif du navigateur, rendu côté serveur : il s'ouvre et se ferme au clic sur la cloche, et se ferme par Échap
- * ou par un clic ailleurs, sans JavaScript du portail.
+ * ou par un clic ailleurs, sans JavaScript du portail. Ses liens rechargent la page : une navigation côté client
+ * garderait la mise en page, et le panneau resterait ouvert sur la page suivante.
  */
 export async function Cloche({ user }: { user: SessionUser }) {
   const [t, format, nonLues] = await Promise.all([getTranslations("nouveautes"), getFormatter(), nouveautesNonLues(getDeps(), user)]);
@@ -41,14 +44,17 @@ export async function Cloche({ user }: { user: SessionUser }) {
                   <CategorieNouveaute category={n.category} />
                   <span>{format.dateTime(n.publishedAt, { dateStyle: "long" })}</span>
                 </p>
-                <Link href={`/nouveautes/${n.id}`} className="font-medium">
+                <a href={`${ARCHIVE}/${n.id}`} className="font-medium">
                   {n.title}
-                </Link>
+                </a>
                 <p className="m-0 text-sm">{n.summary}</p>
               </li>
             ))}
           </ul>
         )}
+        <p className="mb-0 border-t border-neutral-100 pt-2 text-sm">
+          <a href={ARCHIVE}>{t("toutes")}</a>
+        </p>
       </div>
     </>
   );

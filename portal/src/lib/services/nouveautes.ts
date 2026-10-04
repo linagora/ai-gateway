@@ -1,8 +1,9 @@
 import { z } from "zod";
-import type { NewsCategory } from "@/generated/prisma/client";
+import type { NewsCategory, NewsItem, NewsReceipt } from "@/generated/prisma/client";
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
 import { PortalError } from "@/lib/errors";
+import { type Page, tranche } from "@/lib/pagination";
 import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
 
@@ -78,7 +79,17 @@ export async function nouveautesNonLues(deps: NouveautesDeps, user: SessionUser)
     where: { publishedAt: { not: null }, receipts: { none: { uid: user.uid } } },
     orderBy: { publishedAt: "desc" },
   });
-  return rows.map((n) => ({ id: n.id, category: n.category, publishedAt: n.publishedAt as Date, title: n.titleFr, summary: n.summaryFr }));
+  return rows.map(resume);
+}
+
+/** Résumé d'une nouveauté publiée. */
+function resume(n: NewsItem): ResumeNouveaute {
+  return { id: n.id, category: n.category, publishedAt: n.publishedAt as Date, title: n.titleFr, summary: n.summaryFr };
+}
+
+/** État d'une nouveauté d'après l'accusé de lecture du collaborateur, s'il en a un. */
+function etat([accuse]: NewsReceipt[]): EtatNouveaute {
+  return accuse ? { statut: "lue", le: accuse.readAt } : { statut: "non_lue" };
 }
 
 /** État d'une nouveauté pour un collaborateur : non lue, ou lue à la date de son accusé de lecture. */
@@ -94,16 +105,27 @@ export interface Nouveaute extends ResumeNouveaute {
 export async function nouveaute(deps: NouveautesDeps, user: SessionUser, id: string): Promise<Nouveaute | null> {
   const n = await deps.db.newsItem.findUnique({ where: { id }, include: { receipts: { where: { uid: user.uid } } } });
   if (!n?.publishedAt) return null;
-  const [accuse] = n.receipts;
-  return {
-    id: n.id,
-    category: n.category,
-    publishedAt: n.publishedAt,
-    title: n.titleFr,
-    summary: n.summaryFr,
-    body: n.bodyFr,
-    etat: accuse ? { statut: "lue", le: accuse.readAt } : { statut: "non_lue" },
-  };
+  return { ...resume(n), body: n.bodyFr, etat: etat(n.receipts) };
+}
+
+/** Nouveauté de l'archive : son résumé et son état pour le collaborateur. */
+export interface NouveauteArchivee extends ResumeNouveaute {
+  etat: EtatNouveaute;
+}
+
+/** Archive « Toutes les nouveautés » : les nouveautés publiées, de la plus récente à la plus ancienne, par pages. */
+export async function archiveNouveautes(deps: NouveautesDeps, user: SessionUser, page = 1): Promise<Page<NouveauteArchivee>> {
+  const where = { publishedAt: { not: null } };
+  const total = await deps.db.newsItem.count({ where });
+  const { page: courante, pages, skip, take } = tranche(total, page);
+  const rows = await deps.db.newsItem.findMany({
+    where,
+    orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
+    skip,
+    take,
+    include: { receipts: { where: { uid: user.uid } } },
+  });
+  return { elements: rows.map((n) => ({ ...resume(n), etat: etat(n.receipts) })), page: courante, pages, total };
 }
 
 /** « J'ai lu » : accusé de lecture d'une nouveauté publiée ; une seconde fois, la date de la première lecture reste. */

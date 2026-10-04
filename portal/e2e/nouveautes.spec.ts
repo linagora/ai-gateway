@@ -63,3 +63,24 @@ test("un admin publie une nouveauté ; un collaborateur la voit signalée par la
   await cloche(lecteur).click();
   await expect(panneau(lecteur).getByRole("link", { name: titre })).toHaveCount(0);
 });
+
+test("l'archive, ouverte depuis le panneau, montre une nouveauté non lue, puis lue une fois acquittée (ticket #131)", async ({ browser }) => {
+  const titre = `Nouveau modèle au catalogue ${suffixe}`;
+  const admin = await (await connecter(browser, ADMIN)).newPage();
+  await publier(admin, titre);
+
+  const lecteur = await (await connecter(browser, collaborateur)).newPage();
+  await lecteur.goto("/");
+  await cloche(lecteur).click();
+  await panneau(lecteur).getByRole("link", { name: "Toutes les nouveautés" }).click();
+  await expect(lecteur.getByRole("heading", { level: 1 })).toHaveText("Toutes les nouveautés");
+  const entree = lecteur.getByRole("listitem").filter({ has: lecteur.getByRole("link", { name: titre }) });
+  await expect(entree).toContainText("Non lue");
+
+  await entree.getByRole("link", { name: titre }).click();
+  await lecteur.getByRole("button", { name: "J'ai lu" }).click();
+  await expect(lecteur.getByRole("status")).toHaveText("Lecture enregistrée.");
+  await lecteur.getByRole("link", { name: "Toutes les nouveautés" }).click();
+  await expect(entree).toContainText("Lue le");
+  await expect(entree).not.toContainText("Non lue");
+});
