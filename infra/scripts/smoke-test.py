@@ -14,6 +14,10 @@ taille déclarée, au format base64 des SDK OpenAI puis sans format ; avec une t
 vecteurs de cette taille pour un modèle qui l'accepte, un refus explicite (400) pour les autres ; la dépense
 enregistrée sur la clé, au prix d'entrée déclaré. La recette sort en erreur si l'un de ces contrôles échoue.
 
+Une API de décision (type d'API « decision » : JEV, Nox-4B) reçoit à la place une requête System One : une réponse par
+question, sans erreur ; le coût calculé et la dépense enregistrée sur la clé, au tarif déclaré ; un message hors format
+refusé explicitement (400). La recette sort en erreur si l'un de ces contrôles échoue.
+
 Exécuté DANS le conteneur litellm (la clé maître y est déjà en variable d'environnement) :
   docker compose exec -T litellm python3 - <model_name> < scripts/smoke-test.py
 """
@@ -139,6 +143,55 @@ def controle_embeddings(test_key, token_id, echecs):
         echecs.append("embeddings (dépense)")
 
 
+# Requête System One d'une API de décision : une situation et deux questions typées, dans le dernier message.
+DECISION = {
+    "state": "Le disque du serveur est plein et les écritures échouent depuis ce matin.",
+    "questions": {
+        "urgent": {"type": "noul", "instructions": "Une action immédiate est-elle requise ?"},
+        "composant": {"type": "choice", "instructions": "Quel composant est en cause ?",
+                      "criteria": {"reseau": "Réseau", "disque": "Disque et stockage", "application": "Application"}},
+    },
+}
+
+
+def controle_decision(test_key, token_id, echecs):
+    """Une réponse par question, sans erreur ; coût et dépense au tarif déclaré ; un message hors format refusé (400)."""
+    avant = depense(token_id)
+    corps = {"model": MODEL, "messages": [{"role": "user", "content": json.dumps(DECISION, ensure_ascii=False)}]}
+    st, rep, hdr = call("POST", "/v1/chat/completions", corps, key=test_key)
+    try:
+        reponses = json.loads(rep["choices"][0]["message"]["content"])["answers"]
+    except (TypeError, KeyError, IndexError, ValueError):
+        reponses = None
+    # Une question refusée (budget de jetons dépassé…) porte un champ error, sous un statut 200.
+    conforme = isinstance(reponses, dict) and set(reponses) == set(DECISION["questions"]) and not any(
+        isinstance(r, dict) and r.get("error") for r in reponses.values())
+    step(f"décision System One → HTTP {st} ; réponses : {json.dumps(reponses if st == 200 else rep, ensure_ascii=False)[:300]} "
+         f"→ {'conforme' if conforme else 'échec'}")
+    if not conforme:
+        echecs.append("décision (réponses)")
+    if st == 200 and (in_cost is None or out_cost is None):
+        echecs.append("décision (tarifs absents)")
+        step("décision — coût non vérifié : tarifs du modèle absents")
+    elif st == 200:
+        usage = rep.get("usage") or {}
+        attendu = cout_attendu(usage, cache_cost)
+        calcule = float(hdr.get("x-litellm-response-cost") or 0)
+        enregistree = attendre_depense(token_id, avant + attendu)
+        conforme = proche(calcule, attendu) and proche(enregistree, avant + attendu)
+        step(f"décision — jetons : {usage.get('prompt_tokens')} entrée + {usage.get('completion_tokens')} sortie ; coût calculé : "
+             f"{calcule:.10f}, dépense enregistrée : {enregistree:.10f} ; attendus : {attendu:.10f}, {avant + attendu:.10f} "
+             f"→ {'conforme' if conforme else 'échec'}")
+        if not conforme:
+            echecs.append("décision (coût)")
+    # Message hors format : un refus explicite, qui rappelle le format attendu.
+    st, rep, _ = call("POST", "/v1/chat/completions", {"model": MODEL, "messages": [{"role": "user", "content": "Bonjour"}]}, key=test_key)
+    conforme = st == 400 and "System One" in json.dumps(rep, ensure_ascii=False)
+    step(f"décision, message hors format → HTTP {st} ; {json.dumps(rep, ensure_ascii=False)[:200]} → {'conforme' if conforme else 'échec'}")
+    if not conforme:
+        echecs.append("décision (message hors format)")
+
+
 st, info, _ = call("GET", "/model/info")
 deployments = [m for m in (info or {}).get("data", []) if m.get("model_name") == MODEL]
 if not deployments:
@@ -183,6 +236,8 @@ try:
 
     if mi.get("type_api") == "embeddings":
         controle_embeddings(test_key, token_id, echecs)
+    elif mi.get("type_api") == "decision":
+        controle_decision(test_key, token_id, echecs)
     else:
         t0 = time.time()
         st, comp, hdr = call(
