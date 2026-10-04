@@ -13,21 +13,40 @@ const anglophone = { uid: `nouveautes-en-${suffixe}`, email: `nouveautes-en-${su
 const cloche = (page: Page) => page.getByRole("banner").getByRole("button", { name: /^Nouveautés/ });
 const panneau = (page: Page) => page.getByRole("dialog", { name: "Nouveautés non lues" });
 
-/** Nombre de nouveautés non lues que montre la pastille de la cloche (0 sans pastille), une fois l'en-tête arrivé. */
+/** Nombre de nouveautés non lues qu'annonce la cloche par son nom accessible (0 sans pastille), une fois l'en-tête arrivé. */
 async function nonLues(page: Page): Promise<number> {
   await expect(cloche(page)).toBeVisible();
-  const pastille = cloche(page).locator('span[aria-hidden="true"]');
-  return (await pastille.count()) === 0 ? 0 : Number(await pastille.textContent());
+  const nombre = /\((\d+) nouveautés? non lues?\)/.exec(await cloche(page).ariaSnapshot());
+  return nombre ? Number(nombre[1]) : 0;
+}
+
+/** Textes d'une nouveauté rédigée par les parcours ; l'anglais est facultatif. */
+interface Redaction {
+  categorie?: string;
+  resume?: string;
+  texte?: string;
+  anglais?: { titre: string; resume: string; texte: string };
 }
 
 /** Rédige une nouveauté depuis la gestion, la prévisualise, puis la publie (session admin). */
-async function publier(page: Page, titre: string): Promise<void> {
+async function publier(page: Page, titre: string, redaction: Redaction = {}): Promise<void> {
+  const {
+    categorie = "Service",
+    resume = "Une coupure de quelques minutes, dimanche matin.",
+    texte = "La passerelle sera coupée dimanche de 8 h à 8 h 15.\nAucune action n'est attendue.",
+    anglais,
+  } = redaction;
   await page.goto("/gestion/nouveautes");
   const formulaire = page.getByRole("form", { name: "Rédiger une nouveauté" });
-  await formulaire.getByLabel("Catégorie").selectOption({ label: "Service" });
+  await formulaire.getByLabel("Catégorie").selectOption({ label: categorie });
   await formulaire.getByLabel("Titre (français)").fill(titre);
-  await formulaire.getByLabel("Résumé (français)").fill("Une coupure de quelques minutes, dimanche matin.");
-  await formulaire.getByLabel("Texte (français)").fill("La passerelle sera coupée dimanche de 8 h à 8 h 15.\nAucune action n'est attendue.");
+  await formulaire.getByLabel("Résumé (français)").fill(resume);
+  await formulaire.getByLabel("Texte (français)").fill(texte);
+  if (anglais) {
+    await formulaire.getByLabel("Titre (anglais)").fill(anglais.titre);
+    await formulaire.getByLabel("Résumé (anglais)").fill(anglais.resume);
+    await formulaire.getByLabel("Texte (anglais)").fill(anglais.texte);
+  }
   await formulaire.getByRole("button", { name: "Enregistrer le brouillon" }).click();
   await expect(page.getByRole("status")).toHaveText("Brouillon enregistré.");
   await expect(page.getByRole("row", { name: new RegExp(titre) })).toContainText("Brouillon");
@@ -108,19 +127,12 @@ test("en anglais, la cloche, le panneau et la page d'une nouveauté traduite son
   const titre = `Nouveau prix de Qwen3.8 ${suffixe}`;
   const titreEn = `New Qwen3.8 pricing ${suffixe}`;
   const admin = await (await connecter(browser, ADMIN)).newPage();
-  await admin.goto("/gestion/nouveautes");
-  const formulaire = admin.getByRole("form", { name: "Rédiger une nouveauté" });
-  await formulaire.getByLabel("Catégorie").selectOption({ label: "Prix" });
-  await formulaire.getByLabel("Titre (français)").fill(titre);
-  await formulaire.getByLabel("Résumé (français)").fill("Le prix de Qwen3.8 baisse.");
-  await formulaire.getByLabel("Texte (français)").fill("Nouveau prix : 0,30 €.");
-  await formulaire.getByLabel("Titre (anglais)").fill(titreEn);
-  await formulaire.getByLabel("Résumé (anglais)").fill("Qwen3.8 gets cheaper.");
-  await formulaire.getByLabel("Texte (anglais)").fill("New price: €0.30.");
-  await formulaire.getByRole("button", { name: "Enregistrer le brouillon" }).click();
-  await expect(admin.getByRole("status")).toHaveText("Brouillon enregistré.");
-  await admin.getByRole("button", { name: `Publier « ${titre} »` }).click();
-  await expect(admin.getByRole("status")).toHaveText("Nouveauté publiée.");
+  await publier(admin, titre, {
+    categorie: "Prix",
+    resume: "Le prix de Qwen3.8 baisse.",
+    texte: "Nouveau prix : 0,30 €.",
+    anglais: { titre: titreEn, resume: "Qwen3.8 gets cheaper.", texte: "New price: €0.30." },
+  });
 
   const lecteur = await (await connecter(browser, anglophone, "en-US")).newPage();
   await lecteur.goto("/");
