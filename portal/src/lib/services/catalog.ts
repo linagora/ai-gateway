@@ -295,9 +295,10 @@ export interface LevelOverview {
   level: DataLevel;
   modelCount: number;
   /**
-   * Plus petit prix mixte des modèles du niveau, hors modèles d'embeddings, en euros par million de jetons ; null
-   * sans autre modèle. Le prix d'entrée seul d'un modèle d'embeddings ne se compare pas au prix d'un modèle qui
-   * produit du texte ou des images.
+   * Plus petit prix mixte des modèles de conversation et d'images du niveau, en euros par million de jetons ; null
+   * sans tel modèle. Ni le prix d'entrée seul d'un modèle d'embeddings ni celui d'une API de décision ne se comparent
+   * au prix d'un modèle qui produit du texte ou des images : une API de décision gratuite ferait tomber à zéro le prix
+   * de départ de tous les niveaux qu'elle accepte.
    */
   startingPricePerMillion: number | null;
 }
@@ -311,7 +312,7 @@ export async function levelOverview(deps: CatalogDeps): Promise<LevelOverview[]>
   return DATA_LEVELS.map((level) => {
     // La langue est sans effet sur le nombre de modèles et les prix.
     const modeles = modelsOfLevel(visible, level, "fr");
-    const prix = modeles.filter((m) => m.apiKind !== "embeddings").map(modelBlendedPrice);
+    const prix = modeles.filter((m) => m.apiKind === "conversation" || m.apiKind === "image").map(modelBlendedPrice);
     return { level, modelCount: modeles.length, startingPricePerMillion: prix.length > 0 ? Math.min(...prix) : null };
   });
 }

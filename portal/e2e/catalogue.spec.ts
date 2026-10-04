@@ -175,13 +175,15 @@ test.describe("vue d'ensemble des niveaux (ticket #5)", () => {
     const context = await connecter(browser, salarie);
     const page = await context.newPage();
     await page.goto("/catalogue");
-    // Données de démonstration : prix mixtes 0,175 € (public, expérimental), 0,30 € (interne), 0,975 € (confidentiel),
-    // 2,50 € (modèle d'images, prix de sortie par jeton d'image). Le modèle d'embeddings (N3, 0,01 € en entrée) compte
-    // parmi les modèles des niveaux N1 à N3, mais pas dans leur prix de départ (ticket #126).
+    // Données de démonstration : prix mixtes 0,175 € (public), 0,30 € (interne), 0,975 € (confidentiel), 2,50 € (modèle
+    // d'images, prix de sortie par jeton d'image). Le modèle d'embeddings (N3, 0,01 € en entrée) compte parmi les modèles
+    // des niveaux N1 à N3, mais pas dans leur prix de départ (ticket #126) ; l'API de décision du niveau Expérimental
+    // non plus : ce niveau n'a pas de prix de départ.
     await expect(carte(page, "N1 Public")).toContainText(/5 modèles.*à partir de 0,175\s€/);
     await expect(carte(page, "N2 Interne")).toContainText(/3 modèles.*à partir de 0,30\s€/);
     await expect(carte(page, "N3 Confidentiel")).toContainText(/2 modèles.*à partir de 0,975\s€/);
-    await expect(carte(page, "Expérimental (bêta)")).toContainText(/1 modèle.*à partir de 0,175\s€/);
+    await expect(carte(page, "Expérimental (bêta)")).toContainText("1 modèle");
+    await expect(carte(page, "Expérimental (bêta)")).not.toContainText("à partir de");
     await context.close();
   });
 

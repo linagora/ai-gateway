@@ -217,6 +217,23 @@ describe("modèle d'embeddings (ticket #126)", () => {
   });
 });
 
+describe("API de décision au prix de départ", () => {
+  test("le prix de départ d'un niveau ne compte pas les API de décision, que le nombre de modèles compte : une API gratuite ne le fait pas tomber à zéro, et un niveau qui n'a qu'elles n'en a pas", async () => {
+    // Le modèle bêta (EXP, 0,15 €) est masqué : le niveau Expérimental n'a plus que l'API de décision « jev ».
+    const litellm = (await catalogueDeDemonstration(["public", "interne", "confidentiel"]))
+      .withModel({ modelName: "nox-4b", apiKind: "decision", inputCostPerToken: 0, outputCostPerToken: 0 })
+      .withModel({ modelName: "jev", apiKind: "decision", inputCostPerToken: 0.00000004, outputCostPerToken: 0 });
+    await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName: "nox-4b", dataLevel: "N3" });
+    await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName: "jev", dataLevel: "EXP" });
+    expect((await levelOverview({ db: testDb, litellm })).map((n) => [n.level, n.modelCount, n.startingPricePerMillion])).toEqual([
+      ["N1", 4, 0.175],
+      ["N2", 3, 0.3],
+      ["N3", 2, 0.975],
+      ["EXP", 1, null],
+    ]);
+  });
+});
+
 describe("filtre par type d'API (ticket #128)", () => {
   /** Modèles de niveau maximal N1 de chaque type, insérés dans le désordre. */
   async function catalogueDeTypes(modeles: Parameters<FakeLiteLLM["withModel"]>[0][]) {
