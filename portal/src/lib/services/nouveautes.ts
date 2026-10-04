@@ -5,6 +5,7 @@ import type { Db } from "@/lib/db";
 import { PortalError } from "@/lib/errors";
 import type { Langue } from "@/lib/langue";
 import { texteMisEnForme } from "@/lib/markdown";
+import { espacesInsecables } from "@/lib/typographie";
 import { type Page, tranche } from "@/lib/pagination";
 import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
@@ -153,8 +154,11 @@ export async function nouveautesNonLues(deps: NouveautesDeps, user: SessionUser,
   return rows.map((n) => resume(n, langue));
 }
 
-/** Texte dans la langue du collaborateur : un texte que l'admin n'a pas traduit s'affiche en français. */
-const traduit = (langue: Langue, fr: string, en: string | null) => (langue === "en" && en) || fr;
+/**
+ * Texte dans la langue du collaborateur : un texte que l'admin n'a pas traduit s'affiche en français, avec la
+ * typographie française, comme tout texte français.
+ */
+const traduit = (langue: Langue, fr: string, en: string | null) => (langue === "en" && en) || espacesInsecables(fr);
 
 /** Résumé d'une nouveauté publiée, dans la langue du collaborateur. */
 function resume(n: NewsItem, langue: Langue): ResumeNouveaute {

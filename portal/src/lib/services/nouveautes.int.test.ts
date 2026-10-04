@@ -243,6 +243,13 @@ describe("nouveautés en anglais (ticket #133)", () => {
     expect((await nouveaute(deps, collaborateur, id, "fr"))?.title).toBe(annonce.titleFr);
   });
 
+  test("le titre et le résumé affichés en français prennent la typographie française, pas ceux affichés en anglais", async () => {
+    const id = await creerNouveaute(deps, admin, { ...annonce, titleFr: "Nouveau : bge-m3", summaryFr: "Prix : en baisse !", titleEn: "New: bge-m3" });
+    await publierNouveaute(deps, admin, id);
+    expect(await nouveautesNonLues(deps, collaborateur, "fr")).toEqual([expect.objectContaining({ title: "Nouveau\u00a0: bge-m3", summary: "Prix\u00a0: en baisse\u00a0!" })]);
+    expect(await nouveautesNonLues(deps, collaborateur, "en")).toEqual([expect.objectContaining({ title: "New: bge-m3", summary: "Prix\u00a0: en baisse\u00a0!" })]);
+  });
+
   test("la typographie française ne s'applique qu'à un texte français", async () => {
     const id = await creerNouveaute(deps, admin, { ...annonce, bodyFr: "Attention : coupure.", bodyEn: "Note: outage." });
     await publierNouveaute(deps, admin, id);
