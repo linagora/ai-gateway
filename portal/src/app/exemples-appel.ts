@@ -19,6 +19,20 @@ export interface TextesExemple {
   aVectoriser: readonly [string, string];
 }
 
+/** Clés des textes d'exemple dans l'espace de messages « detail ». */
+type CleExemple = "exemple.message" | "exemple.etat" | "exemple.question" | "exemple.image" | "exemple.aVectoriser1" | "exemple.aVectoriser2";
+
+/** Textes d'exemple dans la langue du collaborateur, lus par le traducteur de l'espace « detail ». */
+export function textesExemple(t: (cle: CleExemple) => string): TextesExemple {
+  return {
+    message: t("exemple.message"),
+    etat: t("exemple.etat"),
+    question: t("exemple.question"),
+    image: t("exemple.image"),
+    aVectoriser: [t("exemple.aVectoriser1"), t("exemple.aVectoriser2")],
+  };
+}
+
 export const LANGAGES = ["curl", "python", "javascript"] as const;
 export type Langage = (typeof LANGAGES)[number];
 

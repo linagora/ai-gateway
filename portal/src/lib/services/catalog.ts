@@ -206,11 +206,11 @@ export async function levelModels(
   const apiKinds = API_KINDS.filter((type) => models.some((m) => m.apiKind === type));
   // Un type absent de la page (adresse ancienne ou modifiée) est ignoré, comme le filtre qui ne le propose pas.
   const typeRetenu = apiKind && apiKinds.includes(apiKind) ? apiKind : undefined;
-  const blended = modelBlendedPrice;
   const byName = (a: LevelModel, b: LevelModel) => a.displayName.localeCompare(b.displayName, language);
   const comparators: Record<LevelSort, (a: LevelModel, b: LevelModel) => number> = {
-    recommended: (a, b) => Number(b.recommendedFor.length > 0) - Number(a.recommendedFor.length > 0) || blended(a) - blended(b) || byName(a, b),
-    price: (a, b) => blended(a) - blended(b) || byName(a, b),
+    recommended: (a, b) =>
+      Number(b.recommendedFor.length > 0) - Number(a.recommendedFor.length > 0) || modelBlendedPrice(a) - modelBlendedPrice(b) || byName(a, b),
+    price: (a, b) => modelBlendedPrice(a) - modelBlendedPrice(b) || byName(a, b),
     context: (a, b) => (b.context?.tokens ?? -1) - (a.context?.tokens ?? -1) || byName(a, b),
     name: byName,
   };

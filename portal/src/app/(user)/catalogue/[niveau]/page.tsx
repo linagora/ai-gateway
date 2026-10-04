@@ -2,7 +2,7 @@ import { ArrowLeft, ArrowRight, Brain, Headphones, ImageIcon, Info, type LucideI
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
-import { CAPABILITIES, type Capability, type ExecutionRegion } from "@/lib/litellm/client";
+import { type ApiKind, CAPABILITIES, type Capability, type ExecutionRegion } from "@/lib/litellm/client";
 import type { Langue } from "@/lib/langue";
 import { levelCriteria, levelFromSegment, levelPageHref, levelSegment, sortParam } from "@/lib/level-routes";
 import { LEVEL_SORTS, levelModels, modelDetail, type PriceTier, RECHERCHE_MINIMUM } from "@/lib/services/catalog";
@@ -11,7 +11,7 @@ import { espacesInsecables } from "@/lib/typographie";
 import { USE_CASES } from "@/lib/use-cases";
 import { formats, Notice } from "../../../components";
 import { BoutonCopier } from "../../../bouton-copier";
-import { exemplesAppel } from "../../../exemples-appel";
+import { exemplesAppel, textesExemple } from "../../../exemples-appel";
 import { FiltrageAutomatique } from "../../../filtrage-automatique";
 import { PastillesClassification } from "../../../pastilles-classification";
 import { COULEURS_NIVEAUX } from "../couleurs";
@@ -23,6 +23,12 @@ const ICONES: Record<Capability, LucideIcon> = { images: ImageIcon, generation_i
 /** Pastille d'un fait sur un modèle (recommandation, niveau maximal, cas d'usage), arrondie comme les pastilles de classification. */
 const PASTILLE = "self-start rounded-xl px-2.5 text-sm";
 const REPERES: Record<PriceTier, "bas" | "moyen" | "eleve"> = { "€": "bas", "€€": "moyen", "€€€": "eleve" };
+/** Section de la fiche qui présente un type d'API autre que la conversation : titre et explication. */
+const SECTIONS_TYPE_API: Partial<Record<ApiKind, "apiDecision" | "apiImage" | "apiEmbeddings">> = {
+  decision: "apiDecision",
+  image: "apiImage",
+  embeddings: "apiEmbeddings",
+};
 
 /**
  * Tickets #7 à #10 : les modèles d'un niveau, en cartes (lecture cumulative, niveau Expérimental à part),
@@ -49,6 +55,7 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
     modeleOuvert ? modelDetail(getDeps(), { level, modelName: modeleOuvert, language }) : null,
   ]);
   const pageSansCritere = `/catalogue/${levelSegment(level)}`;
+  const sectionTypeApi = detail && SECTIONS_TYPE_API[detail.apiKind];
   /** « Éditeur · zone d'exécution », sans la partie inconnue. */
   const editeurEtZone = (m: { publisher: string | null; executionRegion: ExecutionRegion | null }) =>
     [m.publisher, m.executionRegion && domaine(`zones.${m.executionRegion}`)].filter(Boolean).join(" · ");
@@ -266,33 +273,15 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
           <p>{detail.hosts.join(", ") || domaine("nonRenseigne")}</p>
           <h3 className="mt-3 font-medium">{detailT("limites")}</h3>
           <p className="whitespace-pre-line">{detail.limitations ? espacesInsecables(detail.limitations) : detailT("aucuneLimite")}</p>
-          {detail.apiKind === "decision" && (
+          {sectionTypeApi && (
             <>
-              <h3 className="mt-3 font-medium">{detailT("apiDecision.titre")}</h3>
-              <p>{detailT("apiDecision.explication")}</p>
-            </>
-          )}
-          {detail.apiKind === "image" && (
-            <>
-              <h3 className="mt-3 font-medium">{detailT("apiImage.titre")}</h3>
-              <p>{detailT("apiImage.explication")}</p>
-            </>
-          )}
-          {detail.apiKind === "embeddings" && (
-            <>
-              <h3 className="mt-3 font-medium">{detailT("apiEmbeddings.titre")}</h3>
-              <p>{detailT("apiEmbeddings.explication")}</p>
+              <h3 className="mt-3 font-medium">{detailT(`${sectionTypeApi}.titre`)}</h3>
+              <p>{detailT(`${sectionTypeApi}.explication`)}</p>
             </>
           )}
           <h3 className="mt-3 font-medium">{detailT("exempleAppel")}</h3>
           {(() => {
-            const exemple = exemplesAppel(detail.modelName, detail.apiKind, {
-              message: detailT("exemple.message"),
-              etat: detailT("exemple.etat"),
-              question: detailT("exemple.question"),
-              image: detailT("exemple.image"),
-              aVectoriser: [detailT("exemple.aVectoriser1"), detailT("exemple.aVectoriser2")],
-            }).curl;
+            const exemple = exemplesAppel(detail.modelName, detail.apiKind, textesExemple(detailT)).curl;
             return (
               <>
                 {/* En entier : sans rétrécir dans la colonne du panneau (c'est le panneau qui défile), lignes repliées. */}
