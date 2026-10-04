@@ -63,6 +63,12 @@
       "embeddings": "Embeddings",
       "decision": "Decision"
     },
+    "categoriesNouveaute": {
+      "MODELES": "Models",
+      "PRIX": "Pricing",
+      "FONCTIONNALITES": "Features",
+      "SERVICE": "Service"
+    },
     "capacites": {
       "images": "Image input",
       "generation_images": "Image generation",
@@ -142,7 +148,10 @@
       "cleIntegrationAjoutee": "Public key added.",
       "integrationActivee": "Integration enabled.",
       "integrationDesactivee": "Integration disabled: its calls are rejected.",
-      "cleIntegrationHorsService": "Public key retired: tokens it signs are now rejected."
+      "cleIntegrationHorsService": "Public key retired: tokens it signs are now rejected.",
+      "nouveauteCreee": "Draft saved.",
+      "nouveautePubliee": "News item published.",
+      "lectureEnregistree": "Marked as read."
     },
     "erreurs": {
       "controles_en_echec": "The request does not comply with the model access policy. Failed checks: {controles}.",
@@ -221,7 +230,11 @@
       "default_days": "Default validity (days)",
       "default_rpm": "Requests per minute limit",
       "default_tpm": "Tokens per minute limit",
-      "pickup_days": "Pickup delay for an approved key (days)"
+      "pickup_days": "Pickup delay for an approved key (days)",
+      "category": "Category",
+      "titleFr": "Title (French)",
+      "summaryFr": "Summary (French)",
+      "bodyFr": "Text (French)"
     }
   },
   "gestionCatalogue": {
@@ -269,6 +282,29 @@
       "nouvelle": "New offer",
       "creer": "Create the offer"
     }
+  },
+  "gestionNouveautes": {
+    "titre": "News",
+    "introduction": "Write a news item as a draft, then publish it: every employee then sees it flagged by the bell until they have read it.",
+    "liste": "News items",
+    "aucune": "No news item written yet.",
+    "colonnes": {
+      "categorie": "Category",
+      "titre": "Title",
+      "etat": "Status",
+      "actions": "Actions"
+    },
+    "brouillon": "Draft",
+    "publieeLe": "Published on {date}",
+    "publier": "Publish",
+    "publierLaNouveaute": "Publish “{titre}”",
+    "rediger": "Write a news item",
+    "categorie": "Category",
+    "titreFr": "Title (French)",
+    "resumeFr": "Summary (French)",
+    "aideResume": "One or two sentences, without formatting: they appear in the bell panel.",
+    "texteFr": "Text (French)",
+    "enregistrer": "Save draft"
   },
   "catalogue": {
     "titre": "Model catalog",
@@ -422,6 +458,15 @@
     "copier": "Copy the example",
     "copie": "Example copied"
   },
+  "nouveautes": {
+    "cloche": "What's new",
+    "nonLues": "{nombre, plural, one {# unread news item} other {# unread news items}}",
+    "panneau": "Unread news",
+    "aucune": "No unread news.",
+    "publieeLe": "Published on {date}",
+    "jaiLu": "I've read it",
+    "lueLe": "Read on {date}"
+  },
   "mesDemandes": {
     "titre": "My requests",
     "nouvelleCle": "New key request",
@@ -544,6 +589,7 @@
       "libelle": "Administration",
       "demandes": "Requests",
       "catalogue": "Catalog",
+      "nouveautes": "News",
       "parametres": "Default values",
       "cles": "Keys",
       "abonnements": "Subscriptions",

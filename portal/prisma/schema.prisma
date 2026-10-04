@@ -339,3 +339,38 @@ model IntegrationKey {
 
   @@unique([integrationId, kid])
 }
+
+/// Catégorie d'une nouveauté (spécification #124), montrée par son libellé et son pictogramme.
+enum NewsCategory {
+  MODELES
+  PRIX
+  FONCTIONNALITES
+  SERVICE
+}
+
+/// Nouveauté (spécification #124) : annonce rédigée par un admin pour tous les collaborateurs. Brouillon tant qu'elle
+/// n'a pas de date de publication ; la publier la signale par la cloche de l'en-tête.
+model NewsItem {
+  id          String        @id @default(cuid())
+  category    NewsCategory
+  titleFr     String
+  /// Résumé court, sans mise en forme, affiché dans le panneau de la cloche.
+  summaryFr   String
+  bodyFr      String
+  publishedAt DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  /// uid du dernier admin qui l'a modifiée.
+  updatedBy   String
+  receipts    NewsReceipt[]
+}
+
+/// Accusé de lecture : un collaborateur a confirmé, par « J'ai lu », avoir pris connaissance d'une nouveauté.
+model NewsReceipt {
+  newsItemId String
+  newsItem   NewsItem @relation(fields: [newsItemId], references: [id], onDelete: Cascade)
+  uid        String
+  readAt     DateTime @default(now())
+
+  @@id([newsItemId, uid])
+}

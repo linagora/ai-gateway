@@ -19,6 +19,7 @@ import {
 } from "@/lib/services/admin-requests";
 import { saveCatalogEntry } from "@/lib/services/catalog";
 import { addIntegrationKey, createIntegration, removeIntegrationKey, setIntegrationActive, updateIntegration } from "@/lib/services/integrations";
+import { creerNouveaute, marquerLue, type NouveauteInput, publierNouveaute } from "@/lib/services/nouveautes";
 import { saveOffer } from "@/lib/services/offers";
 import { transmitCharges } from "@/lib/services/remboursements";
 import { requestOfferChange, requestRenewal } from "@/lib/services/renouvellements";
@@ -235,6 +236,35 @@ export async function saveCatalogEntryAction(formData: FormData): Promise<void> 
       }),
     { path: "/gestion/catalogue", message: "catalogueMisAJour" },
   );
+}
+
+/** Spécification #124, ticket #130 : un admin enregistre une nouveauté en brouillon. */
+export async function creerNouveauteAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  await run(
+    "/gestion/nouveautes",
+    () =>
+      creerNouveaute(getDeps(), user, {
+        category: text(formData, "category") as NouveauteInput["category"],
+        titleFr: text(formData, "titleFr"),
+        summaryFr: text(formData, "summaryFr"),
+        bodyFr: text(formData, "bodyFr"),
+      }),
+    { path: "/gestion/nouveautes", message: "nouveauteCreee" },
+  );
+}
+
+/** Ticket #130 : un admin publie un brouillon, signalé dès lors à tous les collaborateurs par la cloche. */
+export async function publierNouveauteAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  await run("/gestion/nouveautes", () => publierNouveaute(getDeps(), user, text(formData, "id")), { path: "/gestion/nouveautes", message: "nouveautePubliee" });
+}
+
+/** Ticket #130 : « J'ai lu » ; la pastille de la cloche, calculée par la mise en page, diminue au rechargement. */
+export async function marquerLueAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const page = `/nouveautes/${encodeURIComponent(text(formData, "id"))}`;
+  await run(page, () => marquerLue(getDeps(), user, text(formData, "id")), { path: page, message: "lectureEnregistree" });
 }
 
 /** Spécification #51, ticket #53 : création ou modification d'une offre d'abonnement par un admin. */
@@ -550,7 +580,10 @@ type CleSucces =
   | "cleIntegrationAjoutee"
   | "cleIntegrationHorsService"
   | "integrationActivee"
-  | "integrationDesactivee";
+  | "integrationDesactivee"
+  | "nouveauteCreee"
+  | "nouveautePubliee"
+  | "lectureEnregistree";
 
 /** Exécute le cas d'usage ; en cas d'erreur métier, revient sur `errorPath` avec le message. */
 async function run(errorPath: string, action: () => Promise<unknown>, success: { path: string; message: CleSucces }): Promise<void> {

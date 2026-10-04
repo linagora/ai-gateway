@@ -3,8 +3,8 @@ import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
 
 /**
- * Actions inscrites au journal d'audit (F-52) : décisions sur les demandes, actions sur les clés et sur les équipes, et
- * changements du registre des intégrations (spécification #71).
+ * Actions inscrites au journal d'audit (F-52) : décisions sur les demandes, actions sur les clés et sur les équipes,
+ * changements du registre des intégrations (spécification #71) et publication des nouveautés (spécification #124).
  */
 export type AuditAction =
   | "REQUEST_CREATED"
@@ -47,7 +47,9 @@ export type AuditAction =
   | "INTEGRATION_KEY_REMOVED"
   | "INTEGRATION_ACTIVATED"
   | "INTEGRATION_DEACTIVATED"
-  | "INTEGRATION_IDENTITY_REFUSED";
+  | "INTEGRATION_IDENTITY_REFUSED"
+  | "NEWS_CREATED"
+  | "NEWS_PUBLISHED";
 
 /** Entrée du journal d'audit : qui, quoi, sur quelle cible, avec quels détails. Jamais de secret. */
 export interface AuditEntry {
