@@ -10,8 +10,9 @@ import { CategorieNouveaute } from "../../../categorie-nouveaute";
 import { formats, Notice } from "../../../components";
 
 /**
- * Spécification #124, ticket #130 : page d'une nouveauté publiée, avec « J'ai lu » tant que le collaborateur ne l'a
- * pas acquittée. Ouvrir la page ne l'acquitte pas. Un brouillon y est introuvable.
+ * Spécification #124, tickets #130 et #135 : page d'une nouveauté publiée, avec « J'ai lu » tant que le collaborateur
+ * ne l'a pas acquittée, sauf si elle est antérieure à sa fenêtre. Ouvrir la page ne l'acquitte pas. Un brouillon y est
+ * introuvable.
  */
 export default async function NouveautePage(props: PageProps<"/nouveautes/[id]">) {
   const user = await requireUser();
@@ -34,14 +35,14 @@ export default async function NouveautePage(props: PageProps<"/nouveautes/[id]">
       </p>
       <h1 className="mt-1">{n.title}</h1>
       <p className="whitespace-pre-line">{espacesInsecables(n.body)}</p>
-      {n.etat.statut === "non_lue" ? (
+      {/* Une nouveauté antérieure à la fenêtre du collaborateur n'est ni à acquitter, ni lue. */}
+      {n.etat.statut === "non_lue" && (
         <form action={marquerLueAction} className="mt-6">
           <input type="hidden" name="id" value={n.id} />
           <button type="submit">{t("jaiLu")}</button>
         </form>
-      ) : (
-        <p className="mt-6 text-sm text-neutral-600">{t("lueLe", { date: date(n.etat.le) })}</p>
       )}
+      {n.etat.statut === "lue" && <p className="mt-6 text-sm text-neutral-600">{t("lueLe", { date: date(n.etat.le) })}</p>}
     </article>
   );
 }

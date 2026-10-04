@@ -73,10 +73,27 @@ export async function nouveautesPourAdmin(deps: NouveautesDeps, actor: SessionUs
   return rows.map((n) => ({ id: n.id, category: n.category, title: n.titleFr, publishedAt: n.publishedAt }));
 }
 
-/** Nouveautés publiées que le collaborateur n'a pas acquittées, de la plus récente à la plus ancienne. */
+/** Fenêtre d'un nouveau collaborateur : il ne doit acquitter que les nouveautés publiées ces jours-là avant sa première visite. */
+const FENETRE_JOURS = 30;
+
+/**
+ * Début de la fenêtre du collaborateur : 30 jours avant sa première visite, enregistrée à la première lecture, une seule
+ * fois, pour que la fenêtre ne glisse pas. Deux lectures simultanées ne créent qu'une première visite.
+ */
+async function debutDeFenetre(deps: NouveautesDeps, uid: string): Promise<Date> {
+  let visite = await deps.db.firstVisit.findUnique({ where: { uid } });
+  if (!visite) {
+    await deps.db.firstVisit.createMany({ data: [{ uid, at: deps.now?.() ?? new Date() }], skipDuplicates: true });
+    visite = await deps.db.firstVisit.findUniqueOrThrow({ where: { uid } });
+  }
+  return new Date(visite.at.getTime() - FENETRE_JOURS * 86_400_000);
+}
+
+/** Nouveautés publiées dans la fenêtre du collaborateur, qu'il n'a pas acquittées, de la plus récente à la plus ancienne. */
 export async function nouveautesNonLues(deps: NouveautesDeps, user: SessionUser): Promise<ResumeNouveaute[]> {
+  const debut = await debutDeFenetre(deps, user.uid);
   const rows = await deps.db.newsItem.findMany({
-    where: { publishedAt: { not: null }, receipts: { none: { uid: user.uid } } },
+    where: { publishedAt: { gte: debut }, receipts: { none: { uid: user.uid } } },
     orderBy: { publishedAt: "desc" },
   });
   return rows.map(resume);
@@ -87,13 +104,18 @@ function resume(n: NewsItem): ResumeNouveaute {
   return { id: n.id, category: n.category, publishedAt: n.publishedAt as Date, title: n.titleFr, summary: n.summaryFr };
 }
 
-/** État d'une nouveauté d'après l'accusé de lecture du collaborateur, s'il en a un. */
-function etat([accuse]: NewsReceipt[]): EtatNouveaute {
-  return accuse ? { statut: "lue", le: accuse.readAt } : { statut: "non_lue" };
+/** État d'une nouveauté publiée pour le collaborateur : lue s'il l'a acquittée, sinon non lue, ou antérieure à sa fenêtre. */
+function etat(n: NewsItem & { receipts: NewsReceipt[] }, debut: Date): EtatNouveaute {
+  const [accuse] = n.receipts;
+  if (accuse) return { statut: "lue", le: accuse.readAt };
+  return (n.publishedAt as Date) < debut ? { statut: "anterieure" } : { statut: "non_lue" };
 }
 
-/** État d'une nouveauté pour un collaborateur : non lue, ou lue à la date de son accusé de lecture. */
-export type EtatNouveaute = { statut: "non_lue" } | { statut: "lue"; le: Date };
+/**
+ * État d'une nouveauté pour un collaborateur : non lue, lue à la date de son accusé de lecture, ou antérieure à sa
+ * fenêtre (publiée plus de 30 jours avant sa première visite : ni non lue, ni à acquitter).
+ */
+export type EtatNouveaute = { statut: "non_lue" } | { statut: "lue"; le: Date } | { statut: "anterieure" };
 
 /** Page d'une nouveauté : son texte complet et son état pour le collaborateur. */
 export interface Nouveaute extends ResumeNouveaute {
@@ -103,9 +125,12 @@ export interface Nouveaute extends ResumeNouveaute {
 
 /** Nouveauté publiée, avec son état pour le collaborateur ; null pour un brouillon ou une nouveauté inconnue. */
 export async function nouveaute(deps: NouveautesDeps, user: SessionUser, id: string): Promise<Nouveaute | null> {
-  const n = await deps.db.newsItem.findUnique({ where: { id }, include: { receipts: { where: { uid: user.uid } } } });
+  const [n, debut] = await Promise.all([
+    deps.db.newsItem.findUnique({ where: { id }, include: { receipts: { where: { uid: user.uid } } } }),
+    debutDeFenetre(deps, user.uid),
+  ]);
   if (!n?.publishedAt) return null;
-  return { ...resume(n), body: n.bodyFr, etat: etat(n.receipts) };
+  return { ...resume(n), body: n.bodyFr, etat: etat(n, debut) };
 }
 
 /** Nouveauté de l'archive : son résumé et son état pour le collaborateur. */
@@ -116,7 +141,7 @@ export interface NouveauteArchivee extends ResumeNouveaute {
 /** Archive « Toutes les nouveautés » : les nouveautés publiées, de la plus récente à la plus ancienne, par pages. */
 export async function archiveNouveautes(deps: NouveautesDeps, user: SessionUser, page = 1): Promise<Page<NouveauteArchivee>> {
   const where = { publishedAt: { not: null } };
-  const total = await deps.db.newsItem.count({ where });
+  const [total, debut] = await Promise.all([deps.db.newsItem.count({ where }), debutDeFenetre(deps, user.uid)]);
   const { page: courante, pages, skip, take } = tranche(total, page);
   const rows = await deps.db.newsItem.findMany({
     where,
@@ -125,7 +150,7 @@ export async function archiveNouveautes(deps: NouveautesDeps, user: SessionUser,
     take,
     include: { receipts: { where: { uid: user.uid } } },
   });
-  return { elements: rows.map((n) => ({ ...resume(n), etat: etat(n.receipts) })), page: courante, pages, total };
+  return { elements: rows.map((n) => ({ ...resume(n), etat: etat(n, debut) })), page: courante, pages, total };
 }
 
 /** « J'ai lu » : accusé de lecture d'une nouveauté publiée ; une seconde fois, la date de la première lecture reste. */

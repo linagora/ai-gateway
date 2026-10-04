@@ -374,3 +374,11 @@ model NewsReceipt {
 
   @@id([newsItemId, uid])
 }
+
+/// Première visite d'un collaborateur (spécification #124) : la première page qu'il voit depuis la mise en ligne des
+/// nouveautés. Le portail n'a pas de table des utilisateurs : seules les nouveautés publiées au plus tôt 30 jours avant
+/// cette date comptent comme non lues pour lui.
+model FirstVisit {
+  uid String   @id
+  at  DateTime @default(now())
+}

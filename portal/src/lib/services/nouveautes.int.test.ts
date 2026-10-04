@@ -142,3 +142,37 @@ describe("archive des nouveautés (ticket #131)", () => {
   });
 });
 
+describe("fenêtre des 30 jours (ticket #135)", () => {
+  /** Nouveauté publiée à la date donnée. */
+  async function publieeLe(date: string, titre: string): Promise<string> {
+    maintenant = new Date(date);
+    const id = await creerNouveaute(deps, admin, { ...annonce, titleFr: titre });
+    await publierNouveaute(deps, admin, id);
+    return id;
+  }
+
+  test("à sa première visite, un collaborateur ne voit comme non lues que les nouveautés publiées au plus tôt 30 jours avant ; les plus anciennes sont antérieures", async () => {
+    const ancienne = await publieeLe("2026-09-03T09:00:00Z", "Publiée 31 jours avant");
+    const recente = await publieeLe("2026-09-05T09:00:00Z", "Publiée 29 jours avant");
+    maintenant = new Date("2026-10-04T09:00:00Z");
+    expect((await nouveautesNonLues(deps, collaborateur)).map((n) => n.title)).toEqual(["Publiée 29 jours avant"]);
+    const suivante = await publieeLe("2026-10-04T10:00:00Z", "Publiée après");
+    expect((await nouveautesNonLues(deps, collaborateur)).map((n) => n.title)).toEqual(["Publiée après", "Publiée 29 jours avant"]);
+    expect((await nouveaute(deps, collaborateur, ancienne))?.etat).toEqual({ statut: "anterieure" });
+    expect(Object.fromEntries((await archiveNouveautes(deps, collaborateur)).elements.map((n) => [n.id, n.etat.statut]))).toEqual({
+      [suivante]: "non_lue",
+      [recente]: "non_lue",
+      [ancienne]: "anterieure",
+    });
+  });
+
+  test("la première visite ne s'enregistre qu'une fois : la fenêtre ne glisse pas avec les visites suivantes", async () => {
+    const id = await publieeLe("2026-09-20T09:00:00Z", "Publiée 14 jours avant la première visite");
+    maintenant = new Date("2026-10-04T09:00:00Z");
+    expect(await nouveautesNonLues(deps, collaborateur)).toHaveLength(1);
+    maintenant = new Date("2026-11-15T09:00:00Z");
+    expect((await nouveautesNonLues(deps, collaborateur)).map((n) => n.id)).toEqual([id]);
+    expect(await nouveautesNonLues(deps, { ...collaborateur, uid: "nouvel-arrivant" })).toEqual([]);
+  });
+});
+

@@ -23,11 +23,8 @@ export default async function ArchiveNouveautesPage(props: PageProps<"/nouveaute
               <p className="m-0 flex flex-wrap gap-x-3 text-sm text-neutral-600">
                 <CategorieNouveaute category={n.category} />
                 <span>{jour(n.publishedAt)}</span>
-                {n.etat.statut === "non_lue" ? (
-                  <span className="rounded-xl bg-linagora px-2 text-xs font-semibold text-white">{t("nonLue")}</span>
-                ) : (
-                  <span>{t("lueLe", { date: jour(n.etat.le) })}</span>
-                )}
+                {n.etat.statut === "non_lue" && <span className="rounded-xl bg-linagora px-2 text-xs font-semibold text-white">{t("nonLue")}</span>}
+                {n.etat.statut === "lue" && <span>{t("lueLe", { date: jour(n.etat.le) })}</span>}
               </p>
               <Link href={`/nouveautes/${n.id}`} className={n.etat.statut === "non_lue" ? "font-semibold" : undefined}>
                 {n.title}
