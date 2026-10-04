@@ -82,6 +82,8 @@ services:
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
       OVH_QWEN_API_BASE: ${OVH_QWEN_API_BASE}
       OVH_QWEN_API_KEY: ${OVH_QWEN_API_KEY}
+      NOX_API_BASE: ${NOX_API_BASE}
+      NOX_API_KEY: ${NOX_API_KEY}
     volumes:
       # config.yaml, garde.py (chargée depuis le dossier de la configuration) et liste blanche OpenRouter
       - ./litellm:/app/passerelle:ro

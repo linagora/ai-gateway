@@ -1,5 +1,6 @@
 """Déclare dans LiteLLM les modèles hors de la liste blanche OpenRouter : Qwen3.8 et trois modèles d'embeddings
-(OVHcloud, N3, ticket #125), et JEV (Typesafe, niveau Expérimental, par l'API System One d'OpenRouter, ticket #104).
+(OVHcloud, N3, ticket #125), JEV (Typesafe, niveau Expérimental, par l'API System One d'OpenRouter, ticket #104)
+et Nox-4B (N3, même API que JEV, sur une carte GPU de LINAGORA).
 Idempotent : un modèle absent est déclaré ; un modèle présent reçoit les informations ci-dessous (toutes, pour ne
 rien réécrire de ce que LiteLLM dérive lui-même), sa route, son adresse et sa clé (des références à l'environnement) ;
 ses tarifs restent inchangés.
@@ -9,6 +10,10 @@ ses tarifs restent inchangés.
 JEV passe par le fournisseur personnalisé « typesafe » (litellm/jev.py), qui appelle l'API System One
 d'OpenRouter avec la clé OpenRouter : clés, budgets et coûts comme pour tout modèle, coût calculé sur
 les jetons comptés par Typesafe.
+
+Nox-4B (Decision 2.0, vLLM Semantic Router) est servi par le LiteLLM de la carte GPU sous le nom jev-latest, avec
+l'API de JEV en surface OpenAI : une route openai/ suffit, sans fournisseur personnalisé. Son adresse et sa clé, qui
+n'ouvre que ce modèle, sont dans .env (NOX_API_BASE, NOX_API_KEY).
 """
 import json
 import os
@@ -109,6 +114,38 @@ MODELES = [
             "fx_rate_usd_eur": TAUX_USD_EUR,
             "type_api": "decision",  # lu par le portail : JEV n'est pas un modèle de conversation
             "usage": "API System One : requête JSON {state, questions} dans le dernier message (jev.py)",
+            "contenus_entree": ["text"],
+            "contenus_sortie": ["text"],
+        },
+    },
+    {
+        "model_name": "nox-4b",
+        "litellm_params": {
+            # Nom du modèle chez le LiteLLM de la carte GPU, qui le sert avec l'API de JEV ; mêmes réponses que JEV en
+            # forme, mais celles de Nox-4B, calibré autrement.
+            "model": "openai/jev-latest",
+            "api_base": "os.environ/NOX_API_BASE",
+            "api_key": "os.environ/NOX_API_KEY",
+            # 0 € : le modèle tourne sur une carte GPU de LINAGORA, sans coût à l'usage (décision de l'utilisateur du 2026-10-04).
+            "input_cost_per_token": 0.0,
+            "output_cost_per_token": 0.0,
+        },
+        "model_info": {
+            "source": "gpu-linagora",
+            "fournisseur": "LINAGORA",
+            "editeur": "vLLM Semantic Router",
+            "capacites": [],
+            "hebergeurs": ["LINAGORA"],
+            "zone": "UE",
+            "data_level": "N3",
+            "hosting": "INTERNE",
+            "pricing_currency": "EUR",
+            "fx_rate_usd_eur": TAUX_USD_EUR,
+            "pricing_source": "0 € : modèle exécuté sur une carte GPU de LINAGORA, sans coût à l'usage, retenu par LINAGORA le 2026-10-04",
+            # Situation, questions et critères compris ; au-delà, chaque question est refusée (max_length_exceeded), sans troncature.
+            "max_input_tokens": 16384,
+            "type_api": "decision",
+            "usage": "API System One : requête JSON {state, questions} dans le dernier message, comme JEV",
             "contenus_entree": ["text"],
             "contenus_sortie": ["text"],
         },
