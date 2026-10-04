@@ -1,0 +1,244 @@
+{
+  "providers": {
+    "linagora-n1-equipe-recette": {
+      "name": "LINAGORA · N1 Public · Équipe recette",
+      "package": "@opencode/ai/providers/openai-compatible",
+      "settings": {
+        "baseURL": "https://ai-api.linagora.com/v1"
+      },
+      "models": {
+        "glm-5.3": {
+          "modelID": "glm-5.3",
+          "name": "GLM-5.3",
+          "settings": {
+            "apiKey": "{env:LINAGORA_N1_EQUIPE_RECETTE_KEY}"
+          },
+          "capabilities": {
+            "tools": true,
+            "input": [
+              "text"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 1048576,
+            "output": 131072
+          },
+          "cost": {
+            "input": 0.633,
+            "output": 3.57645,
+            "cache": {
+              "read": 0.184625,
+              "write": 0.633
+            }
+          },
+          "variants": [
+            {
+              "id": "low",
+              "settings": {
+                "reasoningEffort": "low"
+              }
+            },
+            {
+              "id": "high",
+              "settings": {
+                "reasoningEffort": "high"
+              }
+            },
+            {
+              "id": "max",
+              "settings": {
+                "reasoningEffort": "max"
+              }
+            }
+          ]
+        },
+        "deepseek-v4.1-flash": {
+          "modelID": "deepseek-v4.1-flash",
+          "name": "DeepSeek V4.1 Flash",
+          "settings": {
+            "apiKey": "{env:LINAGORA_N1_EQUIPE_RECETTE_KEY}"
+          },
+          "capabilities": {
+            "tools": true,
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 1048576,
+            "output": 943718
+          },
+          "cost": {
+            "input": 0.22155,
+            "output": 0.8862,
+            "cache": {
+              "read": 0.00422,
+              "write": 0.22155
+            }
+          },
+          "variants": [
+            {
+              "id": "low",
+              "settings": {
+                "reasoningEffort": "low"
+              }
+            },
+            {
+              "id": "high",
+              "settings": {
+                "reasoningEffort": "high"
+              }
+            },
+            {
+              "id": "max",
+              "settings": {
+                "reasoningEffort": "max"
+              }
+            }
+          ]
+        },
+        "mistral-small-2603": {
+          "modelID": "mistral-small-2603",
+          "name": "Mistral Small (2603)",
+          "settings": {
+            "apiKey": "{env:LINAGORA_N1_EQUIPE_RECETTE_KEY}"
+          },
+          "capabilities": {
+            "tools": true,
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 262144,
+            "output": 209715
+          },
+          "cost": {
+            "input": 0.174075,
+            "output": 0.6963,
+            "cache": {
+              "read": 0.0174075,
+              "write": 0.174075
+            }
+          },
+          "variants": [
+            {
+              "id": "none",
+              "settings": {
+                "reasoningEffort": "none"
+              }
+            },
+            {
+              "id": "high",
+              "settings": {
+                "reasoningEffort": "high"
+              }
+            }
+          ]
+        },
+        "ministral-8b": {
+          "modelID": "ministral-8b",
+          "name": "Ministral 8B",
+          "settings": {
+            "apiKey": "{env:LINAGORA_N1_EQUIPE_RECETTE_KEY}"
+          },
+          "capabilities": {
+            "tools": true,
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 262144,
+            "output": 209715
+          },
+          "cost": {
+            "input": 0.174075,
+            "output": 0.174075,
+            "cache": {
+              "read": 0.0174075,
+              "write": 0.174075
+            }
+          },
+          "variants": []
+        },
+        "gemini-2.5-flash": {
+          "modelID": "gemini-2.5-flash",
+          "name": "Gemini 2.5 Flash",
+          "settings": {
+            "apiKey": "{env:LINAGORA_N1_EQUIPE_RECETTE_KEY}"
+          },
+          "capabilities": {
+            "tools": true,
+            "input": [
+              "text",
+              "image",
+              "pdf",
+              "audio",
+              "video"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 1048576,
+            "output": 65535
+          },
+          "cost": {
+            "input": 0.3165,
+            "output": 2.6375,
+            "cache": {
+              "read": 0.03165,
+              "write": 0.0879167
+            }
+          }
+        },
+        "qwen3.8": {
+          "modelID": "qwen3.8",
+          "name": "Qwen3.8 27B",
+          "settings": {
+            "apiKey": "{env:LINAGORA_N1_EQUIPE_RECETTE_KEY}"
+          },
+          "capabilities": {
+            "tools": true,
+            "input": [
+              "text",
+              "image"
+            ],
+            "output": [
+              "text"
+            ]
+          },
+          "limit": {
+            "context": 262144,
+            "output": 262144
+          },
+          "cost": {
+            "input": 0.45468,
+            "output": 3.06909,
+            "cache": {
+              "read": 0.45468,
+              "write": 0.45468
+            }
+          }
+        }
+      }
+    }
+  }
+}
