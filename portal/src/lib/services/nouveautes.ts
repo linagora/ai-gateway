@@ -3,6 +3,7 @@ import type { NewsCategory, NewsItem, NewsReceipt } from "@/generated/prisma/cli
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
 import { PortalError } from "@/lib/errors";
+import type { Langue } from "@/lib/langue";
 import { texteMisEnForme } from "@/lib/markdown";
 import { type Page, tranche } from "@/lib/pagination";
 import { requireAdmin } from "@/lib/rbac";
@@ -21,13 +22,25 @@ export interface NouveautesDeps {
 export const CATEGORIES_NOUVEAUTE = ["MODELES", "PRIX", "FONCTIONNALITES", "SERVICE"] as const satisfies readonly NewsCategory[];
 
 const texte = (longueurMaximale: number) => z.string().trim().min(1).max(longueurMaximale);
+/** Texte anglais facultatif : une valeur vide vaut absence (l'affichage retombe alors sur le français). */
+const texteFacultatif = (longueurMaximale: number) =>
+  z
+    .string()
+    .trim()
+    .max(longueurMaximale)
+    .nullish()
+    .transform((v) => v || null);
 
 export const nouveauteInputSchema = z.object({
   category: z.enum(CATEGORIES_NOUVEAUTE),
   titleFr: texte(120),
+  titleEn: texteFacultatif(120),
   /** Résumé du panneau de la cloche : texte brut, sans mise en forme. */
   summaryFr: texte(300),
+  summaryEn: texteFacultatif(300),
+  /** Texte en Markdown. */
   bodyFr: texte(20_000),
+  bodyEn: texteFacultatif(20_000),
 });
 export type NouveauteInput = z.input<typeof nouveauteInputSchema>;
 
@@ -90,19 +103,25 @@ async function debutDeFenetre(deps: NouveautesDeps, uid: string): Promise<Date> 
   return new Date(visite.at.getTime() - FENETRE_JOURS * 86_400_000);
 }
 
-/** Nouveautés publiées dans la fenêtre du collaborateur, qu'il n'a pas acquittées, de la plus récente à la plus ancienne. */
-export async function nouveautesNonLues(deps: NouveautesDeps, user: SessionUser): Promise<ResumeNouveaute[]> {
+/**
+ * Nouveautés publiées dans la fenêtre du collaborateur, qu'il n'a pas acquittées, de la plus récente à la plus
+ * ancienne, dans sa langue.
+ */
+export async function nouveautesNonLues(deps: NouveautesDeps, user: SessionUser, langue: Langue = "fr"): Promise<ResumeNouveaute[]> {
   const debut = await debutDeFenetre(deps, user.uid);
   const rows = await deps.db.newsItem.findMany({
     where: { publishedAt: { gte: debut }, receipts: { none: { uid: user.uid } } },
     orderBy: { publishedAt: "desc" },
   });
-  return rows.map(resume);
+  return rows.map((n) => resume(n, langue));
 }
 
-/** Résumé d'une nouveauté publiée. */
-function resume(n: NewsItem): ResumeNouveaute {
-  return { id: n.id, category: n.category, publishedAt: n.publishedAt as Date, title: n.titleFr, summary: n.summaryFr };
+/** Texte dans la langue du collaborateur : un texte que l'admin n'a pas traduit s'affiche en français. */
+const traduit = (langue: Langue, fr: string, en: string | null) => (langue === "en" && en) || fr;
+
+/** Résumé d'une nouveauté publiée, dans la langue du collaborateur. */
+function resume(n: NewsItem, langue: Langue): ResumeNouveaute {
+  return { id: n.id, category: n.category, publishedAt: n.publishedAt as Date, title: traduit(langue, n.titleFr, n.titleEn), summary: traduit(langue, n.summaryFr, n.summaryEn) };
 }
 
 /** État d'une nouveauté publiée pour le collaborateur : lue s'il l'a acquittée, sinon non lue, ou antérieure à sa fenêtre. */
@@ -124,14 +143,15 @@ export interface Nouveaute extends ResumeNouveaute {
   etat: EtatNouveaute;
 }
 
-/** Nouveauté publiée, avec son état pour le collaborateur ; null pour un brouillon ou une nouveauté inconnue. */
-export async function nouveaute(deps: NouveautesDeps, user: SessionUser, id: string): Promise<Nouveaute | null> {
+/** Nouveauté publiée, dans la langue et avec l'état du collaborateur ; null pour un brouillon ou une nouveauté inconnue. */
+export async function nouveaute(deps: NouveautesDeps, user: SessionUser, id: string, langue: Langue = "fr"): Promise<Nouveaute | null> {
   const [n, debut] = await Promise.all([
     deps.db.newsItem.findUnique({ where: { id }, include: { receipts: { where: { uid: user.uid } } } }),
     debutDeFenetre(deps, user.uid),
   ]);
   if (!n?.publishedAt) return null;
-  return { ...resume(n), html: texteMisEnForme(n.bodyFr, { francais: true }), etat: etat(n, debut) };
+  const anglais = langue === "en" && n.bodyEn;
+  return { ...resume(n, langue), html: texteMisEnForme(anglais || n.bodyFr, { francais: !anglais }), etat: etat(n, debut) };
 }
 
 /** Nouveauté de l'archive : son résumé et son état pour le collaborateur. */
@@ -140,7 +160,7 @@ export interface NouveauteArchivee extends ResumeNouveaute {
 }
 
 /** Archive « Toutes les nouveautés » : les nouveautés publiées, de la plus récente à la plus ancienne, par pages. */
-export async function archiveNouveautes(deps: NouveautesDeps, user: SessionUser, page = 1): Promise<Page<NouveauteArchivee>> {
+export async function archiveNouveautes(deps: NouveautesDeps, user: SessionUser, page = 1, langue: Langue = "fr"): Promise<Page<NouveauteArchivee>> {
   const where = { publishedAt: { not: null } };
   const [total, debut] = await Promise.all([deps.db.newsItem.count({ where }), debutDeFenetre(deps, user.uid)]);
   const { page: courante, pages, skip, take } = tranche(total, page);
@@ -151,7 +171,7 @@ export async function archiveNouveautes(deps: NouveautesDeps, user: SessionUser,
     take,
     include: { receipts: { where: { uid: user.uid } } },
   });
-  return { elements: rows.map((n) => ({ ...resume(n), etat: etat(n, debut) })), page: courante, pages, total };
+  return { elements: rows.map((n) => ({ ...resume(n, langue), etat: etat(n, debut) })), page: courante, pages, total };
 }
 
 /** « J'ai lu » : accusé de lecture d'une nouveauté publiée ; une seconde fois, la date de la première lecture reste. */

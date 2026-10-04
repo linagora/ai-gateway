@@ -8,6 +8,7 @@ import { ADMIN, connecter } from "./outils";
  */
 const suffixe = Date.now().toString(36);
 const collaborateur = { uid: `nouveautes-${suffixe}`, email: `nouveautes-${suffixe}@example.org`, name: `Collaborateur ${suffixe}` };
+const anglophone = { uid: `nouveautes-en-${suffixe}`, email: `nouveautes-en-${suffixe}@example.org`, name: `Employee ${suffixe}` };
 
 const cloche = (page: Page) => page.getByRole("banner").getByRole("button", { name: /^Nouveautés/ });
 const panneau = (page: Page) => page.getByRole("dialog", { name: "Nouveautés non lues" });
@@ -84,3 +85,37 @@ test("l'archive, ouverte depuis le panneau, montre une nouveauté non lue, puis 
   await expect(entree).toContainText("Lue le");
   await expect(entree).not.toContainText("Non lue");
 });
+
+test("en anglais, la cloche, le panneau et la page d'une nouveauté traduite sont en anglais (ticket #133)", async ({ browser }) => {
+  const titre = `Nouveau prix de Qwen3.8 ${suffixe}`;
+  const titreEn = `New Qwen3.8 pricing ${suffixe}`;
+  const admin = await (await connecter(browser, ADMIN)).newPage();
+  await admin.goto("/gestion/nouveautes");
+  const formulaire = admin.getByRole("form", { name: "Rédiger une nouveauté" });
+  await formulaire.getByLabel("Catégorie").selectOption({ label: "Prix" });
+  await formulaire.getByLabel("Titre (français)").fill(titre);
+  await formulaire.getByLabel("Résumé (français)").fill("Le prix de Qwen3.8 baisse.");
+  await formulaire.getByLabel("Texte (français)").fill("Nouveau prix : 0,30 €.");
+  await formulaire.getByLabel("Titre (anglais)").fill(titreEn);
+  await formulaire.getByLabel("Résumé (anglais)").fill("Qwen3.8 gets cheaper.");
+  await formulaire.getByLabel("Texte (anglais)").fill("New price: €0.30.");
+  await formulaire.getByRole("button", { name: "Enregistrer le brouillon" }).click();
+  await expect(admin.getByRole("status")).toHaveText("Brouillon enregistré.");
+  await admin.getByRole("button", { name: `Publier « ${titre} »` }).click();
+  await expect(admin.getByRole("status")).toHaveText("Nouveauté publiée.");
+
+  const lecteur = await (await connecter(browser, anglophone, "en-US")).newPage();
+  await lecteur.goto("/");
+  const clocheEn = lecteur.getByRole("banner").getByRole("button", { name: /^What's new/ });
+  await clocheEn.click();
+  const panneauEn = lecteur.getByRole("dialog", { name: "Unread news" });
+  await expect(panneauEn).toContainText("Qwen3.8 gets cheaper.");
+  await panneauEn.getByRole("link", { name: titreEn }).click();
+  await expect(lecteur.getByRole("heading", { level: 1 })).toHaveText(titreEn);
+  await expect(lecteur.getByRole("main")).toContainText("New price: €0.30.");
+  await expect(lecteur.getByRole("main")).toContainText("Pricing");
+  await lecteur.getByRole("button", { name: "I've read it" }).click();
+  await expect(lecteur.getByRole("status")).toHaveText("Marked as read.");
+  await expect(lecteur.getByRole("main")).toContainText("Read on");
+});
+

@@ -99,6 +99,21 @@ export default async function GestionNouveautesPage(props: PageProps<"/gestion/n
         <p id="aide-texte" className="text-xs text-neutral-600">
           {t("aideTexte")}
         </p>
+        <fieldset>
+          <legend>{t("anglais")}</legend>
+          <label>
+            {t("titreEn")}
+            <input name="titleEn" maxLength={120} />
+          </label>
+          <label>
+            {t("resumeEn")}
+            <textarea name="summaryEn" maxLength={300} rows={2} />
+          </label>
+          <label>
+            {t("texteEn")}
+            <textarea name="bodyEn" maxLength={20000} rows={8} />
+          </label>
+        </fieldset>
         <button type="submit">{t("enregistrer")}</button>
       </form>
     </>

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
+import type { Langue } from "@/lib/langue";
 import { archiveNouveautes } from "@/lib/services/nouveautes";
 import { getDeps, requireUser } from "@/lib/session";
 import { CategorieNouveaute } from "../../categorie-nouveaute";
@@ -8,8 +9,8 @@ import { formats, PaginationArchive } from "../../components";
 /** Spécification #124, ticket #131 : archive « Toutes les nouveautés », avec l'état de chacune pour le collaborateur. */
 export default async function ArchiveNouveautesPage(props: PageProps<"/nouveautes">) {
   const user = await requireUser();
-  const [t, { jour }, searchParams] = await Promise.all([getTranslations("nouveautes"), formats(), props.searchParams]);
-  const archive = await archiveNouveautes(getDeps(), user, Number(searchParams.page) || 1);
+  const [t, { jour }, searchParams, langue] = await Promise.all([getTranslations("nouveautes"), formats(), props.searchParams, getLocale() as Promise<Langue>]);
+  const archive = await archiveNouveautes(getDeps(), user, Number(searchParams.page) || 1, langue);
 
   return (
     <>

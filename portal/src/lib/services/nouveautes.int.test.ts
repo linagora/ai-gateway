@@ -221,3 +221,26 @@ describe("texte mis en forme (ticket #132)", () => {
   });
 });
 
+describe("nouveautés en anglais (ticket #133)", () => {
+  test("en anglais, chaque champ traduit s'affiche en anglais, les autres en français", async () => {
+    const id = await creerNouveaute(deps, admin, { ...annonce, titleEn: "Three embedding models at level N3", summaryEn: null, bodyEn: "" });
+    await publierNouveaute(deps, admin, id);
+    expect(await nouveautesNonLues(deps, collaborateur, "en")).toEqual([expect.objectContaining({ title: "Three embedding models at level N3", summary: annonce.summaryFr })]);
+    expect(await nouveaute(deps, collaborateur, id, "en")).toMatchObject({ title: "Three embedding models at level N3", html: expect.stringContaining("Les trois modèles") });
+    expect((await archiveNouveautes(deps, collaborateur, 1, "en")).elements[0].title).toBe("Three embedding models at level N3");
+    expect((await nouveaute(deps, collaborateur, id, "fr"))?.title).toBe(annonce.titleFr);
+  });
+
+  test("la typographie française ne s'applique qu'à un texte français", async () => {
+    const id = await creerNouveaute(deps, admin, { ...annonce, bodyFr: "Attention : coupure.", bodyEn: "Note: outage." });
+    await publierNouveaute(deps, admin, id);
+    expect((await nouveaute(deps, collaborateur, id, "en"))?.html).toBe("<p>Note: outage.</p>\n");
+    expect((await nouveaute(deps, collaborateur, id, "fr"))?.html).toBe("<p>Attention\u00a0: coupure.</p>\n");
+  });
+
+  test("les champs anglais ont les mêmes longueurs maximales que les champs français", async () => {
+    const refus = await creerNouveaute(deps, admin, { ...annonce, titleEn: "T".repeat(121), summaryEn: "R".repeat(301), bodyEn: "C".repeat(20_001) }).catch((e) => e);
+    expect((refus as { issues: { path: string[] }[] }).issues.map((i) => i.path.join("."))).toEqual(["titleEn", "summaryEn", "bodyEn"]);
+  });
+});
+

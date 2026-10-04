@@ -1,7 +1,8 @@
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
+import type { Langue } from "@/lib/langue";
 import { nouveaute } from "@/lib/services/nouveautes";
 import { getDeps, requireUser } from "@/lib/session";
 import { marquerLueAction } from "../../../actions";
@@ -15,8 +16,14 @@ import { formats, Notice } from "../../../components";
  */
 export default async function NouveautePage(props: PageProps<"/nouveautes/[id]">) {
   const user = await requireUser();
-  const [{ id }, searchParams, t, { jour, date }] = await Promise.all([props.params, props.searchParams, getTranslations("nouveautes"), formats()]);
-  const n = await nouveaute(getDeps(), user, id);
+  const [{ id }, searchParams, t, { jour, date }, langue] = await Promise.all([
+    props.params,
+    props.searchParams,
+    getTranslations("nouveautes"),
+    formats(),
+    getLocale() as Promise<Langue>,
+  ]);
+  const n = await nouveaute(getDeps(), user, id, langue);
   if (!n) notFound();
 
   return (

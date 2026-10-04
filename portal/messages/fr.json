@@ -234,7 +234,10 @@
       "category": "Catégorie",
       "titleFr": "Titre (français)",
       "summaryFr": "Résumé (français)",
-      "bodyFr": "Texte (français)"
+      "bodyFr": "Texte (français)",
+      "titleEn": "Titre (anglais)",
+      "summaryEn": "Résumé (anglais)",
+      "bodyEn": "Texte (anglais)"
     }
   },
   "gestionCatalogue": {
@@ -305,6 +308,10 @@
     "aideResume": "Une ou deux phrases, sans mise en forme : elles s'affichent dans le panneau de la cloche.",
     "texteFr": "Texte (français)",
     "aideTexte": "Markdown accepté : titres (##), listes (-), **gras**, *italique*, `code`, citations (>), liens [texte](https://…) ou vers une page du portail [texte](/catalogue). Le HTML et les images ne sont pas rendus.",
+    "anglais": "En anglais (facultatif : à défaut, les collaborateurs anglophones lisent le français)",
+    "titreEn": "Titre (anglais)",
+    "resumeEn": "Résumé (anglais)",
+    "texteEn": "Texte (anglais)",
     "enregistrer": "Enregistrer le brouillon"
   },
   "catalogue": {

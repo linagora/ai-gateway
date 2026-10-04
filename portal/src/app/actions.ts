@@ -247,8 +247,11 @@ export async function creerNouveauteAction(formData: FormData): Promise<void> {
       creerNouveaute(getDeps(), user, {
         category: text(formData, "category") as NouveauteInput["category"],
         titleFr: text(formData, "titleFr"),
+        titleEn: optionalText(formData, "titleEn"),
         summaryFr: text(formData, "summaryFr"),
+        summaryEn: optionalText(formData, "summaryEn"),
         bodyFr: text(formData, "bodyFr"),
+        bodyEn: optionalText(formData, "bodyEn"),
       }),
     { path: "/gestion/nouveautes", message: "nouveauteCreee" },
   );

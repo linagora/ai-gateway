@@ -1,5 +1,6 @@
 import { Bell } from "lucide-react";
-import { getFormatter, getTranslations } from "next-intl/server";
+import { getFormatter, getLocale, getTranslations } from "next-intl/server";
+import type { Langue } from "@/lib/langue";
 import type { SessionUser } from "@/lib/auth-user";
 import { nouveautesNonLues } from "@/lib/services/nouveautes";
 import { getDeps } from "@/lib/session";
@@ -16,7 +17,8 @@ const ARCHIVE = "/nouveautes";
  * garderait la mise en page, et le panneau resterait ouvert sur la page suivante.
  */
 export async function Cloche({ user }: { user: SessionUser }) {
-  const [t, format, nonLues] = await Promise.all([getTranslations("nouveautes"), getFormatter(), nouveautesNonLues(getDeps(), user)]);
+  const [t, format, langue] = await Promise.all([getTranslations("nouveautes"), getFormatter(), getLocale() as Promise<Langue>]);
+  const nonLues = await nouveautesNonLues(getDeps(), user, langue);
   return (
     <>
       <button type="button" popoverTarget="nouveautes-panneau" className="mt-0 inline-flex items-center border-0 bg-transparent p-1 text-neutral-700">

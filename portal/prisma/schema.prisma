@@ -348,15 +348,20 @@ enum NewsCategory {
   SERVICE
 }
 
-/// Nouveauté (spécification #124) : annonce rédigée par un admin pour tous les collaborateurs. Brouillon tant qu'elle
-/// n'a pas de date de publication ; la publier la signale par la cloche de l'en-tête.
+/// Nouveauté (spécification #124) : annonce rédigée par un admin pour tous les collaborateurs, en français et, s'il le
+/// souhaite, en anglais (repli sur le français champ par champ). Brouillon tant qu'elle n'a pas de date de publication ;
+/// la publier la signale par la cloche de l'en-tête.
 model NewsItem {
   id          String        @id @default(cuid())
   category    NewsCategory
   titleFr     String
+  titleEn     String?
   /// Résumé court, sans mise en forme, affiché dans le panneau de la cloche.
   summaryFr   String
+  summaryEn   String?
+  /// Texte en Markdown.
   bodyFr      String
+  bodyEn      String?
   publishedAt DateTime?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt

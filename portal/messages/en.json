@@ -234,7 +234,10 @@
       "category": "Category",
       "titleFr": "Title (French)",
       "summaryFr": "Summary (French)",
-      "bodyFr": "Text (French)"
+      "bodyFr": "Text (French)",
+      "titleEn": "Title (English)",
+      "summaryEn": "Summary (English)",
+      "bodyEn": "Text (English)"
     }
   },
   "gestionCatalogue": {
@@ -305,6 +308,10 @@
     "aideResume": "One or two sentences, without formatting: they appear in the bell panel.",
     "texteFr": "Text (French)",
     "aideTexte": "Markdown supported: headings (##), lists (-), **bold**, *italic*, `code`, quotes (>), links [text](https://…) or to a portal page [text](/catalogue). HTML and images are not rendered.",
+    "anglais": "In English (optional: otherwise, English-speaking employees read the French)",
+    "titreEn": "Title (English)",
+    "resumeEn": "Summary (English)",
+    "texteEn": "Text (English)",
     "enregistrer": "Save draft"
   },
   "catalogue": {
