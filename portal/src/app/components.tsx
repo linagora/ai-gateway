@@ -11,6 +11,7 @@ import { getCurrentUser, getDeps } from "@/lib/session";
 import { parametresDErreur } from "@/lib/parametres-erreur";
 import { changerLangueAction, signOutAction } from "./actions";
 import type { EquipeProposee } from "./choix-equipe";
+import { Cloche } from "./cloche";
 import { Onglets } from "./onglets";
 import { Pastille } from "./pastille";
 
@@ -39,7 +40,7 @@ export async function SelecteurLangue() {
   );
 }
 
-/** Nom de l'utilisateur, accès à la gestion (admins) et déconnexion. */
+/** Nom de l'utilisateur, accès à la gestion (admins), cloche des nouveautés et déconnexion. */
 export async function UserMenu() {
   const [user, t] = await Promise.all([getCurrentUser(), getTranslations("entete")]);
   if (!user) return null;
@@ -65,6 +66,7 @@ export async function UserMenu() {
           ]}
         />
       )}
+      <Cloche user={user} />
       <span>{user.name}</span>
       <form action={signOutAction}>
         <button type="submit" className="mt-0 border-neutral-400 bg-white text-neutral-800 hover:bg-neutral-100">

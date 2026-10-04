@@ -63,6 +63,12 @@
       "embeddings": "Embeddings",
       "decision": "Décision"
     },
+    "categoriesNouveaute": {
+      "MODELES": "Modèles",
+      "PRIX": "Prix",
+      "FONCTIONNALITES": "Fonctionnalités",
+      "SERVICE": "Service"
+    },
     "capacites": {
       "images": "Lecture d'images",
       "generation_images": "Génération d'images",
@@ -142,7 +148,12 @@
       "cleIntegrationAjoutee": "Clé publique ajoutée.",
       "integrationActivee": "Intégration activée.",
       "integrationDesactivee": "Intégration désactivée : ses appels sont refusés.",
-      "cleIntegrationHorsService": "Clé publique mise hors service : les jetons qu'elle signe sont désormais refusés."
+      "cleIntegrationHorsService": "Clé publique mise hors service : les jetons qu'elle signe sont désormais refusés.",
+      "nouveauteCreee": "Brouillon enregistré.",
+      "nouveautePubliee": "Nouveauté publiée.",
+      "lectureEnregistree": "Lecture enregistrée.",
+      "nouveauteModifiee": "Nouveauté corrigée.",
+      "nouveauteSupprimee": "Nouveauté supprimée."
     },
     "erreurs": {
       "controles_en_echec": "La demande ne respecte pas la politique d'accès aux modèles. Contrôles en échec : {controles}.",
@@ -221,7 +232,14 @@
       "default_days": "Durée de validité par défaut (jours)",
       "default_rpm": "Limite de requêtes par minute",
       "default_tpm": "Limite de jetons par minute",
-      "pickup_days": "Délai de retrait d'une clé approuvée (jours)"
+      "pickup_days": "Délai de retrait d'une clé approuvée (jours)",
+      "category": "Catégorie",
+      "titleFr": "Titre (français)",
+      "summaryFr": "Résumé (français)",
+      "bodyFr": "Texte (français)",
+      "titleEn": "Titre (anglais)",
+      "summaryEn": "Résumé (anglais)",
+      "bodyEn": "Texte (anglais)"
     }
   },
   "gestionCatalogue": {
@@ -269,6 +287,46 @@
       "nouvelle": "Nouvelle offre",
       "creer": "Créer l'offre"
     }
+  },
+  "gestionNouveautes": {
+    "titre": "Nouveautés",
+    "introduction": "Rédigez une nouveauté en brouillon, puis publiez-la : tous les collaborateurs la voient alors signalée par la cloche, jusqu'à ce qu'ils l'aient lue.",
+    "liste": "Nouveautés rédigées",
+    "aucune": "Aucune nouveauté rédigée pour l'instant.",
+    "colonnes": {
+      "categorie": "Catégorie",
+      "titre": "Titre",
+      "etat": "État",
+      "lectures": "Lectures",
+      "actions": "Actions"
+    },
+    "brouillon": "Brouillon",
+    "publieeLe": "Publiée le {date}",
+    "publier": "Publier",
+    "publierLaNouveaute": "Publier « {titre} »",
+    "rediger": "Rédiger une nouveauté",
+    "categorie": "Catégorie",
+    "titreFr": "Titre (français)",
+    "resumeFr": "Résumé (français)",
+    "aideResume": "Une ou deux phrases, sans mise en forme : elles s'affichent dans le panneau de la cloche.",
+    "texteFr": "Texte (français)",
+    "aideTexte": "Markdown accepté : titres (##), listes (-), **gras**, *italique*, `code`, citations (>), liens [texte](https://…) ou vers une page du portail [texte](/catalogue). Le HTML et les images ne sont pas rendus.",
+    "anglais": "En anglais (facultatif : à défaut, les collaborateurs anglophones lisent le français)",
+    "titreEn": "Titre (anglais)",
+    "resumeEn": "Résumé (anglais)",
+    "texteEn": "Texte (anglais)",
+    "enregistrer": "Enregistrer le brouillon",
+    "corriger": "Corriger",
+    "corrigerTitre": "Corriger une nouveauté",
+    "corrigerLaNouveaute": "Corriger « {titre} »",
+    "apercu": "Aperçu",
+    "apercuDeLaNouveaute": "Aperçu de « {titre} »",
+    "supprimer": "Supprimer",
+    "supprimerLaNouveaute": "Supprimer « {titre} »",
+    "suppressionAvertissement": "La nouveauté disparaît pour tous les collaborateurs, avec ses accusés de lecture. Cette suppression est définitive.",
+    "confirmerSuppression": "Confirmer la suppression",
+    "enregistrerCorrection": "Enregistrer la correction",
+    "correctionPubliee": "Cette nouveauté est publiée : corrigée, elle garde sa date de publication et ne redevient pas non lue pour ceux qui l'ont lue."
   },
   "catalogue": {
     "titre": "Catalogue des modèles",
@@ -422,6 +480,23 @@
     "copier": "Copier l'exemple",
     "copie": "Exemple copié"
   },
+  "nouveautes": {
+    "cloche": "Nouveautés",
+    "nonLues": "{nombre, plural, one {# nouveauté non lue} other {# nouveautés non lues}}",
+    "panneau": "Nouveautés non lues",
+    "aucune": "Aucune nouveauté non lue.",
+    "publieeLe": "Publiée le {date}",
+    "jaiLu": "J'ai lu",
+    "lueLe": "Lue le {date}",
+    "toutes": "Toutes les nouveautés",
+    "aucunePubliee": "Aucune nouveauté publiée pour l'instant.",
+    "nonLue": "Non lue",
+    "pagination": "Pages de l'archive des nouveautés",
+    "position": "Page {page} sur {pages} ({total, plural, one {# nouveauté} other {# nouveautés}})",
+    "plusRecentes": "Nouveautés plus récentes",
+    "plusAnciennes": "Nouveautés plus anciennes",
+    "apercuBrouillon": "Brouillon : aperçu réservé aux admins"
+  },
   "mesDemandes": {
     "titre": "Mes demandes",
     "nouvelleCle": "Nouvelle demande de clé",
@@ -544,6 +619,7 @@
       "libelle": "Administration",
       "demandes": "Demandes",
       "catalogue": "Catalogue",
+      "nouveautes": "Nouveautés",
       "parametres": "Valeurs par défaut",
       "cles": "Clés",
       "abonnements": "Abonnements",

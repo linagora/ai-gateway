@@ -19,6 +19,7 @@ import {
 } from "@/lib/services/admin-requests";
 import { saveCatalogEntry } from "@/lib/services/catalog";
 import { addIntegrationKey, createIntegration, removeIntegrationKey, setIntegrationActive, updateIntegration } from "@/lib/services/integrations";
+import { creerNouveaute, marquerLue, modifierNouveaute, type NouveauteInput, publierNouveaute, supprimerNouveaute } from "@/lib/services/nouveautes";
 import { saveOffer } from "@/lib/services/offers";
 import { transmitCharges } from "@/lib/services/remboursements";
 import { requestOfferChange, requestRenewal } from "@/lib/services/renouvellements";
@@ -235,6 +236,41 @@ export async function saveCatalogEntryAction(formData: FormData): Promise<void> 
       }),
     { path: "/gestion/catalogue", message: "catalogueMisAJour" },
   );
+}
+
+/** Spécification #124, ticket #130 : un admin enregistre une nouveauté en brouillon. */
+export async function creerNouveauteAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  await run("/gestion/nouveautes", () => creerNouveaute(getDeps(), user, nouveauteFromForm(formData)), { path: "/gestion/nouveautes", message: "nouveauteCreee" });
+}
+
+/** Ticket #134 : un admin corrige une nouveauté ; publiée, elle garde sa date et ses accusés de lecture. */
+export async function modifierNouveauteAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const id = text(formData, "id");
+  await run(`/gestion/nouveautes/${encodeURIComponent(id)}`, () => modifierNouveaute(getDeps(), user, id, nouveauteFromForm(formData)), {
+    path: "/gestion/nouveautes",
+    message: "nouveauteModifiee",
+  });
+}
+
+/** Ticket #134 : un admin supprime une nouveauté, avec ses accusés de lecture, après confirmation dans la page. */
+export async function supprimerNouveauteAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  await run("/gestion/nouveautes", () => supprimerNouveaute(getDeps(), user, text(formData, "id")), { path: "/gestion/nouveautes", message: "nouveauteSupprimee" });
+}
+
+/** Ticket #130 : un admin publie un brouillon, signalé dès lors à tous les collaborateurs par la cloche. */
+export async function publierNouveauteAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  await run("/gestion/nouveautes", () => publierNouveaute(getDeps(), user, text(formData, "id")), { path: "/gestion/nouveautes", message: "nouveautePubliee" });
+}
+
+/** Ticket #130 : « J'ai lu » ; la pastille de la cloche, calculée par la mise en page, diminue au rechargement. */
+export async function marquerLueAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const page = `/nouveautes/${encodeURIComponent(text(formData, "id"))}`;
+  await run(page, () => marquerLue(getDeps(), user, text(formData, "id")), { path: page, message: "lectureEnregistree" });
 }
 
 /** Spécification #51, ticket #53 : création ou modification d'une offre d'abonnement par un admin. */
@@ -550,7 +586,12 @@ type CleSucces =
   | "cleIntegrationAjoutee"
   | "cleIntegrationHorsService"
   | "integrationActivee"
-  | "integrationDesactivee";
+  | "integrationDesactivee"
+  | "nouveauteCreee"
+  | "nouveauteModifiee"
+  | "nouveautePubliee"
+  | "nouveauteSupprimee"
+  | "lectureEnregistree";
 
 /** Exécute le cas d'usage ; en cas d'erreur métier, revient sur `errorPath` avec le message. */
 async function run(errorPath: string, action: () => Promise<unknown>, success: { path: string; message: CleSucces }): Promise<void> {
@@ -577,6 +618,18 @@ function describeError(e: unknown): URLSearchParams {
     return new URLSearchParams({ erreur: "saisie_invalide", details: JSON.stringify({ champs: e.issues.map((i) => i.path.join(".")).join(", ") }) });
   }
   throw e;
+}
+
+function nouveauteFromForm(formData: FormData): NouveauteInput {
+  return {
+    category: text(formData, "category") as NouveauteInput["category"],
+    titleFr: text(formData, "titleFr"),
+    titleEn: optionalText(formData, "titleEn"),
+    summaryFr: text(formData, "summaryFr"),
+    summaryEn: optionalText(formData, "summaryEn"),
+    bodyFr: text(formData, "bodyFr"),
+    bodyEn: optionalText(formData, "bodyEn"),
+  };
 }
 
 function keyRequestFromForm(formData: FormData) {
