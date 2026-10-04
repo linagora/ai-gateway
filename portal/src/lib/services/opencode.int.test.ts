@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
+import deuxClesEnAnglais from "@/test/opencode/configuration-deux-cles-en.json";
+import uneCleN1EnFrancais from "@/test/opencode/configuration-une-cle-n1-fr.json";
+import { clesDeRecette } from "@/test/opencode-recette";
 import { approveKeyRequest } from "./admin-requests";
 import { saveCatalogEntry } from "./catalog";
 import { blockKey, pickUpKey, replaceKey, revokeOwnKey } from "./keys";
@@ -389,3 +392,32 @@ describe("modèle par défaut et mises à jour d'OpenCode (ticket #116)", () => 
     expect(await configuration(null)).not.toHaveProperty("update");
   });
 });
+
+/*
+ * Tickets #118 et #119 : configurations validées dans un vrai OpenCode 2.0.22, pour les faits techniques de production du
+ * 2026-10-04. OpenCode y a reconnu chaque modèle retenu sous son nom, proposé les efforts déclarés (aucun pour un modèle
+ * sans raisonnement), appliqué le modèle par défaut et la politique de mise à jour, et chaque modèle a répondu, coût
+ * estimé compris. Une modification qui change ce qu'OpenCode reçoit fait échouer ces tests : la configuration est alors
+ * à valider de nouveau dans OpenCode avant de remplacer la référence.
+ */
+describe("configurations de référence, validées dans OpenCode 2.0.22 (tickets #118 et #119)", () => {
+  test("une clé N1 aux huit modèles de la recette, en français, sans réglage général", async () => {
+    const { n1 } = await clesDeRecette(deps, admin, titulaire);
+    const resultat = await configurationOpenCode(deps, titulaire, { ...OPTIONS, requestIds: [n1] });
+    expect(JSON.parse(resultat.configuration ?? "null")).toEqual(uneCleN1EnFrancais);
+  });
+
+  test("deux clés, en anglais, avec le modèle par défaut et les nouvelles versions signalées", async () => {
+    const { n1, n3 } = await clesDeRecette(deps, admin, titulaire);
+    const resultat = await configurationOpenCode(deps, titulaire, {
+      ...OPTIONS,
+      langue: "en",
+      textes: { ...OPTIONS.textes, niveaux: { N1: "N1 Public", N2: "N2 Internal", N3: "N3 Confidential", EXP: "Experimental (beta)" } },
+      requestIds: [n1, n3],
+      modeleParDefaut: "linagora-n1-equipe-recette/glm-5.3",
+      miseAJour: "notify",
+    });
+    expect(JSON.parse(resultat.configuration ?? "null")).toEqual(deuxClesEnAnglais);
+  });
+});
+
