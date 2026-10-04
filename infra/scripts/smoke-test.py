@@ -6,7 +6,8 @@ une complétion, la dépense calculée au tarif EUR du modèle, le prix des jeto
 des assistants de code), puis révoque la clé (critère 7 : 401) et supprime l'équipe. N'affiche
 jamais la clé maître ni la clé de test. Sort en erreur si les jetons lus depuis le cache ne sont pas
 comptés à leur prix déclaré, dans le coût calculé comme dans la dépense enregistrée sur la clé ; sans jeton
-lu depuis le cache, ce contrôle n'est pas concluant.
+lu depuis le cache, ce contrôle n'est pas concluant. Sort aussi en erreur si /v1/models ne donne pas le
+modèle à la clé de test (critère 1), ou si la clé révoquée n'est pas refusée (critère 7).
 
 Un modèle d'embeddings (type d'API « embeddings ») passe à la place par /v1/embeddings : deux vecteurs de la
 taille déclarée, au format base64 des SDK OpenAI puis sans format ; avec une taille réduite (dimensions), des
@@ -175,7 +176,10 @@ try:
         sys.exit(json.dumps(gen, ensure_ascii=False)[:500])
 
     st, models, _ = call("GET", "/v1/models", key=test_key)
-    step(f"critère 1 — /v1/models avec la clé de test → HTTP {st}, modèles : {[m['id'] for m in (models or {}).get('data', [])]}")
+    ids = [m["id"] for m in (models or {}).get("data", [])]
+    step(f"critère 1 — /v1/models avec la clé de test → HTTP {st}, modèles : {ids}")
+    if st != 200 or MODEL not in ids:
+        echecs.append("critère 1 (/v1/models)")
 
     if mi.get("type_api") == "embeddings":
         controle_embeddings(test_key, token_id, echecs)
@@ -263,6 +267,8 @@ finally:
                 break
             time.sleep(5)
         step(f"critère 7 — /v1/models avec la clé révoquée → HTTP {st}")
+        if st != 401:
+            echecs.append("critère 7 (clé révoquée encore acceptée)")
     st, _, _ = call("POST", "/team/delete", {"team_ids": [team_id]})
     step(f"POST /team/delete → HTTP {st}")
 
