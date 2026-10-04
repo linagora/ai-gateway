@@ -148,13 +148,23 @@ test.describe("vue d'ensemble des niveaux (ticket #5)", () => {
       for (const [niveau, attendues] of Object.entries(pastilles)) {
         const images = carte(page, niveau).getByRole("img");
         await expect(images).toHaveCount(attendues.length);
-        const titre = await carte(page, niveau).getByRole("heading", { level: 2 }).boundingBox();
         for (const [i, nom] of attendues.entries()) {
           await expect(images.nth(i)).toHaveAccessibleName(nom);
-          expect(await images.nth(i).evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0), `${nom} chargée`).toBe(true);
-          const pastille = await images.nth(i).boundingBox();
-          expect(Math.abs(pastille!.x + pastille!.width / 2 - (titre!.x + titre!.width / 2)), `${nom} centrée`).toBeLessThanOrEqual(1);
-          expect(pastille!.y + pastille!.height, `${nom} au-dessus du nom du niveau`).toBeLessThanOrEqual(titre!.y);
+          await expect.poll(() => images.nth(i).evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0), { message: `${nom} chargée` }).toBe(true);
+        }
+        // Nom du niveau et pastilles relevés d'une seule mesure : le menu de l'en-tête, rendu en différé, peut encore
+        // décaler toute la page entre deux mesures séparées.
+        const { titre, boites } = await carte(page, niveau).evaluate((section) => {
+          const boite = (element: Element) => {
+            const { x, y, width, height } = element.getBoundingClientRect();
+            return { x, y, width, height };
+          };
+          return { titre: boite(section.querySelector("h2")!), boites: [...section.querySelectorAll("img")].map(boite) };
+        });
+        for (const [i, nom] of attendues.entries()) {
+          const pastille = boites[i];
+          expect(Math.abs(pastille.x + pastille.width / 2 - (titre.x + titre.width / 2)), `${nom} centrée`).toBeLessThanOrEqual(1);
+          expect(pastille.y + pastille.height, `${nom} au-dessus du nom du niveau`).toBeLessThanOrEqual(titre.y);
         }
       }
       await context.close();
