@@ -3,6 +3,7 @@ import type { NewsCategory, NewsItem, NewsReceipt } from "@/generated/prisma/cli
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
 import { PortalError } from "@/lib/errors";
+import { texteMisEnForme } from "@/lib/markdown";
 import { type Page, tranche } from "@/lib/pagination";
 import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
@@ -117,9 +118,9 @@ function etat(n: NewsItem & { receipts: NewsReceipt[] }, debut: Date): EtatNouve
  */
 export type EtatNouveaute = { statut: "non_lue" } | { statut: "lue"; le: Date } | { statut: "anterieure" };
 
-/** Page d'une nouveauté : son texte complet et son état pour le collaborateur. */
+/** Page d'une nouveauté : son texte complet, mis en forme (HTML sûr), et son état pour le collaborateur. */
 export interface Nouveaute extends ResumeNouveaute {
-  body: string;
+  html: string;
   etat: EtatNouveaute;
 }
 
@@ -130,7 +131,7 @@ export async function nouveaute(deps: NouveautesDeps, user: SessionUser, id: str
     debutDeFenetre(deps, user.uid),
   ]);
   if (!n?.publishedAt) return null;
-  return { ...resume(n), body: n.bodyFr, etat: etat(n, debut) };
+  return { ...resume(n), html: texteMisEnForme(n.bodyFr, { francais: true }), etat: etat(n, debut) };
 }
 
 /** Nouveauté de l'archive : son résumé et son état pour le collaborateur. */

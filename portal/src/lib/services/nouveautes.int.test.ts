@@ -50,7 +50,7 @@ describe("lecture d'une nouveauté (ticket #130)", () => {
       publishedAt: new Date("2026-10-05T09:00:00Z"),
       title: annonce.titleFr,
       summary: annonce.summaryFr,
-      body: annonce.bodyFr,
+      html: "<p>Les trois modèles s&#39;appellent par /v1/embeddings.</p>\n",
       etat: { statut: "non_lue" },
     });
     maintenant = new Date("2026-10-05T11:00:00Z");
@@ -173,6 +173,51 @@ describe("fenêtre des 30 jours (ticket #135)", () => {
     maintenant = new Date("2026-11-15T09:00:00Z");
     expect((await nouveautesNonLues(deps, collaborateur)).map((n) => n.id)).toEqual([id]);
     expect(await nouveautesNonLues(deps, { ...collaborateur, uid: "nouvel-arrivant" })).toEqual([]);
+  });
+});
+
+describe("texte mis en forme (ticket #132)", () => {
+  /** Texte d'une nouveauté publiée, tel que sa page l'affiche. */
+  async function rendu(bodyFr: string): Promise<string> {
+    const id = await creerNouveaute(deps, admin, { ...annonce, bodyFr });
+    await publierNouveaute(deps, admin, id);
+    return (await nouveaute(deps, collaborateur, id))?.html ?? "";
+  }
+
+  test("le Markdown est rendu : titres décalés sous le titre de la page, listes, gras, italique, code, citations", async () => {
+    const html = await rendu("# Ce qui change\n\n- bge-m3\n- Qwen3-Embedding-8B\n\n**Prix** en *euros*, par `/v1/embeddings`.\n\n> Hébergés en France.");
+    expect(html).toContain("<h2>Ce qui change</h2>");
+    expect(html).toContain("<li>bge-m3</li>");
+    expect(html).toContain("<strong>Prix</strong>");
+    expect(html).toContain("<em>euros</em>");
+    expect(html).toContain("<code>/v1/embeddings</code>");
+    expect(html).toContain("<blockquote>");
+  });
+
+  test("le HTML brut s'affiche comme du texte, et une image n'est pas rendue", async () => {
+    const html = await rendu('<script>alert("piège")</script>\n\nAvant <b onclick="x()">gras</b> après.\n\n![logo](https://exemple.org/logo.png)');
+    expect(html).not.toMatch(/<script|<b |<img/);
+    expect(html).toContain("&lt;script&gt;");
+    expect(html).toContain("&lt;b onclick=");
+    expect(html).toContain("logo");
+  });
+
+  test("seuls les liens http(s) et les liens vers une page du portail sont actifs", async () => {
+    const html = await rendu(
+      "[la fiche](/catalogue/n3?modele=bge-m3), [OVHcloud](https://www.ovhcloud.com), [piège](javascript:alert(1)), [données](data:text/html,x), [ailleurs](//exemple.org)",
+    );
+    expect(html).toContain('<a href="/catalogue/n3?modele=bge-m3">la fiche</a>');
+    expect(html).toContain('<a href="https://www.ovhcloud.com" rel="noopener noreferrer">OVHcloud</a>');
+    expect(html).not.toMatch(/javascript:|data:|\/\/exemple\.org/);
+    expect(html).toContain("piège");
+    expect(html).toContain("données");
+    expect(html).toContain("ailleurs");
+  });
+
+  test("la typographie française s'applique au texte, pas au code", async () => {
+    const html = await rendu("Attention : coupure dimanche ! Code : `a ? b : c`");
+    expect(html).toContain("Attention\u00a0: coupure dimanche\u00a0!");
+    expect(html).toContain("<code>a ? b : c</code>");
   });
 });
 

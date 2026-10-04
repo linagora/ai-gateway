@@ -304,6 +304,7 @@
     "resumeFr": "Summary (French)",
     "aideResume": "One or two sentences, without formatting: they appear in the bell panel.",
     "texteFr": "Text (French)",
+    "aideTexte": "Markdown supported: headings (##), lists (-), **bold**, *italic*, `code`, quotes (>), links [text](https://…) or to a portal page [text](/catalogue). HTML and images are not rendered.",
     "enregistrer": "Save draft"
   },
   "catalogue": {

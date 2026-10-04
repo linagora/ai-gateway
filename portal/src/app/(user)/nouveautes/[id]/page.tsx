@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { nouveaute } from "@/lib/services/nouveautes";
 import { getDeps, requireUser } from "@/lib/session";
-import { espacesInsecables } from "@/lib/typographie";
 import { marquerLueAction } from "../../../actions";
 import { CategorieNouveaute } from "../../../categorie-nouveaute";
 import { formats, Notice } from "../../../components";
@@ -34,7 +33,8 @@ export default async function NouveautePage(props: PageProps<"/nouveautes/[id]">
         <span>{t("publieeLe", { date: jour(n.publishedAt) })}</span>
       </p>
       <h1 className="mt-1">{n.title}</h1>
-      <p className="whitespace-pre-line">{espacesInsecables(n.body)}</p>
+      {/* HTML produit par le rendu Markdown des nouveautés : HTML brut échappé, images et liens douteux neutralisés. */}
+      <div className="guide" dangerouslySetInnerHTML={{ __html: n.html }} />
       {/* Une nouveauté antérieure à la fenêtre du collaborateur n'est ni à acquitter, ni lue. */}
       {n.etat.statut === "non_lue" && (
         <form action={marquerLueAction} className="mt-6">

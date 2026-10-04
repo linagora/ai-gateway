@@ -94,8 +94,11 @@ export default async function GestionNouveautesPage(props: PageProps<"/gestion/n
         <label>
           {t("texteFr")}
           <Obligatoire />
-          <textarea name="bodyFr" required maxLength={20000} rows={8} />
+          <textarea name="bodyFr" required maxLength={20000} rows={8} aria-describedby="aide-texte" />
         </label>
+        <p id="aide-texte" className="text-xs text-neutral-600">
+          {t("aideTexte")}
+        </p>
         <button type="submit">{t("enregistrer")}</button>
       </form>
     </>
