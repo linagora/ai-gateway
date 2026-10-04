@@ -10,8 +10,8 @@ lu depuis le cache, ce contrôle n'est pas concluant.
 
 Un modèle d'embeddings (type d'API « embeddings ») passe à la place par /v1/embeddings : deux vecteurs de la
 taille déclarée, au format base64 des SDK OpenAI puis sans format ; avec une taille réduite (dimensions), des
-vecteurs de cette taille ou un refus explicite (400) ; la dépense enregistrée sur la clé, au prix d'entrée
-déclaré. La recette sort en erreur si l'un de ces contrôles échoue.
+vecteurs de cette taille pour un modèle qui l'accepte, un refus explicite (400) pour les autres ; la dépense
+enregistrée sur la clé, au prix d'entrée déclaré. La recette sort en erreur si l'un de ces contrôles échoue.
 
 Exécuté DANS le conteneur litellm (la clé maître y est déjà en variable d'environnement) :
   docker compose exec -T litellm python3 - <model_name> < scripts/smoke-test.py
@@ -76,6 +76,8 @@ def depense(token):
 
 # Deux textes : un vecteur par texte.
 TEXTES = ["La passerelle compte chaque jeton au tarif déclaré.", "Un modèle d'embeddings rend un vecteur par texte."]
+# Modèles dont OVH accepte une taille réduite (dimensions), vérifié le 2026-10-04 ; les autres doivent la refuser (400).
+TAILLE_REGLABLE = {"qwen3-embedding-8b"}
 
 
 def tailles(reponse):
@@ -83,42 +85,53 @@ def tailles(reponse):
     return [len(base64.b64decode(v)) // 4 if isinstance(v, str) else len(v or []) for v in (d.get("embedding") for d in (reponse or {}).get("data", []))]
 
 
-def controle_embeddings(test_key, token_id, echecs):
-    """Vecteurs de la taille déclarée, quel que soit le format ; taille réduite tenue ou refusée ; dépense au prix d'entrée."""
-    taille, avant, jetons = mi.get("output_vector_size"), depense(token_id), 0
-    for nom, format_ in (("format base64 des SDK", {"encoding_format": "base64"}), ("sans format", {})):
-        st, rep, _ = call("POST", "/v1/embeddings", {"model": MODEL, "input": TEXTES, **format_}, key=test_key)
-        recues = tailles(rep) if st == 200 else []
-        conforme = st == 200 and recues == [taille] * len(TEXTES)
-        step(f"embeddings, {nom} → HTTP {st} ; tailles des vecteurs : {recues} ; attendues : {[taille] * len(TEXTES)} → {'conforme' if conforme else 'échec'}")
-        if st == 200:
-            jetons += ((rep or {}).get("usage") or {}).get("prompt_tokens") or 0
-        else:
-            print(json.dumps(rep, ensure_ascii=False)[:500])
-        if not conforme:
-            echecs.append(f"embeddings ({nom})")
-    # Taille réduite : des vecteurs de cette taille, ou un refus explicite ; jamais des vecteurs d'une autre taille.
-    st, rep, _ = call("POST", "/v1/embeddings", {"model": MODEL, "input": TEXTES, "dimensions": 256}, key=test_key)
-    recues = tailles(rep) if st == 200 else []
-    conforme = st == 400 or (st == 200 and recues == [256] * len(TEXTES))
-    detail = f"tailles des vecteurs : {recues}" if st == 200 else f"refus : {json.dumps(rep, ensure_ascii=False)[:200]}"
-    step(f"embeddings, dimensions 256 → HTTP {st} ; {detail} → {'conforme' if conforme else 'échec'}")
-    if st == 200:
-        jetons += ((rep or {}).get("usage") or {}).get("prompt_tokens") or 0
-    if not conforme:
-        echecs.append("embeddings (dimensions)")
-    # LiteLLM 1.102.1 ne renvoie pas le coût d'une réponse d'embeddings dans ses en-têtes : seule la dépense enregistrée
-    # sur la clé se contrôle. Elle s'écrit en différé.
-    if in_cost is None:
-        echecs.append("embeddings (tarif d'entrée absent)")
-        step("embeddings — dépense non vérifiée : tarif d'entrée absent")
-        return
-    attendue = avant + jetons * in_cost
+def vectoriser(parametres, test_key):
+    """Appel de /v1/embeddings sur les deux textes : statut, réponse, taille de chaque vecteur, jetons d'entrée comptés."""
+    st, rep, _ = call("POST", "/v1/embeddings", {"model": MODEL, "input": TEXTES, **parametres}, key=test_key)
+    if st != 200:
+        return st, rep, [], 0
+    return st, rep, tailles(rep), ((rep or {}).get("usage") or {}).get("prompt_tokens") or 0
+
+
+def attendre_depense(token_id, attendue):
+    """Dépense enregistrée sur la clé, relue jusqu'à la valeur attendue : LiteLLM l'écrit en différé."""
     for _ in range(20):
         enregistree = depense(token_id)
         if proche(enregistree, attendue):
             break
         time.sleep(5)
+    return enregistree
+
+
+def controle_embeddings(test_key, token_id, echecs):
+    """Vecteurs de la taille déclarée, quel que soit le format ; taille réduite tenue ou refusée ; dépense au prix d'entrée."""
+    taille, avant, jetons = mi.get("output_vector_size"), depense(token_id), 0
+    for nom, parametres in (("format base64 des SDK", {"encoding_format": "base64"}), ("sans format", {})):
+        st, rep, recues, comptes = vectoriser(parametres, test_key)
+        jetons += comptes
+        conforme = st == 200 and recues == [taille] * len(TEXTES)
+        step(f"embeddings, {nom} → HTTP {st} ; tailles des vecteurs : {recues} ; attendues : {[taille] * len(TEXTES)} → {'conforme' if conforme else 'échec'}")
+        if st != 200:
+            print(json.dumps(rep, ensure_ascii=False)[:500])
+        if not conforme:
+            echecs.append(f"embeddings ({nom})")
+    # Taille réduite : tenue par un modèle qui l'accepte, refusée explicitement par les autres ; jamais d'autre taille.
+    reglable = MODEL in TAILLE_REGLABLE
+    st, rep, recues, comptes = vectoriser({"dimensions": 256}, test_key)
+    jetons += comptes
+    conforme = (st == 200 and recues == [256] * len(TEXTES)) if reglable else st == 400
+    detail = f"tailles des vecteurs : {recues}" if st == 200 else f"refus : {json.dumps(rep, ensure_ascii=False)[:200]}"
+    step(f"embeddings, dimensions 256 ({'à tenir' if reglable else 'à refuser'}) → HTTP {st} ; {detail} → {'conforme' if conforme else 'échec'}")
+    if not conforme:
+        echecs.append("embeddings (dimensions)")
+    # LiteLLM 1.102.1 ne renvoie pas le coût d'une réponse d'embeddings dans ses en-têtes : seule la dépense enregistrée
+    # sur la clé se contrôle.
+    if in_cost is None:
+        echecs.append("embeddings (tarif d'entrée absent)")
+        step("embeddings — dépense non vérifiée : tarif d'entrée absent")
+        return
+    attendue = avant + jetons * in_cost
+    enregistree = attendre_depense(token_id, attendue)
     conforme = proche(enregistree, attendue)
     step(f"embeddings — dépense enregistrée sur la clé : {enregistree:.10f} ; attendue, {jetons} jetons d'entrée à {in_cost} : {attendue:.10f} → {'conforme' if conforme else 'échec'}")
     if not conforme:
@@ -223,11 +236,7 @@ try:
             step(f"cache — coût calculé par LiteLLM : {couts[1]:.10f} ; attendu, jetons lus au prix de lecture du cache ({cache_cost} par jeton) : {attendu:.10f} → {'conforme' if calcule else 'échec'}")
             # La dépense enregistrée sur la clé doit compter ces jetons au même prix ; LiteLLM l'écrit en différé.
             total = avant + couts[0] + attendu
-            for i in range(20):
-                enregistree = depense(token_id)
-                if proche(enregistree, total):
-                    break
-                time.sleep(5)
+            enregistree = attendre_depense(token_id, total)
             enregistre = proche(enregistree, total)
             step(f"cache — dépense enregistrée sur la clé : {enregistree:.10f} ; attendue : {total:.10f} → {'conforme' if enregistre else 'échec'}")
             if not (calcule and enregistre):
