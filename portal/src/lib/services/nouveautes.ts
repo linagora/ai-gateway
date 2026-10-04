@@ -8,7 +8,8 @@ import { texteMisEnForme } from "@/lib/markdown";
 import { espacesInsecables } from "@/lib/typographie";
 import { type Page, tranche } from "@/lib/pagination";
 import { requireAdmin } from "@/lib/rbac";
-import { recordAudit } from "./audit";
+import { type AuditAction, recordAudit } from "./audit";
+import { JOUR } from "./delais";
 
 /**
  * Nouveautés (spécification #124) : annonces qu'un admin rédige puis publie pour tous les collaborateurs ; la cloche de
@@ -59,8 +60,13 @@ export async function creerNouveaute(deps: NouveautesDeps, actor: SessionUser, i
   requireAdmin(actor);
   const nouveaute = nouveauteInputSchema.parse(input);
   const { id } = await deps.db.newsItem.create({ data: { ...nouveaute, createdAt: deps.now?.() ?? new Date(), updatedBy: actor.uid } });
-  await recordAudit(deps.db, { actorUid: actor.uid, action: "NEWS_CREATED", targetId: id, details: { categorie: nouveaute.category, titre: nouveaute.titleFr } });
+  await journaliser(deps, actor, "NEWS_CREATED", { id, ...nouveaute });
   return id;
+}
+
+/** Action d'un admin sur une nouveauté, inscrite au journal d'audit avec sa catégorie et son titre en français. */
+async function journaliser(deps: NouveautesDeps, actor: SessionUser, action: AuditAction, n: Pick<NewsItem, "id" | "category" | "titleFr">): Promise<void> {
+  await recordAudit(deps.db, { actorUid: actor.uid, action, targetId: n.id, details: { categorie: n.category, titre: n.titleFr } });
 }
 
 /**
@@ -72,7 +78,7 @@ export async function modifierNouveaute(deps: NouveautesDeps, actor: SessionUser
   const nouveaute = nouveauteInputSchema.parse(input);
   await existante(deps, id);
   await deps.db.newsItem.update({ where: { id }, data: { ...nouveaute, updatedBy: actor.uid } });
-  await recordAudit(deps.db, { actorUid: actor.uid, action: "NEWS_UPDATED", targetId: id, details: { categorie: nouveaute.category, titre: nouveaute.titleFr } });
+  await journaliser(deps, actor, "NEWS_UPDATED", { id, ...nouveaute });
 }
 
 /** Supprime une nouveauté, avec ses accusés de lecture. Réservé aux admins. */
@@ -80,7 +86,7 @@ export async function supprimerNouveaute(deps: NouveautesDeps, actor: SessionUse
   requireAdmin(actor);
   const nouveaute = await existante(deps, id);
   await deps.db.newsItem.delete({ where: { id } });
-  await recordAudit(deps.db, { actorUid: actor.uid, action: "NEWS_DELETED", targetId: id, details: { categorie: nouveaute.category, titre: nouveaute.titleFr } });
+  await journaliser(deps, actor, "NEWS_DELETED", nouveaute);
 }
 
 /** Nouveauté connue, brouillon ou publiée. */
@@ -96,7 +102,7 @@ export async function publierNouveaute(deps: NouveautesDeps, actor: SessionUser,
   const nouveaute = await existante(deps, id);
   if (nouveaute.publishedAt) return;
   await deps.db.newsItem.update({ where: { id }, data: { publishedAt: deps.now?.() ?? new Date(), updatedBy: actor.uid } });
-  await recordAudit(deps.db, { actorUid: actor.uid, action: "NEWS_PUBLISHED", targetId: id, details: { categorie: nouveaute.category, titre: nouveaute.titleFr } });
+  await journaliser(deps, actor, "NEWS_PUBLISHED", nouveaute);
 }
 
 /** Ligne de la gestion des nouveautés : un brouillon n'a pas de date de publication ; ses lecteurs ne sont que comptés. */
@@ -138,7 +144,7 @@ async function debutDeFenetre(deps: NouveautesDeps, uid: string): Promise<Date> 
     await deps.db.firstVisit.createMany({ data: [{ uid, at: deps.now?.() ?? new Date() }], skipDuplicates: true });
     visite = await deps.db.firstVisit.findUniqueOrThrow({ where: { uid } });
   }
-  return new Date(visite.at.getTime() - FENETRE_JOURS * 86_400_000);
+  return new Date(visite.at.getTime() - FENETRE_JOURS * JOUR);
 }
 
 /**
@@ -190,7 +196,7 @@ export interface Nouveaute extends Omit<ResumeNouveaute, "publishedAt"> {
  * Nouveauté publiée, dans la langue et avec l'état du collaborateur ; pour un admin, un brouillon aussi, en aperçu. Null
  * pour une nouveauté inconnue, ou un brouillon demandé par un collaborateur qui n'est pas admin.
  */
-export async function nouveaute(deps: NouveautesDeps, user: SessionUser, id: string, langue: Langue = "fr"): Promise<Nouveaute | null> {
+export async function lireNouveaute(deps: NouveautesDeps, user: SessionUser, id: string, langue: Langue = "fr"): Promise<Nouveaute | null> {
   const [n, debut] = await Promise.all([
     deps.db.newsItem.findUnique({ where: { id }, include: { receipts: { where: { uid: user.uid } } } }),
     debutDeFenetre(deps, user.uid),

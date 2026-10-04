@@ -4,10 +4,10 @@ import { resetDb, testDb } from "@/test/db";
 import {
   archiveNouveautes,
   creerNouveaute,
+  lireNouveaute,
   marquerLue,
   modifierNouveaute,
   type NouveauteInput,
-  nouveaute,
   nouveautePourAdmin,
   nouveautesNonLues,
   nouveautesPourAdmin,
@@ -56,7 +56,7 @@ describe("lecture d'une nouveauté (ticket #130)", () => {
   test("« J'ai lu » retire la nouveauté des non lues du seul lecteur ; sa page donne son état, non lue puis lue à la date de la première lecture", async () => {
     const id = await creerNouveaute(deps, admin, annonce);
     await publierNouveaute(deps, admin, id);
-    expect(await nouveaute(deps, collaborateur, id)).toEqual({
+    expect(await lireNouveaute(deps, collaborateur, id)).toEqual({
       id,
       category: "MODELES",
       publishedAt: new Date("2026-10-05T09:00:00Z"),
@@ -70,14 +70,14 @@ describe("lecture d'une nouveauté (ticket #130)", () => {
     maintenant = new Date("2026-10-05T12:00:00Z");
     await marquerLue(deps, collaborateur, id);
     expect(await nouveautesNonLues(deps, collaborateur)).toEqual([]);
-    expect((await nouveaute(deps, collaborateur, id))?.etat).toEqual({ statut: "lue", le: new Date("2026-10-05T11:00:00Z") });
+    expect((await lireNouveaute(deps, collaborateur, id))?.etat).toEqual({ statut: "lue", le: new Date("2026-10-05T11:00:00Z") });
     expect(await nouveautesNonLues(deps, { ...collaborateur, uid: "pmartin" })).toHaveLength(1);
   });
 
   test("un brouillon ou une nouveauté inconnue n'a pas de page pour un collaborateur, et « J'ai lu » y est refusé", async () => {
     const brouillon = await creerNouveaute(deps, admin, annonce);
-    expect(await nouveaute(deps, collaborateur, brouillon)).toBeNull();
-    expect(await nouveaute(deps, collaborateur, "inconnue")).toBeNull();
+    expect(await lireNouveaute(deps, collaborateur, brouillon)).toBeNull();
+    expect(await lireNouveaute(deps, collaborateur, "inconnue")).toBeNull();
     await expect(marquerLue(deps, collaborateur, brouillon)).rejects.toMatchObject({ code: "introuvable" });
     await expect(marquerLue(deps, collaborateur, "inconnue")).rejects.toMatchObject({ code: "introuvable" });
   });
@@ -170,7 +170,7 @@ describe("fenêtre des 30 jours (ticket #135)", () => {
     expect((await nouveautesNonLues(deps, collaborateur)).map((n) => n.title)).toEqual(["Publiée 29 jours avant"]);
     const suivante = await publieeLe("2026-10-04T10:00:00Z", "Publiée après");
     expect((await nouveautesNonLues(deps, collaborateur)).map((n) => n.title)).toEqual(["Publiée après", "Publiée 29 jours avant"]);
-    expect((await nouveaute(deps, collaborateur, ancienne))?.etat).toEqual({ statut: "anterieure" });
+    expect((await lireNouveaute(deps, collaborateur, ancienne))?.etat).toEqual({ statut: "anterieure" });
     expect(Object.fromEntries((await archiveNouveautes(deps, collaborateur)).elements.map((n) => [n.id, n.etat.statut]))).toEqual({
       [suivante]: "non_lue",
       [recente]: "non_lue",
@@ -193,7 +193,7 @@ describe("texte mis en forme (ticket #132)", () => {
   async function rendu(bodyFr: string): Promise<string> {
     const id = await creerNouveaute(deps, admin, { ...annonce, bodyFr });
     await publierNouveaute(deps, admin, id);
-    return (await nouveaute(deps, collaborateur, id))?.html ?? "";
+    return (await lireNouveaute(deps, collaborateur, id))?.html ?? "";
   }
 
   test("le Markdown est rendu : titres décalés sous le titre de la page, listes, gras, italique, code, citations", async () => {
@@ -238,9 +238,9 @@ describe("nouveautés en anglais (ticket #133)", () => {
     const id = await creerNouveaute(deps, admin, { ...annonce, titleEn: "Three embedding models at level N3", summaryEn: null, bodyEn: "" });
     await publierNouveaute(deps, admin, id);
     expect(await nouveautesNonLues(deps, collaborateur, "en")).toEqual([expect.objectContaining({ title: "Three embedding models at level N3", summary: annonce.summaryFr })]);
-    expect(await nouveaute(deps, collaborateur, id, "en")).toMatchObject({ title: "Three embedding models at level N3", html: expect.stringContaining("Les trois modèles") });
+    expect(await lireNouveaute(deps, collaborateur, id, "en")).toMatchObject({ title: "Three embedding models at level N3", html: expect.stringContaining("Les trois modèles") });
     expect((await archiveNouveautes(deps, collaborateur, 1, "en")).elements[0].title).toBe("Three embedding models at level N3");
-    expect((await nouveaute(deps, collaborateur, id, "fr"))?.title).toBe(annonce.titleFr);
+    expect((await lireNouveaute(deps, collaborateur, id, "fr"))?.title).toBe(annonce.titleFr);
   });
 
   test("le titre et le résumé affichés en français prennent la typographie française, pas ceux affichés en anglais", async () => {
@@ -253,8 +253,8 @@ describe("nouveautés en anglais (ticket #133)", () => {
   test("la typographie française ne s'applique qu'à un texte français", async () => {
     const id = await creerNouveaute(deps, admin, { ...annonce, bodyFr: "Attention : coupure.", bodyEn: "Note: outage." });
     await publierNouveaute(deps, admin, id);
-    expect((await nouveaute(deps, collaborateur, id, "en"))?.html).toBe("<p>Note: outage.</p>\n");
-    expect((await nouveaute(deps, collaborateur, id, "fr"))?.html).toBe("<p>Attention\u00a0: coupure.</p>\n");
+    expect((await lireNouveaute(deps, collaborateur, id, "en"))?.html).toBe("<p>Note: outage.</p>\n");
+    expect((await lireNouveaute(deps, collaborateur, id, "fr"))?.html).toBe("<p>Attention\u00a0: coupure.</p>\n");
   });
 
   test("les champs anglais ont les mêmes longueurs maximales que les champs français", async () => {
@@ -266,8 +266,8 @@ describe("nouveautés en anglais (ticket #133)", () => {
 describe("gestion complète des nouveautés (ticket #134)", () => {
   test("un admin prévisualise un brouillon, marqué comme tel, sans « J'ai lu » ; un collaborateur ne le voit pas", async () => {
     const id = await creerNouveaute(deps, admin, annonce);
-    expect(await nouveaute(deps, admin, id)).toMatchObject({ id, title: annonce.titleFr, publishedAt: null, etat: { statut: "brouillon" } });
-    expect(await nouveaute(deps, collaborateur, id)).toBeNull();
+    expect(await lireNouveaute(deps, admin, id)).toMatchObject({ id, title: annonce.titleFr, publishedAt: null, etat: { statut: "brouillon" } });
+    expect(await lireNouveaute(deps, collaborateur, id)).toBeNull();
   });
 
   test("corriger une nouveauté publiée garde sa date de publication et ses accusés de lecture : elle ne redevient pas non lue", async () => {
@@ -278,7 +278,7 @@ describe("gestion complète des nouveautés (ticket #134)", () => {
     maintenant = new Date("2026-10-06T09:00:00Z");
     await modifierNouveaute(deps, admin, id, { ...annonce, titleFr: "Trois modèles d'embeddings au niveau N3 (corrigé)", titleEn: "Three embedding models" });
     expect(await nouveautesNonLues(deps, collaborateur)).toEqual([]);
-    expect(await nouveaute(deps, collaborateur, id)).toMatchObject({
+    expect(await lireNouveaute(deps, collaborateur, id)).toMatchObject({
       title: "Trois modèles d'embeddings au niveau N3 (corrigé)",
       publishedAt: new Date("2026-10-05T09:00:00Z"),
       etat: { statut: "lue", le: new Date("2026-10-05T11:00:00Z") },
@@ -291,7 +291,7 @@ describe("gestion complète des nouveautés (ticket #134)", () => {
     await publierNouveaute(deps, admin, id);
     await marquerLue(deps, collaborateur, id);
     await supprimerNouveaute(deps, admin, id);
-    expect(await nouveaute(deps, collaborateur, id)).toBeNull();
+    expect(await lireNouveaute(deps, collaborateur, id)).toBeNull();
     expect((await archiveNouveautes(deps, collaborateur)).total).toBe(0);
     expect(await nouveautesPourAdmin(deps, admin)).toEqual([]);
     await expect(supprimerNouveaute(deps, admin, id)).rejects.toMatchObject({ code: "introuvable" });

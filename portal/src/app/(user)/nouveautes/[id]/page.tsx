@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import type { Langue } from "@/lib/langue";
-import { nouveaute } from "@/lib/services/nouveautes";
+import { lireNouveaute } from "@/lib/services/nouveautes";
 import { getDeps, requireUser } from "@/lib/session";
 import { marquerLueAction } from "../../../actions";
 import { CategorieNouveaute } from "../../../categorie-nouveaute";
@@ -23,7 +23,7 @@ export default async function NouveautePage(props: PageProps<"/nouveautes/[id]">
     formats(),
     getLocale() as Promise<Langue>,
   ]);
-  const n = await nouveaute(getDeps(), user, id, langue);
+  const n = await lireNouveaute(getDeps(), user, id, langue);
   if (!n) notFound();
 
   return (

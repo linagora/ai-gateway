@@ -51,7 +51,8 @@ export default async function GestionNouveautesPage(props: PageProps<"/gestion/n
                   </td>
                   <td>{n.title}</td>
                   <td>{n.publishedAt ? t("publieeLe", { date: jour(n.publishedAt) }) : t("brouillon")}</td>
-                  <td>{n.publishedAt ? nombre(n.lectures) : "—"}</td>
+                  {/* Un brouillon n'a pas encore de lecteurs : cellule vide. */}
+                  <td>{n.publishedAt && nombre(n.lectures)}</td>
                   <td>
                     <div className="flex flex-wrap items-start gap-x-4 gap-y-1">
                       <Link href={`/gestion/nouveautes/${n.id}`} aria-label={t("corrigerLaNouveaute", { titre: n.title })}>
