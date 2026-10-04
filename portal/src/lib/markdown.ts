@@ -1,14 +1,24 @@
 import { Marked } from "marked";
 import { espacesInsecables } from "./typographie";
 
-/** Texte ou attribut HTML : les caractères qui le feraient interpréter comme du HTML sont échappés. */
+/** Attribut HTML, ou HTML brut à afficher comme du texte : tous les caractères qui le feraient interpréter sont échappés. */
 function echapper(texte: string): string {
   return texte.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 }
 
-/** Lien actif : vers le Web (http, https) ou vers une page du portail (adresse relative, mais pas « //hôte »). */
+/** Texte : comme `echapper`, mais une entité saisie (« &amp; », « &nbsp; ») reste une entité, comme dans marked. */
+function echapperTexte(texte: string): string {
+  return texte.replace(/&(?!#?\w+;)/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+/**
+ * Lien actif : vers le Web (http, https) ou vers une page du portail (adresse relative, mais pas « //hôte »). Un blanc
+ * ou une barre oblique inversée, que les navigateurs suppriment ou lisent comme « / », ferait d'une adresse relative
+ * une adresse vers un autre hôte (« /\hôte », « /<tabulation>/hôte ») : une telle adresse n'est jamais active.
+ */
 function lienActif(href: string): boolean {
-  return /^https?:\/\//i.test(href) || (href.startsWith("/") && !href.startsWith("//"));
+  if (/[\s\\]/.test(href)) return false;
+  return /^https?:\/\/./i.test(href) || /^\/(?!\/)/.test(href);
 }
 
 /**
@@ -26,6 +36,11 @@ function rendu(francais: boolean): Marked {
     renderer: {
       html: ({ text }) => echapper(text),
       image: ({ text }) => echapper(text),
+      // Après <kbd>, <code>, <pre> ou <script>, marked croit déjà échappé le texte qui suit (« escaped ») et le recopierait
+      // tel quel : une balise non fermée (« <img onerror=… ») deviendrait du HTML actif. Le texte est donc toujours échappé.
+      text(token) {
+        return "tokens" in token && token.tokens ? this.parser.parseInline(token.tokens) : echapperTexte(token.text);
+      },
       heading({ tokens, depth }) {
         const niveau = Math.min(depth + 1, 6);
         return `<h${niveau}>${this.parser.parseInline(tokens)}</h${niveau}>\n`;
