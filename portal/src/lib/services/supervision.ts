@@ -83,12 +83,24 @@ export interface RapportSupervision {
   retablissements: string[];
 }
 
+/** Passage en cours, sur globalThis comme la minuterie : commun à la minuterie, à « Sonder maintenant » et à la route interne. */
+const memoire = globalThis as typeof globalThis & { passageSupervision?: Promise<RapportSupervision> };
+
 /**
  * Un passage de la supervision : sonde de chaque modèle visible du catalogue, en parallèle, mise à jour de son état, puis
  * un seul courriel aux admins pour les pannes nouvelles et un pour les rétablissements (une panne d'OpenRouter touche
- * d'un coup tous ses modèles). Un modèle masqué ou retiré du catalogue n'est plus suivi.
+ * d'un coup tous ses modèles). Un modèle masqué ou retiré du catalogue n'est plus suivi. Un passage déjà en cours n'est
+ * pas doublé, son compte rendu sert aussi au second appelant : deux passages simultanés liraient les mêmes états et
+ * enverraient deux fois le même courriel.
  */
-export async function superviserModeles(deps: SupervisionDeps): Promise<RapportSupervision> {
+export function superviserModeles(deps: SupervisionDeps): Promise<RapportSupervision> {
+  memoire.passageSupervision ??= passage(deps).finally(() => {
+    memoire.passageSupervision = undefined;
+  });
+  return memoire.passageSupervision;
+}
+
+async function passage(deps: SupervisionDeps): Promise<RapportSupervision> {
   const now = (deps.now ?? (() => new Date()))();
   const fiches = await deps.db.catalogEntry.findMany({ where: { visible: true }, orderBy: { modelName: "asc" } });
   const precedents = new Map((await deps.db.modelHealth.findMany()).map(({ modelName, ...etat }) => [modelName, etat]));

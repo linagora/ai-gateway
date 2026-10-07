@@ -14,8 +14,8 @@ const memoire = globalThis as typeof globalThis & { minuterieSupervision?: Retur
  * Supervision des modèles planifiée dans le portail (ticket #142), démarrée une fois au lancement du serveur (src/instrumentation.ts) :
  * un passage toutes les SUPERVISION_INTERVAL_MINUTES minutes, sans cron. Le portail tourne en une seule instance ; deux
  * instances sonderaient chacune les modèles, sans double alerte au-delà d'une course entre deux passages simultanés.
- * Un passage encore en cours (sondes jusqu'à 30 s) n'est pas doublé. Seuls les modèles en échec et les passages en échec sont
- * journalisés.
+ * Un passage encore en cours (sondes jusqu'à 30 s), lancé par la minuterie, le bouton ou la route interne, n'est pas
+ * doublé (superviserModeles). Seuls les modèles en échec et les passages en échec sont journalisés.
  */
 export function demarrerSupervision(): void {
   const intervalle = lireIntervalle(process.env.SUPERVISION_INTERVAL_MINUTES);
@@ -25,10 +25,7 @@ export function demarrerSupervision(): void {
   }
   if (memoire.minuterieSupervision) return;
 
-  let enCours = false;
   const passage = async () => {
-    if (enCours) return;
-    enCours = true;
     try {
       // Dépendances construites ici, et non par getDeps() (src/lib/session.ts), qui charge Auth.js et le contexte des requêtes.
       const rapport = await superviserModeles({
@@ -47,8 +44,6 @@ export function demarrerSupervision(): void {
       }
     } catch (e) {
       console.error(`Supervision des modèles : passage en échec (${e instanceof Error ? e.message : "erreur inconnue"})`);
-    } finally {
-      enCours = false;
     }
   };
   memoire.minuterieSupervision = setInterval(passage, intervalle * 60_000);

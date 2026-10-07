@@ -147,6 +147,17 @@ describe("supervision des modèles", () => {
     expect(await testDb.modelHealth.findMany({ where: { healthy: false } })).toEqual([]);
   });
 
+  test("deux passages lancés en même temps (minuterie et « Sonder maintenant ») n'en font qu'un : une sonde par modèle, un seul courriel", async () => {
+    litellm.modelesEnPanne.set("qwen3.8", "Provider returned error");
+    await superviserModeles(deps());
+    maintenant = new Date(maintenant.getTime() + 5 * 60_000);
+    const avant = litellm.sondes.length;
+    const [planifie, immediat] = await Promise.all([superviserModeles(deps()), sonderMaintenant(deps(), admin)]);
+    expect(litellm.sondes.length - avant).toBe(3);
+    expect(immediat).toEqual(planifie);
+    expect(mailer.outbox).toHaveLength(1);
+  });
+
   test("un modèle masqué au catalogue n'est plus suivi", async () => {
     await superviserModeles(deps());
     await testDb.catalogEntry.update({ where: { modelName: "qwen3.8" }, data: { visible: false } });
