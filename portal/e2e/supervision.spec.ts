@@ -20,7 +20,7 @@ test("un admin sonde les modèles visibles depuis l'onglet « Supervision » ; u
 
   await page.getByRole("button", { name: "Sonder maintenant" }).click();
   // Une sonde attend jusqu'à 30 s un modèle qui ne répond pas.
-  await expect(page.getByText("Sonde terminée.")).toBeVisible({ timeout: 45_000 });
+  await expect(page.getByRole("status").filter({ hasText: "Sonde terminée." })).toBeVisible({ timeout: 45_000 });
   await expect(page.getByRole("row", { name: /Modèle public.*dev-public.*Répond/ })).toBeVisible();
   await expect(page.getByRole("row", { name: /Modèle d'images.*dev-image.*Non sondé/ })).toBeVisible();
 });
