@@ -100,7 +100,7 @@ export async function superviserModeles(deps: SupervisionDeps): Promise<RapportS
 
   await Promise.all(
     fiches.map(async (fiche) => {
-      const sonde = await sonder(deps.litellm, passerelle, fiche.modelName);
+      const sonde = await sonder(deps.litellm, passerelle, fiche.modelName, precedents.has(fiche.modelName));
       if (sonde === null) {
         rapport.nonSupervises.push(fiche.modelName);
         return;
@@ -139,9 +139,17 @@ async function modelesDeLaPasserelle(litellm: LiteLLMClient): Promise<Map<string
   }
 }
 
-/** Sonde d'un modèle visible ; null pour un modèle d'images, qui n'est pas sondé. */
-async function sonder(litellm: LiteLLMClient, passerelle: Map<string, LiteLLMModel> | { injoignable: string | null }, modelName: string): Promise<ProbeResult | null> {
-  if (!(passerelle instanceof Map)) return { status: null, latencyMs: 0, error: passerelle.injoignable, errorCode: "passerelle_injoignable" };
+/**
+ * Sonde d'un modèle visible ; null pour un modèle qui n'est pas sondé : un modèle d'images, ou, LiteLLM injoignable, un
+ * modèle jamais sondé, dont le type n'est alors pas connu (un modèle d'images mis en panne ne serait jamais rétabli).
+ */
+async function sonder(
+  litellm: LiteLLMClient,
+  passerelle: Map<string, LiteLLMModel> | { injoignable: string | null },
+  modelName: string,
+  dejaSonde: boolean,
+): Promise<ProbeResult | null> {
+  if (!(passerelle instanceof Map)) return dejaSonde ? { status: null, latencyMs: 0, error: passerelle.injoignable, errorCode: "passerelle_injoignable" } : null;
   const modele = passerelle.get(modelName);
   // Visible au catalogue mais absent de LiteLLM : les collaborateurs le voient sans pouvoir l'appeler.
   if (!modele) return { status: null, latencyMs: 0, error: null, errorCode: "absent_de_la_passerelle" };

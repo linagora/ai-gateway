@@ -126,7 +126,25 @@ describe("supervision des modèles", () => {
     // Premier échec des modèles qui répondaient : dégradés ; JEV, déjà en panne, le reste.
     const injoignable = await superviserModeles(deps());
     expect(injoignable.enPanne.map((m) => m.modelName)).toEqual(["jev-latest"]);
-    expect(injoignable.degrades.map((m) => m.modelName)).toEqual(["bge-m3", "flux-2-pro", "qwen3.8"]);
+    expect(injoignable.degrades.map((m) => m.modelName)).toEqual(["bge-m3", "qwen3.8"]);
+  });
+
+  test("LiteLLM injoignable : seuls les modèles déjà sondés sont en échec ; un modèle d'images n'est ni mis en panne, ni oublié au rétablissement", async () => {
+    await superviserModeles(deps());
+    const listModels = litellm.listModels.bind(litellm);
+    litellm.listModels = async () => {
+      throw new Error("LiteLLM injoignable");
+    };
+    await passageSuivant();
+    const panne = await passageSuivant();
+    expect(panne.enPanne.map((m) => m.modelName)).toEqual(["bge-m3", "jev-latest", "qwen3.8"]);
+    expect(panne.enPanne[0]).toMatchObject({ error: "LiteLLM injoignable", errorCode: "passerelle_injoignable" });
+    expect(mailer.outbox[0].text).not.toContain("flux-2-pro");
+    expect(await testDb.modelHealth.findUnique({ where: { modelName: "flux-2-pro" } })).toBeNull();
+
+    litellm.listModels = listModels;
+    expect((await passageSuivant()).retablissements).toEqual(["bge-m3", "jev-latest", "qwen3.8"]);
+    expect(await testDb.modelHealth.findMany({ where: { healthy: false } })).toEqual([]);
   });
 
   test("un modèle masqué au catalogue n'est plus suivi", async () => {
