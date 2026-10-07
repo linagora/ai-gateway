@@ -65,6 +65,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
                     },
                     // Les formulaires de demande (clé, abonnement, adhésion à une équipe) relèvent tous de cet onglet.
                     { href: "/demandes/nouvelle", contenu: t("nouvelleDemande"), sections: ["/demandes/nouvelle", "/demandes/abonnement", "/demandes/adhesion"] },
+                    { href: "/etat", contenu: t("etat") },
                     { href: "/documentation/api", contenu: t("api"), sections: ["/documentation"] },
                   ]}
                 />

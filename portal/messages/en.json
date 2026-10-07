@@ -10,6 +10,7 @@
     "catalogue": "Catalog",
     "mesDemandes": "My requests",
     "nouvelleDemande": "New request",
+    "etat": "Service status",
     "api": "API",
     "gestion": "Administration",
     "deconnexion": "Sign out",
@@ -497,6 +498,31 @@
     "plusRecentes": "Newer news",
     "plusAnciennes": "Older news",
     "apercuBrouillon": "Draft: preview for admins only"
+  },
+  "etatServices": {
+    "titre": "Service status",
+    "intro": "Availability of the catalog models, checked regularly by the gateway. When an incident occurs, the gateway team is notified: there is no need to report it.",
+    "aucun": "No model is in the catalog yet.",
+    "toutFonctionne": "All models are working.",
+    "resume": {
+      "incidents": "{nombre, plural, one {# model with an incident} other {# models with an incident}}",
+      "perturbes": "{nombre, plural, one {# model degraded} other {# models degraded}}",
+      "operationnels": "{nombre, plural, one {# operational} other {# operational}}"
+    },
+    "modele": "Model",
+    "niveau": "Maximum level",
+    "etat": "Status",
+    "statuts": {
+      "operationnel": "Operational",
+      "perturbe": "Degraded",
+      "incident": "Incident",
+      "non_verifie": "Not checked yet",
+      "non_surveille": "Not monitored"
+    },
+    "depuis": {
+      "perturbe": "Since {date, date, short} at {date, time, short}, being checked.",
+      "incident": "Since {date, date, short} at {date, time, short}; the team has been notified."
+    }
   },
   "mesDemandes": {
     "titre": "My requests",

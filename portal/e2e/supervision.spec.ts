@@ -31,3 +31,18 @@ test("l'onglet « Supervision » n'existe pas pour un collaborateur", async ({ b
   const reponse = await page.goto("/gestion/supervision");
   expect(reponse?.status()).toBe(404);
 });
+
+test("un collaborateur suit l'état des modèles dans l'onglet « État des services », placé avant « API »", async ({ browser }) => {
+  const collaborateur = { uid: `etat-${suffixe}`, email: `etat-${suffixe}@example.org`, name: `Personne état ${suffixe}` };
+  const page = await (await connecter(browser, collaborateur)).newPage();
+  await page.goto("/");
+  const onglets = page.getByRole("navigation", { name: "Navigation principale" }).getByRole("link");
+  const noms = await onglets.allTextContents();
+  expect(noms.indexOf("État des services")).toBe(noms.indexOf("API") - 1);
+
+  await onglets.filter({ hasText: "État des services" }).click();
+  await expect(page.getByRole("heading", { name: "État des services" })).toBeVisible();
+  await expect(page.getByRole("row", { name: /Modèle d'images.*dev-image.*Non surveillé/ })).toBeVisible();
+  // Aucun détail technique pour les collaborateurs.
+  await expect(page.getByText(/HTTP \d{3}/)).toHaveCount(0);
+});

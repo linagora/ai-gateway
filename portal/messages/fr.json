@@ -10,6 +10,7 @@
     "catalogue": "Catalogue",
     "mesDemandes": "Mes demandes",
     "nouvelleDemande": "Nouvelle demande",
+    "etat": "État des services",
     "api": "API",
     "gestion": "Gestion",
     "deconnexion": "Se déconnecter",
@@ -497,6 +498,31 @@
     "plusRecentes": "Nouveautés plus récentes",
     "plusAnciennes": "Nouveautés plus anciennes",
     "apercuBrouillon": "Brouillon : aperçu réservé aux admins"
+  },
+  "etatServices": {
+    "titre": "État des services",
+    "intro": "Disponibilité des modèles du catalogue, vérifiée régulièrement par la passerelle. En cas d'incident, l'équipe de la passerelle est prévenue : inutile de la signaler.",
+    "aucun": "Aucun modèle n'est encore au catalogue.",
+    "toutFonctionne": "Tous les modèles fonctionnent.",
+    "resume": {
+      "incidents": "{nombre, plural, one {# modèle en incident} other {# modèles en incident}}",
+      "perturbes": "{nombre, plural, one {# modèle perturbé} other {# modèles perturbés}}",
+      "operationnels": "{nombre, plural, one {# opérationnel} other {# opérationnels}}"
+    },
+    "modele": "Modèle",
+    "niveau": "Niveau maximal",
+    "etat": "État",
+    "statuts": {
+      "operationnel": "Opérationnel",
+      "perturbe": "Perturbé",
+      "incident": "Incident",
+      "non_verifie": "Pas encore vérifié",
+      "non_surveille": "Non surveillé"
+    },
+    "depuis": {
+      "perturbe": "Depuis le {date, date, short} à {date, time, short}, en cours de vérification.",
+      "incident": "Depuis le {date, date, short} à {date, time, short} ; l'équipe est prévenue."
+    }
   },
   "mesDemandes": {
     "titre": "Mes demandes",

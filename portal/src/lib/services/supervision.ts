@@ -3,6 +3,7 @@ import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
 import type { ApiKind, LiteLLMClient, LiteLLMModel, ProbeResult } from "@/lib/litellm/client";
 import type { Langue } from "@/lib/langue";
+import type { DataLevel } from "@/lib/policy";
 import { requireAdmin } from "@/lib/rbac";
 import { type NotificationDeps, notifyModelsDown, notifyModelsRestored } from "./notifications";
 
@@ -157,6 +158,7 @@ export function statutDeLEtat(etat: Pick<EtatModele, "healthy" | "failures">): "
 export interface EtatModeleVue {
   modelName: string;
   displayName: string;
+  dataLevel: DataLevel;
   apiKind: ApiKind | null;
   statut: StatutModele;
   /** Depuis quand le modèle répond, ou ne répond plus ; null sans sonde. */
@@ -175,6 +177,11 @@ export interface EtatModeleVue {
  */
 export async function etatDesModeles(deps: { db: Db; litellm: LiteLLMClient }, user: SessionUser, langue: Langue): Promise<EtatModeleVue[]> {
   requireAdmin(user);
+  return lireEtats(deps, langue);
+}
+
+/** Dernier état connu de chaque modèle visible du catalogue, les modèles en panne d'abord. */
+async function lireEtats(deps: { db: Db; litellm: LiteLLMClient }, langue: Langue): Promise<EtatModeleVue[]> {
   const [fiches, etats, passerelle] = await Promise.all([
     deps.db.catalogEntry.findMany({ where: { visible: true } }),
     deps.db.modelHealth.findMany(),
@@ -191,6 +198,7 @@ export async function etatDesModeles(deps: { db: Db; litellm: LiteLLMClient }, u
       return {
         modelName: fiche.modelName,
         displayName,
+        dataLevel: fiche.dataLevel,
         apiKind,
         statut,
         since: etat?.since ?? null,
@@ -202,6 +210,49 @@ export async function etatDesModeles(deps: { db: Db; litellm: LiteLLMClient }, u
       };
     })
     .sort((a, b) => ORDRE.indexOf(a.statut) - ORDRE.indexOf(b.statut) || a.displayName.localeCompare(b.displayName, langue));
+}
+
+/**
+ * État d'un modèle tel que le voient les collaborateurs : perturbé dès un échec, en incident quand les admins sont
+ * prévenus ; non vérifié avant la première sonde, non surveillé pour un modèle d'images.
+ */
+export type StatutService = "operationnel" | "perturbe" | "incident" | "non_verifie" | "non_surveille";
+
+const STATUT_SERVICE: Record<StatutModele, StatutService> = {
+  ok: "operationnel",
+  degrade: "perturbe",
+  en_panne: "incident",
+  en_attente: "non_verifie",
+  non_supervise: "non_surveille",
+};
+
+/** Modèle du tableau « État des services » : ni erreur, ni code HTTP, ni fournisseur, qui exposeraient le routage interne. */
+export interface EtatServiceVue {
+  modelName: string;
+  displayName: string;
+  dataLevel: DataLevel;
+  statut: StatutService;
+  /** Début de la perturbation ou de l'incident ; null pour les autres états. */
+  since: Date | null;
+  checkedAt: Date | null;
+}
+
+/**
+ * Onglet « État des services » (ticket #142), ouvert à tout collaborateur connecté : l'état actuel de chaque modèle visible
+ * du catalogue, les incidents d'abord, puis les perturbations, dans la langue du collaborateur.
+ */
+export async function etatDesServices(deps: { db: Db; litellm: LiteLLMClient }, langue: Langue): Promise<EtatServiceVue[]> {
+  return (await lireEtats(deps, langue)).map((m) => {
+    const statut = STATUT_SERVICE[m.statut];
+    return {
+      modelName: m.modelName,
+      displayName: m.displayName,
+      dataLevel: m.dataLevel,
+      statut,
+      since: statut === "perturbe" || statut === "incident" ? m.since : null,
+      checkedAt: m.checkedAt,
+    };
+  });
 }
 
 /** Bouton « Sonder maintenant » de l'onglet « Supervision » : un passage immédiat, réservé aux admins. */

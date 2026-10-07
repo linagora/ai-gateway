@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
 import { FakeMailer } from "@/test/fake-mailer";
-import { ABSENT_DE_LA_PASSERELLE, etatDesModeles, superviserModeles, sonderMaintenant } from "./supervision";
+import { ABSENT_DE_LA_PASSERELLE, etatDesModeles, etatDesServices, superviserModeles, sonderMaintenant } from "./supervision";
 
 beforeEach(resetDb);
 
@@ -146,5 +146,19 @@ describe("supervision des modèles", () => {
 
     await expect(etatDesModeles(deps(), collaborateur, "fr")).rejects.toThrow("réservée aux administrateurs");
     await expect(sonderMaintenant(deps(), collaborateur)).rejects.toThrow("réservée aux administrateurs");
+  });
+
+  test("l'onglet « État des services » montre aux collaborateurs incidents et perturbations, sans détail technique", async () => {
+    litellm.modelesEnPanne.set("jev-latest", "Provider returned error");
+    await superviserModeles(deps());
+    litellm.modelesEnPanne.set("bge-m3", "aucune réponse en 30 s");
+    await passageSuivant();
+    const services = await etatDesServices(deps(), "fr");
+    expect(services).toEqual([
+      { modelName: "jev-latest", displayName: "JEV", dataLevel: "N1", statut: "incident", since: new Date("2026-10-07T10:00:00Z"), checkedAt: new Date("2026-10-07T10:05:00Z") },
+      { modelName: "bge-m3", displayName: "BGE-M3", dataLevel: "N1", statut: "perturbe", since: new Date("2026-10-07T10:05:00Z"), checkedAt: new Date("2026-10-07T10:05:00Z") },
+      { modelName: "qwen3.8", displayName: "Qwen 3.8 27B", dataLevel: "N1", statut: "operationnel", since: null, checkedAt: new Date("2026-10-07T10:05:00Z") },
+      { modelName: "flux-2-pro", displayName: "FLUX.2 [pro]", dataLevel: "N1", statut: "non_surveille", since: null, checkedAt: null },
+    ]);
   });
 });
