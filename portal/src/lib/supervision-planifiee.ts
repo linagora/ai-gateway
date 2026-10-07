@@ -18,9 +18,12 @@ const memoire = globalThis as typeof globalThis & { minuterieSupervision?: Retur
  * doublé (superviserModeles). Seuls les modèles en échec et les passages en échec sont journalisés.
  */
 export function demarrerSupervision(): void {
-  const intervalle = lireIntervalle(process.env.SUPERVISION_INTERVAL_MINUTES);
+  const valeur = process.env.SUPERVISION_INTERVAL_MINUTES?.trim();
+  const intervalle = lireIntervalle(valeur);
   if (intervalle === null) {
-    console.log("Supervision des modèles : sonde automatique désactivée (SUPERVISION_INTERVAL_MINUTES absent ou hors bornes)");
+    // Une valeur mal saisie (« 15m », « 1441 ») désactive aussi la sonde : un avertissement, et non le message ordinaire.
+    if (valeur && valeur !== "0") console.warn(`Supervision des modèles : SUPERVISION_INTERVAL_MINUTES invalide (« ${valeur} », attendu : minutes entières de 1 à 1440) : sonde automatique désactivée`);
+    else console.log("Supervision des modèles : sonde automatique désactivée (SUPERVISION_INTERVAL_MINUTES absent ou à 0)");
     return;
   }
   if (memoire.minuterieSupervision) return;
