@@ -158,6 +158,19 @@ describe("supervision des modèles", () => {
     expect(mailer.outbox).toHaveLength(1);
   });
 
+  test("une alerte de panne dont le courriel n'est pas parti est relancée au passage suivant", async () => {
+    litellm.modelesEnPanne.set("qwen3.8", "Provider returned error");
+    await superviserModeles(deps());
+    mailer.panne = true;
+    const sansCourriel = await passageSuivant();
+    expect(sansCourriel).toMatchObject({ enPanne: [{ modelName: "qwen3.8" }], alertesPanne: [] });
+    expect(await testDb.modelHealth.findUnique({ where: { modelName: "qwen3.8" } })).toMatchObject({ failures: 2, alertedAt: null });
+
+    mailer.panne = false;
+    expect((await passageSuivant()).alertesPanne).toEqual(["qwen3.8"]);
+    expect(mailer.outbox).toHaveLength(1);
+  });
+
   test("un modèle masqué au catalogue n'est plus suivi", async () => {
     await superviserModeles(deps());
     await testDb.catalogEntry.update({ where: { modelName: "qwen3.8" }, data: { visible: false } });

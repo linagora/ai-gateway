@@ -74,7 +74,7 @@ export interface ModeleEnEchec {
 /** Compte rendu d'un passage de la supervision. */
 export interface RapportSupervision {
   sondes: number;
-  /** Modèles en panne : au moins SEUIL_ALERTE échecs consécutifs, admins prévenus. */
+  /** Modèles en panne : au moins SEUIL_ALERTE échecs consécutifs ; admins prévenus, sauf courriel non parti (alerte relancée). */
   enPanne: ModeleEnEchec[];
   /** Modèles dégradés : en échec depuis moins de SEUIL_ALERTE sondes, sans alerte encore. */
   degrades: ModeleEnEchec[];
@@ -135,9 +135,14 @@ async function passage(deps: SupervisionDeps): Promise<RapportSupervision> {
   rapport.enPanne.sort(parNom);
   rapport.degrades.sort(parNom);
   rapport.nonSupervises.sort();
-  if (pannes.length > 0) await notifyModelsDown(deps, pannes.sort(parNom), deps.intervalleMinutes ?? null);
+  let alertes = pannes.sort(parNom);
+  if (alertes.length > 0 && !(await notifyModelsDown(deps, alertes, deps.intervalleMinutes ?? null))) {
+    // Courriel non parti : l'alerte n'est pas comptée comme envoyée, elle repartira au passage suivant.
+    await deps.db.modelHealth.updateMany({ where: { modelName: { in: alertes.map((p) => p.modelName) } }, data: { alertedAt: null } });
+    alertes = [];
+  }
   if (retablis.length > 0) await notifyModelsRestored(deps, retablis.sort(parNom));
-  rapport.alertesPanne = pannes.map((p) => p.modelName);
+  rapport.alertesPanne = alertes.map((p) => p.modelName);
   rapport.retablissements = retablis.map((r) => r.modelName);
   return rapport;
 }

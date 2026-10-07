@@ -51,13 +51,18 @@ function bilingue(contenu: (t: Traducteur, langue: Langue) => Contenu, lien: str
   };
 }
 
-/** Envoie sans jamais faire échouer l'action : un échec est journalisé, sans secret. */
-async function envoyer(deps: NotificationDeps, to: string[], message: Omit<Message, "to">): Promise<void> {
-  if (!deps.mailer || to.length === 0) return;
+/**
+ * Envoie sans jamais faire échouer l'action : un échec est journalisé, sans secret. Rend faux si l'envoi a échoué, vrai
+ * sinon (y compris sans expéditeur ni destinataire : rien n'était à envoyer).
+ */
+async function envoyer(deps: NotificationDeps, to: string[], message: Omit<Message, "to">): Promise<boolean> {
+  if (!deps.mailer || to.length === 0) return true;
   try {
     await deps.mailer.send({ ...message, to });
+    return true;
   } catch (e) {
     console.error(`Courriel non envoyé (« ${message.subject} ») : ${e instanceof Error ? e.message : "erreur inconnue"}`);
+    return false;
   }
 }
 
@@ -639,13 +644,13 @@ export async function notifyTeamBudgetAlert(
 
 /**
  * Supervision : un seul courriel aux admins pour les modèles qui ne répondent plus à la sonde, avec l'erreur de chacun et
- * l'intervalle des sondes. Les collaborateurs n'en sont pas prévenus.
+ * l'intervalle des sondes. Les collaborateurs n'en sont pas prévenus. Rend faux si le courriel n'est pas parti.
  */
 export async function notifyModelsDown(
   deps: NotificationDeps,
   modeles: { modelName: string; displayName: string; error: string | null; errorCode: string | null }[],
   intervalleMinutes: number | null,
-): Promise<void> {
+): Promise<boolean> {
   const message = bilingue((t) => {
     const valeurs = { nombre: modeles.length, modele: modeles[0].displayName, intervalle: intervalleMinutes ?? 0 };
     const liste = modeles.map((m) => {
@@ -657,7 +662,7 @@ export async function notifyModelsDown(
       paragraphes: [t("courriels.bonjourAdmins"), avecRecap(t("courriels.modelesEnPanne.corps", valeurs), liste), t("courriels.modelesEnPanne.suite")],
     };
   }, lienVers(deps, "/gestion/supervision"));
-  await envoyer(deps, deps.adminEmails ?? [], message);
+  return envoyer(deps, deps.adminEmails ?? [], message);
 }
 
 /** Supervision : les modèles annoncés en panne qui répondent de nouveau, avec le début de leur panne. */
