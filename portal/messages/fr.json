@@ -10,6 +10,7 @@
     "catalogue": "Catalogue",
     "mesDemandes": "Mes demandes",
     "nouvelleDemande": "Nouvelle demande",
+    "etat": "État des services",
     "api": "API",
     "gestion": "Gestion",
     "deconnexion": "Se déconnecter",
@@ -153,7 +154,8 @@
       "nouveautePubliee": "Nouveauté publiée.",
       "lectureEnregistree": "Lecture enregistrée.",
       "nouveauteModifiee": "Nouveauté corrigée.",
-      "nouveauteSupprimee": "Nouveauté supprimée."
+      "nouveauteSupprimee": "Nouveauté supprimée.",
+      "sondeFaite": "Sonde terminée."
     },
     "erreurs": {
       "controles_en_echec": "La demande ne respecte pas la politique d'accès aux modèles. Contrôles en échec : {controles}.",
@@ -497,6 +499,31 @@
     "plusAnciennes": "Nouveautés plus anciennes",
     "apercuBrouillon": "Brouillon : aperçu réservé aux admins"
   },
+  "etatServices": {
+    "titre": "État des services",
+    "intro": "Disponibilité des modèles du catalogue, vérifiée régulièrement par la passerelle. En cas d'incident, les admins de la passerelle sont prévenus : inutile de le signaler.",
+    "aucun": "Aucun modèle n'est encore au catalogue.",
+    "toutFonctionne": "Tous les modèles fonctionnent.",
+    "resume": {
+      "incidents": "{nombre, plural, one {# modèle en incident} other {# modèles en incident}}",
+      "perturbes": "{nombre, plural, one {# modèle perturbé} other {# modèles perturbés}}",
+      "operationnels": "{nombre, plural, one {# opérationnel} other {# opérationnels}}"
+    },
+    "modele": "Modèle",
+    "niveau": "Niveau maximal",
+    "etat": "État",
+    "statuts": {
+      "operationnel": "Opérationnel",
+      "perturbe": "Perturbé",
+      "incident": "Incident",
+      "non_verifie": "Pas encore vérifié",
+      "non_surveille": "Non surveillé"
+    },
+    "depuis": {
+      "perturbe": "Depuis le {date, date, short} à {date, time, short}, en cours de vérification.",
+      "incident": "Depuis le {date, date, short} à {date, time, short} ; les admins sont prévenus."
+    }
+  },
   "mesDemandes": {
     "titre": "Mes demandes",
     "nouvelleCle": "Nouvelle demande de clé",
@@ -626,6 +653,7 @@
       "equipes": "Équipes",
       "aValider": "{nombre, plural, one {# demande à valider} other {# demandes à valider}}",
       "outils": "Outils",
+      "supervision": "Supervision",
       "collaborateurs": "Collaborateurs",
       "remboursements": "Remboursements",
       "integrations": "Intégrations"
@@ -966,6 +994,43 @@
       "declarer": "Déclarer une intégration",
       "aideDeclarer": "Elle est créée désactivée.",
       "boutonDeclarer": "Déclarer l'intégration"
+    },
+    "supervision": {
+      "titre": "Supervision des modèles",
+      "intro": "{intervalle, plural, =0 {La sonde automatique est désactivée (SUPERVISION_INTERVAL_MINUTES) : seul le bouton « Sonder maintenant » sonde les modèles visibles du catalogue, par la même route que les collaborateurs.} one {Chaque modèle visible du catalogue est sondé chaque minute, par la même route que les collaborateurs.} other {Chaque modèle visible du catalogue est sondé toutes les # minutes, par la même route que les collaborateurs.}}",
+      "alertes": "Au premier échec, le modèle est dégradé ; après {seuil} échecs consécutifs, il est en panne et les admins reçoivent un courriel, puis un autre au rétablissement. Un modèle ajouté ou rendu visible au catalogue est suivi dès le passage suivant.",
+      "sonder": "Sonder maintenant",
+      "aucun": "Aucun modèle n'est visible au catalogue.",
+      "resume": "{enPanne, plural, =0 {} one {# modèle en panne. } other {# modèles en panne. }}{degrades, plural, =0 {} one {# modèle dégradé (un échec, admins pas encore prévenus).} other {# modèles dégradés (un échec, admins pas encore prévenus).}}{enPanne, plural, =0 {{degrades, plural, =0 {Tous les modèles sondés répondent.} other {}}} other {}}",
+      "modele": "Modèle",
+      "etat": "État",
+      "depuis": "Depuis",
+      "derniereSonde": "Dernière sonde",
+      "duree": "Durée",
+      "dureeValeur": "{ms, number} ms",
+      "erreur": "Erreur",
+      "alerte": "Admins prévenus le {date, date, short} à {date, time, short}",
+      "date": "{date, date, short} à {date, time, short}",
+      "statuts": {
+        "ok": "Répond",
+        "degrade": "Dégradé",
+        "en_panne": "En panne",
+        "en_attente": "Pas encore sondé",
+        "non_supervise": "Non sondé"
+      },
+      "nonSupervise": "Modèle d'images : chaque sonde générerait une image payante.",
+      "typesApi": {
+        "conversation": "conversation",
+        "image": "images",
+        "embeddings": "embeddings",
+        "decision": "décision"
+      },
+      "erreurHttp": "HTTP {statut} : {erreur}",
+      "erreurs": {
+        "delai_depasse": "aucune réponse en {secondes} s",
+        "passerelle_injoignable": "passerelle injoignable",
+        "absent_de_la_passerelle": "modèle absent de la passerelle (non déclaré dans LiteLLM)"
+      }
     }
   },
   "introuvable": {
@@ -1377,6 +1442,17 @@
         "sujet": "Intégration désactivée : {nom}",
         "corps": "{auteur} a désactivé l'intégration {nom} ({id}) : ses appels à l'API du portail sont refusés."
       }
+    },
+    "modelesEnPanne": {
+      "sujet": "{nombre, plural, one {Modèle en panne : {modele}} other {# modèles en panne}}",
+      "corps": "{nombre, plural, one {Ce modèle mis à disposition des collaborateurs ne répond plus} other {Ces modèles mis à disposition des collaborateurs ne répondent plus}} à la sonde de la passerelle, après plusieurs essais{intervalle, plural, =0 {} one { à # minute d'intervalle} other { à # minutes d'intervalle}} :",
+      "modele": "- {nom} ({modele}) : {erreur}",
+      "suite": "Les collaborateurs n'en sont pas prévenus. Un courriel suivra au rétablissement."
+    },
+    "modelesRetablis": {
+      "sujet": "{nombre, plural, one {Modèle rétabli : {modele}} other {# modèles rétablis}}",
+      "corps": "{nombre, plural, one {Ce modèle répond} other {Ces modèles répondent}} de nouveau à la sonde de la passerelle :",
+      "modele": "- {nom} ({modele}), en panne depuis le {depuis, date, long} à {depuis, time, short}"
     }
   },
   "validation": {

@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { type GeneratedKey, type KeyInfo, type KeyParams, type LiteLLMClient, LiteLLMError, type LiteLLMModel, type LiteLLMTeam, type LiteLLMUser, type TeamChanges } from "@/lib/litellm/client";
+import { type GeneratedKey, type KeyInfo, type KeyParams, type LiteLLMClient, LiteLLMError, type LiteLLMModel, type LiteLLMTeam, type LiteLLMUser, type ProbedApiKind, type ProbeResult, type TeamChanges } from "@/lib/litellm/client";
 
 /** Clé connue du LiteLLM simulé ; `key` n'y est gardée que pour les vérifications des tests. */
 export interface FakeKey extends KeyParams {
@@ -36,6 +36,12 @@ export class FakeLiteLLM implements LiteLLMClient {
   panne = false;
   /** Empreintes des clés dont la suppression échoue. */
   readonly indestructibles = new Set<string>();
+  /** Erreur rendue par la sonde de chaque modèle en panne ; les autres répondent. */
+  readonly modelesEnPanne = new Map<string, string>();
+  /** Modèles qui ne répondent pas dans le délai de la sonde. */
+  readonly modelesSansReponse = new Set<string>();
+  /** Sondes reçues, dans l'ordre : modèle et type d'API. */
+  readonly sondes: { modelName: string; apiKind: ProbedApiKind }[] = [];
 
   async getUser(userId: string): Promise<LiteLLMUser | null> {
     const user = this.users.get(userId);
@@ -153,6 +159,14 @@ export class FakeLiteLLM implements LiteLLMClient {
 
   async unblockKey(tokenId: string): Promise<void> {
     this.cleConnue(tokenId).blocked = false;
+  }
+
+  async probeModel(modelName: string, apiKind: ProbedApiKind): Promise<ProbeResult> {
+    this.sondes.push({ modelName, apiKind });
+    if (this.panne) return { status: null, latencyMs: 0, error: "fetch failed", errorCode: "passerelle_injoignable" };
+    if (this.modelesSansReponse.has(modelName)) return { status: null, latencyMs: 30_000, error: null, errorCode: "delai_depasse" };
+    const erreur = this.modelesEnPanne.get(modelName);
+    return erreur ? { status: 502, latencyMs: 40, error: erreur, errorCode: null } : { status: 200, latencyMs: 120, error: null, errorCode: null };
   }
 
   private cleConnue(tokenId: string): FakeKey {

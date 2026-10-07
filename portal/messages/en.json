@@ -10,6 +10,7 @@
     "catalogue": "Catalog",
     "mesDemandes": "My requests",
     "nouvelleDemande": "New request",
+    "etat": "Service status",
     "api": "API",
     "gestion": "Administration",
     "deconnexion": "Sign out",
@@ -153,7 +154,8 @@
       "nouveautePubliee": "News item published.",
       "lectureEnregistree": "Marked as read.",
       "nouveauteModifiee": "News item updated.",
-      "nouveauteSupprimee": "News item deleted."
+      "nouveauteSupprimee": "News item deleted.",
+      "sondeFaite": "Probe completed."
     },
     "erreurs": {
       "controles_en_echec": "The request does not comply with the model access policy. Failed checks: {controles}.",
@@ -497,6 +499,31 @@
     "plusAnciennes": "Older news",
     "apercuBrouillon": "Draft: preview for admins only"
   },
+  "etatServices": {
+    "titre": "Service status",
+    "intro": "Availability of the catalog models, checked regularly by the gateway. When an incident occurs, the gateway administrators are notified: there is no need to report it.",
+    "aucun": "No model is in the catalog yet.",
+    "toutFonctionne": "All models are working.",
+    "resume": {
+      "incidents": "{nombre, plural, one {# model with an incident} other {# models with an incident}}",
+      "perturbes": "{nombre, plural, one {# model degraded} other {# models degraded}}",
+      "operationnels": "{nombre, plural, one {# operational} other {# operational}}"
+    },
+    "modele": "Model",
+    "niveau": "Maximum level",
+    "etat": "Status",
+    "statuts": {
+      "operationnel": "Operational",
+      "perturbe": "Degraded",
+      "incident": "Incident",
+      "non_verifie": "Not checked yet",
+      "non_surveille": "Not monitored"
+    },
+    "depuis": {
+      "perturbe": "Since {date, date, short} at {date, time, short}, being checked.",
+      "incident": "Since {date, date, short} at {date, time, short}; the administrators have been notified."
+    }
+  },
   "mesDemandes": {
     "titre": "My requests",
     "nouvelleCle": "New key request",
@@ -626,6 +653,7 @@
       "equipes": "Teams",
       "aValider": "{nombre, plural, one {# request to review} other {# requests to review}}",
       "outils": "Tools",
+      "supervision": "Supervision",
       "collaborateurs": "Employees",
       "remboursements": "Accounting",
       "integrations": "Integrations"
@@ -966,6 +994,43 @@
       "declarer": "Declare an integration",
       "aideDeclarer": "It is created disabled.",
       "boutonDeclarer": "Declare the integration"
+    },
+    "supervision": {
+      "titre": "Model monitoring",
+      "intro": "{intervalle, plural, =0 {Automatic probing is disabled (SUPERVISION_INTERVAL_MINUTES): only the “Probe now” button probes the models visible in the catalog, through the same route as employees.} one {Every model visible in the catalog is probed every minute, through the same route as employees.} other {Every model visible in the catalog is probed every # minutes, through the same route as employees.}}",
+      "alertes": "After a first failure, the model is degraded; after {seuil} consecutive failures, it is down and administrators receive an email, then another when service is restored. A model added to or made visible in the catalog is monitored from the next run.",
+      "sonder": "Probe now",
+      "aucun": "No model is visible in the catalog.",
+      "resume": "{enPanne, plural, =0 {} one {# model down. } other {# models down. }}{degrades, plural, =0 {} one {# model degraded (one failure, administrators not notified yet).} other {# models degraded (one failure, administrators not notified yet).}}{enPanne, plural, =0 {{degrades, plural, =0 {All probed models answer.} other {}}} other {}}",
+      "modele": "Model",
+      "etat": "Status",
+      "depuis": "Since",
+      "derniereSonde": "Last probe",
+      "duree": "Duration",
+      "dureeValeur": "{ms, number} ms",
+      "erreur": "Error",
+      "alerte": "Administrators notified on {date, date, short} at {date, time, short}",
+      "date": "{date, date, short} at {date, time, short}",
+      "statuts": {
+        "ok": "Answers",
+        "degrade": "Degraded",
+        "en_panne": "Down",
+        "en_attente": "Not probed yet",
+        "non_supervise": "Not probed"
+      },
+      "nonSupervise": "Image model: each probe would generate a paid image.",
+      "typesApi": {
+        "conversation": "chat",
+        "image": "images",
+        "embeddings": "embeddings",
+        "decision": "decision"
+      },
+      "erreurHttp": "HTTP {statut}: {erreur}",
+      "erreurs": {
+        "delai_depasse": "no answer within {secondes} s",
+        "passerelle_injoignable": "gateway unreachable",
+        "absent_de_la_passerelle": "model missing from the gateway (not declared in LiteLLM)"
+      }
     }
   },
   "introuvable": {
@@ -1377,6 +1442,17 @@
         "sujet": "Integration disabled: {nom}",
         "corps": "{auteur} disabled the integration {nom} ({id}): its calls to the portal API are rejected."
       }
+    },
+    "modelesEnPanne": {
+      "sujet": "{nombre, plural, one {Model down: {modele}} other {# models down}}",
+      "corps": "{nombre, plural, one {This model made available to employees no longer answers} other {These models made available to employees no longer answer}} the gateway's probe, after several attempts{intervalle, plural, =0 {} one { # minute apart} other { # minutes apart}}:",
+      "modele": "- {nom} ({modele}): {erreur}",
+      "suite": "Employees are not notified. Another email will follow when service is restored."
+    },
+    "modelesRetablis": {
+      "sujet": "{nombre, plural, one {Model restored: {modele}} other {# models restored}}",
+      "corps": "{nombre, plural, one {This model answers} other {These models answer}} the gateway's probe again:",
+      "modele": "- {nom} ({modele}), down since {depuis, date, long} at {depuis, time, short}"
     }
   },
   "validation": {

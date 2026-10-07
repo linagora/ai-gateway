@@ -48,6 +48,8 @@ self-hosted on a single virtual machine with Docker Compose.
   replace a lost key or revoke it, with ready-to-use examples in curl, Python and JavaScript.
 - **Teams and subscriptions.** Ask to join a team; as an exception, request an individual subscription
   (ChatGPT, Claude, Kimi…), granted after an enhanced review, with reimbursement of declared charges.
+- **Service status.** The current state of each catalog model (operational, degraded, incident), checked
+  regularly by the gateway, so that employees know an incident is already being handled.
 - **Bilingual.** The portal and its email notifications are available in English and French.
 
 ### For administrators and team managers
@@ -63,6 +65,9 @@ self-hosted on a single virtual machine with Docker Compose.
 - **Access checkpoint.** The portal's single sign-on session and uid allowlists guard the LiteLLM console and
   Superset, through Caddy's `forward_auth`.
 - **Daily task.** Expiry reminders and expirations, run by the server's cron.
+- **Model monitoring.** Every model visible in the catalog is probed through the same route as employees, every
+  10 minutes by default (`SUPERVISION_INTERVAL_MINUTES`); administrators get an email after two consecutive failures and another on recovery, and a
+  **Supervision** tab shows the state of each model. New models are picked up automatically.
 
 ### Gateway
 

@@ -28,6 +28,7 @@ import { completeSubscriptionRequest, correctSubscriptionAmount, createSubscript
 import { blockKey, pickUpKey, replaceKey, revokeKey, unblockKey } from "@/lib/services/keys";
 import { cancelRequest, completeRequest, createKeyRequest, createTeamJoinRequest } from "@/lib/services/requests";
 import { saveSettings } from "@/lib/services/settings";
+import { sonderMaintenant } from "@/lib/services/supervision";
 import { addTeamMember, createTeam, deleteTeam, designateManager, removeManager, removeTeamMember, renameTeam, setTeamBudget } from "@/lib/services/teams";
 import { getDeps, requireUser } from "@/lib/session";
 
@@ -367,6 +368,12 @@ export async function saveSettingsAction(formData: FormData): Promise<void> {
   await run("/gestion/parametres", () => saveSettings(getDeps(), user, values), { path: "/gestion/parametres", message: "parametresEnregistres" });
 }
 
+/** Supervision : passage immédiat de la sonde des modèles, réservé aux admins. */
+export async function sonderModelesAction(): Promise<void> {
+  const user = await requireUser();
+  await run("/gestion/supervision", () => sonderMaintenant(getDeps(), user), { path: "/gestion/supervision", message: "sondeFaite" });
+}
+
 /** F-53 : création d'une équipe par un admin. */
 export async function creerEquipeAction(formData: FormData): Promise<void> {
   const user = await requireUser();
@@ -569,6 +576,7 @@ type CleSucces =
   | "demandeRefusee"
   | "complementDemande"
   | "parametresEnregistres"
+  | "sondeFaite"
   | "cleRevoquee"
   | "cleBloquee"
   | "cleDebloquee"

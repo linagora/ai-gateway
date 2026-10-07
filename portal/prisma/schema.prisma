@@ -187,6 +187,23 @@ model TeamBudgetAlert {
   sentAt  DateTime
 }
 
+/// État d'un modèle visible du catalogue, tenu par la supervision (ticket #142) : depuis quand il répond
+/// ou non, la dernière sonde, les échecs consécutifs, et l'alerte de panne envoyée aux admins, jusqu'au rétablissement.
+model ModelHealth {
+  modelName  String    @id
+  healthy    Boolean
+  since      DateTime
+  checkedAt  DateTime
+  latencyMs  Int?
+  httpStatus Int?
+  /// message de LiteLLM ou du fournisseur, ou détail technique d'une erreur de la sonde
+  error      String?
+  /// erreur propre à la sonde, traduite à l'affichage : delai_depasse, passerelle_injoignable, absent_de_la_passerelle
+  errorCode  String?
+  failures   Int       @default(0)
+  alertedAt  DateTime?
+}
+
 /// Offre d'abonnement (spécification #51) : produit payant d'un fournisseur, à souscrire individuellement, présenté au
 /// catalogue avec son prix mensuel TTC et son niveau maximal. Tenue par le portail : LiteLLM n'en sait rien.
 model SubscriptionOffer {

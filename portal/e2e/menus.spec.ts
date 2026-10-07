@@ -28,6 +28,7 @@ test("le menu principal souligne l'onglet de la page, sous-pages et formulaires 
     ["/demandes/adhesion", /^Nouvelle demande$/],
     ["/cles", /^Mes clés/],
     ["/abonnements", /^Mes abonnements/],
+    ["/etat", /^État des services$/],
     ["/documentation/api", /^API$/],
     ["/documentation/api/guide", /^API$/],
   ] as const) {

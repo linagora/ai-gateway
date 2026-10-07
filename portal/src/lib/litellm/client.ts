@@ -161,6 +161,26 @@ export interface KeyInfo {
   blocked: boolean;
 }
 
+/** Types d'API sondés par la supervision : un modèle d'images n'est pas sondé, chaque appel générant une image payante. */
+export type ProbedApiKind = Exclude<ApiKind, "image">;
+
+/** Erreur propre à la sonde, enregistrée par son code et traduite à l'affichage (onglet « Supervision », courriels). */
+export type CodeErreurSonde = "delai_depasse" | "passerelle_injoignable" | "absent_de_la_passerelle";
+
+/**
+ * Sonde d'un modèle : statut HTTP (null sans réponse), durée, et erreur, null si le modèle a répondu : le message de
+ * LiteLLM ou du fournisseur, ou le code d'une erreur propre à la sonde, avec son détail technique éventuel.
+ */
+export interface ProbeResult {
+  status: number | null;
+  latencyMs: number;
+  error: string | null;
+  errorCode: CodeErreurSonde | null;
+}
+
+/** Délai d'une sonde : au-delà, le modèle est compté comme ne répondant pas. */
+export const PROBE_TIMEOUT_MS = 30_000;
+
 export interface LiteLLMClient {
   getUser(userId: string): Promise<LiteLLMUser | null>;
   /** F-02 : crée l'utilisateur (rôle internal_user) SANS clé : aucune clé hors du circuit de validation. */
@@ -195,6 +215,32 @@ export interface LiteLLMClient {
   blockKey(tokenId: string): Promise<void>;
   /** F-43 : débloque une clé bloquée. */
   unblockKey(tokenId: string): Promise<void>;
+  /**
+   * Supervision : appel minimal du modèle par la route d'inférence des collaborateurs (garde comprise), selon son type
+   * d'API. Ne lève jamais : une panne, un refus ou un délai dépassé est rendu dans le résultat.
+   */
+  probeModel(modelName: string, apiKind: ProbedApiKind): Promise<ProbeResult>;
+}
+
+/** Requête System One minimale, au format qu'attendent les API de décision (JEV, Nox) : une question oui ou non. */
+const SONDE_DECISION = {
+  state: "Sonde de supervision de la passerelle LINAGORA.",
+  questions: { repond: { type: "noul", instructions: "La passerelle répond-elle ?" } },
+};
+
+/** Appel de sonde de chaque type d'API : le plus petit appel qui passe par la même route que les collaborateurs. */
+function appelDeSonde(modelName: string, apiKind: ProbedApiKind): { path: string; body: unknown } {
+  switch (apiKind) {
+    case "embeddings":
+      return { path: "/v1/embeddings", body: { model: modelName, input: "OK" } };
+    case "decision":
+      return { path: "/v1/chat/completions", body: { model: modelName, messages: [{ role: "user", content: JSON.stringify(SONDE_DECISION) }] } };
+    case "conversation":
+      return {
+        path: "/v1/chat/completions",
+        body: { model: modelName, messages: [{ role: "user", content: "Réponds uniquement par le mot OK." }], max_tokens: 16 },
+      };
+  }
 }
 
 const teamSummarySchema = z.object({
@@ -498,6 +544,36 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
     async unblockKey(tokenId) {
       const { status, data } = await call("POST", "/key/unblock", { key: tokenId });
       if (status !== 200) fail("POST", "/key/unblock", status, data);
+    },
+
+    async probeModel(modelName, apiKind) {
+      const { path, body } = appelDeSonde(modelName, apiKind);
+      const debut = Date.now();
+      try {
+        const response = await fetch(`${config.baseUrl}${path}`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${config.masterKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+          cache: "no-store",
+          signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+        });
+        const text = await response.text();
+        const latencyMs = Date.now() - debut;
+        if (response.ok) return { status: response.status, latencyMs, error: null, errorCode: null };
+        let detail = text;
+        try {
+          const parsed = errorSchema.safeParse(JSON.parse(text));
+          if (parsed.success) detail = parsed.data.error.message;
+        } catch {
+          // réponse illisible : son texte brut
+        }
+        // Sur une ligne : le message est repris dans la liste des modèles en panne du courriel aux admins.
+        return { status: response.status, latencyMs, error: detail.replace(/\s+/g, " ").trim().slice(0, 500) || `HTTP ${response.status}`, errorCode: null };
+      } catch (e) {
+        const latencyMs = Date.now() - debut;
+        if (e instanceof DOMException && e.name === "TimeoutError") return { status: null, latencyMs, error: null, errorCode: "delai_depasse" };
+        return { status: null, latencyMs, error: e instanceof Error ? e.message : null, errorCode: "passerelle_injoignable" };
+      }
     },
   };
 }

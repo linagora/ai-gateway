@@ -5,6 +5,7 @@ import { DUREES_VALIDITE, joursDePeriode } from "@/lib/durees";
 import type { Langue } from "@/lib/langue";
 import en from "../../../messages/en.json";
 import fr from "../../../messages/fr.json";
+import { texteErreurSonde } from "./erreur-sonde";
 import type { ChampIntegration } from "./integrations";
 import { libelleOffre } from "./offers";
 
@@ -50,13 +51,18 @@ function bilingue(contenu: (t: Traducteur, langue: Langue) => Contenu, lien: str
   };
 }
 
-/** Envoie sans jamais faire échouer l'action : un échec est journalisé, sans secret. */
-async function envoyer(deps: NotificationDeps, to: string[], message: Omit<Message, "to">): Promise<void> {
-  if (!deps.mailer || to.length === 0) return;
+/**
+ * Envoie sans jamais faire échouer l'action : un échec est journalisé, sans secret. Rend faux si l'envoi a échoué, vrai
+ * sinon (y compris sans expéditeur ni destinataire : rien n'était à envoyer).
+ */
+async function envoyer(deps: NotificationDeps, to: string[], message: Omit<Message, "to">): Promise<boolean> {
+  if (!deps.mailer || to.length === 0) return true;
   try {
     await deps.mailer.send({ ...message, to });
+    return true;
   } catch (e) {
     console.error(`Courriel non envoyé (« ${message.subject} ») : ${e instanceof Error ? e.message : "erreur inconnue"}`);
+    return false;
   }
 }
 
@@ -634,6 +640,42 @@ export async function notifyTeamBudgetAlert(
     };
   }, lienVers(deps, `/gestion/equipes/${alerte.teamId}`));
   await envoyer(deps, adminsEtResponsables(deps, responsables), message);
+}
+
+/**
+ * Supervision : un seul courriel aux admins pour les modèles qui ne répondent plus à la sonde, avec l'erreur de chacun et
+ * l'intervalle des sondes. Les collaborateurs n'en sont pas prévenus. Rend faux si le courriel n'est pas parti.
+ */
+export async function notifyModelsDown(
+  deps: NotificationDeps,
+  modeles: { modelName: string; displayName: string; error: string | null; errorCode: string | null }[],
+  intervalleMinutes: number | null,
+): Promise<boolean> {
+  const message = bilingue((t) => {
+    const valeurs = { nombre: modeles.length, modele: modeles[0].displayName, intervalle: intervalleMinutes ?? 0 };
+    const liste = modeles.map((m) => {
+      const erreur = texteErreurSonde(m, (code, v) => t(`gestion.supervision.erreurs.${code}`, v)) ?? "?";
+      return t("courriels.modelesEnPanne.modele", { nom: m.displayName, modele: m.modelName, erreur });
+    });
+    return {
+      sujet: t("courriels.modelesEnPanne.sujet", valeurs),
+      paragraphes: [t("courriels.bonjourAdmins"), avecRecap(t("courriels.modelesEnPanne.corps", valeurs), liste), t("courriels.modelesEnPanne.suite")],
+    };
+  }, lienVers(deps, "/gestion/supervision"));
+  return envoyer(deps, deps.adminEmails ?? [], message);
+}
+
+/** Supervision : les modèles annoncés en panne qui répondent de nouveau, avec le début de leur panne. */
+export async function notifyModelsRestored(deps: NotificationDeps, modeles: { modelName: string; displayName: string; since: Date }[]): Promise<void> {
+  const message = bilingue((t) => {
+    const valeurs = { nombre: modeles.length, modele: modeles[0].displayName };
+    const liste = modeles.map((m) => t("courriels.modelesRetablis.modele", { nom: m.displayName, modele: m.modelName, depuis: m.since }));
+    return {
+      sujet: t("courriels.modelesRetablis.sujet", valeurs),
+      paragraphes: [t("courriels.bonjourAdmins"), avecRecap(t("courriels.modelesRetablis.corps", valeurs), liste)],
+    };
+  }, lienVers(deps, "/gestion/supervision"));
+  await envoyer(deps, deps.adminEmails ?? [], message);
 }
 
 /** Auteur d'une action, tel que le nomment les courriels : « Jeanne Dupont (jdupont) ». */

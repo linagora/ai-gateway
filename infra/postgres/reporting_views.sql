@@ -80,7 +80,9 @@ SELECT DISTINCT ON (model_name) model_name, fournisseur, data_level, hosting, zo
 FROM reporting.v_models
 ORDER BY model_name, model_id;
 
--- Détail par requête (rétention 90 j côté LiteLLM)
+-- Détail par requête (rétention 90 j côté LiteLLM). Ici, comme dans v_daily_user, v_usage_daily et v_activity, seuls
+-- comptent les appels des clés émises, actives ou supprimées : ni la clé maître, qui fait les sondes de la supervision
+-- des modèles (ticket #142), ni les appels sans clé valide. Leur coût reste dans les coûts mensuels, hors équipe.
 CREATE OR REPLACE VIEW reporting.v_requests AS
 SELECT s.request_id,
        s."startTime"                         AS started_at,
@@ -107,7 +109,8 @@ FROM "LiteLLM_SpendLogs" s
 LEFT JOIN reporting.v_keys   k ON k.key_hash = s.api_key
 LEFT JOIN reporting.v_teams  t ON t.team_id  = s.team_id
 LEFT JOIN reporting.v_users  u ON u.user_id  = s."user"
-LEFT JOIN reporting.v_models m ON m.model_id = s.model_id;
+LEFT JOIN reporting.v_models m ON m.model_id = s.model_id
+WHERE k.key_hash IS NOT NULL;
 
 -- Agrégats journaliers (historique long, non purgé). key_level, libellé du niveau déclaré de la clé, vient en dernier :
 -- CREATE OR REPLACE VIEW n'ajoute de colonnes qu'à la fin.
@@ -122,7 +125,8 @@ FROM "LiteLLM_DailyUserSpend" d
 LEFT JOIN reporting.v_keys  k ON k.key_hash = d.api_key
 LEFT JOIN reporting.v_teams t ON t.team_id  = k.team_id
 LEFT JOIN reporting.v_users u ON u.user_id  = d.user_id
-LEFT JOIN reporting.v_model_names m ON m.model_name = NULLIF(d.model_group, '');
+LEFT JOIN reporting.v_model_names m ON m.model_name = NULLIF(d.model_group, '')
+WHERE k.key_hash IS NOT NULL;
 
 CREATE OR REPLACE VIEW reporting.v_daily_team AS
 SELECT d.date::date AS day, d.team_id, t.team_alias,
@@ -165,6 +169,7 @@ FROM "LiteLLM_DailyTeamSpend" d
 LEFT JOIN reporting.v_keys        k ON k.key_hash   = d.api_key
 LEFT JOIN reporting.v_teams       t ON t.team_id    = d.team_id
 LEFT JOIN reporting.v_model_names m ON m.model_name = NULLIF(d.model_group, '')
+WHERE k.key_hash IS NOT NULL
 GROUP BY 1, 2, 3, 4, 5, 6;
 
 -- Budget des équipes : dépense de la période en cours rapportée au plafond
@@ -180,6 +185,7 @@ SELECT w.days AS window_days,
        count(DISTINCT d.api_key)             AS active_keys
 FROM (VALUES (7), (30), (90)) AS w(days)
 LEFT JOIN "LiteLLM_DailyTeamSpend" d ON d.date::date > current_date - w.days AND d.successful_requests > 0
+                                       AND EXISTS (SELECT 1 FROM reporting.v_keys k WHERE k.key_hash = d.api_key)
 GROUP BY w.days;
 
 -- État des clés nommées : budget consommé, dernière utilisation (nominatif : admins uniquement)
