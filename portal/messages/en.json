@@ -501,7 +501,7 @@
   },
   "etatServices": {
     "titre": "Service status",
-    "intro": "Availability of the catalog models, checked regularly by the gateway. When an incident occurs, the gateway team is notified: there is no need to report it.",
+    "intro": "Availability of the catalog models, checked regularly by the gateway. When an incident occurs, the gateway administrators are notified: there is no need to report it.",
     "aucun": "No model is in the catalog yet.",
     "toutFonctionne": "All models are working.",
     "resume": {
@@ -521,7 +521,7 @@
     },
     "depuis": {
       "perturbe": "Since {date, date, short} at {date, time, short}, being checked.",
-      "incident": "Since {date, date, short} at {date, time, short}; the team has been notified."
+      "incident": "Since {date, date, short} at {date, time, short}; the administrators have been notified."
     }
   },
   "mesDemandes": {

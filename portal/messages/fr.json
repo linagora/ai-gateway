@@ -501,7 +501,7 @@
   },
   "etatServices": {
     "titre": "État des services",
-    "intro": "Disponibilité des modèles du catalogue, vérifiée régulièrement par la passerelle. En cas d'incident, l'équipe de la passerelle est prévenue : inutile de la signaler.",
+    "intro": "Disponibilité des modèles du catalogue, vérifiée régulièrement par la passerelle. En cas d'incident, les admins de la passerelle sont prévenus : inutile de le signaler.",
     "aucun": "Aucun modèle n'est encore au catalogue.",
     "toutFonctionne": "Tous les modèles fonctionnent.",
     "resume": {
@@ -521,7 +521,7 @@
     },
     "depuis": {
       "perturbe": "Depuis le {date, date, short} à {date, time, short}, en cours de vérification.",
-      "incident": "Depuis le {date, date, short} à {date, time, short} ; l'équipe est prévenue."
+      "incident": "Depuis le {date, date, short} à {date, time, short} ; les admins sont prévenus."
     }
   },
   "mesDemandes": {
