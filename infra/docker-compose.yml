@@ -159,7 +159,7 @@ services:
       ADMIN_NOTIFICATION_EMAILS: ${ADMIN_NOTIFICATION_EMAILS}
       PORTAL_TASK_TOKEN: ${PORTAL_TASK_TOKEN:-}
       # Supervision des modèles, planifiée dans le portail : intervalle en minutes ; 0 la désactive.
-      SUPERVISION_INTERVAL_MINUTES: ${SUPERVISION_INTERVAL_MINUTES:-5}
+      SUPERVISION_INTERVAL_MINUTES: ${SUPERVISION_INTERVAL_MINUTES:-10}
       # Destinataire (aud) exigé des jetons d'intégration de l'API /api/v1.
       INTEGRATION_TOKEN_AUDIENCE: ${INTEGRATION_TOKEN_AUDIENCE:-ai-gateway}
     depends_on:
