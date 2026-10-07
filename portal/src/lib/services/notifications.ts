@@ -5,6 +5,7 @@ import { DUREES_VALIDITE, joursDePeriode } from "@/lib/durees";
 import type { Langue } from "@/lib/langue";
 import en from "../../../messages/en.json";
 import fr from "../../../messages/fr.json";
+import { texteErreurSonde } from "./erreur-sonde";
 import type { ChampIntegration } from "./integrations";
 import { libelleOffre } from "./offers";
 
@@ -642,12 +643,15 @@ export async function notifyTeamBudgetAlert(
  */
 export async function notifyModelsDown(
   deps: NotificationDeps,
-  modeles: { modelName: string; displayName: string; error: string | null }[],
+  modeles: { modelName: string; displayName: string; error: string | null; errorCode: string | null }[],
   intervalleMinutes: number | null,
 ): Promise<void> {
   const message = bilingue((t) => {
     const valeurs = { nombre: modeles.length, modele: modeles[0].displayName, intervalle: intervalleMinutes ?? 0 };
-    const liste = modeles.map((m) => t("courriels.modelesEnPanne.modele", { nom: m.displayName, modele: m.modelName, erreur: m.error ?? "?" }));
+    const liste = modeles.map((m) => {
+      const erreur = texteErreurSonde(m, (code, v) => t(`gestion.supervision.erreurs.${code}`, v)) ?? "?";
+      return t("courriels.modelesEnPanne.modele", { nom: m.displayName, modele: m.modelName, erreur });
+    });
     return {
       sujet: t("courriels.modelesEnPanne.sujet", valeurs),
       paragraphes: [t("courriels.bonjourAdmins"), avecRecap(t("courriels.modelesEnPanne.corps", valeurs), liste), t("courriels.modelesEnPanne.suite")],

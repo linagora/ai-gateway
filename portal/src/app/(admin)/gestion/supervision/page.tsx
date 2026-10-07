@@ -1,6 +1,7 @@
 import { CircleAlert, CircleCheck, CircleDashed, CircleMinus, type LucideIcon, TriangleAlert } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import type { Langue } from "@/lib/langue";
+import { texteErreurSonde } from "@/lib/services/erreur-sonde";
 import { etatDesModeles, SEUIL_ALERTE, type StatutModele } from "@/lib/services/supervision";
 import { getDeps, requireAdminPage } from "@/lib/session";
 import { sonderModelesAction } from "../../../actions";
@@ -63,6 +64,7 @@ export default async function SupervisionPage(props: PageProps<"/gestion/supervi
               <tbody>
                 {modeles.map((m) => {
                   const { icone: Icone, classe } = APPARENCE[m.statut];
+                  const erreur = texteErreurSonde(m, (code, v) => t(`erreurs.${code}`, v));
                   return (
                     <tr key={m.modelName}>
                       <td>
@@ -78,7 +80,7 @@ export default async function SupervisionPage(props: PageProps<"/gestion/supervi
                       <td className="whitespace-nowrap">{m.checkedAt && t("date", { date: m.checkedAt })}</td>
                       <td className="whitespace-nowrap">{m.latencyMs !== null && t("dureeValeur", { ms: m.latencyMs })}</td>
                       <td className="text-sm">
-                        {m.statut === "non_supervise" ? t("nonSupervise") : m.error && <span className="break-words">{m.httpStatus ? t("erreurHttp", { statut: m.httpStatus, erreur: m.error }) : m.error}</span>}
+                        {m.statut === "non_supervise" ? t("nonSupervise") : erreur && <span className="break-words">{m.httpStatus ? t("erreurHttp", { statut: m.httpStatus, erreur }) : erreur}</span>}
                         {m.alertedAt && <p className="mt-1 text-xs text-neutral-600">{t("alerte", { date: m.alertedAt })}</p>}
                       </td>
                     </tr>

@@ -40,7 +40,10 @@ export function demarrerSupervision(): void {
         intervalleMinutes: intervalle,
       });
       for (const [libelle, modeles] of [["en panne", rapport.enPanne], ["dégradés", rapport.degrades]] as const) {
-        if (modeles.length > 0) console.warn(`Supervision des modèles : ${libelle} : ${modeles.map((m) => `${m.modelName} (${m.error})`).join(", ")}`);
+        if (modeles.length > 0) {
+          const details = modeles.map((m) => `${m.modelName} (${[m.errorCode, m.error].filter(Boolean).join(" : ")})`);
+          console.warn(`Supervision des modèles : ${libelle} : ${details.join(", ")}`);
+        }
       }
     } catch (e) {
       console.error(`Supervision des modèles : passage en échec (${e instanceof Error ? e.message : "erreur inconnue"})`);

@@ -1025,7 +1025,12 @@
         "embeddings": "embeddings",
         "decision": "decision"
       },
-      "erreurHttp": "HTTP {statut}: {erreur}"
+      "erreurHttp": "HTTP {statut}: {erreur}",
+      "erreurs": {
+        "delai_depasse": "no answer within {secondes} s",
+        "passerelle_injoignable": "gateway unreachable",
+        "absent_de_la_passerelle": "model missing from the gateway (not declared in LiteLLM)"
+      }
     }
   },
   "introuvable": {

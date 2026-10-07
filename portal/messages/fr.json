@@ -1025,7 +1025,12 @@
         "embeddings": "embeddings",
         "decision": "décision"
       },
-      "erreurHttp": "HTTP {statut} : {erreur}"
+      "erreurHttp": "HTTP {statut} : {erreur}",
+      "erreurs": {
+        "delai_depasse": "aucune réponse en {secondes} s",
+        "passerelle_injoignable": "passerelle injoignable",
+        "absent_de_la_passerelle": "modèle absent de la passerelle (non déclaré dans LiteLLM)"
+      }
     }
   },
   "introuvable": {

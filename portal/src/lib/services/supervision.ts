@@ -1,7 +1,7 @@
 import type { ModelHealth } from "@/generated/prisma/client";
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
-import type { ApiKind, LiteLLMClient, LiteLLMModel, ProbeResult } from "@/lib/litellm/client";
+import type { ApiKind, CodeErreurSonde, LiteLLMClient, LiteLLMModel, ProbeResult } from "@/lib/litellm/client";
 import type { Langue } from "@/lib/langue";
 import type { DataLevel } from "@/lib/policy";
 import { requireAdmin } from "@/lib/rbac";
@@ -30,9 +30,6 @@ export function lireIntervalle(valeur: string | undefined): number | null {
 /** Échecs consécutifs avant l'alerte : un échec isolé (coupure de quelques secondes) n'alerte personne. */
 export const SEUIL_ALERTE = 2;
 
-/** Erreur d'un modèle visible au catalogue mais absent de LiteLLM : les collaborateurs le voient sans pouvoir l'appeler. */
-export const ABSENT_DE_LA_PASSERELLE = "modèle absent de la passerelle (non déclaré dans LiteLLM)";
-
 /** Alerte qu'appelle une sonde : la panne, après SEUIL_ALERTE échecs, ou le rétablissement d'un modèle annoncé en panne. */
 export type Alerte = "panne" | "retablissement" | null;
 
@@ -44,8 +41,8 @@ export type EtatModele = Omit<ModelHealth, "modelName">;
  * d'état ; une seule alerte de panne par panne, et un rétablissement n'est annoncé que si la panne l'a été.
  */
 export function etatApresSonde(precedent: EtatModele | null, sonde: ProbeResult, now: Date): { etat: EtatModele; alerte: Alerte } {
-  const repond = sonde.error === null;
-  const mesure = { checkedAt: now, latencyMs: sonde.latencyMs, httpStatus: sonde.status, error: sonde.error };
+  const repond = sonde.error === null && sonde.errorCode === null;
+  const mesure = { checkedAt: now, latencyMs: sonde.latencyMs, httpStatus: sonde.status, error: sonde.error, errorCode: sonde.errorCode };
   const since = precedent && precedent.healthy === repond ? precedent.since : now;
   if (repond) {
     const alerte: Alerte = precedent?.alertedAt ? "retablissement" : null;
@@ -67,13 +64,20 @@ export interface SupervisionDeps extends NotificationDeps {
   now?: () => Date;
 }
 
+/** Modèle en échec dans le compte rendu : le message d'erreur, ou le code d'une erreur propre à la sonde. */
+export interface ModeleEnEchec {
+  modelName: string;
+  error: string | null;
+  errorCode: CodeErreurSonde | null;
+}
+
 /** Compte rendu d'un passage de la supervision. */
 export interface RapportSupervision {
   sondes: number;
   /** Modèles en panne : au moins SEUIL_ALERTE échecs consécutifs, admins prévenus. */
-  enPanne: { modelName: string; error: string | null }[];
+  enPanne: ModeleEnEchec[];
   /** Modèles dégradés : en échec depuis moins de SEUIL_ALERTE sondes, sans alerte encore. */
-  degrades: { modelName: string; error: string | null }[];
+  degrades: ModeleEnEchec[];
   nonSupervises: string[];
   alertesPanne: string[];
   retablissements: string[];
@@ -91,7 +95,7 @@ export async function superviserModeles(deps: SupervisionDeps): Promise<RapportS
   const passerelle = await modelesDeLaPasserelle(deps.litellm);
 
   const rapport: RapportSupervision = { sondes: 0, enPanne: [], degrades: [], nonSupervises: [], alertesPanne: [], retablissements: [] };
-  const pannes: { modelName: string; displayName: string; error: string | null }[] = [];
+  const pannes: (ModeleEnEchec & { displayName: string })[] = [];
   const retablis: { modelName: string; displayName: string; since: Date }[] = [];
 
   await Promise.all(
@@ -106,9 +110,10 @@ export async function superviserModeles(deps: SupervisionDeps): Promise<RapportS
       const { etat, alerte } = etatApresSonde(precedent, sonde, now);
       await deps.db.modelHealth.upsert({ where: { modelName: fiche.modelName }, create: { modelName: fiche.modelName, ...etat }, update: etat });
       const statut = statutDeLEtat(etat);
-      if (statut === "en_panne") rapport.enPanne.push({ modelName: fiche.modelName, error: etat.error });
-      if (statut === "degrade") rapport.degrades.push({ modelName: fiche.modelName, error: etat.error });
-      if (alerte === "panne") pannes.push({ modelName: fiche.modelName, displayName: fiche.displayNameFr, error: etat.error });
+      const echec: ModeleEnEchec = { modelName: fiche.modelName, error: sonde.error, errorCode: sonde.errorCode };
+      if (statut === "en_panne") rapport.enPanne.push(echec);
+      if (statut === "degrade") rapport.degrades.push(echec);
+      if (alerte === "panne") pannes.push({ ...echec, displayName: fiche.displayNameFr });
       if (alerte === "retablissement" && precedent) retablis.push({ modelName: fiche.modelName, displayName: fiche.displayNameFr, since: precedent.since });
     }),
   );
@@ -125,20 +130,21 @@ export async function superviserModeles(deps: SupervisionDeps): Promise<RapportS
   return rapport;
 }
 
-/** Modèles déclarés dans LiteLLM, par nom ; si LiteLLM ne répond pas, l'erreur, qui met chaque modèle en panne. */
-async function modelesDeLaPasserelle(litellm: LiteLLMClient): Promise<Map<string, LiteLLMModel> | { error: string }> {
+/** Modèles déclarés dans LiteLLM, par nom ; si LiteLLM ne répond pas, le détail de l'erreur, qui met chaque modèle en panne. */
+async function modelesDeLaPasserelle(litellm: LiteLLMClient): Promise<Map<string, LiteLLMModel> | { injoignable: string | null }> {
   try {
     return new Map((await litellm.listModels()).map((m) => [m.modelName, m]));
   } catch (e) {
-    return { error: `passerelle injoignable (${e instanceof Error ? e.message : "erreur inconnue"})` };
+    return { injoignable: e instanceof Error ? e.message : null };
   }
 }
 
 /** Sonde d'un modèle visible ; null pour un modèle d'images, qui n'est pas sondé. */
-async function sonder(litellm: LiteLLMClient, passerelle: Map<string, LiteLLMModel> | { error: string }, modelName: string): Promise<ProbeResult | null> {
-  if (!(passerelle instanceof Map)) return { status: null, latencyMs: 0, error: passerelle.error };
+async function sonder(litellm: LiteLLMClient, passerelle: Map<string, LiteLLMModel> | { injoignable: string | null }, modelName: string): Promise<ProbeResult | null> {
+  if (!(passerelle instanceof Map)) return { status: null, latencyMs: 0, error: passerelle.injoignable, errorCode: "passerelle_injoignable" };
   const modele = passerelle.get(modelName);
-  if (!modele) return { status: null, latencyMs: 0, error: ABSENT_DE_LA_PASSERELLE };
+  // Visible au catalogue mais absent de LiteLLM : les collaborateurs le voient sans pouvoir l'appeler.
+  if (!modele) return { status: null, latencyMs: 0, error: null, errorCode: "absent_de_la_passerelle" };
   if (modele.apiKind === "image") return null;
   return litellm.probeModel(modelName, modele.apiKind);
 }
@@ -167,6 +173,7 @@ export interface EtatModeleVue {
   latencyMs: number | null;
   httpStatus: number | null;
   error: string | null;
+  errorCode: CodeErreurSonde | null;
   /** Alerte de panne envoyée aux admins, et sa date ; null sinon. */
   alertedAt: Date | null;
 }
@@ -206,6 +213,7 @@ async function lireEtats(deps: { db: Db; litellm: LiteLLMClient }, langue: Langu
         latencyMs: etat?.latencyMs ?? null,
         httpStatus: etat?.httpStatus ?? null,
         error: etat?.error ?? null,
+        errorCode: (etat?.errorCode ?? null) as CodeErreurSonde | null,
         alertedAt: etat?.alertedAt ?? null,
       };
     })

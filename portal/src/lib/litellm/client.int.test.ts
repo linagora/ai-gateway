@@ -453,16 +453,16 @@ describe("sonde de supervision", () => {
     createdModels.push(created.model_info.id);
 
     const sonde = await client.probeModel(modelName, "conversation");
-    expect(sonde).toMatchObject({ status: 200, error: null });
+    expect(sonde).toMatchObject({ status: 200, error: null, errorCode: null });
     expect(sonde.latencyMs).toBeGreaterThanOrEqual(0);
 
     const inconnu = await client.probeModel(uniqueId("inconnu"), "conversation");
     expect(inconnu.status).toBeGreaterThanOrEqual(400);
-    expect(inconnu.error).toEqual(expect.any(String));
+    expect(inconnu).toMatchObject({ error: expect.any(String), errorCode: null });
   });
 
   test("une passerelle injoignable est une panne, sans exception", async () => {
     const injoignable = createLiteLLMClient({ baseUrl: "http://127.0.0.1:9/admin", masterKey });
-    expect(await injoignable.probeModel("qwen3.8", "conversation")).toMatchObject({ status: null, error: expect.stringContaining("passerelle injoignable") });
+    expect(await injoignable.probeModel("qwen3.8", "conversation")).toMatchObject({ status: null, errorCode: "passerelle_injoignable" });
   });
 });

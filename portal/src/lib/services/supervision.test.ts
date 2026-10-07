@@ -1,12 +1,13 @@
 import { describe, expect, test } from "vitest";
+import type { ProbeResult } from "@/lib/litellm/client";
 import { etatApresSonde, type EtatModele, lireIntervalle, SEUIL_ALERTE, statutDeLEtat } from "./supervision";
 
-const repond = { status: 200, latencyMs: 120, error: null };
-const echoue = { status: 502, latencyMs: 40, error: "Provider returned error" };
+const repond = { status: 200, latencyMs: 120, error: null, errorCode: null };
+const echoue = { status: 502, latencyMs: 40, error: "Provider returned error", errorCode: null };
 const t = (minutes: number) => new Date(Date.UTC(2026, 9, 7, 10, minutes));
 
 /** Enchaîne les sondes à 5 minutes d'intervalle ; rend l'état final et les alertes de chaque sonde. */
-function enchainer(sondes: (typeof repond | typeof echoue)[], depart: EtatModele | null = null) {
+function enchainer(sondes: ProbeResult[], depart: EtatModele | null = null) {
   let etat = depart;
   const alertes = sondes.map((sonde, i) => {
     const suite = etatApresSonde(etat, sonde, t(i * 5));
@@ -34,6 +35,13 @@ describe("supervision : état d'un modèle après une sonde", () => {
   test("dégradé dès le premier échec, en panne quand l'alerte part ; la réponse suivante le rend sain", () => {
     const statuts = [echoue, echoue, repond].map((_, i, sondes) => statutDeLEtat(enchainer(sondes.slice(0, i + 1)).etat));
     expect(statuts).toEqual(["degrade", "en_panne", "ok"]);
+  });
+
+  test("un délai dépassé est un échec, enregistré par son code, sans message", () => {
+    const delai: ProbeResult = { status: null, latencyMs: 30_000, error: null, errorCode: "delai_depasse" };
+    const { etat, alertes } = enchainer([repond, delai, delai]);
+    expect(alertes).toEqual([null, null, "panne"]);
+    expect(etat).toMatchObject({ healthy: false, failures: 2, httpStatus: null, error: null, errorCode: "delai_depasse" });
   });
 
   test("le rétablissement n'est annoncé que pour une panne annoncée, et remet le compte à zéro", () => {

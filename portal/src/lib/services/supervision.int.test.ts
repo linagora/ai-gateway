@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
 import { FakeMailer } from "@/test/fake-mailer";
-import { ABSENT_DE_LA_PASSERELLE, etatDesModeles, etatDesServices, superviserModeles, sonderMaintenant } from "./supervision";
+import { etatDesModeles, etatDesServices, superviserModeles, sonderMaintenant } from "./supervision";
 
 beforeEach(resetDb);
 
@@ -77,7 +77,7 @@ describe("supervision des modèles", () => {
 
   test("un premier échec dégrade le modèle sans courriel ; au second, un seul courriel aux admins pour tous les modèles tombés ; puis un au rétablissement", async () => {
     litellm.modelesEnPanne.set("qwen3.8", "Provider returned error");
-    litellm.modelesEnPanne.set("bge-m3", "aucune réponse en 30 s");
+    litellm.modelesSansReponse.add("bge-m3");
 
     const premier = await superviserModeles(deps());
     expect(premier).toMatchObject({ enPanne: [], alertesPanne: [] });
@@ -87,13 +87,16 @@ describe("supervision des modèles", () => {
     expect(rapport.degrades).toEqual([]);
     expect(rapport.alertesPanne).toEqual(["bge-m3", "qwen3.8"]);
     expect(rapport.enPanne).toEqual([
-      { modelName: "bge-m3", error: "aucune réponse en 30 s" },
-      { modelName: "qwen3.8", error: "Provider returned error" },
+      { modelName: "bge-m3", error: null, errorCode: "delai_depasse" },
+      { modelName: "qwen3.8", error: "Provider returned error", errorCode: null },
     ]);
     expect(mailer.outbox).toHaveLength(1);
     expect(mailer.outbox[0].to).toEqual(["admins@linagora.com"]);
     expect(mailer.outbox[0].subject).toBe("[AI GATEWAY] 2 modèles en panne / 2 models down");
     expect(mailer.outbox[0].text).toContain("- Qwen 3.8 27B (qwen3.8) : Provider returned error");
+    // Erreur interne de la sonde : traduite dans chaque langue du courriel.
+    expect(mailer.outbox[0].text).toContain("- BGE-M3 (bge-m3) : aucune réponse en 30 s");
+    expect(mailer.outbox[0].text).toContain("- BGE-M3 (bge-m3): no answer within 30 s");
     expect(mailer.outbox[0].text).toContain("après plusieurs essais à 10 minutes d'intervalle");
     expect(mailer.outbox[0].text).toContain("https://ai-gateway.linagora.com/gestion/supervision");
 
@@ -102,6 +105,7 @@ describe("supervision des modèles", () => {
     expect(mailer.outbox).toHaveLength(1);
 
     litellm.modelesEnPanne.clear();
+    litellm.modelesSansReponse.clear();
     expect((await passageSuivant()).retablissements).toEqual(["bge-m3", "qwen3.8"]);
     expect(mailer.outbox).toHaveLength(2);
     expect(mailer.outbox[1].subject).toBe("[AI GATEWAY] 2 modèles rétablis / 2 models restored");
@@ -111,8 +115,10 @@ describe("supervision des modèles", () => {
     litellm.models = litellm.models.filter((m) => m.modelName !== "jev-latest");
     await superviserModeles(deps());
     const rapport = await passageSuivant();
-    expect(rapport.enPanne).toEqual([{ modelName: "jev-latest", error: ABSENT_DE_LA_PASSERELLE }]);
+    expect(rapport.enPanne).toEqual([{ modelName: "jev-latest", error: null, errorCode: "absent_de_la_passerelle" }]);
     expect(mailer.outbox[0].subject).toBe("[AI GATEWAY] Modèle en panne : JEV / Model down: JEV");
+    expect(mailer.outbox[0].text).toContain("- JEV (jev-latest) : modèle absent de la passerelle (non déclaré dans LiteLLM)");
+    expect(mailer.outbox[0].text).toContain("- JEV (jev-latest): model missing from the gateway (not declared in LiteLLM)");
 
     litellm.listModels = async () => {
       throw new Error("LiteLLM injoignable");
@@ -133,7 +139,7 @@ describe("supervision des modèles", () => {
   test("l'onglet « Supervision » montre les modèles en panne, puis les dégradés ; il est réservé aux admins, comme la sonde immédiate", async () => {
     litellm.modelesEnPanne.set("jev-latest", "Provider returned error");
     await superviserModeles(deps());
-    litellm.modelesEnPanne.set("bge-m3", "aucune réponse en 30 s");
+    litellm.modelesSansReponse.add("bge-m3");
     await passageSuivant();
     const etats = await etatDesModeles(deps(), admin, "fr");
     expect(etats.map((e) => [e.modelName, e.statut])).toEqual([
@@ -142,7 +148,8 @@ describe("supervision des modèles", () => {
       ["qwen3.8", "ok"],
       ["flux-2-pro", "non_supervise"],
     ]);
-    expect(etats[0]).toMatchObject({ since: new Date("2026-10-07T10:00:00Z"), alertedAt: new Date("2026-10-07T10:05:00Z"), httpStatus: 502 });
+    expect(etats[0]).toMatchObject({ since: new Date("2026-10-07T10:00:00Z"), alertedAt: new Date("2026-10-07T10:05:00Z"), httpStatus: 502, errorCode: null });
+    expect(etats[1]).toMatchObject({ httpStatus: null, error: null, errorCode: "delai_depasse" });
 
     await expect(etatDesModeles(deps(), collaborateur, "fr")).rejects.toThrow("réservée aux administrateurs");
     await expect(sonderMaintenant(deps(), collaborateur)).rejects.toThrow("réservée aux administrateurs");
@@ -151,7 +158,7 @@ describe("supervision des modèles", () => {
   test("l'onglet « État des services » montre aux collaborateurs incidents et perturbations, sans détail technique", async () => {
     litellm.modelesEnPanne.set("jev-latest", "Provider returned error");
     await superviserModeles(deps());
-    litellm.modelesEnPanne.set("bge-m3", "aucune réponse en 30 s");
+    litellm.modelesSansReponse.add("bge-m3");
     await passageSuivant();
     const services = await etatDesServices(deps(), "fr");
     expect(services).toEqual([

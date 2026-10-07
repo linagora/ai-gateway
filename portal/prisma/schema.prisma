@@ -196,7 +196,10 @@ model ModelHealth {
   checkedAt  DateTime
   latencyMs  Int?
   httpStatus Int?
+  /// message de LiteLLM ou du fournisseur, ou détail technique d'une erreur de la sonde
   error      String?
+  /// erreur propre à la sonde, traduite à l'affichage : delai_depasse, passerelle_injoignable, absent_de_la_passerelle
+  errorCode  String?
   failures   Int       @default(0)
   alertedAt  DateTime?
 }

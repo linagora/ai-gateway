@@ -164,11 +164,18 @@ export interface KeyInfo {
 /** Types d'API sondés par la supervision : un modèle d'images n'est pas sondé, chaque appel générant une image payante. */
 export type ProbedApiKind = Exclude<ApiKind, "image">;
 
-/** Sonde d'un modèle : statut HTTP (null sans réponse), durée, et message d'erreur (null si le modèle a répondu). */
+/** Erreur propre à la sonde, enregistrée par son code et traduite à l'affichage (onglet « Supervision », courriels). */
+export type CodeErreurSonde = "delai_depasse" | "passerelle_injoignable" | "absent_de_la_passerelle";
+
+/**
+ * Sonde d'un modèle : statut HTTP (null sans réponse), durée, et erreur, null si le modèle a répondu : le message de
+ * LiteLLM ou du fournisseur, ou le code d'une erreur propre à la sonde, avec son détail technique éventuel.
+ */
 export interface ProbeResult {
   status: number | null;
   latencyMs: number;
   error: string | null;
+  errorCode: CodeErreurSonde | null;
 }
 
 /** Délai d'une sonde : au-delà, le modèle est compté comme ne répondant pas. */
@@ -552,7 +559,7 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
         });
         const text = await response.text();
         const latencyMs = Date.now() - debut;
-        if (response.ok) return { status: response.status, latencyMs, error: null };
+        if (response.ok) return { status: response.status, latencyMs, error: null, errorCode: null };
         let detail = text;
         try {
           const parsed = errorSchema.safeParse(JSON.parse(text));
@@ -561,11 +568,11 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
           // réponse illisible : son texte brut
         }
         // Sur une ligne : le message est repris dans la liste des modèles en panne du courriel aux admins.
-        return { status: response.status, latencyMs, error: detail.replace(/\s+/g, " ").trim().slice(0, 500) || `HTTP ${response.status}` };
+        return { status: response.status, latencyMs, error: detail.replace(/\s+/g, " ").trim().slice(0, 500) || `HTTP ${response.status}`, errorCode: null };
       } catch (e) {
-        const delaiDepasse = e instanceof DOMException && e.name === "TimeoutError";
-        const error = delaiDepasse ? `aucune réponse en ${PROBE_TIMEOUT_MS / 1000} s` : `passerelle injoignable (${e instanceof Error ? e.message : "erreur inconnue"})`;
-        return { status: null, latencyMs: Date.now() - debut, error };
+        const latencyMs = Date.now() - debut;
+        if (e instanceof DOMException && e.name === "TimeoutError") return { status: null, latencyMs, error: null, errorCode: "delai_depasse" };
+        return { status: null, latencyMs, error: e instanceof Error ? e.message : null, errorCode: "passerelle_injoignable" };
       }
     },
   };

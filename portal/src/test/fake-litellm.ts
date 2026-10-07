@@ -38,6 +38,8 @@ export class FakeLiteLLM implements LiteLLMClient {
   readonly indestructibles = new Set<string>();
   /** Erreur rendue par la sonde de chaque modèle en panne ; les autres répondent. */
   readonly modelesEnPanne = new Map<string, string>();
+  /** Modèles qui ne répondent pas dans le délai de la sonde. */
+  readonly modelesSansReponse = new Set<string>();
   /** Sondes reçues, dans l'ordre : modèle et type d'API. */
   readonly sondes: { modelName: string; apiKind: ProbedApiKind }[] = [];
 
@@ -161,9 +163,10 @@ export class FakeLiteLLM implements LiteLLMClient {
 
   async probeModel(modelName: string, apiKind: ProbedApiKind): Promise<ProbeResult> {
     this.sondes.push({ modelName, apiKind });
-    if (this.panne) return { status: null, latencyMs: 0, error: "passerelle injoignable (LiteLLM injoignable)" };
+    if (this.panne) return { status: null, latencyMs: 0, error: "fetch failed", errorCode: "passerelle_injoignable" };
+    if (this.modelesSansReponse.has(modelName)) return { status: null, latencyMs: 30_000, error: null, errorCode: "delai_depasse" };
     const erreur = this.modelesEnPanne.get(modelName);
-    return erreur ? { status: 502, latencyMs: 40, error: erreur } : { status: 200, latencyMs: 120, error: null };
+    return erreur ? { status: 502, latencyMs: 40, error: erreur, errorCode: null } : { status: 200, latencyMs: 120, error: null, errorCode: null };
   }
 
   private cleConnue(tokenId: string): FakeKey {
