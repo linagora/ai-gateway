@@ -1,4 +1,4 @@
-import { CircleAlert, CircleCheck, CircleDashed, CircleMinus, type LucideIcon } from "lucide-react";
+import { CircleAlert, CircleCheck, CircleDashed, CircleMinus, type LucideIcon, TriangleAlert } from "lucide-react";
 import { getLocale, getTranslations } from "next-intl/server";
 import type { Langue } from "@/lib/langue";
 import { etatDesModeles, SEUIL_ALERTE, type StatutModele } from "@/lib/services/supervision";
@@ -10,6 +10,7 @@ import { AdminNav } from "../admin-nav";
 /** Icône et couleur de chaque état ; le libellé de l'état est toujours écrit à côté. */
 const APPARENCE: Record<StatutModele, { icone: LucideIcon; classe: string }> = {
   ok: { icone: CircleCheck, classe: "text-green-700" },
+  degrade: { icone: TriangleAlert, classe: "text-amber-800" },
   en_panne: { icone: CircleAlert, classe: "text-red-800" },
   en_attente: { icone: CircleDashed, classe: "text-neutral-600" },
   non_supervise: { icone: CircleMinus, classe: "text-neutral-600" },
@@ -26,12 +27,13 @@ export default async function SupervisionPage(props: PageProps<"/gestion/supervi
   const deps = getDeps();
   const modeles = await etatDesModeles(deps, admin, langue);
   const enPanne = modeles.filter((m) => m.statut === "en_panne").length;
+  const degrades = modeles.filter((m) => m.statut === "degrade").length;
 
   return (
     <>
       <AdminNav />
       <h1>{t("titre")}</h1>
-      <p className="text-sm text-neutral-600">{t("intro", { seuil: SEUIL_ALERTE, intervalle: deps.intervalleMinutes ?? 0 })}</p>
+      <p className="text-sm text-neutral-600">{t("intro", { intervalle: deps.intervalleMinutes ?? 0 })} {t("alertes", { seuil: SEUIL_ALERTE })}</p>
       <Notice searchParams={searchParams} />
       <form action={sonderModelesAction} className="my-4">
         <button type="submit" className="mt-0">
@@ -43,8 +45,8 @@ export default async function SupervisionPage(props: PageProps<"/gestion/supervi
         <p>{t("aucun")}</p>
       ) : (
         <>
-          <p role="status" className={enPanne > 0 ? "font-semibold text-red-800" : undefined}>
-            {t("resume", { enPanne })}
+          <p role="status" className={enPanne > 0 ? "font-semibold text-red-800" : degrades > 0 ? "font-semibold text-amber-800" : undefined}>
+            {t("resume", { enPanne, degrades })}
           </p>
           <div className="overflow-x-auto">
             <table>

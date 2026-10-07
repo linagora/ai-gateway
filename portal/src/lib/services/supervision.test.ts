@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { etatApresSonde, type EtatModele, lireIntervalle, SEUIL_ALERTE } from "./supervision";
+import { etatApresSonde, type EtatModele, lireIntervalle, SEUIL_ALERTE, statutDeLEtat } from "./supervision";
 
 const repond = { status: 200, latencyMs: 120, error: null };
 const echoue = { status: 502, latencyMs: 40, error: "Provider returned error" };
@@ -29,6 +29,11 @@ describe("supervision : état d'un modèle après une sonde", () => {
     const { etat, alertes } = enchainer([repond, echoue, echoue, echoue]);
     expect(alertes).toEqual([null, null, "panne", null]);
     expect(etat).toMatchObject({ healthy: false, since: t(5), failures: 3, alertedAt: t(10), httpStatus: 502, error: "Provider returned error" });
+  });
+
+  test("dégradé dès le premier échec, en panne quand l'alerte part ; la réponse suivante le rend sain", () => {
+    const statuts = [echoue, echoue, repond].map((_, i, sondes) => statutDeLEtat(enchainer(sondes.slice(0, i + 1)).etat));
+    expect(statuts).toEqual(["degrade", "en_panne", "ok"]);
   });
 
   test("le rétablissement n'est annoncé que pour une panne annoncée, et remet le compte à zéro", () => {

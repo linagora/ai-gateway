@@ -971,10 +971,11 @@
     },
     "supervision": {
       "titre": "Supervision des modèles",
-      "intro": "{intervalle, plural, =0 {La sonde automatique est désactivée (SUPERVISION_INTERVAL_MINUTES) : seul le bouton « Sonder maintenant » sonde les modèles.} one {Chaque modèle visible du catalogue est sondé chaque minute} other {Chaque modèle visible du catalogue est sondé toutes les # minutes}} par la même route que les collaborateurs. Après {seuil} échecs consécutifs, les admins reçoivent un courriel, puis un autre au rétablissement. Un modèle ajouté ou rendu visible au catalogue est suivi dès le passage suivant.",
+      "intro": "{intervalle, plural, =0 {La sonde automatique est désactivée (SUPERVISION_INTERVAL_MINUTES) : seul le bouton « Sonder maintenant » sonde les modèles visibles du catalogue, par la même route que les collaborateurs.} one {Chaque modèle visible du catalogue est sondé chaque minute, par la même route que les collaborateurs.} other {Chaque modèle visible du catalogue est sondé toutes les # minutes, par la même route que les collaborateurs.}}",
+      "alertes": "Au premier échec, le modèle est dégradé ; après {seuil} échecs consécutifs, il est en panne et les admins reçoivent un courriel, puis un autre au rétablissement. Un modèle ajouté ou rendu visible au catalogue est suivi dès le passage suivant.",
       "sonder": "Sonder maintenant",
       "aucun": "Aucun modèle n'est visible au catalogue.",
-      "resume": "{enPanne, plural, =0 {Tous les modèles sondés répondent.} one {# modèle ne répond pas.} other {# modèles ne répondent pas.}}",
+      "resume": "{enPanne, plural, =0 {} one {# modèle en panne. } other {# modèles en panne. }}{degrades, plural, =0 {} one {# modèle dégradé (un échec, admins pas encore prévenus).} other {# modèles dégradés (un échec, admins pas encore prévenus).}}{enPanne, plural, =0 {{degrades, plural, =0 {Tous les modèles sondés répondent.} other {}}} other {}}",
       "modele": "Modèle",
       "etat": "État",
       "depuis": "Depuis",
@@ -986,6 +987,7 @@
       "date": "{date, date, short} à {date, time, short}",
       "statuts": {
         "ok": "Répond",
+        "degrade": "Dégradé",
         "en_panne": "En panne",
         "en_attente": "Pas encore sondé",
         "non_supervise": "Non sondé"

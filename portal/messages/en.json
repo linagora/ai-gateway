@@ -971,10 +971,11 @@
     },
     "supervision": {
       "titre": "Model monitoring",
-      "intro": "{intervalle, plural, =0 {Automatic probing is disabled (SUPERVISION_INTERVAL_MINUTES): only the “Probe now” button probes the models.} one {Every model visible in the catalog is probed every minute} other {Every model visible in the catalog is probed every # minutes}} through the same route as employees. After {seuil} consecutive failures, administrators receive an email, then another when service is restored. A model added to or made visible in the catalog is monitored from the next run.",
+      "intro": "{intervalle, plural, =0 {Automatic probing is disabled (SUPERVISION_INTERVAL_MINUTES): only the “Probe now” button probes the models visible in the catalog, through the same route as employees.} one {Every model visible in the catalog is probed every minute, through the same route as employees.} other {Every model visible in the catalog is probed every # minutes, through the same route as employees.}}",
+      "alertes": "After a first failure, the model is degraded; after {seuil} consecutive failures, it is down and administrators receive an email, then another when service is restored. A model added to or made visible in the catalog is monitored from the next run.",
       "sonder": "Probe now",
       "aucun": "No model is visible in the catalog.",
-      "resume": "{enPanne, plural, =0 {All probed models answer.} one {# model does not answer.} other {# models do not answer.}}",
+      "resume": "{enPanne, plural, =0 {} one {# model down. } other {# models down. }}{degrades, plural, =0 {} one {# model degraded (one failure, administrators not notified yet).} other {# models degraded (one failure, administrators not notified yet).}}{enPanne, plural, =0 {{degrades, plural, =0 {All probed models answer.} other {}}} other {}}",
       "modele": "Model",
       "etat": "Status",
       "depuis": "Since",
@@ -986,6 +987,7 @@
       "date": "{date, date, short} at {date, time, short}",
       "statuts": {
         "ok": "Answers",
+        "degrade": "Degraded",
         "en_panne": "Down",
         "en_attente": "Not probed yet",
         "non_supervise": "Not probed"

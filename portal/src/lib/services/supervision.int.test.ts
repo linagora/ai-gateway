@@ -67,7 +67,7 @@ describe("supervision des modèles", () => {
       { modelName: "jev-latest", apiKind: "decision" },
       { modelName: "qwen3.8", apiKind: "conversation" },
     ]);
-    expect(rapport).toEqual({ sondes: 3, enPanne: [], nonSupervises: ["flux-2-pro"], alertesPanne: [], retablissements: [] });
+    expect(rapport).toEqual({ sondes: 3, enPanne: [], degrades: [], nonSupervises: ["flux-2-pro"], alertesPanne: [], retablissements: [] });
     expect(mailer.outbox).toEqual([]);
 
     // Un modèle rendu visible au catalogue est sondé dès le passage suivant.
@@ -75,12 +75,16 @@ describe("supervision des modèles", () => {
     expect((await superviserModeles(deps())).sondes).toBe(4);
   });
 
-  test("après deux échecs consécutifs, un seul courriel aux admins pour tous les modèles tombés ; puis un au rétablissement", async () => {
+  test("un premier échec dégrade le modèle sans courriel ; au second, un seul courriel aux admins pour tous les modèles tombés ; puis un au rétablissement", async () => {
     litellm.modelesEnPanne.set("qwen3.8", "Provider returned error");
     litellm.modelesEnPanne.set("bge-m3", "aucune réponse en 30 s");
 
-    expect((await superviserModeles(deps())).alertesPanne).toEqual([]);
+    const premier = await superviserModeles(deps());
+    expect(premier).toMatchObject({ enPanne: [], alertesPanne: [] });
+    expect(premier.degrades.map((m) => m.modelName)).toEqual(["bge-m3", "qwen3.8"]);
+    expect(mailer.outbox).toEqual([]);
     const rapport = await passageSuivant();
+    expect(rapport.degrades).toEqual([]);
     expect(rapport.alertesPanne).toEqual(["bge-m3", "qwen3.8"]);
     expect(rapport.enPanne).toEqual([
       { modelName: "bge-m3", error: "aucune réponse en 30 s" },
@@ -113,7 +117,10 @@ describe("supervision des modèles", () => {
     litellm.listModels = async () => {
       throw new Error("LiteLLM injoignable");
     };
-    expect((await superviserModeles(deps())).enPanne.map((m) => m.modelName)).toEqual(["bge-m3", "flux-2-pro", "jev-latest", "qwen3.8"]);
+    // Premier échec des modèles qui répondaient : dégradés ; JEV, déjà en panne, le reste.
+    const injoignable = await superviserModeles(deps());
+    expect(injoignable.enPanne.map((m) => m.modelName)).toEqual(["jev-latest"]);
+    expect(injoignable.degrades.map((m) => m.modelName)).toEqual(["bge-m3", "flux-2-pro", "qwen3.8"]);
   });
 
   test("un modèle masqué au catalogue n'est plus suivi", async () => {
@@ -123,14 +130,15 @@ describe("supervision des modèles", () => {
     expect(await testDb.modelHealth.findUnique({ where: { modelName: "qwen3.8" } })).toBeNull();
   });
 
-  test("l'onglet « Supervision » montre les modèles en panne d'abord ; il est réservé aux admins, comme la sonde immédiate", async () => {
+  test("l'onglet « Supervision » montre les modèles en panne, puis les dégradés ; il est réservé aux admins, comme la sonde immédiate", async () => {
     litellm.modelesEnPanne.set("jev-latest", "Provider returned error");
     await superviserModeles(deps());
+    litellm.modelesEnPanne.set("bge-m3", "aucune réponse en 30 s");
     await passageSuivant();
     const etats = await etatDesModeles(deps(), admin, "fr");
     expect(etats.map((e) => [e.modelName, e.statut])).toEqual([
       ["jev-latest", "en_panne"],
-      ["bge-m3", "ok"],
+      ["bge-m3", "degrade"],
       ["qwen3.8", "ok"],
       ["flux-2-pro", "non_supervise"],
     ]);

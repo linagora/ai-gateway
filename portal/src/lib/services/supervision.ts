@@ -69,7 +69,10 @@ export interface SupervisionDeps extends NotificationDeps {
 /** Compte rendu d'un passage de la supervision. */
 export interface RapportSupervision {
   sondes: number;
+  /** Modèles en panne : au moins SEUIL_ALERTE échecs consécutifs, admins prévenus. */
   enPanne: { modelName: string; error: string | null }[];
+  /** Modèles dégradés : en échec depuis moins de SEUIL_ALERTE sondes, sans alerte encore. */
+  degrades: { modelName: string; error: string | null }[];
   nonSupervises: string[];
   alertesPanne: string[];
   retablissements: string[];
@@ -86,7 +89,7 @@ export async function superviserModeles(deps: SupervisionDeps): Promise<RapportS
   const precedents = new Map((await deps.db.modelHealth.findMany()).map(({ modelName, ...etat }) => [modelName, etat]));
   const passerelle = await modelesDeLaPasserelle(deps.litellm);
 
-  const rapport: RapportSupervision = { sondes: 0, enPanne: [], nonSupervises: [], alertesPanne: [], retablissements: [] };
+  const rapport: RapportSupervision = { sondes: 0, enPanne: [], degrades: [], nonSupervises: [], alertesPanne: [], retablissements: [] };
   const pannes: { modelName: string; displayName: string; error: string | null }[] = [];
   const retablis: { modelName: string; displayName: string; since: Date }[] = [];
 
@@ -101,7 +104,9 @@ export async function superviserModeles(deps: SupervisionDeps): Promise<RapportS
       const precedent = precedents.get(fiche.modelName) ?? null;
       const { etat, alerte } = etatApresSonde(precedent, sonde, now);
       await deps.db.modelHealth.upsert({ where: { modelName: fiche.modelName }, create: { modelName: fiche.modelName, ...etat }, update: etat });
-      if (!etat.healthy) rapport.enPanne.push({ modelName: fiche.modelName, error: etat.error });
+      const statut = statutDeLEtat(etat);
+      if (statut === "en_panne") rapport.enPanne.push({ modelName: fiche.modelName, error: etat.error });
+      if (statut === "degrade") rapport.degrades.push({ modelName: fiche.modelName, error: etat.error });
       if (alerte === "panne") pannes.push({ modelName: fiche.modelName, displayName: fiche.displayNameFr, error: etat.error });
       if (alerte === "retablissement" && precedent) retablis.push({ modelName: fiche.modelName, displayName: fiche.displayNameFr, since: precedent.since });
     }),
@@ -110,6 +115,7 @@ export async function superviserModeles(deps: SupervisionDeps): Promise<RapportS
 
   const parNom = (a: { modelName: string }, b: { modelName: string }) => a.modelName.localeCompare(b.modelName);
   rapport.enPanne.sort(parNom);
+  rapport.degrades.sort(parNom);
   rapport.nonSupervises.sort();
   if (pannes.length > 0) await notifyModelsDown(deps, pannes.sort(parNom), deps.intervalleMinutes ?? null);
   if (retablis.length > 0) await notifyModelsRestored(deps, retablis.sort(parNom));
@@ -136,8 +142,17 @@ async function sonder(litellm: LiteLLMClient, passerelle: Map<string, LiteLLMMod
   return litellm.probeModel(modelName, modele.apiKind);
 }
 
-/** État d'un modèle visible, tel que l'affiche l'onglet « Supervision ». */
-export type StatutModele = "ok" | "en_panne" | "en_attente" | "non_supervise";
+/**
+ * État d'un modèle visible, tel que l'affiche l'onglet « Supervision » : dégradé dès un échec, en panne à partir de
+ * SEUIL_ALERTE échecs consécutifs, quand l'alerte part aux admins.
+ */
+export type StatutModele = "ok" | "degrade" | "en_panne" | "en_attente" | "non_supervise";
+
+/** Statut d'un modèle sondé, d'après son état enregistré. */
+export function statutDeLEtat(etat: Pick<EtatModele, "healthy" | "failures">): "ok" | "degrade" | "en_panne" {
+  if (etat.healthy) return "ok";
+  return etat.failures >= SEUIL_ALERTE ? "en_panne" : "degrade";
+}
 
 export interface EtatModeleVue {
   modelName: string;
@@ -156,7 +171,7 @@ export interface EtatModeleVue {
 
 /**
  * Onglet « Supervision » (admins seulement) : chaque modèle visible du catalogue avec son dernier état connu, les modèles
- * en panne d'abord, puis par nom affiché dans la langue de l'admin (repli sur le français).
+ * en panne d'abord, puis les dégradés, puis par nom affiché dans la langue de l'admin (repli sur le français).
  */
 export async function etatDesModeles(deps: { db: Db; litellm: LiteLLMClient }, user: SessionUser, langue: Langue): Promise<EtatModeleVue[]> {
   requireAdmin(user);
@@ -166,13 +181,13 @@ export async function etatDesModeles(deps: { db: Db; litellm: LiteLLMClient }, u
     modelesDeLaPasserelle(deps.litellm),
   ]);
   const parNom = new Map(etats.map((e) => [e.modelName, e]));
-  const ORDRE: StatutModele[] = ["en_panne", "en_attente", "ok", "non_supervise"];
+  const ORDRE: StatutModele[] = ["en_panne", "degrade", "en_attente", "ok", "non_supervise"];
   return fiches
     .map((fiche): EtatModeleVue => {
       const apiKind = passerelle instanceof Map ? (passerelle.get(fiche.modelName)?.apiKind ?? null) : null;
       const etat = parNom.get(fiche.modelName);
       const displayName = (langue === "en" && fiche.displayNameEn) || fiche.displayNameFr;
-      const statut: StatutModele = apiKind === "image" ? "non_supervise" : !etat ? "en_attente" : etat.healthy ? "ok" : "en_panne";
+      const statut: StatutModele = apiKind === "image" ? "non_supervise" : !etat ? "en_attente" : statutDeLEtat(etat);
       return {
         modelName: fiche.modelName,
         displayName,

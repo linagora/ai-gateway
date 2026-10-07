@@ -14,7 +14,8 @@ const memoire = globalThis as typeof globalThis & { minuterieSupervision?: Retur
  * Supervision des modèles planifiée dans le portail (ticket #142), démarrée une fois au lancement du serveur (src/instrumentation.ts) :
  * un passage toutes les SUPERVISION_INTERVAL_MINUTES minutes, sans cron. Le portail tourne en une seule instance ; deux
  * instances sonderaient chacune les modèles, sans double alerte au-delà d'une course entre deux passages simultanés.
- * Un passage encore en cours (sondes jusqu'à 30 s) n'est pas doublé. Seuls les pannes et les échecs sont journalisés.
+ * Un passage encore en cours (sondes jusqu'à 30 s) n'est pas doublé. Seuls les modèles en échec et les passages en échec sont
+ * journalisés.
  */
 export function demarrerSupervision(): void {
   const intervalle = lireIntervalle(process.env.SUPERVISION_INTERVAL_MINUTES);
@@ -38,8 +39,8 @@ export function demarrerSupervision(): void {
         portalUrl: process.env.AUTH_URL,
         intervalleMinutes: intervalle,
       });
-      if (rapport.enPanne.length > 0) {
-        console.warn(`Supervision des modèles : en panne : ${rapport.enPanne.map((m) => `${m.modelName} (${m.error})`).join(", ")}`);
+      for (const [libelle, modeles] of [["en panne", rapport.enPanne], ["dégradés", rapport.degrades]] as const) {
+        if (modeles.length > 0) console.warn(`Supervision des modèles : ${libelle} : ${modeles.map((m) => `${m.modelName} (${m.error})`).join(", ")}`);
       }
     } catch (e) {
       console.error(`Supervision des modèles : passage en échec (${e instanceof Error ? e.message : "erreur inconnue"})`);
