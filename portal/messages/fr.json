@@ -153,7 +153,8 @@
       "nouveautePubliee": "Nouveauté publiée.",
       "lectureEnregistree": "Lecture enregistrée.",
       "nouveauteModifiee": "Nouveauté corrigée.",
-      "nouveauteSupprimee": "Nouveauté supprimée."
+      "nouveauteSupprimee": "Nouveauté supprimée.",
+      "sondeFaite": "Sonde terminée."
     },
     "erreurs": {
       "controles_en_echec": "La demande ne respecte pas la politique d'accès aux modèles. Contrôles en échec : {controles}.",
@@ -626,6 +627,7 @@
       "equipes": "Équipes",
       "aValider": "{nombre, plural, one {# demande à valider} other {# demandes à valider}}",
       "outils": "Outils",
+      "supervision": "Supervision",
       "collaborateurs": "Collaborateurs",
       "remboursements": "Remboursements",
       "integrations": "Intégrations"
@@ -966,6 +968,36 @@
       "declarer": "Déclarer une intégration",
       "aideDeclarer": "Elle est créée désactivée.",
       "boutonDeclarer": "Déclarer l'intégration"
+    },
+    "supervision": {
+      "titre": "Supervision des modèles",
+      "intro": "{intervalle, plural, =0 {La sonde automatique est désactivée (SUPERVISION_INTERVAL_MINUTES) : seul le bouton « Sonder maintenant » sonde les modèles.} one {Chaque modèle visible du catalogue est sondé chaque minute} other {Chaque modèle visible du catalogue est sondé toutes les # minutes}} par la même route que les collaborateurs. Après {seuil} échecs consécutifs, les admins reçoivent un courriel, puis un autre au rétablissement. Un modèle ajouté ou rendu visible au catalogue est suivi dès le passage suivant.",
+      "sonder": "Sonder maintenant",
+      "aucun": "Aucun modèle n'est visible au catalogue.",
+      "resume": "{enPanne, plural, =0 {Tous les modèles sondés répondent.} one {# modèle ne répond pas.} other {# modèles ne répondent pas.}}",
+      "modele": "Modèle",
+      "etat": "État",
+      "depuis": "Depuis",
+      "derniereSonde": "Dernière sonde",
+      "duree": "Durée",
+      "dureeValeur": "{ms, number} ms",
+      "erreur": "Erreur",
+      "alerte": "Admins prévenus le {date, date, short} à {date, time, short}",
+      "date": "{date, date, short} à {date, time, short}",
+      "statuts": {
+        "ok": "Répond",
+        "en_panne": "En panne",
+        "en_attente": "Pas encore sondé",
+        "non_supervise": "Non sondé"
+      },
+      "nonSupervise": "Modèle d'images : chaque sonde générerait une image payante.",
+      "typesApi": {
+        "conversation": "conversation",
+        "image": "images",
+        "embeddings": "embeddings",
+        "decision": "décision"
+      },
+      "erreurHttp": "HTTP {statut} : {erreur}"
     }
   },
   "introuvable": {
@@ -1377,6 +1409,17 @@
         "sujet": "Intégration désactivée : {nom}",
         "corps": "{auteur} a désactivé l'intégration {nom} ({id}) : ses appels à l'API du portail sont refusés."
       }
+    },
+    "modelesEnPanne": {
+      "sujet": "{nombre, plural, one {Modèle en panne : {modele}} other {# modèles en panne}}",
+      "corps": "{nombre, plural, one {Ce modèle mis à disposition des collaborateurs ne répond plus} other {Ces modèles mis à disposition des collaborateurs ne répondent plus}} à la sonde de la passerelle, après plusieurs essais{intervalle, plural, =0 {} one { à # minute d'intervalle} other { à # minutes d'intervalle}} :",
+      "modele": "- {nom} ({modele}) : {erreur}",
+      "suite": "Les collaborateurs n'en sont pas prévenus. Un courriel suivra au rétablissement."
+    },
+    "modelesRetablis": {
+      "sujet": "{nombre, plural, one {Modèle rétabli : {modele}} other {# modèles rétablis}}",
+      "corps": "{nombre, plural, one {Ce modèle répond} other {Ces modèles répondent}} de nouveau à la sonde de la passerelle :",
+      "modele": "- {nom} ({modele}), en panne depuis le {depuis, date, long} à {depuis, time, short}"
     }
   },
   "validation": {

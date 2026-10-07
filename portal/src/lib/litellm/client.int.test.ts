@@ -441,3 +441,28 @@ describe("clés", () => {
     await expect.poll(appel, { timeout: 15_000, interval: 1_000 }).toBe(200);
   });
 });
+
+describe("sonde de supervision", () => {
+  test("un modèle qui répond donne un statut 200 sans erreur ; un modèle inconnu, un refus avec le message de LiteLLM", async () => {
+    const modelName = uniqueId("sonde");
+    const created = await admin<{ model_info: { id: string } }>("POST", "/model/new", {
+      model_name: modelName,
+      litellm_params: { model: `openai/essai/${modelName}`, api_key: "sk-factice", mock_response: "OK" },
+      model_info: {},
+    });
+    createdModels.push(created.model_info.id);
+
+    const sonde = await client.probeModel(modelName, "conversation");
+    expect(sonde).toMatchObject({ status: 200, error: null });
+    expect(sonde.latencyMs).toBeGreaterThanOrEqual(0);
+
+    const inconnu = await client.probeModel(uniqueId("inconnu"), "conversation");
+    expect(inconnu.status).toBeGreaterThanOrEqual(400);
+    expect(inconnu.error).toEqual(expect.any(String));
+  });
+
+  test("une passerelle injoignable est une panne, sans exception", async () => {
+    const injoignable = createLiteLLMClient({ baseUrl: "http://127.0.0.1:9/admin", masterKey });
+    expect(await injoignable.probeModel("qwen3.8", "conversation")).toMatchObject({ status: null, error: expect.stringContaining("passerelle injoignable") });
+  });
+});

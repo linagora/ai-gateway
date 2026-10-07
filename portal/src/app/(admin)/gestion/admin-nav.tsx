@@ -35,6 +35,7 @@ export async function AdminNav() {
                 { href: "/gestion/nouveautes", contenu: t("nouveautes") },
                 { href: "/gestion/parametres", contenu: t("parametres") },
                 { href: "/gestion/integrations", contenu: t("integrations") },
+                { href: "/gestion/supervision", contenu: t("supervision") },
                 { href: "/gestion/outils", contenu: t("outils") },
               ]
             : []),

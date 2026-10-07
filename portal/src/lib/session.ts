@@ -8,6 +8,7 @@ import { getDb } from "@/lib/db";
 import { getLiteLLM } from "@/lib/litellm/instance";
 import { LimiteDeDebit } from "@/lib/limite-de-debit";
 import { equipesGerees } from "@/lib/services/autorite";
+import { lireIntervalle } from "@/lib/services/supervision";
 
 /**
  * Couche d'accès aux données (DAL) : l'utilisateur courant, reconstruit à chaque requête. Le rôle
@@ -61,5 +62,6 @@ export function getDeps() {
     mailer: mailerFromEnv(),
     adminEmails: addressesFromEnv(process.env.ADMIN_NOTIFICATION_EMAILS),
     portalUrl: process.env.AUTH_URL,
+    intervalleMinutes: lireIntervalle(process.env.SUPERVISION_INTERVAL_MINUTES),
   };
 }

@@ -636,6 +636,39 @@ export async function notifyTeamBudgetAlert(
   await envoyer(deps, adminsEtResponsables(deps, responsables), message);
 }
 
+/**
+ * Supervision : un seul courriel aux admins pour les modèles qui ne répondent plus à la sonde, avec l'erreur de chacun et
+ * l'intervalle des sondes. Les collaborateurs n'en sont pas prévenus.
+ */
+export async function notifyModelsDown(
+  deps: NotificationDeps,
+  modeles: { modelName: string; displayName: string; error: string | null }[],
+  intervalleMinutes: number | null,
+): Promise<void> {
+  const message = bilingue((t) => {
+    const valeurs = { nombre: modeles.length, modele: modeles[0].displayName, intervalle: intervalleMinutes ?? 0 };
+    const liste = modeles.map((m) => t("courriels.modelesEnPanne.modele", { nom: m.displayName, modele: m.modelName, erreur: m.error ?? "?" }));
+    return {
+      sujet: t("courriels.modelesEnPanne.sujet", valeurs),
+      paragraphes: [t("courriels.bonjourAdmins"), avecRecap(t("courriels.modelesEnPanne.corps", valeurs), liste), t("courriels.modelesEnPanne.suite")],
+    };
+  }, lienVers(deps, "/gestion/supervision"));
+  await envoyer(deps, deps.adminEmails ?? [], message);
+}
+
+/** Supervision : les modèles annoncés en panne qui répondent de nouveau, avec le début de leur panne. */
+export async function notifyModelsRestored(deps: NotificationDeps, modeles: { modelName: string; displayName: string; since: Date }[]): Promise<void> {
+  const message = bilingue((t) => {
+    const valeurs = { nombre: modeles.length, modele: modeles[0].displayName };
+    const liste = modeles.map((m) => t("courriels.modelesRetablis.modele", { nom: m.displayName, modele: m.modelName, depuis: m.since }));
+    return {
+      sujet: t("courriels.modelesRetablis.sujet", valeurs),
+      paragraphes: [t("courriels.bonjourAdmins"), avecRecap(t("courriels.modelesRetablis.corps", valeurs), liste)],
+    };
+  }, lienVers(deps, "/gestion/supervision"));
+  await envoyer(deps, deps.adminEmails ?? [], message);
+}
+
 /** Auteur d'une action, tel que le nomment les courriels : « Jeanne Dupont (jdupont) ». */
 const auteur = (a: { uid: string; name: string }) => `${a.name} (${a.uid})`;
 

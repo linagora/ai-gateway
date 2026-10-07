@@ -153,7 +153,8 @@
       "nouveautePubliee": "News item published.",
       "lectureEnregistree": "Marked as read.",
       "nouveauteModifiee": "News item updated.",
-      "nouveauteSupprimee": "News item deleted."
+      "nouveauteSupprimee": "News item deleted.",
+      "sondeFaite": "Probe completed."
     },
     "erreurs": {
       "controles_en_echec": "The request does not comply with the model access policy. Failed checks: {controles}.",
@@ -626,6 +627,7 @@
       "equipes": "Teams",
       "aValider": "{nombre, plural, one {# request to review} other {# requests to review}}",
       "outils": "Tools",
+      "supervision": "Supervision",
       "collaborateurs": "Employees",
       "remboursements": "Accounting",
       "integrations": "Integrations"
@@ -966,6 +968,36 @@
       "declarer": "Declare an integration",
       "aideDeclarer": "It is created disabled.",
       "boutonDeclarer": "Declare the integration"
+    },
+    "supervision": {
+      "titre": "Model monitoring",
+      "intro": "{intervalle, plural, =0 {Automatic probing is disabled (SUPERVISION_INTERVAL_MINUTES): only the “Probe now” button probes the models.} one {Every model visible in the catalog is probed every minute} other {Every model visible in the catalog is probed every # minutes}} through the same route as employees. After {seuil} consecutive failures, administrators receive an email, then another when service is restored. A model added to or made visible in the catalog is monitored from the next run.",
+      "sonder": "Probe now",
+      "aucun": "No model is visible in the catalog.",
+      "resume": "{enPanne, plural, =0 {All probed models answer.} one {# model does not answer.} other {# models do not answer.}}",
+      "modele": "Model",
+      "etat": "Status",
+      "depuis": "Since",
+      "derniereSonde": "Last probe",
+      "duree": "Duration",
+      "dureeValeur": "{ms, number} ms",
+      "erreur": "Error",
+      "alerte": "Administrators notified on {date, date, short} at {date, time, short}",
+      "date": "{date, date, short} at {date, time, short}",
+      "statuts": {
+        "ok": "Answers",
+        "en_panne": "Down",
+        "en_attente": "Not probed yet",
+        "non_supervise": "Not probed"
+      },
+      "nonSupervise": "Image model: each probe would generate a paid image.",
+      "typesApi": {
+        "conversation": "chat",
+        "image": "images",
+        "embeddings": "embeddings",
+        "decision": "decision"
+      },
+      "erreurHttp": "HTTP {statut}: {erreur}"
     }
   },
   "introuvable": {
@@ -1377,6 +1409,17 @@
         "sujet": "Integration disabled: {nom}",
         "corps": "{auteur} disabled the integration {nom} ({id}): its calls to the portal API are rejected."
       }
+    },
+    "modelesEnPanne": {
+      "sujet": "{nombre, plural, one {Model down: {modele}} other {# models down}}",
+      "corps": "{nombre, plural, one {This model made available to employees no longer answers} other {These models made available to employees no longer answer}} the gateway's probe, after several attempts{intervalle, plural, =0 {} one { # minute apart} other { # minutes apart}}:",
+      "modele": "- {nom} ({modele}): {erreur}",
+      "suite": "Employees are not notified. Another email will follow when service is restored."
+    },
+    "modelesRetablis": {
+      "sujet": "{nombre, plural, one {Model restored: {modele}} other {# models restored}}",
+      "corps": "{nombre, plural, one {This model answers} other {These models answer}} the gateway's probe again:",
+      "modele": "- {nom} ({modele}), down since {depuis, date, long} at {depuis, time, short}"
     }
   },
   "validation": {
