@@ -54,9 +54,12 @@ modeles:
   # --- Modèles ouverts servis en UE (Inceptron : Suède/Finlande ; NextBit : Espagne) ---
   - {nom: glm-5.3, openrouter: z-ai/glm-5.3, zone: UE}
   - {nom: glm-5.3-flash, openrouter: z-ai/glm-5.3-flash, zone: UE}
-  - {nom: deepseek-v4.1-flash, openrouter: deepseek/deepseek-v4.1-flash, zone: UE}
-  - {nom: deepseek-v4-pro, openrouter: deepseek/deepseek-v4-pro-0813, zone: UE}
   - {nom: deepseek-v4-flash, openrouter: deepseek/deepseek-v4-flash-0731, zone: UE}
+
+  # --- DeepSeek V4.1 Flash et V4 Pro : NextBit, leur seul point d'accès en UE, ne les sert plus (2026-10-07) ;
+  # zone monde, plafonnés au prix déclaré jusque-là (décision de l'utilisateur du 2026-10-07) ---
+  - {nom: deepseek-v4.1-flash, openrouter: deepseek/deepseek-v4.1-flash, zone: monde, prix_max_usd: [0.21, 0.84]}
+  - {nom: deepseek-v4-pro, openrouter: deepseek/deepseek-v4-pro-0813, zone: monde, prix_max_usd: [1.056, 3.168]}
 
   # --- Kimi (Moonshot) : aucun fournisseur en UE, zone monde ---
   - {nom: kimi-k2.5, openrouter: moonshotai/kimi-k2.5, zone: monde}
