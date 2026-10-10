@@ -38,7 +38,8 @@ OPENROUTER = "https://openrouter.ai/api/v1"
 SOURCE = "liste-blanche-openrouter"  # model_info.source des modèles gérés par ce script
 # Éditeur d'un modèle, d'après l'auteur de son identifiant OpenRouter (à défaut, l'auteur tel quel).
 EDITEURS = {"mistralai": "Mistral AI", "google": "Google", "z-ai": "Z.ai (Zhipu)", "deepseek": "DeepSeek",
-            "moonshotai": "Moonshot AI", "qwen": "Alibaba (Qwen)", "black-forest-labs": "Black Forest Labs", "xiaomi": "Xiaomi"}
+            "moonshotai": "Moonshot AI", "qwen": "Alibaba (Qwen)", "black-forest-labs": "Black Forest Labs",
+            "xiaomi": "Xiaomi", "nvidia": "NVIDIA"}
 
 appliquer = "--appliquer" in sys.argv
 supprimer = "--supprimer-hors-liste" in sys.argv
