@@ -48,12 +48,12 @@ def declaration_recherche(modele):
 class GardePasserelle(CustomLogger):
     async def async_pre_call_hook(self, user_api_key_dict, cache, data, call_type):
         if any(motif in str(call_type) for motif in MOTIFS_APPELS_REFUSES):
-            raise HTTPException(status_code=400, detail={"error": "API refusée par la passerelle Linagora. Pour créer une image, appelez "
+            raise HTTPException(status_code=400, detail={"error": "API refusée par la passerelle LINAGORA. Pour créer une image, appelez "
                                                                   "/v1/chat/completions en demandant une image en sortie : \"modalities\": [\"image\"]. "
                                                                   "La génération de vidéos n'est pas proposée."})
         interdits = sorted(PARAMETRES_INTERDITS.intersection(data))
         if interdits:
-            raise HTTPException(status_code=400, detail={"error": f"Paramètre refusé par la passerelle Linagora : {', '.join(interdits)}. "
+            raise HTTPException(status_code=400, detail={"error": f"Paramètre refusé par la passerelle LINAGORA : {', '.join(interdits)}. "
                                                                   "Le modèle et le fournisseur sont fixés par la passerelle."})
         declaration = declaration_recherche(data.get("model"))
         if declaration is not None:
