@@ -24,6 +24,10 @@
 # Modèles d'images : appelés par la conversation (modalities), facturés au jeton d'image.
 # jetons_par_image : jetons d'une image par défaut, pour le prix indicatif affiché au catalogue.
 # majoration (facultative) : coefficient des prix déclarés, quand le fournisseur facture un minimum par image.
+#
+# Modèles qui cherchent sur le web à chaque requête : la recherche est facturée à part, selon sa profondeur.
+# recherche_usd : prix d'une recherche en $ (profondeurs low, medium, high). OpenRouter ne publie que le premier,
+# celui de la profondeur par défaut : la garde l'applique aux requêtes qui n'en demandent pas.
 
 taux_usd_eur: 0.87974        # BCE, 2026-09-24 : 1 EUR = 1,1367 USD. À revoir chaque trimestre.
 frais_openrouter: 0.055      # frais d'achat de crédits par carte (modèles facturés au prix des fournisseurs)
