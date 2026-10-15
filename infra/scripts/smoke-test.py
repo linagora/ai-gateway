@@ -18,6 +18,13 @@ Une API de décision (type d'API « decision » : JEV, Nox-4B) reçoit à la pla
 question, sans erreur ; le coût calculé et la dépense enregistrée sur la clé, au tarif déclaré ; un message hors format
 refusé explicitement (400). La recette sort en erreur si l'un de ces contrôles échoue.
 
+Un modèle qui cherche sur le web à chaque requête (prix de recherche déclaré : Perplexity Sonar) reçoit en plus une
+question sans profondeur de recherche, puis avec des options sans profondeur (la garde applique celle de la déclaration),
+puis à la profondeur « high » : coût calculé et dépense enregistrée sur la clé au prix déclaré, coût facturé par
+OpenRouter (converti en euros) à 2 % près ; /v1/messages et /v1/responses, où sa recherche ne serait pas comptée, doivent
+être refusés par la garde. Une réponse qui cite des sources du web, pour un modèle sans prix de recherche déclaré, est un
+échec : sa recherche ne serait pas comptée.
+
 Exécuté DANS le conteneur litellm (la clé maître y est déjà en variable d'environnement) :
   docker compose exec -T litellm python3 - <model_name> < scripts/smoke-test.py
 """
@@ -63,10 +70,18 @@ def step(msg):
     print(f"• {msg}", flush=True)
 
 
-def cout_attendu(usage, prix_cache):
-    """Coût d'une réponse au tarif du modèle ; les jetons lus depuis le cache au prix de lecture déclaré (0 sans prix)."""
+def cout_attendu(usage, prix_cache, profondeur=None):
+    """Coût d'une réponse au tarif du modèle ; les jetons lus depuis le cache au prix de lecture déclaré (0 sans prix) ; la
+    recherche sur le web au prix déclaré de sa profondeur (par défaut, celle de la déclaration), s'il y en a un."""
     lus = (usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0
-    return (usage.get("prompt_tokens", 0) - lus) * in_cost + lus * (prix_cache or 0) + usage.get("completion_tokens", 0) * out_cost
+    recherche = prix_recherche.get(f"search_context_size_{profondeur or profondeur_recherche}", 0)
+    return (usage.get("prompt_tokens", 0) - lus) * in_cost + lus * (prix_cache or 0) + usage.get("completion_tokens", 0) * out_cost + recherche
+
+
+def citations(reponse):
+    """Sources du web citées par une réponse de conversation (annotations url_citation) : signe d'une recherche."""
+    message = (((reponse or {}).get("choices") or [{}])[0].get("message") or {})
+    return [a for a in message.get("annotations") or [] if a.get("type") == "url_citation"]
 
 
 def proche(valeur, attendue):
@@ -192,6 +207,34 @@ def controle_decision(test_key, token_id, echecs):
         echecs.append("décision (message hors format)")
 
 
+def controle_recherche(test_key, token_id, echecs):
+    """Recherche sans profondeur demandée, avec des options sans profondeur (la profondeur de la déclaration, appliquée par
+    la garde), puis « high » : coût calculé et dépense enregistrée au prix déclaré ; coût facturé par OpenRouter, converti
+    comme les prix déclarés, à 2 % près (il dit si la profondeur a été transmise)."""
+    question = [{"role": "user", "content": "Quelle est la capitale de la Slovénie ? Réponds en une phrase."}]
+    for libelle, profondeur, extra in (("sans profondeur", profondeur_recherche, {}),
+                                       ("options sans profondeur", profondeur_recherche, {"web_search_options": {}}),
+                                       ("high", "high", {"web_search_options": {"search_context_size": "high"}})):
+        avant = depense(token_id)
+        st, rep, hdr = call("POST", "/v1/chat/completions", {"model": MODEL, "messages": question, "max_tokens": 100, **extra}, key=test_key)
+        if st != 200:
+            echecs.append(f"recherche {libelle} (requête refusée)")
+            step(f"recherche {libelle} → HTTP {st} ; {json.dumps(rep, ensure_ascii=False)[:300]}")
+            continue
+        usage = rep.get("usage") or {}
+        attendu = cout_attendu(usage, cache_cost, profondeur)
+        calcule = float(hdr.get("x-litellm-response-cost") or 0)
+        enregistree = attendre_depense(token_id, avant + attendu) - avant
+        # Coût en dollars qu'OpenRouter renvoie dans l'usage de la réponse : absent, il n'est pas comparé.
+        facture = None if usage.get("cost") is None else usage["cost"] * (1 + (mi.get("frais_openrouter") or 0)) * (mi.get("fx_rate_usd_eur") or 0)
+        conforme = proche(calcule, attendu) and proche(enregistree, attendu) and (facture is None or abs(facture - attendu) <= 0.02 * attendu)
+        step(f"recherche {libelle} ({profondeur}) → {len(citations(rep))} sources citées ; coût calculé : {calcule:.10f}, dépense enregistrée : "
+             f"{enregistree:.10f} ; attendus : {attendu:.10f} ; facturé par OpenRouter : {'non renvoyé' if facture is None else f'{facture:.10f}'} "
+             f"→ {'conforme' if conforme else 'échec'}")
+        if not conforme:
+            echecs.append(f"recherche {libelle} (coût)")
+
+
 st, info, _ = call("GET", "/model/info")
 deployments = [m for m in (info or {}).get("data", []) if m.get("model_name") == MODEL]
 if not deployments:
@@ -199,6 +242,11 @@ if not deployments:
 mi = deployments[0].get("model_info") or {}
 in_cost, out_cost = mi.get("input_cost_per_token"), mi.get("output_cost_per_token")
 cache_cost = mi.get("cache_read_input_token_cost")
+# Recherche sur le web facturée à chaque requête : prix par profondeur ; profondeur par défaut de la déclaration, que la
+# garde applique aux requêtes qui n'en demandent pas (la profondeur moyenne, sans déclaration).
+lp = deployments[0].get("litellm_params") or {}
+prix_recherche = lp.get("search_context_cost_per_query") or {}
+profondeur_recherche = (lp.get("web_search_options") or {}).get("search_context_size", "medium")
 step(f"modèle {MODEL} : niveau {mi.get('data_level')}, devise {mi.get('pricing_currency')}, tarifs {in_cost} / {out_cost} par jeton")
 
 st, team, _ = call("POST", "/team/new", {"team_alias": "test-install", "models": [MODEL]})
@@ -262,6 +310,11 @@ try:
                 time.sleep(5)
             else:
                 step("/key/info → dépense toujours nulle après 100 s")
+        if st == 200 and citations(comp) and not prix_recherche:
+            echecs.append("recherche (prix non déclaré)")
+            step("recherche — échec : la réponse cite des sources du web, sans prix de recherche déclaré (recherche_usd)")
+        if prix_recherche:
+            controle_recherche(test_key, token_id, echecs)
 
         # Jetons lus depuis le cache : la même requête longue deux fois, la seconde lisant en général son début dans le cache
         # implicite du fournisseur. LiteLLM doit les compter au prix de lecture déclaré ; sans ce prix, la 1.102.1 les
@@ -303,14 +356,20 @@ try:
 
         # Format Anthropic, utilisé par des assistants de code : LiteLLM le traduit selon la route du modèle (2026-09-26 :
         # la route openai/… de Qwen3.8 passait par l'API Responses, refusée par OVH, alors que chat/completions répondait).
-        st, msg, _ = call(
-            "POST",
-            "/v1/messages",
-            {"model": MODEL, "messages": [{"role": "user", "content": "Réponds uniquement par le mot OK."}], "max_tokens": 300},
-            key=test_key,
-        )
-        texte = [b.get("text") for b in (msg or {}).get("content", []) if b.get("type") == "text"] if st == 200 else None
-        step(f"/v1/messages (format Anthropic) → HTTP {st} ; " + (f"réponse : {str(texte)[:60]}" if st == 200 else f"erreur : {json.dumps(msg, ensure_ascii=False)[:300]}"))
+        message = {"model": MODEL, "messages": [{"role": "user", "content": "Réponds uniquement par le mot OK."}], "max_tokens": 300}
+        if prix_recherche:
+            # Modèle qui cherche sur le web : par /v1/messages et /v1/responses, LiteLLM ne compte pas sa recherche ; la garde
+            # refuse ces API pour lui, avant tout appel payant.
+            for chemin, corps in (("/v1/messages", message), ("/v1/responses", {"model": MODEL, "input": "Réponds uniquement par le mot OK."})):
+                st, rep, _ = call("POST", chemin, corps, key=test_key)
+                refuse = st == 400 and "API refusée" in json.dumps(rep, ensure_ascii=False)
+                step(f"{chemin} → HTTP {st} ; {'refusé par la garde' if refuse else json.dumps(rep, ensure_ascii=False)[:300]} → {'conforme' if refuse else 'échec'}")
+                if not refuse:
+                    echecs.append(f"recherche ({chemin} accepté)")
+        else:
+            st, msg, _ = call("POST", "/v1/messages", message, key=test_key)
+            texte = [b.get("text") for b in (msg or {}).get("content", []) if b.get("type") == "text"] if st == 200 else None
+            step(f"/v1/messages (format Anthropic) → HTTP {st} ; " + (f"réponse : {str(texte)[:60]}" if st == 200 else f"erreur : {json.dumps(msg, ensure_ascii=False)[:300]}"))
 finally:
     if token_id:
         st, _, _ = call("POST", "/key/delete", {"keys": [token_id]})

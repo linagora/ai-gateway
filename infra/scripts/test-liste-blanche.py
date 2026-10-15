@@ -89,6 +89,13 @@ for nom in sorted(set(openrouter) | {"qwen3.8", JEV}):
     if images:
         controle(f"{nom} : génération d'images et prix par image déclarés",
                  "generation_images" in (mi.get("capacites") or []) and (mi.get("prix_image_eur") or 0) > 0, json.dumps(faits | {"prix_image_eur": mi.get("prix_image_eur")}, ensure_ascii=False))
+    # Recherche sur le web facturée à chaque requête (recherche_usd) : prix des trois profondeurs, profondeur par défaut demandée.
+    if "recherche_usd" in (liste.get(nom) or {}):
+        lp = tarifs.get(nom) or {}
+        recherche = {k: lp.get(k) for k in ("search_context_cost_per_query", "web_search_options")}
+        controle(f"{nom} : prix de la recherche déclarés, profondeur par défaut demandée",
+                 all(((recherche["search_context_cost_per_query"] or {}).get(f"search_context_size_{p}") or 0) > 0 for p in ("low", "medium", "high"))
+                 and (recherche["web_search_options"] or {}).get("search_context_size") == "low", json.dumps(recherche))
 
 # 2. Équipe et clés de test : sans restriction de modèle, N1 limitée au modèle testé, Expérimental limitée à JEV
 _, equipe = http("POST", "/team/new", {"team_alias": "recette-liste-blanche"})
@@ -123,6 +130,13 @@ try:
     for chemin, corps in [("/v1/images/generations", {"model": MODELE, "prompt": "essai"}), ("/v1/videos", {"model": MODELE, "prompt": "essai"})]:
         s, rep = http("POST", chemin, corps, cle["key"])
         controle(f"API refusée : {chemin}", s == 400 and "API refusée" in json.dumps(rep, ensure_ascii=False), f"HTTP {s} {json.dumps(rep, ensure_ascii=False)[:200]}")
+    # Modèles qui cherchent sur le web à chaque requête : /v1/messages et /v1/responses, où LiteLLM ne compte pas leur
+    # recherche, refusés par la garde avant tout appel payant.
+    for nom in sorted(n for n, e in liste.items() if "recherche_usd" in e):
+        for chemin, corps in [("/v1/messages", {"model": nom, "max_tokens": 8, "messages": [{"role": "user", "content": "Réponds : bonjour"}]}),
+                              ("/v1/responses", {"model": nom, "input": "Réponds : bonjour"})]:
+            s, rep = http("POST", chemin, corps, cle["key"])
+            controle(f"{nom} : API refusée : {chemin}", s == 400 and "API refusée" in json.dumps(rep, ensure_ascii=False), f"HTTP {s} {json.dumps(rep, ensure_ascii=False)[:200]}")
 
     # 6. JEV : modèle de la passerelle, réservé aux clés qui le portent
     question = json.dumps({"state": "Mes virements échouent depuis trois jours, c'est bloquant.",
@@ -141,6 +155,9 @@ try:
     for nom, c, u in [(MODELE, cle_n1, usage), (JEV, cle_jev, usage_jev)]:
         t = tarifs[nom]
         attendu = u.get("prompt_tokens", 0) * t["input_cost_per_token"] + u.get("completion_tokens", 0) * t["output_cost_per_token"]
+        # Modèle qui cherche sur le web à chaque requête : la recherche, à la profondeur de la déclaration.
+        profondeur = (t.get("web_search_options") or {}).get("search_context_size", "medium")
+        attendu += (t.get("search_context_cost_per_query") or {}).get(f"search_context_size_{profondeur}", 0)
         d = depense(c)
         controle(f"{nom} : coût enregistré au tarif en euros", attendu > 0 and abs(d - attendu) <= attendu * 0.01, f"attendu {attendu:.3g} €, enregistré {d:.3g}")
 finally:

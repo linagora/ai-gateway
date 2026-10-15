@@ -6,8 +6,9 @@ et vérifie qu'aucun autre modèle OpenRouter, ni aucun joker, n'y est déclaré
 Sans option : affiche le plan et sort en erreur s'il reste un écart. --appliquer crée ou met à jour les
 modèles de la liste ; --seulement=nom,nom limite ces créations et mises à jour aux modèles nommés (les autres
 écarts restent signalés) ; --supprimer-hors-liste supprime en plus les modèles OpenRouter qui n'y figurent pas.
-Un modèle de la liste sans point d'accès retenu (aucun dans sa zone, ou aucun sous son plafond) est un écart :
-signalé, sa déclaration laissée en l'état, sans arrêter le passage pour les autres modèles.
+Un modèle de la liste sans point d'accès retenu (aucun dans sa zone, ou aucun sous son plafond), ou dont OpenRouter
+publie un autre prix de recherche que la liste, est un écart : signalé, sa déclaration laissée en l'état, sans arrêter
+le passage pour les autres modèles.
 
 Pour chaque modèle : points d'accès OpenRouter de sa zone (API publique /models/<id>/endpoints), prix
 en € = prix le plus élevé de ces points d'accès × (1 + frais) × taux, routage limité à ces points
@@ -19,6 +20,9 @@ Modèles d'images (sortie « image ») : appelés par la conversation (modalitie
 d'image au prix de sortie déclaré ; son API d'images, qui enregistre 0 €, est refusée par la garde. Prix de
 sortie = prix du jeton d'image × majoration (facultative, pour un minimum facturé par image) ; prix indicatif
 d'une image = ce prix × jetons_par_image, pour le catalogue du portail.
+Modèles qui cherchent sur le web à chaque requête (Perplexity Sonar) : prix d'une recherche selon sa profondeur
+(recherche_usd de la liste blanche), que LiteLLM ajoute à chaque réponse qui cite ses sources ; la déclaration donne
+la profondeur par défaut, que la garde applique aux requêtes qui n'en demandent pas (LiteLLM compterait la moyenne).
 Faits lus par le portail pour la configuration d'OpenCode : sortie maximale (le plus petit maximum des points
 d'accès retenus, plafonné par la limite du modèle que publie OpenRouter, car certains points d'accès annoncent
 plus qu'ils n'acceptent), efforts de raisonnement et effort par défaut (liste des modèles d'OpenRouter), contenus
@@ -39,7 +43,7 @@ SOURCE = "liste-blanche-openrouter"  # model_info.source des modèles gérés pa
 # Éditeur d'un modèle, d'après l'auteur de son identifiant OpenRouter (à défaut, l'auteur tel quel).
 EDITEURS = {"mistralai": "Mistral AI", "google": "Google", "z-ai": "Z.ai (Zhipu)", "deepseek": "DeepSeek",
             "moonshotai": "Moonshot AI", "qwen": "Alibaba (Qwen)", "black-forest-labs": "Black Forest Labs",
-            "xiaomi": "Xiaomi", "nvidia": "NVIDIA"}
+            "xiaomi": "Xiaomi", "nvidia": "NVIDIA", "perplexity": "Perplexity"}
 
 appliquer = "--appliquer" in sys.argv
 supprimer = "--supprimer-hors-liste" in sys.argv
@@ -64,7 +68,8 @@ def http(methode, url, corps=None, auth=True):
 
 
 class SansPointDAcces(Exception):
-    """Aucun point d'accès OpenRouter retenu pour un modèle de la liste : écart signalé, sans arrêter le passage."""
+    """Aucun point d'accès OpenRouter retenu pour un modèle de la liste, ou aucun au prix de recherche de la liste : écart
+    signalé, sans arrêter le passage."""
 
 
 def dans_zone(tag, zone):
@@ -132,6 +137,19 @@ def declaration(entree, cfg, modeles_openrouter):
     if paliers:
         supplements["input_cost_per_token_above_200k_tokens"] = arrondi(max(float(o["prompt"]) for o in paliers) * k)
         supplements["output_cost_per_token_above_200k_tokens"] = arrondi(max(float(o["completion"]) for o in paliers) * k)
+    # Recherche sur le web, facturée à chaque requête selon sa profondeur (recherche_usd : Perplexity Sonar) : OpenRouter ne
+    # publie que le prix de la profondeur par défaut (low), la liste blanche donne les trois. LiteLLM ajoute le prix de la
+    # profondeur demandée à chaque réponse qui cite ses sources (url_citation), celui de la profondeur moyenne quand la
+    # requête n'en demande aucune : la déclaration donne la profondeur par défaut, que la garde applique à la requête et au
+    # calcul du coût. Le prix de recherche que publie Gemini n'est pas déclaré : web_search_options ne déclenche pas sa
+    # recherche (vérifié le 2026-10-14), le greffon web (plugins) est refusé par la garde.
+    if prix_recherche := entree.get("recherche_usd"):
+        recherche = max(float((e.get("pricing") or {}).get("web_search") or 0) for e in retenus)
+        if recherche != prix_recherche[0]:
+            raise SansPointDAcces(f"recherche facturée {recherche:g} $ par OpenRouter, {prix_recherche[0]:g} $ dans recherche_usd : liste blanche à revoir")
+        supplements["search_context_cost_per_query"] = {
+            f"search_context_size_{profondeur}": arrondi(usd * k) for profondeur, usd in zip(("low", "medium", "high"), prix_recherche)}
+        supplements["web_search_options"] = {"search_context_size": "low"}
     # Capacités affichées au catalogue ; les outils et les sorties JSON, communs à tous les modèles, n'en sont pas.
     entrees = set((donnees.get("architecture") or {}).get("input_modalities") or [])
     raisonne = any({"reasoning", "include_reasoning"} & set(e.get("supported_parameters") or []) for e in retenus)
@@ -232,6 +250,8 @@ for nom, raison in sans_acces.items():
 for nom, v in voulus.items():
     eur = [v["litellm_params"][c] * 1e6 for c in ("input_cost_per_token", "output_cost_per_token", "cache_read_input_token_cost")]
     resume = f"{v['model_info']['zone']} via {', '.join(v['litellm_params']['provider']['only'])} ; {eur[0]:.4f} € / {eur[1]:.4f} € par Mtoken, cache lu {eur[2]:.4f} €"
+    if recherche := v["litellm_params"].get("search_context_cost_per_query"):
+        resume += f", recherche {recherche['search_context_size_low']:.4f} € par requête"
     existants = deja.get(nom, [])
     if len(existants) > 1:
         print(f"✘ {nom} : déclaré {len(existants)} fois, à corriger à la main")
