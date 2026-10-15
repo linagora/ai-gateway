@@ -178,6 +178,31 @@ describe("supervision des modèles", () => {
     expect(await testDb.modelHealth.findUnique({ where: { modelName: "qwen3.8" } })).toBeNull();
   });
 
+  test("un modèle qui cherche sur le web à chaque requête n'est pas sondé, chaque sonde lançant une recherche payante ; son état d'avant est oublié", async () => {
+    litellm.withModel({ modelName: "sonar", webSearchPerRequest: true });
+    await fiche("sonar", "Perplexity Sonar");
+    await testDb.modelHealth.create({ data: { modelName: "sonar", healthy: true, since: maintenant, checkedAt: maintenant } });
+    // Avant le passage suivant, la dernière sonde n'est déjà plus montrée.
+    expect((await etatDesModeles(deps(), admin, "fr")).find((e) => e.modelName === "sonar")).toMatchObject({ statut: "non_supervise", checkedAt: null });
+
+    const rapport = await superviserModeles(deps());
+    expect(litellm.sondes.map((s) => s.modelName)).not.toContain("sonar");
+    expect(rapport).toMatchObject({ sondes: 3, nonSupervises: ["flux-2-pro", "sonar"] });
+    expect(await testDb.modelHealth.findUnique({ where: { modelName: "sonar" } })).toBeNull();
+    const etats = await etatDesModeles(deps(), admin, "fr");
+    expect(etats.find((e) => e.modelName === "sonar")).toMatchObject({ statut: "non_supervise", raisonNonSupervise: "recherche_web", since: null, checkedAt: null });
+    expect(etats.find((e) => e.modelName === "flux-2-pro")).toMatchObject({ statut: "non_supervise", raisonNonSupervise: "image" });
+    expect(etats.find((e) => e.modelName === "qwen3.8")).toMatchObject({ statut: "ok", raisonNonSupervise: null });
+    expect((await etatDesServices(deps(), "fr")).find((s) => s.modelName === "sonar")).toEqual({
+      modelName: "sonar",
+      displayName: "Perplexity Sonar",
+      dataLevel: "N1",
+      statut: "non_surveille",
+      since: null,
+      checkedAt: null,
+    });
+  });
+
   test("l'onglet « Supervision » montre les modèles en panne, puis les dégradés ; il est réservé aux admins, comme la sonde immédiate", async () => {
     litellm.modelesEnPanne.set("jev-latest", "Provider returned error");
     await superviserModeles(deps());

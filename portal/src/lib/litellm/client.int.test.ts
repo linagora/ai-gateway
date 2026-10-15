@@ -67,6 +67,7 @@ describe("modèles", () => {
       inputContents: null,
       outputContents: null,
       dimensions: null,
+      webSearchPerRequest: false,
     });
   });
 
@@ -126,6 +127,22 @@ describe("modèles", () => {
       imagePrice: 0.0278,
       executionRegion: "HORS_UE",
     });
+  });
+
+  test("un modèle qui cherche sur le web à chaque requête l'expose, d'après le prix de recherche déclaré par la passerelle", async () => {
+    const [recherche, sansRecherche] = [uniqueId("recherche"), uniqueId("modele")];
+    const prixRecherche = { search_context_cost_per_query: { search_context_size_low: 0.0046, search_context_size_medium: 0.0074, search_context_size_high: 0.0111 } };
+    for (const [modelName, declaration] of [[recherche, prixRecherche], [sansRecherche, {}]] as const) {
+      const created = await admin<{ model_info: { id: string } }>("POST", "/model/new", {
+        model_name: modelName,
+        litellm_params: { model: "openai/perplexity/sonar", api_key: "sk-factice", mock_response: "OK", input_cost_per_token: 0.00000093, output_cost_per_token: 0.00000093, ...declaration },
+        model_info: { data_level: "N1", pricing_currency: "EUR" },
+      });
+      createdModels.push(created.model_info.id);
+    }
+    const models = await client.listModels();
+    expect(models.find((m) => m.modelName === recherche)?.webSearchPerRequest).toBe(true);
+    expect(models.find((m) => m.modelName === sansRecherche)?.webSearchPerRequest).toBe(false);
   });
 
   test("un modèle d'embeddings l'expose, avec la taille de ses vecteurs ; sans taille déclarée, ses dimensions sont nulles (ticket #126)", async () => {
