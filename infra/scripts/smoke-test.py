@@ -9,6 +9,9 @@ comptés à leur prix déclaré, dans le coût calculé comme dans la dépense e
 lu depuis le cache, ce contrôle n'est pas concluant. Sort aussi en erreur si /v1/models ne donne pas le
 modèle à la clé de test (critère 1), ou si la clé révoquée n'est pas refusée (critère 7).
 
+La même question est aussi posée en flux (stream), comme le font les assistants de code et les interfaces de conversation :
+la dépense enregistrée sur la clé doit suivre le tarif déclaré, comme hors flux. La recette sort en erreur sinon.
+
 Un modèle d'embeddings (type d'API « embeddings ») passe à la place par /v1/embeddings : deux vecteurs de la
 taille déclarée, au format base64 des SDK OpenAI puis sans format ; avec une taille réduite (dimensions), des
 vecteurs de cette taille pour un modèle qui l'accepte, un refus explicite (400) pour les autres ; la dépense
@@ -64,6 +67,22 @@ def call(method, path, body=None, key=MASTER_KEY, timeout=120):
         except ValueError:
             payload = raw[:200].decode(errors="replace")
         return e.code, payload, {k.lower(): v for k, v in e.headers.items()}
+
+
+def call_flux(body, key):
+    """Conversation en flux (stream), l'usage demandé en fin de flux : statut, puis les morceaux reçus (erreur en cas de refus)."""
+    req = urllib.request.Request(
+        BASE + "/v1/chat/completions",
+        data=json.dumps({**body, "stream": True, "stream_options": {"include_usage": True}}).encode(),
+        method="POST",
+        headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            lignes = r.read().decode().splitlines()
+    except urllib.error.HTTPError as e:
+        return e.code, e.read()[:300].decode(errors="replace")
+    return 200, [json.loads(l[len("data:"):]) for l in lignes if l.startswith("data:") and l[len("data:"):].strip() != "[DONE]"]
 
 
 def step(msg):
@@ -207,6 +226,29 @@ def controle_decision(test_key, token_id, echecs):
         echecs.append("décision (message hors format)")
 
 
+def controle_flux(test_key, token_id, echecs):
+    """Question posée en flux : dépense enregistrée sur la clé au tarif déclaré, comme hors flux (LiteLLM 1.102.1 y reprenait
+    le coût renvoyé par OpenRouter, en dollars, au lieu des prix déclarés ; corrigé par la garde)."""
+    avant = depense(token_id)
+    st, morceaux = call_flux({"model": MODEL, "messages": [{"role": "user", "content": "Réponds uniquement par le mot OK."}], "max_tokens": 300}, test_key)
+    if st != 200:
+        echecs.append("flux (requête refusée)")
+        step(f"flux → HTTP {st} ; {morceaux}")
+        return
+    usage = next((m["usage"] for m in reversed(morceaux) if m.get("usage")), None)
+    if not usage:
+        echecs.append("flux (usage absent)")
+        step(f"flux → {len(morceaux)} morceaux, aucun ne donne l'usage → échec")
+        return
+    attendu = cout_attendu(usage, cache_cost)
+    enregistree = attendre_depense(token_id, avant + attendu) - avant
+    conforme = proche(enregistree, attendu)
+    step(f"flux → {len(morceaux)} morceaux ; jetons : {usage.get('prompt_tokens')} entrée + {usage.get('completion_tokens')} sortie ; "
+         f"dépense enregistrée : {enregistree:.10f} ; attendue au tarif du modèle : {attendu:.10f} → {'conforme' if conforme else 'échec'}")
+    if not conforme:
+        echecs.append("flux (dépense)")
+
+
 def controle_recherche(test_key, token_id, echecs):
     """Recherche sans profondeur demandée, avec des options sans profondeur (la profondeur de la déclaration, appliquée par
     la garde), puis « high » : coût calculé et dépense enregistrée au prix déclaré ; coût facturé par OpenRouter, converti
@@ -313,6 +355,10 @@ try:
         if st == 200 and citations(comp) and not prix_recherche:
             echecs.append("recherche (prix non déclaré)")
             step("recherche — échec : la réponse cite des sources du web, sans prix de recherche déclaré (recherche_usd)")
+        if in_cost is None or out_cost is None:
+            step("flux — non vérifié : tarifs du modèle absents")
+        else:
+            controle_flux(test_key, token_id, echecs)
         if prix_recherche:
             controle_recherche(test_key, token_id, echecs)
 
