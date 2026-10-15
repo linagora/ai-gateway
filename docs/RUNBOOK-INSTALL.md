@@ -100,7 +100,7 @@ Vérifier dans les logs LiteLLM l'absence du message « Cannot apply server_root
 cd /opt/linagora-ia
 docker compose exec -T litellm python3 - < scripts/sync-openrouter.py               # plan et écarts (code 1 s'il en reste)
 docker compose exec -T litellm python3 - --appliquer < scripts/sync-openrouter.py   # création / mise à jour
-docker compose exec -T litellm python3 - < scripts/test-liste-blanche.py            # recette (42 contrôles, < 0,01 €)
+docker compose exec -T litellm python3 - < scripts/test-liste-blanche.py            # recette (98 contrôles pour 21 modèles au 2026-10-15, selon la liste ; < 0,01 €)
 ```
 - Les modèles OpenRouter sont joints en `openai/<id>` sur `https://openrouter.ai/api/v1`, **pas** par la route `openrouter/` de LiteLLM : celle-ci enregistre le coût renvoyé par OpenRouter, **en dollars**, à la place des tarifs en euros (vérifié sur la 1.102.1).
 - Un modèle OpenRouter hors liste est signalé par `sync-openrouter.py` ; `--supprimer-hors-liste` le supprime.
