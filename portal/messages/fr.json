@@ -1018,7 +1018,10 @@
         "en_attente": "Pas encore sondé",
         "non_supervise": "Non sondé"
       },
-      "nonSupervise": "Modèle d'images : chaque sonde générerait une image payante.",
+      "nonSupervise": {
+        "image": "Modèle d'images : chaque sonde générerait une image payante.",
+        "recherche_web": "Modèle qui cherche sur le web à chaque requête : chaque sonde lancerait une recherche payante."
+      },
       "typesApi": {
         "conversation": "conversation",
         "image": "images",

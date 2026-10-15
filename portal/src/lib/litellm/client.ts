@@ -124,6 +124,11 @@ export interface LiteLLMModel {
   outputContents: Contenu[] | null;
   /** Taille des vecteurs d'un modèle d'embeddings ; null si la passerelle ne la déclare pas. */
   dimensions: number | null;
+  /**
+   * Modèle qui cherche sur le web à chaque requête (Perplexity Sonar) : la passerelle déclare le prix de sa recherche,
+   * facturée en plus des jetons à chaque appel, même le plus court.
+   */
+  webSearchPerRequest: boolean;
 }
 
 /** Paramètres d'une clé à générer (F-40), figés à l'approbation de la demande. Durées au format LiteLLM : 30d, 3600s… */
@@ -289,11 +294,15 @@ const modelInfoSchema = z.object({
   data: z.array(
     z.object({
       model_name: z.string(),
-      /** Prix au-delà de 200 000 jetons : LiteLLM 1.102.1 ne les recopie pas dans model_info, contrairement aux autres prix. */
+      /**
+       * Prix au-delà de 200 000 jetons et prix d'une recherche sur le web, selon sa profondeur : LiteLLM 1.102.1 ne les
+       * recopie pas dans model_info, contrairement aux autres prix.
+       */
       litellm_params: z
         .object({
           input_cost_per_token_above_200k_tokens: z.number().nullish(),
           output_cost_per_token_above_200k_tokens: z.number().nullish(),
+          search_context_cost_per_query: z.record(z.string(), z.number().nullish()).nullish(),
         })
         .nullish(),
       model_info: z.object({
@@ -463,6 +472,7 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
         inputContents: contenus(mi.contenus_entree),
         outputContents: contenus(mi.contenus_sortie),
         dimensions: mi.output_vector_size ?? null,
+        webSearchPerRequest: Object.keys(lp?.search_context_cost_per_query ?? {}).length > 0,
       }));
     },
 

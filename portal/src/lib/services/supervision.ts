@@ -1,7 +1,7 @@
 import type { ModelHealth } from "@/generated/prisma/client";
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
-import type { ApiKind, CodeErreurSonde, LiteLLMClient, LiteLLMModel, ProbeResult } from "@/lib/litellm/client";
+import type { ApiKind, CodeErreurSonde, LiteLLMClient, LiteLLMModel, ProbedApiKind, ProbeResult } from "@/lib/litellm/client";
 import type { Langue } from "@/lib/langue";
 import type { DataLevel } from "@/lib/policy";
 import { requireAdmin } from "@/lib/rbac";
@@ -89,7 +89,8 @@ const memoire = globalThis as typeof globalThis & { passageSupervision?: Promise
 /**
  * Un passage de la supervision : sonde de chaque modèle visible du catalogue, en parallèle, mise à jour de son état, puis
  * un seul courriel aux admins pour les pannes nouvelles et un pour les rétablissements (une panne d'OpenRouter touche
- * d'un coup tous ses modèles). Un modèle masqué ou retiré du catalogue n'est plus suivi. Un passage déjà en cours n'est
+ * d'un coup tous ses modèles). Un modèle masqué ou retiré du catalogue n'est plus suivi, et l'état d'un modèle qui n'est
+ * pas sondé est oublié (sonde d'avant son exclusion). Un passage déjà en cours n'est
  * pas doublé, son compte rendu sert aussi au second appelant : deux passages simultanés liraient les mêmes états et
  * enverraient deux fois le même courriel.
  */
@@ -109,6 +110,7 @@ async function passage(deps: SupervisionDeps): Promise<RapportSupervision> {
   const rapport: RapportSupervision = { sondes: 0, enPanne: [], degrades: [], nonSupervises: [], alertesPanne: [], retablissements: [] };
   const pannes: (ModeleEnEchec & { displayName: string })[] = [];
   const retablis: { modelName: string; displayName: string; since: Date }[] = [];
+  const sondes: string[] = [];
 
   await Promise.all(
     fiches.map(async (fiche) => {
@@ -118,6 +120,7 @@ async function passage(deps: SupervisionDeps): Promise<RapportSupervision> {
         return;
       }
       rapport.sondes++;
+      sondes.push(fiche.modelName);
       const precedent = precedents.get(fiche.modelName) ?? null;
       const { etat, alerte } = etatApresSonde(precedent, sonde, now);
       await deps.db.modelHealth.upsert({ where: { modelName: fiche.modelName }, create: { modelName: fiche.modelName, ...etat }, update: etat });
@@ -129,7 +132,7 @@ async function passage(deps: SupervisionDeps): Promise<RapportSupervision> {
       if (alerte === "retablissement" && precedent) retablis.push({ modelName: fiche.modelName, displayName: fiche.displayNameFr, since: precedent.since });
     }),
   );
-  await deps.db.modelHealth.deleteMany({ where: { modelName: { notIn: fiches.map((f) => f.modelName) } } });
+  await deps.db.modelHealth.deleteMany({ where: { modelName: { notIn: sondes } } });
 
   const parNom = (a: { modelName: string }, b: { modelName: string }) => a.modelName.localeCompare(b.modelName);
   rapport.enPanne.sort(parNom);
@@ -157,8 +160,24 @@ async function modelesDeLaPasserelle(litellm: LiteLLMClient): Promise<Map<string
 }
 
 /**
- * Sonde d'un modèle visible ; null pour un modèle qui n'est pas sondé : un modèle d'images, ou, LiteLLM injoignable, un
- * modèle jamais sondé, dont le type n'est alors pas connu (un modèle d'images mis en panne ne serait jamais rétabli).
+ * Raison pour laquelle un modèle n'est pas sondé, chaque sonde étant payante : un modèle d'images générerait une image, un
+ * modèle qui cherche sur le web à chaque requête lancerait une recherche, facturée en plus des jetons.
+ */
+export type RaisonNonSupervise = "image" | "recherche_web";
+
+export function raisonNonSupervise(modele: Pick<LiteLLMModel, "apiKind" | "webSearchPerRequest">): RaisonNonSupervise | null {
+  if (modele.apiKind === "image") return "image";
+  return modele.webSearchPerRequest ? "recherche_web" : null;
+}
+
+function estSonde(modele: LiteLLMModel): modele is LiteLLMModel & { apiKind: ProbedApiKind } {
+  return raisonNonSupervise(modele) === null;
+}
+
+/**
+ * Sonde d'un modèle visible ; null pour un modèle qui n'est pas sondé : un modèle dont chaque sonde serait payante, ou,
+ * LiteLLM injoignable, un modèle jamais sondé, dont le type n'est alors pas connu (un modèle d'images mis en panne ne
+ * serait jamais rétabli).
  */
 async function sonder(
   litellm: LiteLLMClient,
@@ -170,7 +189,7 @@ async function sonder(
   const modele = passerelle.get(modelName);
   // Visible au catalogue mais absent de LiteLLM : les collaborateurs le voient sans pouvoir l'appeler.
   if (!modele) return { status: null, latencyMs: 0, error: null, errorCode: "absent_de_la_passerelle" };
-  if (modele.apiKind === "image") return null;
+  if (!estSonde(modele)) return null;
   return litellm.probeModel(modelName, modele.apiKind);
 }
 
@@ -192,6 +211,8 @@ export interface EtatModeleVue {
   dataLevel: DataLevel;
   apiKind: ApiKind | null;
   statut: StatutModele;
+  /** Raison pour laquelle le modèle n'est pas sondé ; null pour un modèle sondé. */
+  raisonNonSupervise: RaisonNonSupervise | null;
   /** Depuis quand le modèle répond, ou ne répond plus ; null sans sonde. */
   since: Date | null;
   checkedAt: Date | null;
@@ -223,16 +244,19 @@ async function lireEtats(deps: { db: Db; litellm: LiteLLMClient }, langue: Langu
   const ORDRE: StatutModele[] = ["en_panne", "degrade", "en_attente", "ok", "non_supervise"];
   return fiches
     .map((fiche): EtatModeleVue => {
-      const apiKind = passerelle instanceof Map ? (passerelle.get(fiche.modelName)?.apiKind ?? null) : null;
-      const etat = parNom.get(fiche.modelName);
+      const modele = passerelle instanceof Map ? passerelle.get(fiche.modelName) : undefined;
+      const raison = modele ? raisonNonSupervise(modele) : null;
+      // L'état d'un modèle qui n'est plus sondé date d'avant son exclusion : il n'est pas montré.
+      const etat = raison ? undefined : parNom.get(fiche.modelName);
       const displayName = (langue === "en" && fiche.displayNameEn) || fiche.displayNameFr;
-      const statut: StatutModele = apiKind === "image" ? "non_supervise" : !etat ? "en_attente" : statutDeLEtat(etat);
+      const statut: StatutModele = raison ? "non_supervise" : !etat ? "en_attente" : statutDeLEtat(etat);
       return {
         modelName: fiche.modelName,
         displayName,
         dataLevel: fiche.dataLevel,
-        apiKind,
+        apiKind: modele?.apiKind ?? null,
         statut,
+        raisonNonSupervise: raison,
         since: etat?.since ?? null,
         checkedAt: etat?.checkedAt ?? null,
         latencyMs: etat?.latencyMs ?? null,
@@ -247,7 +271,7 @@ async function lireEtats(deps: { db: Db; litellm: LiteLLMClient }, langue: Langu
 
 /**
  * État d'un modèle tel que le voient les collaborateurs : perturbé dès un échec, en incident quand les admins sont
- * prévenus ; non vérifié avant la première sonde, non surveillé pour un modèle d'images.
+ * prévenus ; non vérifié avant la première sonde, non surveillé pour un modèle dont chaque sonde serait payante.
  */
 export type StatutService = "operationnel" | "perturbe" | "incident" | "non_verifie" | "non_surveille";
 
