@@ -64,6 +64,10 @@ modeles:
   - {nom: deepseek-v4.1-flash, openrouter: deepseek/deepseek-v4.1-flash, zone: monde, prix_max_usd: [0.21, 0.84]}
   - {nom: deepseek-v4-pro, openrouter: deepseek/deepseek-v4-pro-0813, zone: monde, prix_max_usd: [1.056, 3.168]}
 
+  # --- DeepSeek V4.1 Flash 1017 : version du 2026-10-17 de V4.1 Flash ; aucun point d'accès en UE, zone monde,
+  # plafonné au prix de V4.1 Flash (demande de l'utilisateur du 2026-10-19) ---
+  - {nom: deepseek-v4.1-flash-1017, openrouter: deepseek/deepseek-v4.1-flash-1017, zone: monde, prix_max_usd: [0.21, 0.84]}
+
   # --- GLM-5.3 Flash : Inceptron, son seul point d'accès en UE depuis le retrait de NextBit, ne le sert plus correctement
   # (refus 429 et réponses en 30 à 60 s le 2026-10-07) ; zone monde, plafonné au prix déclaré jusque-là (décision de
   # l'utilisateur du 2026-10-07) ---
