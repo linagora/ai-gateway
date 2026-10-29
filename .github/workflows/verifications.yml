@@ -31,6 +31,8 @@ jobs:
           cache-dependency-path: portal/package-lock.json
       - run: npm ci
       - run: npx prisma generate
+      # Types des routes (PageProps) : produits par next dev ou next build, absents d'un dépôt fraîchement cloné.
+      - run: npx next typegen
       - run: npm run lint
       - run: npx tsc --noEmit
       - run: npm test
