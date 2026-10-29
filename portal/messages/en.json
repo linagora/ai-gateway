@@ -1049,6 +1049,7 @@
   "cles": {
     "titre": "My keys",
     "opencode": "Do you use OpenCode, the coding assistant? <lien>Set it up with your keys</lien>.",
+    "claudeCode": "Do you use Claude Code? <lien>Set up Claude Code with your keys</lien>.",
     "aRetirer": "To pick up",
     "aRetirerIntro": "These requests are approved: generate your key before the deadline.",
     "echeance": "Pick up before {date}",
@@ -1081,6 +1082,7 @@
     "bloquee": "blocked",
     "commentUtiliser": "How to use it",
     "configurerOpenCode": "Set up OpenCode with this key",
+    "configurerClaudeCode": "Set up Claude Code with this key",
     "exemplesPour": "With {modele}",
     "emplacement": "Keep your key in the LINAGORA_API_KEY environment variable: the examples read it from there, it never appears in them.",
     "langages": {
@@ -1192,6 +1194,95 @@
     },
     "sansCle": {
       "intro": "To set up OpenCode, you need an issued key with at least one chat model. To get one:",
+      "recommandes": "Models recommended for code",
+      "aucunRecommande": "No model is recommended for code yet."
+    }
+  },
+  "claudeCode": {
+    "titre": "Set up Claude Code",
+    "intro": "Claude Code, Anthropic's coding assistant, works in the terminal. This page prepares, from your issued keys, one launcher per key: a command that opens Claude Code on the LINAGORA gateway, with the default model of your choice. Your key never goes through the portal: the commands ask you for it in the terminal, without displaying it, and save it in your session's keyring.",
+    "indisponible": "The gateway is not responding: the configuration cannot be built for now. Please try again in a few moments.",
+    "clesAInclure": "Keys to include",
+    "modeles": "Models: {liste}",
+    "modelesEcartes": "Left out: {liste}",
+    "raisonsModele": {
+      "image": "image model",
+      "decision": "decision API",
+      "embeddings": "embedding model",
+      "non_declare": "no longer declared by the gateway"
+    },
+    "lanceur": "Launcher: <code>{nom}</code>",
+    "modeleParDefaut": "Default model",
+    "modeleParDefautDe": "of key {alias}",
+    "clesNonProposees": "Keys not offered",
+    "raisonsCle": {
+      "bloquee": "blocked key",
+      "sans_modele": "no chat model"
+    },
+    "aucuneChoisie": "Tick at least one key to get its commands and its launcher.",
+    "commandesExplication": "Run these commands in a terminal: they ask you for each key, without displaying it or keeping it in the history, then save it in the GNOME keyring of your session, which opens when you log in.",
+    "copierCommandes": "Copy the commands",
+    "commandesCopiees": "Commands copied",
+    "lanceursExplication": "Run this command: it installs one launcher per key in the <code>~/.local/bin</code> folder. Each time it starts, the launcher reads the key from the keyring and opens Claude Code on the LINAGORA gateway, with the key's default model.",
+    "copierLanceurs": "Copy the launchers command",
+    "lanceursCopies": "Command copied",
+    "verification": "Then check that each launcher answers: the command should display OK.",
+    "chemin": "The launcher is not found? Log out of your Ubuntu session and log back in: the <code>~/.local/bin</code> folder, if it has just been created, only enters the command path when the session opens.",
+    "copierCommande": "Copy the command",
+    "commandeCopiee": "Command copied",
+    "invite": "LINAGORA key {alias} ({niveau}, {equipe}): ",
+    "libelle": "LINAGORA key {alias} ({niveau}, {equipe})",
+    "script": {
+      "enTete": "Claude Code on the LINAGORA gateway, key {alias} ({details})",
+      "priorite": "An Anthropic key present in the environment would take precedence over the LINAGORA key",
+      "trafic": "No telemetry, error reports or automatic updates to Anthropic: only the LINAGORA gateway is called; update with claude update",
+      "adresse": "Gateway address, without /v1: Claude Code adds /v1/messages itself",
+      "introuvable": "LINAGORA key not found in the keyring: save it again from the \"Set up Claude Code\" page of the portal.",
+      "modeleUnique": "Model of the key, for the conversation, background tasks and subagents",
+      "autresModeles": "Default model, for the conversation, background tasks and subagents; other models of the key, to pick in Claude Code with /model followed by the name: {liste}",
+      "contexte": "Context window declared by the gateway, the smallest of the key's models",
+      "question": "Reply with the word OK only"
+    },
+    "endroits": {
+      "terminal": "Terminal",
+      "navigateur": "Browser",
+      "assistant": "Claude Code"
+    },
+    "etapeInstaller": {
+      "titre": "Install Claude Code",
+      "terminal": "The terminal is the window where you type commands. To open it: <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>T</kbd>.",
+      "coller": "To run a command from this page: copy it, paste it into the terminal with <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd>, then press <kbd>Enter</kbd>.",
+      "installer": "Install Claude Code with its official script, then close the terminal and open a new one:",
+      "verifier": "Check the installed version: it should display <code>2.1.x</code> or a more recent version.",
+      "mettreAJour": "Later, to update Claude Code:",
+      "secretTool": "Also install <code>secret-tool</code>, which saves your keys in your session's keyring and reads them back:"
+    },
+    "etapeCles": {
+      "titre": "Choose your keys",
+      "rappel": "The code of the project opened in Claude Code is sent to the model: choose a key whose confidentiality level covers the classification of your repository.",
+      "niveau": "{niveau}: {description}",
+      "niveaux": {
+        "N1": "open source code, or code shared with all employees",
+        "N2": "repository with restricted access",
+        "N3": "secret code or code of a customer"
+      },
+      "parDefaut": "For each chosen key, pick its default model: its launcher gives it to Claude Code for the conversation, background tasks and subagents."
+    },
+    "etapeCommandes": {
+      "titre": "Save your keys in the keyring"
+    },
+    "etapeLanceurs": {
+      "titre": "Install the launchers"
+    },
+    "etapeUtiliser": {
+      "titre": "Use Claude Code",
+      "lancer": "Start Claude Code in your project: go to its folder with <code>cd</code>, then type the launcher of the key, for example <code>{lanceur}</code>. Claude Code only works in that folder.",
+      "choisir": "To switch to another model of the key: type <code>/model</code> followed by the name of the model in the gateway, for example <code>/model {modele}</code>, then <kbd>Enter</kbd>.",
+      "couts": "Claude Code does not know the gateway's prices: do not rely on the cost it displays. Follow the spend of each key in <lien>My keys</lien>.",
+      "compte": "No Anthropic account needed: the launcher sends Claude Code through the LINAGORA gateway, with your key."
+    },
+    "sansCle": {
+      "intro": "To set up Claude Code, you need an issued key with at least one chat model. To get one:",
       "recommandes": "Models recommended for code",
       "aucunRecommande": "No model is recommended for code yet."
     }

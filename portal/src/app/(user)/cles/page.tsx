@@ -25,6 +25,7 @@ export default async function MesClesPage(props: PageProps<"/cles">) {
     <>
       <h1>{t("titre")}</h1>
       <p className="text-sm">{t.rich("opencode", { lien: (texte) => <Link href="/cles/opencode">{texte}</Link> })}</p>
+      <p className="text-sm">{t.rich("claudeCode", { lien: (texte) => <Link href="/cles/claude-code">{texte}</Link> })}</p>
       <Notice searchParams={searchParams} />
       {toPickUp.length > 0 && (
         <section aria-labelledby="a-retirer">
@@ -145,9 +146,14 @@ export default async function MesClesPage(props: PageProps<"/cles">) {
                     <summary className="cursor-pointer font-medium">{t("commentUtiliser")}</summary>
                     <p className="mt-2 text-sm">{t("emplacement")}</p>
                     {k.examples.some((e) => e.apiKind === "conversation") && (
-                      <p className="mt-2 text-sm">
-                        <Link href={`/cles/opencode?cle=${k.requestId}`}>{t("configurerOpenCode")}</Link>
-                      </p>
+                      <>
+                        <p className="mt-2 text-sm">
+                          <Link href={`/cles/opencode?cle=${k.requestId}`}>{t("configurerOpenCode")}</Link>
+                        </p>
+                        <p className="mt-2 text-sm">
+                          <Link href={`/cles/claude-code?cle=${k.requestId}`}>{t("configurerClaudeCode")}</Link>
+                        </p>
+                      </>
                     )}
                     {k.examples.map(({ model, apiKind }) => {
                       const exemples = exemplesAppel(model, apiKind, textes);
