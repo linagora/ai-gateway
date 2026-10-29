@@ -1,10 +1,23 @@
 import type { SessionUser } from "@/lib/auth-user";
-import { PortalError } from "@/lib/errors";
 import type { Langue } from "@/lib/langue";
-import type { ApiKind, LiteLLMModel } from "@/lib/litellm/client";
+import type { LiteLLMModel } from "@/lib/litellm/client";
 import type { DataLevel } from "@/lib/policy";
-import { displayNames } from "./catalog";
-import { type IssuedKey, type KeyDeps, listMyKeys, slug } from "./keys";
+import {
+  type CleEcartee,
+  type ClePreparee,
+  entreApostrophes,
+  type IdentiteCle,
+  identite,
+  type ModelePropose,
+  modelesProposes,
+  PREFIXE,
+  preparerLesCles,
+  type RaisonModeleEcarte,
+  reference,
+} from "./cles-assistants";
+import type { KeyDeps } from "./keys";
+
+export type { CleEcartee, IdentiteCle, RaisonCleEcartee, RaisonModeleEcarte } from "./cles-assistants";
 
 /** Textes de la configuration, dans la langue du collaborateur. */
 export interface TextesOpenCode {
@@ -32,12 +45,6 @@ export interface OptionsOpenCode {
   miseAJour: MiseAJour | null;
 }
 
-/** Ce qui désigne une clé émise sur la page : sa demande, son alias, son équipe, son niveau et son projet. */
-export type IdentiteCle = Pick<IssuedKey, "requestId" | "alias" | "teamAlias" | "dataLevel" | "project">;
-
-/** Raison pour laquelle un modèle d'une clé n'entre pas dans la configuration : son type d'API, ou il n'est plus déclaré. */
-export type RaisonModeleEcarte = Exclude<ApiKind, "conversation"> | "non_declare";
-
 /** Clé émise proposée pour OpenCode, avec les modèles qu'elle y apporte. */
 export interface CleOpenCode extends IdentiteCle {
   /** Identifiant de l'entrée de la clé dans OpenCode. */
@@ -48,16 +55,8 @@ export interface CleOpenCode extends IdentiteCle {
    * Modèles de conversation de la clé, sous le nom affiché de leur fiche ; la référence, « entrée/modèle », désigne un
    * modèle dans OpenCode, par exemple comme modèle par défaut.
    */
-  modeles: { modelName: string; displayName: string; reference: string }[];
+  modeles: ModelePropose[];
   modelesEcartes: { modelName: string; raison: RaisonModeleEcarte }[];
-}
-
-/** Raison pour laquelle une clé émise n'est pas proposée. */
-export type RaisonCleEcartee = "bloquee" | "sans_modele";
-
-/** Clé émise qui n'est pas proposée pour OpenCode. */
-export interface CleEcartee extends IdentiteCle {
-  raison: RaisonCleEcartee;
 }
 
 /** Configuration d'OpenCode 2.x d'un collaborateur, à partir de ses clés émises. */
@@ -78,13 +77,9 @@ export interface ConfigurationOpenCode {
 /** Paquet d'OpenCode pour une API compatible OpenAI. */
 const PAQUET = "@opencode/ai/providers/openai-compatible";
 
-/** Début de l'identifiant de chaque entrée, qui permet d'en lister les modèles. */
-const PREFIXE = "linagora";
-
-/** Clé proposée, avec les faits techniques de ses modèles retenus et le nom de sa variable d'environnement. */
-interface ClePreparee extends Omit<CleOpenCode, "choisie" | "modeles"> {
+/** Clé proposée, avec le nom de la variable d'environnement qui la contiendra. */
+interface CleAvecVariable extends ClePreparee {
   variable: string;
-  retenus: { modelName: string; displayName: string; faits: LiteLLMModel }[];
 }
 
 /**
@@ -92,28 +87,9 @@ interface ClePreparee extends Omit<CleOpenCode, "choisie" | "modeles"> {
  * seulement la variable d'environnement qui la contiendra.
  */
 export async function configurationOpenCode(deps: KeyDeps, user: SessionUser, options: OptionsOpenCode): Promise<ConfigurationOpenCode> {
-  const indisponible = () => new PortalError("passerelle_indisponible", "La passerelle ne répond pas : configuration d'OpenCode impossible.");
-  const [{ keys }, modeles, noms] = await Promise.all([
-    listMyKeys(deps, user),
-    // Sans les faits techniques, la configuration serait incomplète : la passerelle est dite indisponible.
-    deps.litellm.listModels().catch(() => {
-      throw indisponible();
-    }),
-    displayNames(deps, options.langue),
-  ]);
-  const emises = keys.filter((k) => k.status === "CLE_EMISE");
-  // Sans l'état d'une clé, on ne sait pas si elle est bloquée : pas de configuration partielle.
-  if (emises.some((k) => k.gatewayState === null)) throw indisponible();
-  const entrees = nomsDesEntrees(emises);
-  const cles: ClePreparee[] = [];
-  const clesEcartees: CleEcartee[] = [];
-  for (const [i, cle] of emises.entries()) {
-    const preparee = preparer(cle, entrees[i], modeles, noms);
-    if (cle.gatewayState?.blocked) clesEcartees.push({ ...identite(cle), raison: "bloquee" });
-    else if (preparee.retenus.length === 0) clesEcartees.push({ ...identite(cle), raison: "sans_modele" });
-    else cles.push(preparee);
-  }
-  const choisie = (cle: ClePreparee) => options.requestIds === null || options.requestIds.includes(cle.requestId);
+  const preparees = await preparerLesCles(deps, user, options.langue);
+  const cles = preparees.cles.map(avecVariable);
+  const choisie = (cle: CleAvecVariable) => options.requestIds === null || options.requestIds.includes(cle.requestId);
   const choisies = cles.filter(choisie);
   const references = choisies.flatMap((cle) => cle.retenus.map((m) => reference(cle, m.modelName)));
   const model = options.modeleParDefaut !== null && references.includes(options.modeleParDefaut) ? options.modeleParDefaut : null;
@@ -123,10 +99,10 @@ export async function configurationOpenCode(deps: KeyDeps, user: SessionUser, op
       ...identite(cle),
       entree: cle.entree,
       choisie: choisie(cle),
-      modeles: cle.retenus.map(({ modelName, displayName }) => ({ modelName, displayName, reference: reference(cle, modelName) })),
+      modeles: modelesProposes(cle),
       modelesEcartes: cle.modelesEcartes,
     })),
-    clesEcartees,
+    clesEcartees: preparees.clesEcartees,
     modeleParDefaut: model,
     configuration:
       choisies.length === 0
@@ -137,52 +113,16 @@ export async function configurationOpenCode(deps: KeyDeps, user: SessionUser, op
   };
 }
 
-/** Ce qui désigne une clé émise sur la page. */
-function identite({ requestId, alias, teamAlias, dataLevel, project }: IdentiteCle): IdentiteCle {
-  return { requestId, alias, teamAlias, dataLevel, project };
-}
-
-/** Référence d'un modèle dans OpenCode : l'entrée de sa clé, puis son nom dans la passerelle. */
-function reference(cle: { entree: string }, modelName: string): string {
-  return `${cle.entree}/${modelName}`;
-}
-
-/**
- * Identifiant de l'entrée de chaque clé, d'où vient aussi sa variable d'environnement : tiré du niveau, de l'équipe et du
- * projet de la clé, il ne change ni à son remplacement ni à son renouvellement. Entre deux clés qui auraient le même, la
- * plus ancienne le garde ; la fin de leur demande départage les suivantes.
- */
-function nomsDesEntrees(cles: IssuedKey[]): string[] {
-  const noms = cles.map((cle) => [PREFIXE, cle.dataLevel, cle.teamAlias, ...(cle.project ? [cle.project] : [])].map(slug).join("-"));
-  return cles.map((cle, i) => {
-    const plusAncienne = cles.filter((_, j) => noms[j] === noms[i]).reduce((a, b) => (b.issuedAt < a.issuedAt ? b : a));
-    return plusAncienne === cle ? noms[i] : `${noms[i]}-${slug(cle.requestId.slice(-4))}`;
-  });
-}
-
-/** Modèles retenus et écartés d'une clé, avec le nom de sa variable d'environnement. */
-function preparer(cle: IssuedKey, entree: string, modeles: LiteLLMModel[], noms: Map<string, string>): ClePreparee {
-  const preparee: ClePreparee = {
-    ...identite(cle),
-    entree,
-    variable: `${entree.replaceAll("-", "_").toUpperCase()}_KEY`,
-    modelesEcartes: [],
-    retenus: [],
-  };
-  for (const nom of cle.models) {
-    const faits = modeles.find((m) => m.modelName === nom);
-    if (!faits) preparee.modelesEcartes.push({ modelName: nom, raison: "non_declare" });
-    else if (faits.apiKind !== "conversation") preparee.modelesEcartes.push({ modelName: nom, raison: faits.apiKind });
-    else preparee.retenus.push({ modelName: nom, displayName: noms.get(nom) ?? nom, faits });
-  }
-  return preparee;
+/** Clé proposée, avec sa variable d'environnement, tirée de son entrée. */
+function avecVariable(cle: ClePreparee): CleAvecVariable {
+  return { ...cle, variable: `${cle.entree.replaceAll("-", "_").toUpperCase()}_KEY` };
 }
 
 /**
  * Enregistrement des clés auprès du service OpenCode : chaque clé est lue en saisie masquée (bash et zsh), jamais
  * écrite dans la commande, l'écran ni l'historique du shell ; puis le service redémarre.
  */
-function commandes(cles: ClePreparee[], textes: TextesOpenCode): string {
+function commandes(cles: CleAvecVariable[], textes: TextesOpenCode): string {
   return [
     ...cles.flatMap((cle) => [
       `printf '%s' ${entreApostrophes(textes.invite({ alias: cle.alias, niveau: textes.niveaux[cle.dataLevel], equipe: cle.teamAlias }))}; read -rs K; echo`,
@@ -190,11 +130,6 @@ function commandes(cles: ClePreparee[], textes: TextesOpenCode): string {
     ]),
     "opencode service restart",
   ].join("\n");
-}
-
-/** Texte entre apostrophes pour le shell, où une apostrophe s'écrit '\''. */
-function entreApostrophes(texte: string): string {
-  return `'${texte.replaceAll("'", "'\\''")}'`;
 }
 
 /**
@@ -238,7 +173,7 @@ function variantes(faits: LiteLLMModel): { variants?: { id: string; settings: { 
 }
 
 /** Entrée d'une clé dans le bloc `providers` d'OpenCode. */
-function entreeDeLaCle(cle: ClePreparee, options: OptionsOpenCode) {
+function entreeDeLaCle(cle: CleAvecVariable, options: OptionsOpenCode) {
   const name = ["LINAGORA", options.textes.niveaux[cle.dataLevel], cle.teamAlias, ...(cle.project ? [cle.project] : [])].join(" · ");
   const models = Object.fromEntries(
     cle.retenus.map(({ modelName, displayName, faits }) => [

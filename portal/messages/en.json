@@ -1153,7 +1153,7 @@
       "terminal": "Terminal",
       "navigateur": "Browser",
       "editeur": "Text editor",
-      "opencode": "OpenCode"
+      "assistant": "OpenCode"
     },
     "etapeInstaller": {
       "titre": "Install OpenCode",
