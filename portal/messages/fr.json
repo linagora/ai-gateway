@@ -1077,6 +1077,7 @@
   "cles": {
     "titre": "Mes clés",
     "opencode": "Vous utilisez OpenCode, l'assistant de code ? <lien>Configurez-le avec vos clés</lien>.",
+    "claudeCode": "Vous utilisez Claude Code ? <lien>Configurez Claude Code avec vos clés</lien>.",
     "aRetirer": "À retirer",
     "aRetirerIntro": "Ces demandes sont approuvées : générez votre clé avant l'échéance.",
     "echeance": "À retirer avant le {date}",
@@ -1109,6 +1110,7 @@
     "bloquee": "bloquée",
     "commentUtiliser": "Comment l'utiliser",
     "configurerOpenCode": "Configurer OpenCode avec cette clé",
+    "configurerClaudeCode": "Configurer Claude Code avec cette clé",
     "exemplesPour": "Avec {modele}",
     "emplacement": "Gardez votre clé dans la variable d'environnement LINAGORA_API_KEY : les exemples la lisent là, elle n'y figure jamais.",
     "langages": {
@@ -1182,7 +1184,7 @@
       "terminal": "Terminal",
       "navigateur": "Navigateur",
       "editeur": "Éditeur de texte",
-      "opencode": "OpenCode"
+      "assistant": "OpenCode"
     },
     "etapeInstaller": {
       "titre": "Installer OpenCode",
@@ -1221,6 +1223,95 @@
     },
     "sansCle": {
       "intro": "Pour configurer OpenCode, il vous faut une clé émise avec au moins un modèle de conversation. Pour en obtenir une :",
+      "recommandes": "Modèles recommandés pour le code",
+      "aucunRecommande": "Aucun modèle n'est encore recommandé pour le code."
+    }
+  },
+  "claudeCode": {
+    "titre": "Configurer Claude Code",
+    "intro": "Claude Code, l'assistant de code d'Anthropic, travaille dans le terminal. Cette page prépare, à partir de vos clés émises, un lanceur par clé : une commande qui ouvre Claude Code sur la passerelle LINAGORA, avec le modèle par défaut de votre choix. Votre clé ne passe jamais par le portail : les commandes vous la demandent dans le terminal, sans l'afficher, et l'enregistrent dans le trousseau de votre session.",
+    "indisponible": "La passerelle ne répond pas : la configuration ne peut pas être produite pour l'instant. Réessayez dans quelques instants.",
+    "clesAInclure": "Clés à inclure",
+    "modeles": "Modèles : {liste}",
+    "modelesEcartes": "Non repris : {liste}",
+    "raisonsModele": {
+      "image": "modèle d'images",
+      "decision": "API de décision",
+      "embeddings": "modèle d'embeddings",
+      "non_declare": "la passerelle ne le déclare plus"
+    },
+    "lanceur": "Lanceur : <code>{nom}</code>",
+    "modeleParDefaut": "Modèle par défaut",
+    "modeleParDefautDe": "de la clé {alias}",
+    "clesNonProposees": "Clés non proposées",
+    "raisonsCle": {
+      "bloquee": "clé bloquée",
+      "sans_modele": "aucun modèle de conversation"
+    },
+    "aucuneChoisie": "Cochez au moins une clé pour obtenir ses commandes et son lanceur.",
+    "commandesExplication": "Lancez ces commandes dans un terminal : elles vous demandent chaque clé, sans l'afficher ni la garder dans l'historique, puis l'enregistrent dans le trousseau GNOME de votre session, qui s'ouvre à votre connexion.",
+    "copierCommandes": "Copier les commandes",
+    "commandesCopiees": "Commandes copiées",
+    "lanceursExplication": "Lancez cette commande : elle installe un lanceur par clé dans le dossier <code>~/.local/bin</code>. À chaque lancement, le lanceur lit la clé dans le trousseau et ouvre Claude Code sur la passerelle LINAGORA, avec le modèle par défaut de la clé.",
+    "copierLanceurs": "Copier la commande des lanceurs",
+    "lanceursCopies": "Commande copiée",
+    "verification": "Vérifiez ensuite que chaque lanceur répond : la commande doit afficher OK.",
+    "chemin": "Le lanceur est introuvable ? Fermez votre session Ubuntu et rouvrez-la : le dossier <code>~/.local/bin</code>, s'il vient d'être créé, n'entre dans le chemin des commandes qu'à l'ouverture de session.",
+    "copierCommande": "Copier la commande",
+    "commandeCopiee": "Commande copiée",
+    "invite": "Clé LINAGORA {alias} ({niveau}, {equipe}) : ",
+    "libelle": "Clé LINAGORA {alias} ({niveau}, {equipe})",
+    "script": {
+      "enTete": "Claude Code sur la passerelle LINAGORA, clé {alias} ({details})",
+      "priorite": "Une clé Anthropic présente dans l'environnement aurait priorité sur la clé LINAGORA",
+      "trafic": "Ni télémétrie, ni rapports d'erreur, ni mise à jour automatique vers Anthropic : seule la passerelle LINAGORA est appelée ; mettre à jour avec claude update",
+      "adresse": "Adresse de la passerelle, sans /v1 : Claude Code ajoute lui-même /v1/messages",
+      "introuvable": "Clé LINAGORA introuvable dans le trousseau : enregistrez-la de nouveau depuis la page « Configurer Claude Code » du portail.",
+      "modeleUnique": "Modèle de la clé, pour la conversation, les tâches de fond et les sous-agents",
+      "autresModeles": "Modèle par défaut, pour la conversation, les tâches de fond et les sous-agents ; autres modèles de la clé, à choisir dans Claude Code par /model suivi du nom : {liste}",
+      "contexte": "Fenêtre de contexte déclarée par la passerelle, la plus petite des modèles de la clé",
+      "question": "Réponds uniquement par le mot OK"
+    },
+    "endroits": {
+      "terminal": "Terminal",
+      "navigateur": "Navigateur",
+      "assistant": "Claude Code"
+    },
+    "etapeInstaller": {
+      "titre": "Installer Claude Code",
+      "terminal": "Le terminal est la fenêtre où l'on tape des commandes. Pour l'ouvrir : <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>T</kbd>.",
+      "coller": "Pour lancer une commande de cette page : copiez-la, collez-la dans le terminal avec <kbd>Ctrl</kbd> + <kbd>Maj</kbd> + <kbd>V</kbd>, puis appuyez sur <kbd>Entrée</kbd>.",
+      "installer": "Installez Claude Code avec son script officiel, puis fermez le terminal et ouvrez-en un nouveau :",
+      "verifier": "Vérifiez la version installée : elle doit afficher <code>2.1.x</code> ou une version plus récente.",
+      "mettreAJour": "Plus tard, pour mettre Claude Code à jour :",
+      "secretTool": "Installez aussi <code>secret-tool</code>, qui enregistre vos clés dans le trousseau de votre session et les y relit :"
+    },
+    "etapeCles": {
+      "titre": "Choisir vos clés",
+      "rappel": "Le code du projet ouvert dans Claude Code est envoyé au modèle : choisissez une clé dont le niveau de confidentialité couvre la classification de votre dépôt.",
+      "niveau": "{niveau} : {description}",
+      "niveaux": {
+        "N1": "code open source, ou diffusé à tous les collaborateurs",
+        "N2": "dépôt à diffusion restreinte",
+        "N3": "code secret ou code d'un client"
+      },
+      "parDefaut": "Pour chaque clé choisie, choisissez son modèle par défaut : son lanceur le donne à Claude Code pour la conversation, les tâches de fond et les sous-agents."
+    },
+    "etapeCommandes": {
+      "titre": "Enregistrer vos clés dans le trousseau"
+    },
+    "etapeLanceurs": {
+      "titre": "Installer les lanceurs"
+    },
+    "etapeUtiliser": {
+      "titre": "Utiliser Claude Code",
+      "lancer": "Lancez Claude Code dans votre projet : allez dans son dossier avec <code>cd</code>, puis tapez le lanceur de la clé, par exemple <code>{lanceur}</code>. Claude Code ne travaille que dans ce dossier.",
+      "choisir": "Pour passer à un autre modèle de la clé : tapez <code>/model</code> suivi du nom du modèle dans la passerelle, par exemple <code>/model {modele}</code>, puis <kbd>Entrée</kbd>.",
+      "couts": "Claude Code ne connaît pas les prix de la passerelle : ne vous fiez pas au coût qu'il affiche. Suivez la dépense de chaque clé dans <lien>Mes clés</lien>.",
+      "compte": "Pas besoin de compte Anthropic : le lanceur fait passer Claude Code par la passerelle LINAGORA, avec votre clé."
+    },
+    "sansCle": {
+      "intro": "Pour configurer Claude Code, il vous faut une clé émise avec au moins un modèle de conversation. Pour en obtenir une :",
       "recommandes": "Modèles recommandés pour le code",
       "aucunRecommande": "Aucun modèle n'est encore recommandé pour le code."
     }
