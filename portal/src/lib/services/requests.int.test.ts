@@ -9,6 +9,7 @@ import { approveKeyRequest, getRequestReview, requestCompletion } from "./admin-
 import {
   cancelRequest,
   completeRequest,
+  completionDraft,
   countMyPending,
   createKeyRequest,
   createTeamJoinRequest,
@@ -264,6 +265,13 @@ describe("budget demandé à la création", () => {
     const demandeComplete = await testDb.accessRequest.findUniqueOrThrow({ where: { id } });
     expect(demandeComplete).toMatchObject({ status: "SOUMISE", budgetJustification: "Volume revu à 4 000 contrats" });
     expect(demandeComplete.requestedBudget?.toNumber()).toBe(80);
+  });
+
+  test("le formulaire de complément reprend le budget demandé et sa justification ; rien pour un autre utilisateur, même admin", async () => {
+    const { id } = await createKeyRequest(deps, demandeur, { ...demande, requestedBudget: 50, budgetJustification: "Traitement de 2 000 contrats" });
+    await requestCompletion(deps, admin, id, "Précisez le volume");
+    expect(await completionDraft(deps, demandeur, id)).toEqual({ renewsRequestId: null, requestedBudget: 50, budgetJustification: "Traitement de 2 000 contrats" });
+    expect(await completionDraft(deps, admin, id)).toBeNull();
   });
 
   test("une demande sans budget (canal de l'API) garde son comportement : ni budget, ni justification exigée", async () => {

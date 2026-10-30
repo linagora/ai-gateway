@@ -89,6 +89,20 @@ export async function ownKeyToRenew(deps: { db: Db }, user: SessionUser, request
   return origine;
 }
 
+/** Ce que le formulaire de complément d'une demande de clé reprend : budget demandé, sa justification, clé renouvelée. */
+export interface CompletionDraft {
+  renewsRequestId: string | null;
+  requestedBudget: number | null;
+  budgetJustification: string | null;
+}
+
+/** Brouillon du complément d'une demande de clé du demandeur ; null si la demande n'est pas la sienne. */
+export async function completionDraft(deps: { db: Db }, user: SessionUser, id: string): Promise<CompletionDraft | null> {
+  const demande = await deps.db.accessRequest.findFirst({ where: { id, requesterUid: user.uid, kind: "CLE" } });
+  if (!demande) return null;
+  return { renewsRequestId: demande.renewsRequestId, requestedBudget: demande.requestedBudget?.toNumber() ?? null, budgetJustification: demande.budgetJustification };
+}
+
 /** F-24 : le demandeur complète une demande renvoyée par l'admin ; elle repasse en SOUMISE. */
 export async function completeRequest(deps: RequestDeps, user: SessionUser, id: string, input: KeyRequestInput): Promise<void> {
   const request = await deps.db.accessRequest.findUnique({ where: { id } });

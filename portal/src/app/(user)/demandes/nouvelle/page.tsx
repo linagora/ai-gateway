@@ -5,7 +5,7 @@ import { joursDePeriode } from "@/lib/durees";
 import { DATA_LEVELS, seuilJustificationBudget } from "@/lib/policy";
 import { listCatalog } from "@/lib/services/catalog";
 import { renewalDraft } from "@/lib/services/keys";
-import { listMyTeams } from "@/lib/services/requests";
+import { completionDraft, listMyTeams } from "@/lib/services/requests";
 import { readSettings } from "@/lib/services/settings";
 import { getDeps, requireUser } from "@/lib/session";
 import { createKeyRequestAction } from "../../../actions";
@@ -38,7 +38,7 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
   const niveau = renouvellement?.dataLevel ?? DATA_LEVELS.find((l) => l === searchParams.niveau) ?? null;
   const preselected = renouvellement?.models ?? [searchParams.modeles].flat().filter((m): m is string => typeof m === "string");
   const [teams, catalog, settings] = await Promise.all([listMyTeams(deps, user), listCatalog(deps, language), readSettings(deps.db)]);
-  const complement = completing ? await deps.db.accessRequest.findFirst({ where: { id: completing, requesterUid: user.uid, kind: "CLE" } }) : null;
+  const complement = completing ? await completionDraft(deps, user, completing) : null;
   const origine = renouvellement ?? (complement?.renewsRequestId ? await renewalDraft(deps, user, complement.renewsRequestId).catch(() => null) : null);
   const budgetParDefaut = settings.default_budget ? Number(settings.default_budget) : null;
   const periode = settings.default_budget_duration || null;
@@ -91,7 +91,7 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
           </label>
           <Budget
             parDefaut={budgetParDefaut}
-            valeurInitiale={complement?.requestedBudget?.toNumber() ?? renouvellement?.requestedBudget ?? null}
+            valeurInitiale={complement?.requestedBudget ?? renouvellement?.requestedBudget ?? null}
             seuil={seuilJustificationBudget(budgetParDefaut, origine?.requestedBudget ?? null)}
             justificationInitiale={complement?.budgetJustification ?? undefined}
             textes={{ libelle: libelleBudget, justification: t("justificationBudget") }}
