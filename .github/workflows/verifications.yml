@@ -64,10 +64,20 @@ jobs:
       - run: npx prisma generate
       - name: Modèles de démonstration et équipes du LiteLLM de dev
         run: ./dev/seed-litellm.sh
-      - run: npm run test:int
+      # Tests d'intégration et, en plus, tests unitaires, pour la couverture de src/lib : son résumé s'affiche dans le
+      # journal, et le job échoue sous les seuils de vitest.config.mts.
+      - run: npm run test:coverage
       - name: Journaux des services en cas d'échec
         if: failure()
         run: docker compose -f dev/docker-compose.yml logs --no-color --tail 200
+      - name: Rapport de couverture (lcov et HTML)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: couverture
+          path: portal/coverage/
+          if-no-files-found: ignore
+          retention-days: 14
 
   # Parcours de bout en bout (Playwright, un seul worker) : une vingtaine de minutes. Non bloquant tant que les parcours
   # qui échouent sur le runner et pas sur un poste de dev (courriels, mise en page du catalogue, délais du serveur de dev)
