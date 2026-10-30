@@ -7,7 +7,6 @@ const personne = (n: string) => ({ uid: `formulaires-${n}-${suffixe}`, email: `f
 const ROUGE_LINAGORA = "rgb(197, 28, 66)";
 const EXPLICATION = "Les champs suivis d'une étoile (*) sont obligatoires.";
 
-/** Libellés et légendes suivis de l'étoile, dans l'ordre de la page, sans le contenu des champs eux-mêmes. */
 test.beforeAll(async ({ browser }) => {
   const context = await connecter(browser, ADMIN);
   const page = await context.newPage();
@@ -20,6 +19,7 @@ test.beforeAll(async ({ browser }) => {
   await context.close();
 });
 
+/** Libellés et légendes suivis de l'étoile, dans l'ordre de la page, sans le contenu des champs eux-mêmes. */
 function obligatoires(zone: Locator): Promise<string[]> {
   return zone.locator("label > .obligatoire, legend > .obligatoire").evaluateAll((etoiles) =>
     etoiles.map((etoile) => {
