@@ -8,6 +8,17 @@ export default defineConfig({
   test: {
     environment: "node",
     setupFiles: ["./src/test/setup.ts"],
+    // Couverture des tests unitaires et d'intégration (npm run test:coverage) : règles métier et services de src/lib. Les
+    // pages et les routes de src/app relèvent des parcours de bout en bout, qu'elle ne mesure pas.
+    coverage: {
+      provider: "v8",
+      include: ["src/lib/**/*.ts"],
+      exclude: ["src/**/*.test.ts"],
+      reporter: ["text", "text-summary", "lcov"],
+      // Couverture mesurée à l'introduction des seuils (2026-10-30), arrondie à l'entier inférieur : un recul fait échouer
+      // la commande. À relever quand la couverture progresse.
+      thresholds: { statements: 86, branches: 79, functions: 86, lines: 88 },
+    },
     projects: [
       {
         extends: true,
