@@ -92,6 +92,9 @@ MODELES = [
             # Contenus acceptés et produits, lus par le portail pour la configuration d'OpenCode.
             "contenus_entree": ["text", "image"],
             "contenus_sortie": ["text"],
+            # Le gabarit de Qwen n'accepte de message système qu'en tête : la garde (litellm/garde.py) rattache ceux du
+            # milieu de la conversation, qu'envoie Claude Code, au message de l'utilisateur qui les précède (ticket #159).
+            "systeme_en_tete": True,
         },
     },
     {
