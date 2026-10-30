@@ -12,6 +12,11 @@ concurrency:
   group: verifications-${{ github.ref }}
   cancel-in-progress: true
 
+# Le dépôt donne aux workflows un jeton en écriture par défaut ; les jobs ne font que lire le code, et npm ci exécute
+# les scripts d'installation des dépendances : lecture seule.
+permissions:
+  contents: read
+
 defaults:
   run:
     working-directory: portal
