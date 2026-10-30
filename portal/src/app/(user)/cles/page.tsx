@@ -123,6 +123,11 @@ export default async function MesClesPage(props: PageProps<"/cles">) {
                     <Link href={`/demandes/nouvelle?renouvelle=${k.requestId}`}>{t("renouveler")}</Link>
                   </p>
                 )}
+                {k.status === "CLE_EMISE" && (
+                  <p className="mt-2">
+                    <Link href={`/cles/budget?cle=${k.requestId}`}>{t("demanderBudget")}</Link>
+                  </p>
+                )}
                 {k.status === "CLE_EMISE" && !k.gatewayState?.blocked && (
                   <details className="mt-3">
                     <summary className="cursor-pointer font-medium">{t("remplacer")}</summary>

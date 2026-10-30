@@ -9,6 +9,7 @@ import { saveCatalogEntry } from "./catalog";
 import { blockKey, pickUpKey, replaceKey, revokeOwnKey } from "./keys";
 import { configurationOpenCode, type OptionsOpenCode } from "./opencode";
 import { createKeyRequest, type KeyRequestInput } from "./requests";
+import { saveSettings } from "./settings";
 
 const admin = { uid: "jdupont", email: "jdupont@linagora.com", name: "Jeanne Dupont", isAdmin: true };
 const titulaire = { uid: "mmaudet", email: "mmaudet@linagora.com", name: "Michel-Marie Maudet", isAdmin: false };
@@ -40,6 +41,7 @@ beforeEach(async () => {
   litellm.horloge = () => maintenant;
   deps = { db: testDb, litellm, now: () => maintenant };
   await fiche("mistral-small", "Mistral Small", "N2");
+  await saveSettings(deps, admin, { default_budget: "20" });
 });
 
 /** Fiche visible d'un modèle, rédigée par l'admin. */

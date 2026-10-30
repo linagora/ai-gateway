@@ -9,6 +9,8 @@ import type { Db } from "@/lib/db";
 export type AuditAction =
   | "REQUEST_CREATED"
   | "RENEWAL_REQUESTED"
+  | "BUDGET_REQUESTED"
+  | "BUDGET_RAISED"
   | "REQUEST_AGREED"
   | "REQUEST_APPROVED"
   | "REQUEST_REFUSED"
