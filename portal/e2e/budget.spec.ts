@@ -77,7 +77,7 @@ test("budget demandé à la création : justifié, approuvé, appliqué par la p
   await expect.poll(async () => (await courrielsSujet(salarie.uid, "Nouvelle demande de clé d'API")).length, { timeout: 15_000 }).toBeGreaterThan(0);
   const [annonce] = await courrielsSujet(salarie.uid, "Nouvelle demande de clé d'API");
   expect(annonce.to).toContain("admins-e2e@example.org");
-  expect(annonce.text).toMatch(/50/);
+  expect(annonce.text).toMatch(/Budget souhaité\s*:\s*50\s€/);
   expect(annonce.text).toContain("Traitement de longs documents");
 
   const admin = await (await connecter(browser, ADMIN)).newPage();
@@ -134,7 +134,7 @@ test("budget épuisé, hausse demandée et approuvée : la même clé refonction
   expect(annonce.to).toContain("admins-e2e@example.org");
   expect(annonce.text).toContain(alias);
   expect(annonce.text).toContain("Chantier de migration");
-  expect(annonce.text).toMatch(/20/);
+  expect(annonce.text).toMatch(/Budget souhaité\s*:\s*20\s€/);
 
   const admin = await (await connecter(browser, ADMIN)).newPage();
   await admin.goto("/gestion/demandes");
@@ -157,7 +157,7 @@ test("budget épuisé, hausse demandée et approuvée : la même clé refonction
   const [releve] = await courrielsSujet(salarie.uid, "est relevé");
   expect(releve.to).toEqual([salarie.email]);
   expect(releve.text).toContain(alias);
-  expect(releve.text).toMatch(/15/);
+  expect(releve.text).toMatch(/relevé à 15,00\s€/);
 
   const apres = await infoCle(cle);
   expect(apres).toMatchObject({ maxBudget: 15, budgetResetAt: avant.budgetResetAt, expires: avant.expires });
@@ -253,6 +253,7 @@ test("un responsable ne voit pas la hausse de sa propre clé ; un autre responsa
   await demanderHausse(pageResponsable, carte, "20", "Besoin ponctuel");
 
   await pageResponsable.goto("/gestion/demandes");
+  await expect(pageResponsable.getByRole("heading", { level: 1 })).toHaveText("Demandes en attente de validation");
   await expect(pageResponsable.getByRole("row", { name: /Hausse de budget/ })).toHaveCount(0);
 
   await expect.poll(async () => (await courrielsSujet(responsable.uid, "hausse de budget")).length, { timeout: 15_000 }).toBeGreaterThan(0);
