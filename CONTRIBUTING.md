@@ -55,8 +55,13 @@ npm run lint
 npx tsc --noEmit
 npm test               # unit tests
 npm run test:int       # integration tests, against the portal_test database and the development LiteLLM
+npm run test:coverage  # unit and integration tests with the coverage of src/lib, report in coverage/
 npm run test:e2e       # end-to-end journeys (Playwright), emails checked in Mailpit
 ```
+
+- **Coverage.** `npm run test:coverage` fails when the coverage of `src/lib` drops below the thresholds
+  of [`vitest.config.mts`](portal/vitest.config.mts); the CI runs it and keeps the report as an artifact.
+  When your change raises the coverage, raise the thresholds with it.
 
 - **Test what you change**, at the right level: pure business rules in unit tests, services against the
   test database, user journeys end to end. Tests go through public interfaces: end-to-end tests find
