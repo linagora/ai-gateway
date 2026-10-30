@@ -97,7 +97,8 @@
     "typesDemande": {
       "CLE": "API key",
       "ADHESION_EQUIPE": "Team access",
-      "ABONNEMENT": "Subscription"
+      "ABONNEMENT": "Subscription",
+      "BUDGET": "Budget increase"
     },
     "durees": {
       "1": "24 hours",
@@ -162,6 +163,7 @@
       "deja_membre": "You are already a member of the {equipe} team.",
       "demande_en_cours": "{cas, select, abonnement {A renewal or plan change request is already pending for this subscription.} other {You already have a pending access request for the {equipe} team.}}",
       "renouvellement_trop_tot": "Renewal can be requested at the earliest one month before the subscription expires.",
+      "justification_budget_requise": "Justify the requested budget.",
       "engagement_requis": "Commit to not submitting data above the declared level.",
       "interdit": "Administrators only.",
       "accord_reserve": "Only a manager of the team gives their agreement to a subscription request: an administrator approves it directly.",
@@ -1213,6 +1215,9 @@
       "projet": "Project",
       "motif": "Reason",
       "dureeSouhaitee": "Requested duration",
+      "budgetSouhaite": "Requested budget",
+      "budgetSouhaiteValeur": "€{montant, number}",
+      "justificationBudget": "Budget justification",
       "budget": "Budget",
       "budgetValeur": "{montant, number, ::currency/EUR} every {periode}",
       "validite": "Validity",

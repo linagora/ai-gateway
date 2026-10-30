@@ -97,7 +97,8 @@
     "typesDemande": {
       "CLE": "Clé d'API",
       "ADHESION_EQUIPE": "Accès à une équipe",
-      "ABONNEMENT": "Abonnement"
+      "ABONNEMENT": "Abonnement",
+      "BUDGET": "Hausse de budget"
     },
     "durees": {
       "1": "24 heures",
@@ -162,6 +163,7 @@
       "deja_membre": "Vous êtes déjà membre de l'équipe {equipe}.",
       "demande_en_cours": "{cas, select, abonnement {Une demande de renouvellement ou de changement d'offre est déjà en cours pour cet abonnement.} other {Vous avez déjà une demande d'accès en cours pour l'équipe {equipe}.}}",
       "renouvellement_trop_tot": "Le renouvellement se demande au plus tôt un mois avant l'échéance de l'abonnement.",
+      "justification_budget_requise": "Justifiez le budget demandé.",
       "engagement_requis": "Engagez-vous à ne pas soumettre de données d'un niveau supérieur à celui déclaré.",
       "interdit": "Action réservée aux administrateurs.",
       "accord_reserve": "Seul un responsable de l'équipe donne son accord à une demande d'abonnement : un administrateur l'approuve directement.",
@@ -1213,6 +1215,9 @@
       "projet": "Projet",
       "motif": "Motif",
       "dureeSouhaitee": "Durée souhaitée",
+      "budgetSouhaite": "Budget souhaité",
+      "budgetSouhaiteValeur": "{montant, number} €",
+      "justificationBudget": "Justification du budget",
       "budget": "Budget",
       "budgetValeur": "{montant, number, ::currency/EUR} par période de {periode}",
       "validite": "Durée de validité",

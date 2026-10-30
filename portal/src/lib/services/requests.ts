@@ -4,13 +4,14 @@ import type { Db } from "@/lib/db";
 import type { LiteLLMClient, LiteLLMTeamSummary } from "@/lib/litellm/client";
 import { PolicyViolationError, PortalError } from "@/lib/errors";
 import type { Prisma, RequestKind } from "@/generated/prisma/client";
-import { type CatalogModel, checkKeyRequest, checkTransition, DATA_LEVELS, type DataLevel, type KeyRequestDraft, pasEncoreDecidee, type PolicyVerdict, type RequestStatus } from "@/lib/policy";
+import { type CatalogModel, checkKeyRequest, checkTransition, DATA_LEVELS, type DataLevel, type KeyRequestDraft, pasEncoreDecidee, type PolicyVerdict, type RequestStatus, seuilJustificationBudget } from "@/lib/policy";
 import { parActeur, recordAudit } from "./audit";
 import { DEMANDES_EN_COURS, PAS_ENCORE_DECIDEES } from "./demandes-en-cours";
 import { markExpired } from "./echeances";
 import { managerEmails } from "./autorite";
 import { type NotificationDeps, notifyNewRequest } from "./notifications";
 import { libelleOffre } from "./offers";
+import { readSettings } from "./settings";
 
 interface RequestDeps extends NotificationDeps {
   db: Db;
@@ -26,8 +27,10 @@ export const keyRequestInputSchema = z.object({
   models: z.array(z.string().min(1)),
   justification: z.string().trim().min(1),
   project: z.string().trim().nullable(),
-  /** Budget souhaité : plus demandé au salarié ; un renouvellement reprend celui de la clé d'origine. */
+  /** Budget souhaité, en euros ; sans lui, un renouvellement reprend celui de la clé d'origine. */
   requestedBudget: z.number().positive().nullable(),
+  /** Justification du budget, exigée au-delà du budget par défaut ou de celui de la clé d'origine. */
+  budgetJustification: z.string().trim().nullish(),
   /** Durée souhaitée, en jours ; SANS_EXPIRATION (0) : la clé n'expire jamais. */
   requestedDays: z.number().int().nonnegative().nullable(),
   commitment: z.boolean(),
@@ -56,9 +59,8 @@ export interface RequestSummary {
 
 /** F-20 : enregistre une demande de clé au statut SOUMISE. */
 export async function createKeyRequest(deps: RequestDeps, user: SessionUser, input: KeyRequestInput): Promise<{ id: string }> {
-  const fields = await validateKeyRequest(deps, user, input);
   const origine = input.renewsRequestId ? await ownKeyToRenew(deps, user, input.renewsRequestId) : null;
-  // Le collaborateur ne saisit plus de budget : un renouvellement reprend celui de la clé d'origine.
+  const fields = await validateKeyRequest(deps, user, input, origine);
   const requestedBudget = fields.requestedBudget ?? origine?.approvedBudget ?? null;
   const created = await deps.db.accessRequest.create({
     data: { kind: "CLE", requesterUid: user.uid, requesterEmail: user.email, requesterName: user.name, ...fields, requestedBudget, renewsRequestId: origine?.id ?? null },
@@ -86,14 +88,24 @@ export async function ownKeyToRenew(deps: { db: Db }, user: SessionUser, request
 export async function completeRequest(deps: RequestDeps, user: SessionUser, id: string, input: KeyRequestInput): Promise<void> {
   const request = await deps.db.accessRequest.findUnique({ where: { id } });
   if (!request || request.requesterUid !== user.uid || request.kind !== "CLE") throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
-  const fields = await validateKeyRequest(deps, user, input);
-  // Le budget n'est pas ressaisi : un complément garde celui de la demande (repris de la clé d'origine d'un renouvellement).
-  await transitionRequest(deps.db, request, "SOUMISE", { data: { ...fields, requestedBudget: fields.requestedBudget ?? request.requestedBudget } });
+  const origine = request.renewsRequestId ? await deps.db.accessRequest.findUnique({ where: { id: request.renewsRequestId } }) : null;
+  const fields = await validateKeyRequest(deps, user, input, origine);
+  const sansBudget = fields.requestedBudget === null;
+  await transitionRequest(deps.db, request, "SOUMISE", {
+    data: {
+      ...fields,
+      requestedBudget: fields.requestedBudget ?? request.requestedBudget,
+      budgetJustification: sansBudget ? request.budgetJustification : fields.budgetJustification,
+    },
+  });
   await recordAudit(deps.db, { ...parActeur(user), action: "REQUEST_COMPLETED", targetId: request.id, details: { kind: request.kind, teamAlias: fields.teamAlias } });
 }
 
-/** F-20, F-21, règle 3 : saisie validée, engagement coché, équipe existante, contrôles de politique passés. */
-async function validateKeyRequest(deps: RequestDeps, user: SessionUser, input: KeyRequestInput) {
+/**
+ * F-20, F-21, règle 3 : saisie validée, engagement coché, équipe existante, contrôles de politique passés, budget
+ * justifié au-delà du seuil (budget par défaut, ou budget approuvé de la clé d'origine d'un renouvellement).
+ */
+async function validateKeyRequest(deps: RequestDeps, user: SessionUser, input: KeyRequestInput, origine: { approvedBudget: Prisma.Decimal | null } | null) {
   const data = keyRequestInputSchema.parse(input);
   if (!data.commitment) {
     throw new PortalError("engagement_requis", "Engagez-vous à ne pas soumettre de données d'un niveau supérieur à celui déclaré.");
@@ -102,6 +114,11 @@ async function validateKeyRequest(deps: RequestDeps, user: SessionUser, input: K
   if (!team) throw new PortalError("introuvable", "Équipe introuvable.", { objet: "equipe" });
   const verdict = await evaluateKeyRequest(deps, { requesterUid: user.uid, teamId: team.teamId, dataLevel: data.dataLevel, models: data.models });
   if (!verdict.ok) throw new PolicyViolationError(verdict.checks.filter((c) => !c.ok));
+  const parDefaut = (await readSettings(deps.db)).default_budget;
+  const seuil = seuilJustificationBudget(parDefaut === undefined ? null : Number(parDefaut), origine?.approvedBudget?.toNumber() ?? null);
+  const depasse = data.requestedBudget !== null && data.requestedBudget > seuil;
+  const budgetJustification = depasse ? data.budgetJustification || null : null;
+  if (depasse && !budgetJustification) throw new PortalError("justification_budget_requise", "Justifiez le budget demandé.");
   return {
     teamId: team.teamId,
     teamAlias: team.teamAlias,
@@ -110,6 +127,7 @@ async function validateKeyRequest(deps: RequestDeps, user: SessionUser, input: K
     justification: data.justification,
     project: data.project,
     requestedBudget: data.requestedBudget,
+    budgetJustification,
     requestedDays: data.requestedDays,
   };
 }

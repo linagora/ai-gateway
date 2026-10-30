@@ -16,6 +16,7 @@ import {
   modelAcceptsLevel,
   pasEncoreDecidee,
   type RequestStatus,
+  seuilJustificationBudget,
   STATUTS_EN_ATTENTE_DE_VALIDATION,
   STATUTS_PAS_ENCORE_DECIDES,
   statutApresComplement,
@@ -327,5 +328,17 @@ describe("modelAcceptsLevel", () => {
 
   test("un modèle accepte des données de son propre niveau", () => {
     expect(modelAcceptsLevel("N2", "N2")).toBe(true);
+  });
+});
+
+describe("seuil de justification du budget", () => {
+  test("le seuil est le budget par défaut, ou le budget de la clé d'origine s'il est plus élevé", () => {
+    expect(seuilJustificationBudget(20, null)).toBe(20);
+    expect(seuilJustificationBudget(20, 50)).toBe(50);
+    expect(seuilJustificationBudget(20, 10)).toBe(20);
+  });
+
+  test("sans budget par défaut ni clé d'origine, tout montant saisi se justifie", () => {
+    expect(seuilJustificationBudget(null, null)).toBe(0);
   });
 });

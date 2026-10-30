@@ -39,6 +39,8 @@ enum RequestKind {
   CLE
   ADHESION_EQUIPE
   ABONNEMENT
+  /// Hausse du budget d'une clé émise
+  BUDGET
 }
 
 enum KeyType {
@@ -95,6 +97,8 @@ model AccessRequest {
   project         String?
   keyType         KeyType?
   requestedBudget Decimal?
+  /// justification du budget demandé à la création, quand il dépasse le seuil de justification
+  budgetJustification String?
   requestedDays   Int?
   // paramètres figés par l'admin à l'approbation
   approvedModels  String[]
@@ -123,6 +127,8 @@ model AccessRequest {
   keyReplacements Int           @default(0)
   /// demande dont cette demande renouvelle la clé
   renewsRequestId String?
+  /// demande de la clé dont cette demande BUDGET relève le plafond
+  raisesBudgetOfRequestId String?
   /// rappel de retrait envoyé par la tâche quotidienne (une seule fois)
   pickupReminderSentAt DateTime?
   /// dernier rappel d'expiration envoyé : date d'envoi et délai annoncé, en jours (30, 7 ou 1)
@@ -133,6 +139,7 @@ model AccessRequest {
 
   @@index([requesterUid])
   @@index([status])
+  @@index([raisesBudgetOfRequestId])
   /// Demande d'abonnement (spécification #51) : l'offre demandée, puis l'abonnement déclaré.
   offerId         String?
   offer           SubscriptionOffer? @relation(fields: [offerId], references: [id])

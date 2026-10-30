@@ -17,6 +17,7 @@ export type PortalErrorCode =
   | "equipe_non_vide"
   | "identite_incoherente"
   | "integration_existante"
+  | "justification_budget_requise"
   | "integration_invalide"
   | "interdit"
   | "kid_existant"

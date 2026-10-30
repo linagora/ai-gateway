@@ -79,6 +79,11 @@ export interface PolicyVerdict {
   checks: PolicyCheck[];
 }
 
+/** Budget au-delà duquel une demande doit justifier son montant : le plus élevé du budget par défaut et de celui de la clé d'origine. */
+export function seuilJustificationBudget(parDefaut: number | null, origine: number | null): number {
+  return Math.max(parDefaut ?? 0, origine ?? 0);
+}
+
 /** Règle 3 : contrôles d'une demande de clé, rejoués à la soumission, à l'approbation et à la génération. */
 export function checkKeyRequest(draft: KeyRequestDraft, team: TeamForPolicy, catalog: readonly CatalogModel[]): PolicyVerdict {
   const checks: PolicyCheck[] = [
@@ -135,7 +140,7 @@ export function enAttenteDeValidation(status: RequestStatus): boolean {
   return (STATUTS_EN_ATTENTE_DE_VALIDATION as readonly RequestStatus[]).includes(status);
 }
 
-export type RequestKind = "CLE" | "ADHESION_EQUIPE" | "ABONNEMENT";
+export type RequestKind = "CLE" | "ADHESION_EQUIPE" | "ABONNEMENT" | "BUDGET";
 
 /** Demande de la file de validation, telle que la politique la voit. */
 export interface DemandeDeLaFile {

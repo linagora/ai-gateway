@@ -190,6 +190,8 @@ export interface RequestReview extends PendingRequest {
   teamId: string;
   justification: string;
   requestedBudget: number | null;
+  /** Justification du budget demandé, null quand il ne dépasse pas le seuil. */
+  budgetJustification: string | null;
   requestedDays: number | null;
   decidedBy: string | null;
   decisionComment: string | null;
@@ -239,6 +241,7 @@ export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: 
     project: r.project,
     justification: r.justification,
     requestedBudget: r.requestedBudget?.toNumber() ?? null,
+    budgetJustification: r.budgetJustification,
     requestedDays: r.requestedDays,
     status: r.status,
     createdAt: r.createdAt,

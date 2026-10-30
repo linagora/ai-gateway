@@ -98,6 +98,8 @@ type Libelle =
   | "projet"
   | "motif"
   | "dureeSouhaitee"
+  | "budgetSouhaite"
+  | "justificationBudget"
   | "budget"
   | "validite"
   | "expiration"
@@ -130,6 +132,8 @@ function recapDemande(t: Traducteur, r: DemandeAvecOffre): string[] {
     ["projet", r.project],
     ["motif", r.justification],
     ["dureeSouhaitee", r.requestedDays !== null ? duree(t, r.requestedDays) : null],
+    ["budgetSouhaite", r.requestedBudget && t("courriels.recap.budgetSouhaiteValeur", { montant: r.requestedBudget.toNumber() })],
+    ["justificationBudget", r.budgetJustification],
   ]);
 }
 
