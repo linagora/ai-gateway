@@ -938,7 +938,7 @@
         }
       },
       "Conflict": {
-        "description": "Incompatible status or concurrent change (`transition_interdite`, with `details.case`), pending request (`demande_en_cours`, with `details.team`), already a member (`deja_membre`, with `details.team`) or inconsistent identity (`identite_incoherente`).",
+        "description": "Incompatible status or concurrent change (`transition_interdite`, with `details.case`), pending request (`demande_en_cours`, with `details.team`, or `details.case` `hausse_avant_renouvellement` when a budget increase of the key to renew is pending), already a member (`deja_membre`, with `details.team`) or inconsistent identity (`identite_incoherente`).",
         "content": {
           "application/json": {
             "schema": {

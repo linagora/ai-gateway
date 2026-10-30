@@ -161,6 +161,16 @@ describe("où attend une demande de la file (spécification #93, ticket #96)", (
     expect(attendLActeur(admin, { ...abonnement, requesterUid: "jdupont" }, ["jdupont", "lbernard"])).toBe(false);
   });
 
+  test("un admin ne traite pas sa propre demande de hausse de budget : elle attend un autre admin ou un responsable", () => {
+    const admin = { uid: "jdupont", isAdmin: true };
+    const hausse = { kind: "BUDGET" as const, status: "SOUMISE" as const, requesterUid: "jdupont" };
+    expect(attendLActeur(admin, hausse, [])).toBe(false);
+    expect(attendLActeur(admin, hausse, ["jdupont"])).toBe(false);
+    expect(attendLActeur(admin, { ...hausse, requesterUid: "pmartin" }, [])).toBe(true);
+    expect(attendLActeur(admin, { ...hausse, kind: "CLE" }, [])).toBe(true);
+    expect(decideraitSansAccord(admin, hausse, [])).toBe(false);
+  });
+
   test("un responsable traite les demandes soumises de ses équipes, hors les siennes ; celles qui ont reçu l'accord attendent un admin", () => {
     const responsable = { uid: "lbernard", isAdmin: false };
     expect(attendLActeur(responsable, abonnement, ["lbernard"])).toBe(true);
@@ -207,6 +217,15 @@ describe("décider d'une demande (spécification #93, ticket #98)", () => {
     expect(empechementDeDecider(responsable, { ...abonnement, requesterUid: "lbernard" })).toBe("quatre_yeux");
     expect(empechementDeDecider(responsable, { ...abonnement, status: "ACCORD_RESPONSABLE" })).toBe("interdit");
     expect(empechementDeDecider(admin, { ...abonnement, requesterUid: "jdupont", status: "ACCORD_RESPONSABLE" })).toBeNull();
+  });
+
+  test("un admin ne décide pas de sa propre demande de hausse de budget ; de ses autres demandes, si", () => {
+    const hausse = { kind: "BUDGET" as const, status: "SOUMISE" as const, requesterUid: "jdupont" };
+    expect(empechementDeDecider(admin, hausse)).toBe("quatre_yeux");
+    expect(decisionProposee(admin, hausse)).toBeNull();
+    expect(empechementDeDecider(admin, { ...hausse, requesterUid: "pmartin" })).toBeNull();
+    for (const kind of ["CLE", "ADHESION_EQUIPE", "ABONNEMENT"] as const) expect(empechementDeDecider(admin, { ...hausse, kind }), kind).toBeNull();
+    expect(empechementDeDecider(responsable, { ...hausse, requesterUid: "lbernard" })).toBe("quatre_yeux");
   });
 
   test("sur une demande d'abonnement soumise, la fiche propose au responsable son accord ; à l'admin, l'approbation, avant comme après l'accord", () => {

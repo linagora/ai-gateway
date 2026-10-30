@@ -10,6 +10,7 @@ import { type Page, tranche } from "@/lib/pagination";
 import { parActeur, recordAudit } from "./audit";
 import { aAutorite, dansEquipes, duTitulaire, type FiltreGestion, managerEmails, requireGestion } from "./autorite";
 import { pickupDeadline, readPickupDays } from "./delais";
+import { annulerHaussesDeLaCle } from "./demandes-en-cours";
 import { markExpired } from "./echeances";
 import { lireNomDIntegration } from "./integrations";
 import { type ActionDIntegrationSurCle, type NotificationDeps, notifyAdminKeyAction, notifyIntegrationKeyAction, notifyTeamChange } from "./notifications";
@@ -188,6 +189,7 @@ export async function pickUpKey(deps: KeyDeps, user: SessionUser, requestId: str
   await recordAudit(deps.db, { ...parActeur(user), action: "KEY_GENERATED", targetId: request.id, details: { alias: generee.alias } });
   if (origineActive) {
     await transitionRequest(deps.db, origineActive, "REVOQUEE");
+    await annulerHaussesDeLaCle(deps.db, origineActive.id);
     await recordAudit(deps.db, {
       ...parActeur(user),
       action: "KEY_REVOKED",
@@ -355,6 +357,7 @@ export async function revokeOwnKey(deps: KeyDeps, user: SessionUser, requestId: 
 async function revoquer(deps: KeyDeps, user: SessionUser, request: AccessRequest & { keyTokenId: string }): Promise<void> {
   await deleteFromGateway(deps.litellm, request.keyTokenId);
   await transitionRequest(deps.db, request, "REVOQUEE");
+  await annulerHaussesDeLaCle(deps.db, request.id);
   await recordAudit(deps.db, { ...parActeur(user), action: "KEY_REVOKED", targetId: request.id, details: { alias: request.keyAlias } });
 }
 
@@ -368,6 +371,7 @@ export async function revokeMemberKeys(deps: KeyDeps, actor: SessionUser, teamId
   for (const request of cles) {
     if (request.keyTokenId) await deleteFromGateway(deps.litellm, request.keyTokenId);
     await transitionRequest(deps.db, request, "REVOQUEE");
+    await annulerHaussesDeLaCle(deps.db, request.id);
     await recordAudit(deps.db, { actorUid: actor.uid, action: "KEY_REVOKED", targetId: request.id, details: { alias: request.keyAlias, motif: "sortie_equipe" } });
     if (request.keyAlias) alias.push(request.keyAlias);
   }

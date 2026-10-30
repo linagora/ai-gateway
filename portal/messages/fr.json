@@ -161,7 +161,7 @@
     "erreurs": {
       "controles_en_echec": "La demande ne respecte pas la politique d'accès aux modèles. Contrôles en échec : {controles}.",
       "deja_membre": "Vous êtes déjà membre de l'équipe {equipe}.",
-      "demande_en_cours": "{cas, select, abonnement {Une demande de renouvellement ou de changement d'offre est déjà en cours pour cet abonnement.} other {Vous avez déjà une demande d'accès en cours pour l'équipe {equipe}.}}",
+      "demande_en_cours": "{cas, select, abonnement {Une demande de renouvellement ou de changement d'offre est déjà en cours pour cet abonnement.} hausse {Une demande de hausse du budget de cette clé est déjà en cours.} renouvellement {Un renouvellement de cette clé est en cours : attendez qu'il soit traité ou annulez-le.} hausse_avant_renouvellement {Une demande de hausse du budget de cette clé est en cours : attendez qu'elle soit traitée ou annulez-la.} other {Vous avez déjà une demande d'accès en cours pour l'équipe {equipe}.}}",
       "renouvellement_trop_tot": "Le renouvellement se demande au plus tôt un mois avant l'échéance de l'abonnement.",
       "justification_budget_requise": "Justifiez le budget demandé.",
       "engagement_requis": "Engagez-vous à ne pas soumettre de données d'un niveau supérieur à celui déclaré.",
@@ -187,6 +187,7 @@
       "equipe_non_vide": "Cette équipe a encore des clés actives ({cles}), des demandes en cours ({demandes}) ou des abonnements non résiliés ({abonnements}) : révoquez ses clés, y compris celles créées depuis la console de LiteLLM, traitez ses demandes, et faites résilier ou rattacher à une autre équipe ses abonnements avant de la supprimer.",
       "responsable_existant": "{uid} est déjà responsable de l'équipe {equipe}.",
       "quatre_yeux": "{cas, select, cle {Vous ne pouvez pas bloquer ni débloquer votre propre clé : un autre responsable de l'équipe ou un administrateur s'en chargera.} other {Vous ne pouvez pas décider de votre propre demande : un autre responsable de l'équipe ou un administrateur s'en chargera.}}",
+      "budget_trop_bas": "Le montant doit dépasser le plafond actuel de la clé ({plafond}).",
       "budget_equipe_invalide": "Budget d'équipe invalide : saisissez un montant positif ou nul (0 : sans limite) et, pour un montant positif, une période au format 30d, 12h…",
       "non_membre": "{cas, select, titulaire {{uid} n'est pas membre de l'équipe {equipe} : son abonnement ne peut pas y être rattaché.} other {Vous n'êtes pas membre de l'équipe {equipe}.}}",
       "date_future": "{objet, select, resiliation {La date de résiliation ne peut pas être dans le futur.} other {La date de souscription ne peut pas être dans le futur.}}",
@@ -1223,6 +1224,7 @@
       "budgetSouhaite": "Budget souhaité",
       "budgetSouhaiteValeur": "{montant, number} €",
       "justificationBudget": "Justification du budget",
+      "plafondActuel": "Plafond actuel",
       "budget": "Budget",
       "budgetValeur": "{montant, number, ::currency/EUR} par période de {periode}",
       "validite": "Durée de validité",
@@ -1253,6 +1255,10 @@
       "sujet": "Nouvelle demande d'abonnement de {nom}",
       "corps": "{nom} ({email}) demande un abonnement :"
     },
+    "nouvelleDemandeBudget": {
+      "sujet": "Nouvelle demande de hausse de budget de {nom}",
+      "corps": "{nom} ({email}) demande une hausse du budget de sa clé d'API {alias} :"
+    },
     "abonnementAApprouver": {
       "sujet": "Demande d'abonnement à approuver : {nom}",
       "corps": "{auteur} a donné son accord à la demande d'abonnement de {nom} ({email}) :",
@@ -1273,6 +1279,11 @@
       "declarerSansEcheance": "Déclarez ensuite l'abonnement dans « Mes abonnements ».",
       "remplace": "Cet abonnement remplace votre abonnement {offre} : à sa déclaration, l'abonnement remplacé sera résilié à la date de souscription déclarée."
     },
+    "budgetReleve": {
+      "sujet": "Le budget de votre clé {alias} est relevé",
+      "corps": "Le budget de votre clé d'API {alias} est relevé à {budget}.",
+      "suite": "Votre clé ne change pas : continuez de l'utiliser telle quelle. Sa dépense de la période en cours est conservée."
+    },
     "renouvellementApprouve": {
       "sujet": "Votre demande de renouvellement est approuvée",
       "corps": "L'échéance de votre abonnement {offre}, rattaché à l'équipe {equipe}, est reportée au {date, date, long} : rien d'autre à faire."
@@ -1284,13 +1295,13 @@
     },
     "demandeRefusee": {
       "sujet": "Votre demande est refusée",
-      "corps": "{type, select, CLE {Votre demande de clé d'API pour l'équipe {equipe} est refusée.} ABONNEMENT {Votre demande d'abonnement pour l'équipe {equipe} est refusée.} other {Votre demande d'accès à l'équipe {equipe} est refusée.}}",
+      "corps": "{type, select, CLE {Votre demande de clé d'API pour l'équipe {equipe} est refusée.} ABONNEMENT {Votre demande d'abonnement pour l'équipe {equipe} est refusée.} BUDGET {Votre demande de hausse du budget d'une clé pour l'équipe {equipe} est refusée.} other {Votre demande d'accès à l'équipe {equipe} est refusée.}}",
       "motif": "Motif du refus : {motif}",
       "suite": "Vous pouvez déposer une nouvelle demande depuis le portail."
     },
     "complementDemande": {
       "sujet": "Votre demande est à compléter",
-      "corps": "{par, select, responsable {Un responsable de l'équipe} other {Un administrateur}} demande un complément sur votre {type, select, CLE {demande de clé d'API pour l'équipe {equipe}} ABONNEMENT {demande d'abonnement pour l'équipe {equipe}} other {demande d'accès à l'équipe {equipe}}}.",
+      "corps": "{par, select, responsable {Un responsable de l'équipe} other {Un administrateur}} demande un complément sur votre {type, select, CLE {demande de clé d'API pour l'équipe {equipe}} ABONNEMENT {demande d'abonnement pour l'équipe {equipe}} BUDGET {demande de hausse du budget d'une clé pour l'équipe {equipe}} other {demande d'accès à l'équipe {equipe}}}.",
       "commentaire": "{par, select, responsable {Commentaire du responsable} other {Commentaire de l'administrateur}} : {commentaire}",
       "suite": "Complétez-la dans « Mes demandes »."
     },
@@ -1394,7 +1405,7 @@
       },
       "decision": {
         "sujet": "Demande traitée dans l'équipe {equipe} : {demandeur}",
-        "corps": "{auteur} a {decision, select, approuvee {approuvé la demande de clé d'API de {demandeur}} refusee {refusé la demande de {demandeur}} complement {demandé un complément à {demandeur} sur sa demande} adhesion {accepté la demande d'accès de {demandeur}} abonnement {approuvé la demande d'abonnement de {demandeur}} other {traité la demande de {demandeur}}}{sansAccord, select, oui {, sans attendre l'accord d'un responsable de l'équipe} other {}}."
+        "corps": "{auteur} a {decision, select, approuvee {approuvé la demande de clé d'API de {demandeur}} refusee {refusé la demande de {demandeur}} complement {demandé un complément à {demandeur} sur sa demande} adhesion {accepté la demande d'accès de {demandeur}} abonnement {approuvé la demande d'abonnement de {demandeur}} budget {relevé le budget d'une clé de {demandeur}} other {traité la demande de {demandeur}}}{sansAccord, select, oui {, sans attendre l'accord d'un responsable de l'équipe} other {}}."
       },
       "cle": {
         "sujet": "Action sur une clé de l'équipe {equipe} : {alias}",

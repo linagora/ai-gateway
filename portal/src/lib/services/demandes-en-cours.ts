@@ -1,4 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
+import type { Db } from "@/lib/db";
 import { STATUTS_PAS_ENCORE_DECIDES } from "@/lib/policy";
 
 /*
@@ -22,3 +23,16 @@ export const DEMANDES_EN_COURS: Prisma.AccessRequestWhereInput = {
 export const DEMANDE_SUR_ABONNEMENT_EN_COURS = {
   status: { in: [...STATUTS_PAS_ENCORE_DECIDES, "APPROUVEE" as const] },
 } satisfies Prisma.AccessRequestWhereInput;
+
+/** Demandes de hausse du budget de cette clé pas encore décidées. */
+const haussesDeLaCle = (keyRequestId: string) => ({ kind: "BUDGET", raisesBudgetOfRequestId: keyRequestId, ...PAS_ENCORE_DECIDEES }) satisfies Prisma.AccessRequestWhereInput;
+
+/** Une demande de hausse du budget de cette clé est-elle en cours ? Une seule à la fois, jamais avec un renouvellement. */
+export async function hausseEnCours(db: Db, keyRequestId: string): Promise<boolean> {
+  return (await db.accessRequest.count({ where: haussesDeLaCle(keyRequestId) })) > 0;
+}
+
+/** Révoquée, expirée ou renouvelée, une clé emporte les demandes de hausse de son budget pas encore décidées. */
+export async function annulerHaussesDeLaCle(db: Db, keyRequestId: string): Promise<void> {
+  await db.accessRequest.updateMany({ where: haussesDeLaCle(keyRequestId), data: { status: "ANNULEE" } });
+}

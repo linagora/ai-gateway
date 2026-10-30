@@ -6,7 +6,7 @@ import { PolicyViolationError, PortalError } from "@/lib/errors";
 import type { Prisma, RequestKind } from "@/generated/prisma/client";
 import { type CatalogModel, checkKeyRequest, checkTransition, DATA_LEVELS, type DataLevel, type KeyRequestDraft, pasEncoreDecidee, type PolicyVerdict, type RequestStatus, seuilJustificationBudget } from "@/lib/policy";
 import { parActeur, recordAudit } from "./audit";
-import { DEMANDES_EN_COURS, PAS_ENCORE_DECIDEES } from "./demandes-en-cours";
+import { DEMANDES_EN_COURS, hausseEnCours, PAS_ENCORE_DECIDEES } from "./demandes-en-cours";
 import { markExpired } from "./echeances";
 import { managerEmails } from "./autorite";
 import { type NotificationDeps, notifyNewRequest } from "./notifications";
@@ -60,6 +60,9 @@ export interface RequestSummary {
 /** F-20 : enregistre une demande de clé au statut SOUMISE. */
 export async function createKeyRequest(deps: RequestDeps, user: SessionUser, input: KeyRequestInput): Promise<{ id: string }> {
   const origine = input.renewsRequestId ? await ownKeyToRenew(deps, user, input.renewsRequestId) : null;
+  if (origine && (await hausseEnCours(deps.db, origine.id))) {
+    throw new PortalError("demande_en_cours", "Une demande de hausse du budget de cette clé est en cours.", { cas: "hausse_avant_renouvellement" });
+  }
   const fields = await validateKeyRequest(deps, user, input, origine);
   const requestedBudget = fields.requestedBudget ?? origine?.approvedBudget ?? null;
   const created = await deps.db.accessRequest.create({
@@ -198,7 +201,7 @@ export async function cancelMemberRequests(db: Db, teamId: string, uid: string):
  * lu (verrou optimiste) : une décision concurrente fait échouer la seconde au lieu de l'écraser.
  */
 export async function transitionRequest(
-  db: Db,
+  db: Prisma.TransactionClient,
   request: { id: string; status: RequestStatus },
   to: RequestStatus,
   options: { comment?: string; data?: Prisma.AccessRequestUpdateManyMutationInput } = {},

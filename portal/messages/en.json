@@ -161,7 +161,7 @@
     "erreurs": {
       "controles_en_echec": "The request does not comply with the model access policy. Failed checks: {controles}.",
       "deja_membre": "You are already a member of the {equipe} team.",
-      "demande_en_cours": "{cas, select, abonnement {A renewal or plan change request is already pending for this subscription.} other {You already have a pending access request for the {equipe} team.}}",
+      "demande_en_cours": "{cas, select, abonnement {A renewal or plan change request is already pending for this subscription.} hausse {A budget increase request for this key is already pending.} renouvellement {A renewal of this key is pending: wait for it to be processed or cancel it.} hausse_avant_renouvellement {A budget increase request for this key is pending: wait for it to be processed or cancel it.} other {You already have a pending access request for the {equipe} team.}}",
       "renouvellement_trop_tot": "Renewal can be requested at the earliest one month before the subscription expires.",
       "justification_budget_requise": "Justify the requested budget.",
       "engagement_requis": "Commit to not submitting data above the declared level.",
@@ -187,6 +187,7 @@
       "equipe_non_vide": "This team still has active keys ({cles}), pending requests ({demandes}) or subscriptions not cancelled ({abonnements}): revoke its keys, including those created from the LiteLLM console, process its requests, and have its subscriptions cancelled or attached to another team before deleting it.",
       "responsable_existant": "{uid} is already a manager of the team {equipe}.",
       "quatre_yeux": "{cas, select, cle {You cannot block or unblock your own key: another manager of the team or an administrator will handle it.} other {You cannot decide on your own request: another manager of the team or an administrator will handle it.}}",
+      "budget_trop_bas": "The amount must exceed the key's current cap ({plafond}).",
       "budget_equipe_invalide": "Invalid team budget: enter an amount of zero or more (0: no limit) and, for a positive amount, a period such as 30d, 12h…",
       "non_membre": "{cas, select, titulaire {{uid} is not a member of the {equipe} team: their subscription cannot be attached to it.} other {You are not a member of the {equipe} team.}}",
       "date_future": "{objet, select, resiliation {The cancellation date cannot be in the future.} other {The subscription date cannot be in the future.}}",
@@ -1223,6 +1224,7 @@
       "budgetSouhaite": "Requested budget",
       "budgetSouhaiteValeur": "€{montant, number}",
       "justificationBudget": "Budget justification",
+      "plafondActuel": "Current cap",
       "budget": "Budget",
       "budgetValeur": "{montant, number, ::currency/EUR} every {periode}",
       "validite": "Validity",
@@ -1253,6 +1255,10 @@
       "sujet": "New subscription request from {nom}",
       "corps": "{nom} ({email}) requests a subscription:"
     },
+    "nouvelleDemandeBudget": {
+      "sujet": "New budget increase request from {nom}",
+      "corps": "{nom} ({email}) requests a budget increase for their API key {alias}:"
+    },
     "abonnementAApprouver": {
       "sujet": "Subscription request to approve: {nom}",
       "corps": "{auteur} agreed to the subscription request from {nom} ({email}):",
@@ -1273,6 +1279,11 @@
       "declarerSansEcheance": "Then declare the subscription in “My subscriptions”.",
       "remplace": "This subscription replaces your subscription {offre}: when you declare it, the replaced subscription will be cancelled as of the declared subscription date."
     },
+    "budgetReleve": {
+      "sujet": "The budget of your key {alias} is raised",
+      "corps": "The budget of your API key {alias} is raised to {budget}.",
+      "suite": "Your key does not change: keep using it as is. Its spend for the current period is kept."
+    },
     "renouvellementApprouve": {
       "sujet": "Your renewal request is approved",
       "corps": "The expiry of your subscription {offre}, attached to the {equipe} team, is extended to {date, date, long}: nothing else to do."
@@ -1284,13 +1295,13 @@
     },
     "demandeRefusee": {
       "sujet": "Your request is refused",
-      "corps": "{type, select, CLE {Your API key request for the {equipe} team is refused.} ABONNEMENT {Your subscription request for the {equipe} team is refused.} other {Your request to join the {equipe} team is refused.}}",
+      "corps": "{type, select, CLE {Your API key request for the {equipe} team is refused.} ABONNEMENT {Your subscription request for the {equipe} team is refused.} BUDGET {Your budget increase request for a key of the {equipe} team is refused.} other {Your request to join the {equipe} team is refused.}}",
       "motif": "Reason for refusal: {motif}",
       "suite": "You can submit a new request from the portal."
     },
     "complementDemande": {
       "sujet": "Your request needs more information",
-      "corps": "{par, select, responsable {A manager of the team} other {An administrator}} asks for more information about your {type, select, CLE {API key request for the {equipe} team} ABONNEMENT {subscription request for the {equipe} team} other {request to join the {equipe} team}}.",
+      "corps": "{par, select, responsable {A manager of the team} other {An administrator}} asks for more information about your {type, select, CLE {API key request for the {equipe} team} ABONNEMENT {subscription request for the {equipe} team} BUDGET {budget increase request for a key of the {equipe} team} other {request to join the {equipe} team}}.",
       "commentaire": "{par, select, responsable {Manager's comment} other {Administrator's comment}}: {commentaire}",
       "suite": "Complete it in “My requests”."
     },
@@ -1394,7 +1405,7 @@
       },
       "decision": {
         "sujet": "Request processed in the team {equipe}: {demandeur}",
-        "corps": "{auteur} {decision, select, approuvee {approved the API key request of {demandeur}} refusee {refused the request of {demandeur}} complement {asked {demandeur} to complete their request} adhesion {accepted the access request of {demandeur}} abonnement {approved the subscription request of {demandeur}} other {processed the request of {demandeur}}}{sansAccord, select, oui {, without waiting for a team manager's agreement} other {}}."
+        "corps": "{auteur} {decision, select, approuvee {approved the API key request of {demandeur}} refusee {refused the request of {demandeur}} complement {asked {demandeur} to complete their request} adhesion {accepted the access request of {demandeur}} abonnement {approved the subscription request of {demandeur}} budget {raised the budget of a key of {demandeur}} other {processed the request of {demandeur}}}{sansAccord, select, oui {, without waiting for a team manager's agreement} other {}}."
       },
       "cle": {
         "sujet": "Action on a key of the team {equipe}: {alias}",
