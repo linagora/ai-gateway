@@ -14,8 +14,11 @@ export default defineConfig({
     { name: "reglages", testMatch: /reglages\.setup\.ts/, use: { ...devices["Desktop Chrome"] } },
     { name: "chromium", use: { ...devices["Desktop Chrome"] }, dependencies: ["reglages"] },
   ],
+  // Le serveur déjà lancé sur le port 3100 est repris. Sinon, sur la CI, le serveur de production construit par
+  // npm run build : le serveur de dev compile chaque route à sa première visite, et des parcours expiraient pendant ce
+  // temps (#154). next start y signale la sortie standalone, que seule l'image Docker utilise.
   webServer: {
-    command: "npm run dev",
+    command: process.env.CI ? "npm run start -- -p 3100" : "npm run dev",
     url: "http://localhost:3100/api/auth/providers",
     reuseExistingServer: true,
     timeout: 180_000,

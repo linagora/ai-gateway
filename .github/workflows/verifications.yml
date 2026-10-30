@@ -106,7 +106,9 @@ jobs:
       - name: Modèles de démonstration et équipes du LiteLLM de dev
         run: ./dev/seed-litellm.sh
       - run: npx playwright install --with-deps chromium
-      # Playwright lance lui-même le serveur de dev (webServer de playwright.config.ts).
+      # Playwright lance lui-même le serveur de production qui en sort (webServer de playwright.config.ts).
+      - name: Construction du portail
+        run: npm run build
       - run: npm run test:e2e
       - name: Journaux des services en cas d'échec
         if: failure()

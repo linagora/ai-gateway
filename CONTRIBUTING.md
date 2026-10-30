@@ -62,6 +62,10 @@ npm run test:e2e       # end-to-end journeys (Playwright), emails checked in Mai
 - **Coverage.** `npm run test:coverage` fails when the coverage of `src/lib` drops below the thresholds
   of [`vitest.config.mts`](portal/vitest.config.mts); the CI runs it and keeps the report as an artifact.
   When your change raises the coverage, raise the thresholds with it.
+- **End-to-end journeys.** `npm run test:e2e` reuses the server listening on port 3100, or starts
+  `npm run dev`. The CI runs them against the production build (`npm run build`, then
+  `npm run start -- -p 3100`): the development server compiles each route on its first visit, and
+  journeys can time out meanwhile. Start that server yourself to replay the journeys as the CI does.
 
 - **Test what you change**, at the right level: pure business rules in unit tests, services against the
   test database, user journeys end to end. Tests go through public interfaces: end-to-end tests find
