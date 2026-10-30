@@ -131,6 +131,23 @@ export async function appel(request: APIRequestContext, cle: string): Promise<nu
   return reponse.status();
 }
 
+const PASSERELLE_ADMIN = "http://127.0.0.1:54400/admin";
+const ENTETES_ADMIN = { Authorization: "Bearer sk-dev-master-key", "Content-Type": "application/json" };
+
+/** État d'une clé côté passerelle de développement : plafond, dépense de la période, remise à zéro et expiration. */
+export async function infoCle(cle: string): Promise<{ maxBudget: number | null; spend: number; budgetResetAt: string | null; expires: string | null }> {
+  const reponse = await fetch(`${PASSERELLE_ADMIN}/key/info?key=${encodeURIComponent(cle)}`, { headers: ENTETES_ADMIN });
+  if (!reponse.ok) throw new Error(`key/info : HTTP ${reponse.status}`);
+  const { info } = (await reponse.json()) as { info: { max_budget: number | null; spend: number; budget_reset_at: string | null; expires: string | null } };
+  return { maxBudget: info.max_budget, spend: info.spend, budgetResetAt: info.budget_reset_at, expires: info.expires };
+}
+
+/** Simule l'épuisement du budget d'une clé : les modèles de développement ne coûtent presque rien. */
+export async function forcerDepense(cle: string, montant: number): Promise<void> {
+  const reponse = await fetch(`${PASSERELLE_ADMIN}/key/update`, { method: "POST", headers: ENTETES_ADMIN, body: JSON.stringify({ key: cle, spend: montant }) });
+  if (!reponse.ok) throw new Error(`key/update : HTTP ${reponse.status} ${await reponse.text()}`);
+}
+
 /** Le titulaire retire sa clé approuvée depuis « Mes clés » et la rend, après avoir confirmé l'avoir copiée. */
 export async function retirerCle(page: Page): Promise<string> {
   await page.goto("/cles");

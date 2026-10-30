@@ -1,0 +1,111 @@
+# Vérifications du portail à chaque pull request et sur main : les mêmes commandes que CONTRIBUTING.md (section « Checks »),
+# contre l'environnement de dev (portal/dev/docker-compose.yml, secrets factices, modèles simulés). Les recettes d'infra
+# (smoke-test.py, test-liste-blanche.py) parlent à la vraie passerelle avec de vraies clés : elles se jouent sur le serveur.
+name: Vérifications
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: verifications-${{ github.ref }}
+  cancel-in-progress: true
+
+# Le dépôt donne aux workflows un jeton en écriture par défaut ; les jobs ne font que lire le code, et npm ci exécute
+# les scripts d'installation des dépendances : lecture seule.
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: portal
+
+jobs:
+  # Lint, types et tests unitaires : sans service, en deux minutes.
+  statique:
+    name: Lint, types, tests unitaires
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: portal/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      # Types des routes (PageProps) : produits par next dev ou next build, absents d'un dépôt fraîchement cloné.
+      - run: npx next typegen
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm test
+      - name: Scripts Python de l'infrastructure (syntaxe)
+        working-directory: infra
+        run: python3 -m py_compile scripts/*.py litellm/*.py
+
+  # Services contre la base portal_test et le LiteLLM de dev.
+  integration:
+    name: Tests d'intégration
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: portal/package-lock.json
+      - name: Environnement de dev (PostgreSQL, LiteLLM, OIDC simulé, Mailpit, Caddy)
+        run: docker compose -f dev/docker-compose.yml up -d --wait
+      - run: npm ci
+      - run: cp .env.example .env
+      - run: npx prisma generate
+      - name: Modèles de démonstration et équipes du LiteLLM de dev
+        run: ./dev/seed-litellm.sh
+      - run: npm run test:int
+      - name: Journaux des services en cas d'échec
+        if: failure()
+        run: docker compose -f dev/docker-compose.yml logs --no-color --tail 200
+
+  # Parcours de bout en bout (Playwright, un seul worker) : une vingtaine de minutes. Non bloquant tant que les parcours
+  # qui échouent sur le runner et pas sur un poste de dev (courriels, mise en page du catalogue, délais du serveur de dev)
+  # ne sont pas stabilisés : voir la pull request qui a introduit ce workflow.
+  e2e:
+    name: Parcours de bout en bout
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    continue-on-error: true
+    env:
+      # Le portail et ses courriels raisonnent en heure de Paris ; le runner est en UTC.
+      TZ: Europe/Paris
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: portal/package-lock.json
+      - name: Environnement de dev (PostgreSQL, LiteLLM, OIDC simulé, Mailpit, Caddy)
+        run: docker compose -f dev/docker-compose.yml up -d --wait
+      - run: npm ci
+      - run: cp .env.example .env
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - name: Modèles de démonstration et équipes du LiteLLM de dev
+        run: ./dev/seed-litellm.sh
+      - run: npx playwright install --with-deps chromium
+      # Playwright lance lui-même le serveur de dev (webServer de playwright.config.ts).
+      - run: npm run test:e2e
+      - name: Journaux des services en cas d'échec
+        if: failure()
+        run: docker compose -f dev/docker-compose.yml logs --no-color --tail 200
+      - name: Traces des parcours en échec
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parcours-en-echec
+          path: portal/test-results/
+          if-no-files-found: ignore
+          retention-days: 7

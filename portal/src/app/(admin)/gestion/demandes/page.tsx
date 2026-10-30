@@ -115,7 +115,7 @@ async function PartieDeLaFile({ demandes, libelleDuLien }: { demandes: PendingRe
             <td>{domaine(`typesDemande.${r.kind}`)}</td>
             <td>{r.teamAlias}</td>
             <td>{r.dataLevel ? domaine(`niveaux.${r.dataLevel}`) : ""}</td>
-            <td>{r.offer ?? r.models.join(", ")}</td>
+            <td>{r.offer ?? r.keyAlias ?? r.models.join(", ")}</td>
             <td>{r.project ?? ""}</td>
             <td>
               <Link href={`/gestion/demandes/${r.id}`}>{libelleDuLien}</Link>

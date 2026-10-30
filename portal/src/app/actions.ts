@@ -17,6 +17,7 @@ import {
   refuseRequest,
   requestCompletion,
 } from "@/lib/services/admin-requests";
+import { approveBudgetRequest, completeBudgetRequest, createBudgetRequest } from "@/lib/services/budgets";
 import { saveCatalogEntry } from "@/lib/services/catalog";
 import { addIntegrationKey, createIntegration, removeIntegrationKey, setIntegrationActive, updateIntegration } from "@/lib/services/integrations";
 import { creerNouveaute, marquerLue, modifierNouveaute, type NouveauteInput, publierNouveaute, supprimerNouveaute } from "@/lib/services/nouveautes";
@@ -77,6 +78,22 @@ export async function createKeyRequestAction(formData: FormData): Promise<void> 
       else await createKeyRequest(getDeps(), user, input);
     },
     { path: "/demandes", message: completing ? "demandeResoumise" : "demandeEnvoyee" },
+  );
+}
+
+/** Hausse du budget d'une clé émise, ou complément d'une demande renvoyée. */
+export async function demanderBudgetAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const completing = text(formData, "requestId");
+  const keyRequestId = text(formData, "keyRequestId");
+  const input = { requestedBudget: optionalNumber(formData, "requestedBudget") ?? Number.NaN, justification: text(formData, "justification") };
+  await run(
+    `/cles/budget?${completing ? `completer=${encodeURIComponent(completing)}` : `cle=${encodeURIComponent(keyRequestId)}`}`,
+    async () => {
+      if (completing) await completeBudgetRequest(getDeps(), user, completing, input);
+      else await createBudgetRequest(getDeps(), user, { keyRequestId, ...input });
+    },
+    { path: "/demandes", message: completing ? "demandeResoumise" : "budgetDemande" },
   );
 }
 
@@ -312,6 +329,16 @@ export async function approveKeyRequestAction(formData: FormData): Promise<void>
       }),
     { path: "/gestion/demandes", message: "demandeApprouvee" },
   );
+}
+
+/** Relève le plafond de la clé visée par une demande de hausse, au montant saisi. */
+export async function approuverBudgetAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const id = text(formData, "id");
+  await run(`/gestion/demandes/${id}`, () => approveBudgetRequest(getDeps(), user, id, { budget: optionalNumber(formData, "budget") ?? Number.NaN }), {
+    path: "/gestion/demandes",
+    message: "budgetReleve",
+  });
 }
 
 /** Spécification #51, ticket #54 : approbation d'une demande d'abonnement, avec sa durée de validité. */
@@ -561,6 +588,8 @@ type CleSucces =
   | "demandeEnvoyee"
   | "demandeAbonnementEnvoyee"
   | "demandeResoumise"
+  | "budgetDemande"
+  | "budgetReleve"
   | "adhesionEnvoyee"
   | "demandeAnnulee"
   | "catalogueMisAJour"
@@ -648,6 +677,7 @@ function keyRequestFromForm(formData: FormData) {
     justification: text(formData, "justification"),
     project: optionalText(formData, "project"),
     requestedBudget: optionalNumber(formData, "requestedBudget"),
+    budgetJustification: optionalText(formData, "budgetJustification"),
     requestedDays: optionalNumber(formData, "requestedDays"),
     commitment: formData.get("commitment") === "on",
     renewsRequestId: optionalText(formData, "renewsRequestId"),

@@ -43,6 +43,7 @@ const demande: KeyRequestInput = {
   justification: "Assistant de rédaction",
   project: "compte-rendu",
   requestedBudget: 20,
+  budgetJustification: "Volume de comptes rendus",
   requestedDays: 90,
   commitment: true,
 };
