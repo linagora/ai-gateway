@@ -6,7 +6,7 @@ import { PolicyViolationError, PortalError } from "@/lib/errors";
 import type { Prisma, RequestKind } from "@/generated/prisma/client";
 import { type CatalogModel, checkKeyRequest, checkTransition, DATA_LEVELS, type DataLevel, type KeyRequestDraft, pasEncoreDecidee, type PolicyVerdict, type RequestStatus, seuilJustificationBudget } from "@/lib/policy";
 import { parActeur, recordAudit } from "./audit";
-import { DEMANDES_EN_COURS, hausseEnCours, PAS_ENCORE_DECIDEES } from "./demandes-en-cours";
+import { aliasDesCleVisees, DEMANDES_EN_COURS, hausseEnCours, PAS_ENCORE_DECIDEES } from "./demandes-en-cours";
 import { markExpired } from "./echeances";
 import { managerEmails } from "./autorite";
 import { type NotificationDeps, notifyNewRequest } from "./notifications";
@@ -50,6 +50,8 @@ export interface RequestSummary {
   teamAlias: string;
   dataLevel: DataLevel | null;
   models: string[];
+  /** Hausse de budget : l'alias de la clé visée. */
+  keyAlias: string | null;
   status: RequestStatus;
   decisionComment: string | null;
   /** Renouvellement d'une clé : la demande dont vient la clé renouvelée. */
@@ -231,6 +233,7 @@ export async function evaluateKeyRequest(deps: RequestDeps, draft: KeyRequestDra
 export async function listMyRequests(deps: RequestDeps, user: SessionUser): Promise<RequestSummary[]> {
   await markExpired(deps.db, deps.now?.() ?? new Date());
   const rows = await deps.db.accessRequest.findMany({ where: { requesterUid: user.uid }, orderBy: { createdAt: "desc" }, include: { offer: true } });
+  const alias = await aliasDesCleVisees(deps.db, rows);
   return rows.map((r) => ({
     id: r.id,
     kind: r.kind,
@@ -239,6 +242,7 @@ export async function listMyRequests(deps: RequestDeps, user: SessionUser): Prom
     teamAlias: r.teamAlias,
     dataLevel: r.dataLevel,
     models: r.models,
+    keyAlias: alias.get(r.id) ?? null,
     status: r.status,
     decisionComment: r.decisionComment,
     renewsRequestId: r.renewsRequestId,

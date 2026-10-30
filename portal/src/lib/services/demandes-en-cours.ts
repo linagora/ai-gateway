@@ -36,3 +36,12 @@ export async function hausseEnCours(db: Db, keyRequestId: string): Promise<boole
 export async function annulerHaussesDeLaCle(db: Db, keyRequestId: string): Promise<void> {
   await db.accessRequest.updateMany({ where: haussesDeLaCle(keyRequestId), data: { status: "ANNULEE" } });
 }
+
+/** Alias de la clé visée par chaque demande de hausse du budget ; l'index suit l'identifiant de la demande. */
+export async function aliasDesCleVisees(db: Db, demandes: { id: string; kind: string; raisesBudgetOfRequestId: string | null }[]): Promise<Map<string, string>> {
+  const visees = demandes.filter((d) => d.kind === "BUDGET" && d.raisesBudgetOfRequestId);
+  if (visees.length === 0) return new Map();
+  const cles = await db.accessRequest.findMany({ where: { id: { in: visees.map((d) => d.raisesBudgetOfRequestId as string) } }, select: { id: true, keyAlias: true } });
+  const alias = new Map(cles.map((c) => [c.id, c.keyAlias]));
+  return new Map(visees.flatMap((d) => (alias.get(d.raisesBudgetOfRequestId as string) ? [[d.id, alias.get(d.raisesBudgetOfRequestId as string) as string] as const] : [])));
+}

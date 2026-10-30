@@ -22,6 +22,7 @@ import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
 import { dansEquipes, managerEmails, requireAutorite, requireGestion } from "./autorite";
 import { pickupDeadline, readPickupDays } from "./delais";
+import { aliasDesCleVisees } from "./demandes-en-cours";
 import { markExpired } from "./echeances";
 import {
   type NotificationDeps,
@@ -58,6 +59,8 @@ export interface PendingRequest {
   teamAlias: string;
   dataLevel: DataLevel | null;
   models: string[];
+  /** Hausse de budget : l'alias de la clé visée. */
+  keyAlias: string | null;
   project: string | null;
   status: RequestStatus;
   createdAt: Date;
@@ -80,7 +83,8 @@ export async function listPendingRequests(deps: AdminDeps, actor: SessionUser): 
   const equipes = await requireGestion(deps.db, actor);
   const rows = await deps.db.accessRequest.findMany({ where: demandesDeLaFile(actor, equipes), orderBy: { createdAt: "asc" }, include: { offer: true } });
   const { aTraiter, aSuivre } = await partager(deps, actor, rows);
-  return { aTraiter: aTraiter.map(ligneDeLaFile), aSuivre: aSuivre.map(ligneDeLaFile) };
+  const alias = await aliasDesCleVisees(deps.db, rows);
+  return { aTraiter: aTraiter.map((r) => ligneDeLaFile(r, alias)), aSuivre: aSuivre.map((r) => ligneDeLaFile(r, alias)) };
 }
 
 /** Demandes de la file de l'acteur ; un responsable n'y voit ni les autres équipes, ni ses propres demandes. */
@@ -98,7 +102,7 @@ async function partager<D extends DemandeDeLaFile & { teamId: string }>(deps: Ad
   return { aTraiter: demandes.filter(attend), aSuivre: demandes.filter((d) => !attend(d)) };
 }
 
-function ligneDeLaFile(r: Prisma.AccessRequestGetPayload<{ include: { offer: true } }>): PendingRequest {
+function ligneDeLaFile(r: Prisma.AccessRequestGetPayload<{ include: { offer: true } }>, alias: Map<string, string>): PendingRequest {
   return {
     id: r.id,
     kind: r.kind,
@@ -107,6 +111,7 @@ function ligneDeLaFile(r: Prisma.AccessRequestGetPayload<{ include: { offer: tru
     teamAlias: r.teamAlias,
     dataLevel: r.dataLevel,
     models: r.models,
+    keyAlias: alias.get(r.id) ?? null,
     project: r.project,
     status: r.status,
     createdAt: r.createdAt,
@@ -155,6 +160,7 @@ export async function listProcessedRequests(deps: AdminDeps, actor: SessionUser,
     take,
     include: { offer: true },
   });
+  const alias = await aliasDesCleVisees(deps.db, rows);
   const elements = rows.map((r) => ({
     id: r.id,
     kind: r.kind,
@@ -163,6 +169,7 @@ export async function listProcessedRequests(deps: AdminDeps, actor: SessionUser,
     teamAlias: r.teamAlias,
     dataLevel: r.dataLevel,
     models: r.approvedModels.length > 0 ? r.approvedModels : r.models,
+    keyAlias: alias.get(r.id) ?? null,
     project: r.project,
     status: r.status,
     createdAt: r.createdAt,
@@ -236,6 +243,7 @@ export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: 
     r.kind === "CLE" && r.dataLevel
       ? (await evaluateKeyRequest(deps, { requesterUid: r.requesterUid, teamId: r.teamId, dataLevel: r.dataLevel, models: r.models })).checks
       : [];
+  const budgetRaise = r.kind === "BUDGET" && r.raisesBudgetOfRequestId ? await cleDeLaHausse(deps, r.raisesBudgetOfRequestId) : null;
   return {
     id: r.id,
     kind: r.kind,
@@ -274,7 +282,8 @@ export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: 
       : null,
     checks,
     renewal: r.renewsRequestId ? await renewalOrigin(deps, r.renewsRequestId) : null,
-    budgetRaise: r.kind === "BUDGET" && r.raisesBudgetOfRequestId ? await cleDeLaHausse(deps, r.raisesBudgetOfRequestId) : null,
+    keyAlias: budgetRaise?.keyAlias ?? null,
+    budgetRaise,
   };
 }
 

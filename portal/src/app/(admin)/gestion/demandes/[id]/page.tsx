@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
 import { PortalError } from "@/lib/errors";
 import type { Langue } from "@/lib/langue";
-import { DUREE_ABONNEMENT_PAR_DEFAUT, DUREES_ABONNEMENT } from "@/lib/durees";
+import { DUREE_ABONNEMENT_PAR_DEFAUT, DUREES_ABONNEMENT, joursDePeriode } from "@/lib/durees";
 import { decisionProposee, empechementDeDecider, enAttenteDeValidation, modelAcceptsLevel } from "@/lib/policy";
 import { getRequestReview } from "@/lib/services/admin-requests";
 import { equipesGerees } from "@/lib/services/autorite";
@@ -14,6 +14,7 @@ import {
   accorderAbonnementAction,
   approuverAbonnementAction,
   approveKeyRequestAction,
+  approuverBudgetAction,
   approveTeamJoinRequestAction,
   refuseRequestAction,
   requestCompletionAction,
@@ -64,6 +65,11 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
   // Décision proposée, toujours accompagnée du refus et du complément ; sinon, ce qui empêche l'acteur de décider.
   const decision = decisionProposee(admin, review);
   const empechement = empechementDeDecider(admin, review);
+  const parPeriode = (montant: number, periode: string | null) => {
+    const jours = periode ? joursDePeriode(periode) : null;
+    if (jours !== null) return t("hausse.plafondJours", { montant: euros(montant), nombre: jours });
+    return periode ? t("hausse.plafondPeriode", { montant: euros(montant), periode }) : euros(montant);
+  };
 
   return (
     <>
@@ -141,6 +147,34 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
             )}
           </>
         )}
+        {review.kind === "BUDGET" && review.budgetRaise && (
+          <>
+            <dt>{t("hausse.cle")}</dt>
+            <dd>
+              <code>{review.budgetRaise.keyAlias}</code>
+            </dd>
+            <dt>{t("hausse.plafondActuel")}</dt>
+            <dd>
+              {review.budgetRaise.currentBudget !== null ? parPeriode(review.budgetRaise.currentBudget, review.budgetRaise.budgetDuration) : t("hausse.sansPlafond")}
+            </dd>
+            <dt>{t("hausse.depense")}</dt>
+            <dd>{review.budgetRaise.spend !== null ? euros(review.budgetRaise.spend) : t("hausse.indisponible")}</dd>
+            {review.budgetRaise.budgetResetAt && (
+              <>
+                <dt>{t("hausse.remiseAZero")}</dt>
+                <dd>{date(review.budgetRaise.budgetResetAt)}</dd>
+              </>
+            )}
+            <dt>{t("hausse.montantDemande")}</dt>
+            <dd>{review.requestedBudget !== null ? euros(review.requestedBudget) : domaine("nonRenseigne")}</dd>
+            {review.budgetRaise.team && (
+              <>
+                <dt>{t("hausse.budgetEquipe")}</dt>
+                <dd>{parPeriode(review.budgetRaise.team.maxBudget, review.budgetRaise.team.budgetDuration)}</dd>
+              </>
+            )}
+          </>
+        )}
         <dt>{t("motif")}</dt>
         <dd>{review.justification}</dd>
         {review.decisionComment && (
@@ -213,6 +247,10 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
         <p className="mt-6 rounded border-l-4 border-amber-500 bg-amber-50 px-3 py-2">{t("sansAccord")}</p>
       )}
 
+      {review.kind === "BUDGET" && review.budgetRaise?.team && review.requestedBudget !== null && review.requestedBudget > review.budgetRaise.team.maxBudget && (
+        <p className="mt-6 rounded border-l-4 border-amber-500 bg-amber-50 px-3 py-2">{t("hausse.depasseEquipe", { budget: euros(review.budgetRaise.team.maxBudget) })}</p>
+      )}
+
       {decision !== null && <ExplicationObligatoires />}
 
       {decision === "approuver" && review.kind === "CLE" && (
@@ -258,6 +296,26 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
             </label>
             <button type="submit">{t("approuver")}</button>
           </form>
+        </>
+      )}
+
+      {decision === "approuver" && review.kind === "BUDGET" && (
+        <>
+          <h2>{t("hausse.titre")}</h2>
+          {review.budgetRaise?.keyActive ? (
+            <form action={approuverBudgetAction}>
+              <input type="hidden" name="id" value={review.id} />
+              <label>
+                {t("hausse.nouveauBudget")}
+                <Obligatoire />
+                <input name="budget" type="number" min="0.01" step="0.01" required defaultValue={review.requestedBudget ?? ""} />
+              </label>
+              <p className="text-sm text-neutral-600">{t("hausse.aide")}</p>
+              <button type="submit">{t("hausse.relever")}</button>
+            </form>
+          ) : (
+            <p>{t("hausse.inactive")}</p>
+          )}
         </>
       )}
 

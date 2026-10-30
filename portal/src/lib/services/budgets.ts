@@ -128,6 +128,41 @@ export async function approveBudgetRequest(deps: AdminDeps, actor: SessionUser, 
   await annoncerDecision(deps, actor, request, "budget");
 }
 
+/** Formulaire de hausse : la clé visée avec son plafond, sa dépense et sa remise à zéro (null si indisponibles), et la demande à compléter. */
+export interface BudgetRaiseDraft {
+  keyRequestId: string;
+  alias: string;
+  currentBudget: number | null;
+  budgetDuration: string | null;
+  spend: number | null;
+  budgetResetAt: Date | null;
+  requestedBudget: number | null;
+  justification: string | null;
+}
+
+/**
+ * Brouillon du formulaire de hausse, pour la clé émise du titulaire (`keyRequestId`) ou pour sa demande de hausse
+ * renvoyée pour complément (`completing`) ; null si la clé n'est pas la sienne ou n'est plus émise.
+ */
+export async function budgetRaiseDraft(deps: AdminDeps, user: SessionUser, ref: { keyRequestId: string } | { completing: string }): Promise<BudgetRaiseDraft | null> {
+  const demande = "completing" in ref ? await deps.db.accessRequest.findUnique({ where: { id: ref.completing } }) : null;
+  if ("completing" in ref && (!demande || demande.requesterUid !== user.uid || demande.kind !== "BUDGET" || demande.status !== "A_COMPLETER")) return null;
+  const cleId = "completing" in ref ? demande?.raisesBudgetOfRequestId : ref.keyRequestId;
+  const cle = cleId ? await deps.db.accessRequest.findUnique({ where: { id: cleId } }) : null;
+  if (!cle || cle.kind !== "CLE" || cle.requesterUid !== user.uid || cle.status !== "CLE_EMISE" || !cle.keyTokenId || !cle.keyAlias) return null;
+  const info = await deps.litellm.getKeyInfo(cle.keyTokenId).catch(() => null);
+  return {
+    keyRequestId: cle.id,
+    alias: cle.keyAlias,
+    currentBudget: plafond(cle),
+    budgetDuration: cle.budgetDuration,
+    spend: info?.spend ?? null,
+    budgetResetAt: info?.budgetResetAt ?? null,
+    requestedBudget: demande?.requestedBudget?.toNumber() ?? null,
+    justification: demande?.justification ?? null,
+  };
+}
+
 /** Clé dont on relève le budget : encore émise, non expirée, avec un plafond et sa période. */
 function cleEmise(deps: AdminDeps, cle: AccessRequest): AccessRequest & { keyTokenId: string; keyAlias: string; approvedBudget: Prisma.Decimal; budgetDuration: string } {
   const maintenant = deps.now?.() ?? new Date();
