@@ -119,7 +119,7 @@ test("budget épuisé, hausse demandée et approuvée : la même clé refonction
   await expect(plafond).toContainText("5,00 €");
   await expect(plafond).toContainText("tous les 30 jours");
   await expect(page.getByLabel("Nouveau budget (€)")).toHaveAttribute("min", "5.01");
-  await page.getByLabel("Nouveau budget (€)").fill("20");
+  await page.getByLabel("Nouveau budget (€)").fill("20.5");
   await page.getByLabel("Justification").fill("Chantier de migration");
   await page.getByRole("button", { name: "Envoyer la demande" }).click();
   await expect(page.getByRole("status")).toHaveText("Demande envoyée.");
@@ -134,7 +134,7 @@ test("budget épuisé, hausse demandée et approuvée : la même clé refonction
   expect(annonce.to).toContain("admins-e2e@example.org");
   expect(annonce.text).toContain(alias);
   expect(annonce.text).toContain("Chantier de migration");
-  expect(annonce.text).toMatch(/Budget souhaité\s*:\s*20\s€/);
+  expect(annonce.text).toMatch(/Budget souhaité\s*:\s*20,5\s€/);
 
   const admin = await (await connecter(browser, ADMIN)).newPage();
   await admin.goto("/gestion/demandes");
@@ -143,12 +143,12 @@ test("budget épuisé, hausse demandée et approuvée : la même clé refonction
   const valeur = (intitule: string) => admin.locator("dt", { hasText: intitule }).locator("xpath=following-sibling::dd[1]");
   await expect(valeur("Clé visée")).toContainText(alias);
   await expect(valeur("Plafond actuel")).toHaveText("5,00 €, tous les 30 jours");
-  await expect(valeur("Montant demandé")).toContainText("20,00 €");
+  await expect(valeur("Montant demandé")).toHaveText("20,50 €");
   await expect(valeur("Motif")).toHaveText("Chantier de migration");
   await expect(admin.getByRole("heading", { name: "Contrôles de politique" })).toHaveCount(0);
-  await expect(admin.getByLabel("Nouveau budget (€)")).toHaveValue("20");
+  await expect(admin.getByLabel("Nouveau budget (€)")).toHaveValue("20.5");
 
-  await admin.getByLabel("Nouveau budget (€)").fill("15");
+  await admin.getByLabel("Nouveau budget (€)").fill("15.5");
   await admin.getByRole("button", { name: "Relever le budget" }).click();
   await expect(admin.getByRole("status")).toHaveText("Budget relevé.");
   await expect(ligneDeLaFile(admin, "À approuver", salarie)).toHaveCount(0);
@@ -157,14 +157,14 @@ test("budget épuisé, hausse demandée et approuvée : la même clé refonction
   const [releve] = await courrielsSujet(salarie.uid, "est relevé");
   expect(releve.to).toEqual([salarie.email]);
   expect(releve.text).toContain(alias);
-  expect(releve.text).toMatch(/relevé à 15,00\s€/);
+  expect(releve.text).toMatch(/relevé à 15,50\s€/);
 
   const apres = await infoCle(cle);
-  expect(apres).toMatchObject({ maxBudget: 15, budgetResetAt: avant.budgetResetAt, expires: avant.expires });
+  expect(apres).toMatchObject({ maxBudget: 15.5, budgetResetAt: avant.budgetResetAt, expires: avant.expires });
   expect(apres.spend).toBeCloseTo(5, 2);
   expect(await appel(request, cle)).toBe(200);
   await page.goto("/cles");
-  await expect(carteDeLaCle(page, salarie, "essai-hausse")).toContainText("sur 15,00 €");
+  await expect(carteDeLaCle(page, salarie, "essai-hausse")).toContainText("sur 15,50 €");
   await expect(carteDeLaCle(page, salarie, "essai-hausse").getByRole("heading")).toHaveText(alias);
 });
 
