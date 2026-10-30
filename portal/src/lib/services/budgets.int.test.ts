@@ -269,6 +269,24 @@ describe("hausse du budget d'une clé émise", () => {
     expect((await listAudit(testDb)).map((e) => e.action)).not.toContain("BUDGET_RAISED");
   });
 
+  test("hausse approuvée pendant un remplacement : la nouvelle clé reçoit le plafond accordé", async () => {
+    const { id } = await createBudgetRequest(deps, titulaire, { keyRequestId: cle, requestedBudget: 50, justification: "Lot de contrats" });
+    const generer = litellm.generateKey.bind(litellm);
+    // Un admin approuve la hausse juste après que la passerelle a créé la clé de remplacement, à l'ancien plafond.
+    litellm.generateKey = async (params) => {
+      litellm.generateKey = generer;
+      const generee = await generer(params);
+      await approveBudgetRequest(deps, admin, id, { budget: 40 });
+      return generee;
+    };
+    await replaceKey(deps, titulaire, cle);
+    const nouvelle = (await testDb.accessRequest.findUniqueOrThrow({ where: { id: cle } })).keyTokenId as string;
+    expect(nouvelle).not.toBe(tokenId);
+    expect(await statut(id)).toBe("APPROUVEE");
+    expect(await plafondDeLaCle(cle)).toBe(40);
+    expect(litellm.keys.get(nouvelle)?.maxBudget).toBe(40);
+  });
+
   test("révoquée, expirée ou renouvelée, la clé emporte la hausse en cours", async () => {
     const { id: revoquee } = await createBudgetRequest(deps, titulaire, { keyRequestId: cle, requestedBudget: 50, justification: "x" });
     await revokeKey(deps, titulaire, cle);

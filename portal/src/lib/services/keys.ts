@@ -423,6 +423,12 @@ export async function replaceKey(deps: KeyDeps, user: SessionUser, requestId: st
     await retirerLaNouvelle();
     throw new PortalError("transition_interdite", "La clé a été modifiée entre-temps ; rechargez la page.", { cas: "modifiee" });
   }
+  // Une hausse de budget approuvée pendant le remplacement a relevé l'ancienne clé, et la nouvelle a été créée à l'ancien
+  // plafond : elle reçoit le plafond relu. La nouvelle clé est rendue quoi qu'il arrive : elle ne s'affiche qu'une fois.
+  const { approvedBudget } = await deps.db.accessRequest.findUniqueOrThrow({ where: { id: request.id }, select: { approvedBudget: true } });
+  if (approvedBudget !== null && approvedBudget.toNumber() !== request.approvedBudget?.toNumber()) {
+    await deps.litellm.updateKeyBudget(nouvelle.tokenId, approvedBudget.toNumber()).catch(() => undefined);
+  }
   await recordAudit(deps.db, { ...parActeur(user), action: "KEY_REPLACED", targetId: request.id, details: { alias: nouvelle.alias, ancienAlias: request.keyAlias } });
   await prevenirActionParIntegration(deps, user, request, { type: "remplacement", nouvelAlias: nouvelle.alias });
   return { key: nouvelle.key, alias: nouvelle.alias };
