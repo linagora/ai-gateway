@@ -7,7 +7,8 @@ export default defineConfig({
   timeout: 90_000,
   workers: 1,
   reporter: "list",
-  use: { baseURL: "http://localhost:3100", locale: "fr-FR" },
+  // Trace d'un parcours en échec, dans test-results/ : la CI la garde en artefact.
+  use: { baseURL: "http://localhost:3100", locale: "fr-FR", trace: "retain-on-failure" },
   // Les valeurs par défaut des clés (e2e/reglages.setup.ts) sont posées avant les parcours, même sur une base neuve.
   projects: [
     { name: "reglages", testMatch: /reglages\.setup\.ts/, use: { ...devices["Desktop Chrome"] } },
