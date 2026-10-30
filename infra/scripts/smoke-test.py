@@ -154,6 +154,7 @@ def attendre_depense(token_id, attendue):
 
 
 # Requête de Claude Code 2.1.312 (capturée) : en-têtes, puis corps (système en blocs, outil, identifiant de session, réflexion).
+# Depuis la 2.1.314 au moins, l'environnement suit la question dans une entrée « system » (ticket #159).
 EN_TETES_CLAUDE_CODE = {
     "anthropic-version": "2023-06-01",
     "anthropic-beta": "claude-code-20250219,interleaved-thinking-2025-05-14,context-management-2025-06-27,effort-2025-11-24",
@@ -169,7 +170,10 @@ def requete_claude_code(question, flux_sse):
             {"type": "text", "text": "x-anthropic-billing-header: cc_version=2.1.312; cc_entrypoint=cli;"},
             {"type": "text", "text": "You are Claude Code, Anthropic's official CLI for Claude.", "cache_control": {"type": "ephemeral"}},
         ],
-        "messages": [{"role": "user", "content": [{"type": "text", "text": question}]}],
+        "messages": [
+            {"role": "user", "content": [{"type": "text", "text": question}]},
+            {"role": "system", "content": [{"type": "text", "text": "# Environment\n - Platform: linux"}]},
+        ],
         "tools": [{
             "name": "Read",
             "description": "Reads a file from the local filesystem.",
