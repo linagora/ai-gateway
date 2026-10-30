@@ -2,8 +2,8 @@
 (OVHcloud, N3, ticket #125), JEV (Typesafe, niveau Expérimental, par l'API System One d'OpenRouter, ticket #104)
 et Nox-4B (N3, même API que JEV, sur une carte GPU de LINAGORA).
 Idempotent : un modèle absent est déclaré ; un modèle présent reçoit les informations ci-dessous (toutes, pour ne
-rien réécrire de ce que LiteLLM dérive lui-même), sa route, son adresse et sa clé (des références à l'environnement) ;
-ses tarifs restent inchangés.
+rien réécrire de ce que LiteLLM dérive lui-même), sa route, son adresse et sa clé (des références à l'environnement),
+et les paramètres qu'il écarte ; ses tarifs restent inchangés.
 
   cd /opt/linagora-ia && docker compose exec -T litellm python3 - < scripts/declare-modeles-directs.py
 
@@ -68,6 +68,9 @@ MODELES = [
             "model": "ovhcloud/Qwen3.8-27B",
             "api_base": "os.environ/OVH_QWEN_API_BASE",
             "api_key": "os.environ/OVH_QWEN_API_KEY",
+            # Claude Code met son identifiant de session dans metadata.user_id ; LiteLLM en tire prompt_cache_key (1.102.1),
+            # que le serveur d'OVH refuse : « feature 'prompt_cache_key' is not currently supported » (ticket #159).
+            "additional_drop_params": ["prompt_cache_key"],
             "input_cost_per_token": 0.0000004,  # 0,40 € HT par million de jetons (tarif public OVH, validé le 2026-09-24)
             "output_cost_per_token": 0.0000027,  # 2,70 € HT
         },
@@ -167,8 +170,9 @@ existants = {m["model_name"]: m for m in http("GET", "/model/info")["data"]}
 for modele in MODELES:
     nom = modele["model_name"]
     if nom in existants:
-        # PATCH : LiteLLM fusionne ; parmi les paramètres d'appel, la route, l'adresse et la clé changent, pas les tarifs.
-        acces = {k: modele["litellm_params"][k] for k in ("model", "api_base", "api_key")}
+        # PATCH : LiteLLM fusionne ; parmi les paramètres d'appel, la route, l'adresse, la clé et les paramètres écartés
+        # changent, pas les tarifs.
+        acces = {k: v for k, v in modele["litellm_params"].items() if k in ("model", "api_base", "api_key", "additional_drop_params")}
         http("PATCH", f"/model/{existants[nom]['model_info']['id']}/update", {"model_info": modele["model_info"], "litellm_params": acces})
         print(f"• {nom} : informations complétées, route {acces['model']}")
     else:
