@@ -106,12 +106,17 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
             <dt>{t("projet")}</dt>
             <dd>{review.project ?? domaine("nonRenseigne")}</dd>
             <dt>{t("budgetDuree")}</dt>
-            {/* Le budget n'est plus demandé au salarié : seul un renouvellement reprend celui de la clé d'origine. */}
             <dd>
               {[review.requestedBudget !== null ? euros(review.requestedBudget) : null, review.requestedDays !== null ? libelleDuree(domaine, review.requestedDays) : null]
                 .filter(Boolean)
                 .join(" / ") || domaine("nonRenseigne")}
             </dd>
+            {review.budgetJustification && (
+              <>
+                <dt>{t("justificationBudget")}</dt>
+                <dd>{review.budgetJustification}</dd>
+              </>
+            )}
           </>
         )}
         {review.kind === "ABONNEMENT" && review.subscriptionOffer && (

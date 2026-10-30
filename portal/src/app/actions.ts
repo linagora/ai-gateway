@@ -648,6 +648,7 @@ function keyRequestFromForm(formData: FormData) {
     justification: text(formData, "justification"),
     project: optionalText(formData, "project"),
     requestedBudget: optionalNumber(formData, "requestedBudget"),
+    budgetJustification: optionalText(formData, "budgetJustification"),
     requestedDays: optionalNumber(formData, "requestedDays"),
     commitment: formData.get("commitment") === "on",
     renewsRequestId: optionalText(formData, "renewsRequestId"),
