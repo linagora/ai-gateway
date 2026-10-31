@@ -7,6 +7,8 @@ All notable changes to LINAGORA AI Gateway, newest first. The format is based on
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-31
+
 ### Fixed
 
 - A model served by several providers no longer fails when the provider OpenRouter picks first, the cheapest, is
@@ -113,6 +115,7 @@ First release of the gateway and its portal.
 - Development: translations left by the screenshots in the development catalog (#91); JEV no longer counted
   in the allowlist acceptance test (#106).
 
-[Unreleased]: https://github.com/linagora/ai-gateway/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/linagora/ai-gateway/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/linagora/ai-gateway/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/linagora/ai-gateway/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/linagora/ai-gateway/releases/tag/v1.0.0
