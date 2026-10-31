@@ -1157,13 +1157,14 @@
       "image": "image model",
       "decision": "decision API",
       "embeddings": "embedding model",
+      "sans_outils": "no tool calling",
       "non_declare": "no longer declared by the gateway"
     },
     "modeleParDefaut": "Default model",
     "clesNonProposees": "Keys not offered",
     "raisonsCle": {
       "bloquee": "blocked key",
-      "sans_modele": "no chat model"
+      "sans_modele": "no chat model with tool calling"
     },
     "copierCommandes": "Copy the commands",
     "commandesCopiees": "Commands copied",

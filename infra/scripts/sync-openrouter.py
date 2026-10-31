@@ -26,7 +26,8 @@ la profondeur par défaut, que la garde applique aux requêtes qui n'en demanden
 Faits lus par le portail pour la configuration d'OpenCode : sortie maximale (le plus petit maximum des points
 d'accès retenus, plafonné par la limite du modèle que publie OpenRouter, car certains points d'accès annoncent
 plus qu'ils n'acceptent), efforts de raisonnement et effort par défaut (liste des modèles d'OpenRouter), contenus
-acceptés en entrée et produits en sortie.
+acceptés en entrée et produits en sortie. Appel d'outils (appel_outils), vrai si un point d'accès retenu prend des
+outils : le portail écarte des assistants de code les modèles qui n'en prennent pas.
 """
 import json
 import os
@@ -161,6 +162,10 @@ def declaration(entree, cfg, modeles_openrouter):
     if limite_modele := (publie.get("top_provider") or {}).get("max_completion_tokens"):
         maximums.append(limite_modele)
     faits_techniques = {"contenus_entree": contenus(entrees), "contenus_sortie": contenus(sorties)}
+    # Appel d'outils, lu par le portail pour les assistants de code (ticket #178) : quand une requête porte des outils,
+    # OpenRouter écarte les points d'accès qui ne les prennent pas, et répond 404 s'il n'en reste aucun. Déclaré pour
+    # chaque modèle, vrai ou faux : la mise à jour d'un modèle complète sa déclaration sans en retirer de champ.
+    faits_techniques["appel_outils"] = any("tools" in (e.get("supported_parameters") or []) for e in retenus)
     if maximums:
         faits_techniques["max_output_tokens"] = min(maximums)
     raisonnement = publie.get("reasoning") or {}

@@ -7,11 +7,13 @@ des assistants de code), puis une requête telle que l'envoie Claude Code (en-t�
 blocs, outils, metadata.user_id, réflexion, context_management) : en flux, avec les événements SSE du message et de
 ses blocs de contenu et la dépense enregistrée sur la clé au coût des jetons du flux (les budgets s'appliquent aux
 appels de Claude Code), puis sans flux avec un appel d'outil demandé, auquel le modèle doit répondre par un bloc
-tool_use ; enfin révoque la clé (critère 7 : 401) et supprime l'équipe. N'affiche
-jamais la clé maître ni la clé de test. Sort en erreur si les jetons lus depuis le cache ne sont pas
-comptés à leur prix déclaré, dans le coût calculé comme dans la dépense enregistrée sur la clé ; sans jeton
-lu depuis le cache, ce contrôle n'est pas concluant. Sort aussi en erreur si /v1/models ne donne pas le
-modèle à la clé de test (critère 1), ou si la clé révoquée n'est pas refusée (critère 7).
+tool_use, et un appel d'outil par /v1/chat/completions, comme l'envoie OpenCode ; enfin révoque la clé (critère 7 :
+401) et supprime l'équipe. Un modèle déclaré sans appel d'outils (appel_outils: false), que le portail écarte des
+assistants de code, ne passe pas ces contrôles d'assistants ; un modèle qui leur est proposé et n'appelle pas d'outil
+est signalé (ticket #178). N'affiche jamais la clé maître ni la clé de test. Sort en erreur si les jetons lus
+depuis le cache ne sont pas comptés à leur prix déclaré, dans le coût calculé comme dans la dépense enregistrée sur
+la clé ; sans jeton lu depuis le cache, ce contrôle n'est pas concluant. Sort aussi en erreur si /v1/models ne
+donne pas le modèle à la clé de test (critère 1), ou si la clé révoquée n'est pas refusée (critère 7).
 
 La même question est aussi posée en flux (stream), comme le font les assistants de code et les interfaces de conversation :
 la dépense enregistrée sur la clé doit suivre le tarif déclaré, comme hors flux. La recette sort en erreur sinon.
@@ -256,6 +258,28 @@ def controle_claude_code(test_key, token_id, echecs):
     if not conforme:
         print(brut[:300])
         echecs.append("Claude Code (outil)")
+
+
+def controle_outil_openai(test_key, echecs):
+    """/v1/chat/completions avec un outil, comme l'appelle OpenCode : le modèle doit répondre par un appel d'outil."""
+    corps = {
+        "model": MODEL,
+        "max_tokens": 300,
+        "messages": [{"role": "user", "content": "Appelle l'outil read sur /etc/hostname."}],
+        "tools": [{"type": "function", "function": {
+            "name": "read",
+            "description": "Reads a file from the local filesystem.",
+            "parameters": {"type": "object", "properties": {"filePath": {"type": "string"}}, "required": ["filePath"]},
+        }}],
+    }
+    st, rep, _ = call("POST", "/v1/chat/completions", corps, key=test_key)
+    appels = (((rep or {}).get("choices") or [{}])[0].get("message") or {}).get("tool_calls") or []
+    conforme = st == 200 and bool(appels)
+    step(f"/v1/chat/completions avec un outil, comme OpenCode, outil read demandé → HTTP {st} ; appel d'outil : "
+         f"{'oui' if appels else 'non'} → {'conforme' if conforme else 'échec'}")
+    if not conforme:
+        print(json.dumps(rep, ensure_ascii=False)[:300])
+        echecs.append("OpenCode (outil)")
 
 
 def controle_embeddings(test_key, token_id, echecs):
@@ -538,7 +562,17 @@ try:
             if st == 200 and in_cost and out_cost:
                 # La dépense de cet appel s'écrit en différé : l'attendre, pour ne pas la prendre pour celle du flux.
                 attendre_depense(token_id, avant_message + float(hdr.get("x-litellm-response-cost") or 0))
-            controle_claude_code(test_key, token_id, echecs)
+            # Assistants de code : ils envoient des outils à chaque requête. Le portail ne leur propose pas un modèle déclaré
+            # sans appel d'outils ; un modèle qu'il leur propose doit en appeler un, au format de chacun.
+            if mi.get("appel_outils") is False:
+                step("assistants de code — modèle déclaré sans appel d'outils (appel_outils), écarté par le portail : "
+                     "contrôles de Claude Code et d'OpenCode non faits")
+            else:
+                controle_claude_code(test_key, token_id, echecs)
+                controle_outil_openai(test_key, echecs)
+                if {"Claude Code (outil)", "OpenCode (outil)"} & set(echecs):
+                    step("assistants de code — échec : le portail leur propose ce modèle, qui n'appelle pas d'outil ; le déclarer "
+                         "sans appel d'outils (appel_outils: false) ou corriger sa route")
 finally:
     if token_id:
         st, _, _ = call("POST", "/key/delete", {"keys": [token_id]})

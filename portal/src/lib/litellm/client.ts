@@ -60,8 +60,8 @@ export interface TeamChanges {
 const MEMBRE_TECHNIQUE = "default_user_id";
 
 /**
- * Capacité d'un modèle, déclarée par la passerelle (les outils et le JSON, communs à tous, n'en sont pas) :
- * lecture d'images, génération d'images, audio et vidéo, raisonnement.
+ * Capacité d'un modèle, déclarée par la passerelle (le JSON, commun à tous, et les outils, que prennent presque tous les
+ * modèles, n'en sont pas : voir toolCalling) : lecture d'images, génération d'images, audio et vidéo, raisonnement.
  */
 export type Capability = "images" | "generation_images" | "audio_video" | "raisonnement";
 
@@ -129,6 +129,11 @@ export interface LiteLLMModel {
    * facturée en plus des jetons à chaque appel, même le plus court.
    */
   webSearchPerRequest: boolean;
+  /**
+   * Le modèle prend des outils, comme la plupart : faux quand la passerelle le déclare sans appel d'outils
+   * (appel_outils: false), aucun de ses points d'accès ne les prenant. Les assistants de code, qui en envoient, l'écartent.
+   */
+  toolCalling: boolean;
 }
 
 /** Paramètres d'une clé à générer (F-40), figés à l'approbation de la demande. Durées au format LiteLLM : 30d, 3600s… */
@@ -333,6 +338,7 @@ const modelInfoSchema = z.object({
         contenus_sortie: z.array(z.string()).nullish(),
         /** Champ standard de LiteLLM pour la taille des vecteurs d'un modèle d'embeddings. */
         output_vector_size: z.number().nullish(),
+        appel_outils: z.boolean().nullish(),
       }),
     }),
   ),
@@ -475,6 +481,7 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
         outputContents: contenus(mi.contenus_sortie),
         dimensions: mi.output_vector_size ?? null,
         webSearchPerRequest: Object.keys(lp?.search_context_cost_per_query ?? {}).length > 0,
+        toolCalling: mi.appel_outils !== false,
       }));
     },
 
