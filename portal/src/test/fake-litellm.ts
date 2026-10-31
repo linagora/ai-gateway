@@ -215,6 +215,7 @@ export class FakeLiteLLM implements LiteLLMClient {
       outputContents: null,
       dimensions: null,
       webSearchPerRequest: false,
+      toolCalling: true,
       ...model,
     });
     return this;
