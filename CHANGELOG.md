@@ -45,6 +45,9 @@ Notable changes to LINAGORA AI Gateway, newest first. The gateway and its portal
 - A model without any available endpoint no longer stops the allowlist synchronization (#109).
 - Claude Code launcher: no context size guessed for a default model that declares none, a `/model` example that
   names another model of the key, and no promise that only the gateway is called (#175).
+- The Claude Code and OpenCode pages leave out, with the reason, the models that cannot call tools (Nemotron 3.5
+  Content Safety, Perplexity Sonar), which failed every request of these assistants; the acceptance test flags an
+  offered model that does not call tools (#181).
 
 ### Development
 
