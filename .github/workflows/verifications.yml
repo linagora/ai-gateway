@@ -81,14 +81,11 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-  # Parcours de bout en bout (Playwright, un seul worker) : une vingtaine de minutes. Non bloquant tant que les parcours
-  # qui échouent sur le runner et pas sur un poste de dev (courriels, mise en page du catalogue, délais du serveur de dev)
-  # ne sont pas stabilisés : voir la pull request qui a introduit ce workflow.
+  # Parcours de bout en bout (Playwright, un seul worker), contre le serveur de production construit : un quart d'heure.
   e2e:
     name: Parcours de bout en bout
     runs-on: ubuntu-26.04
     timeout-minutes: 45
-    continue-on-error: true
     env:
       # Le portail et ses courriels raisonnent en heure de Paris ; le runner est en UTC.
       TZ: Europe/Paris
