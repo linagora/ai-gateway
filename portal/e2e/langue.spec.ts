@@ -45,11 +45,14 @@ test("le sélecteur FR | EN change la langue, et le choix persiste d'une visite 
   const context = await connecter(browser, personne("choix"), "fr-FR");
   const page = await context.newPage();
   await page.goto("/");
+  // Connecté, on choisit la langue dans le menu du compte (ticket #180).
+  await page.getByRole("button", { name: /^Mon compte/ }).click();
   await page.getByRole("button", { name: "English" }).click();
   await expect(page.getByRole("heading", { name: `Hello ${personne("choix").name}` })).toBeVisible();
   const visiteSuivante = await context.newPage();
   await visiteSuivante.goto("/demandes");
   await expect(visiteSuivante.getByRole("navigation").getByRole("link", { name: "My requests" })).toBeVisible();
+  await visiteSuivante.getByRole("button", { name: /^My account/ }).click();
   await visiteSuivante.getByRole("button", { name: "Français" }).click();
   await expect(visiteSuivante.getByRole("navigation").getByRole("link", { name: "Mes demandes" })).toBeVisible();
   await context.close();

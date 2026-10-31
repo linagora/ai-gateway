@@ -14,6 +14,7 @@
     "api": "API",
     "gestion": "Gestion",
     "deconnexion": "Se déconnecter",
+    "compte": "Mon compte : {nom}",
     "mesCles": "Mes clés",
     "mesAbonnements": "Mes abonnements",
     "aRetirer": "{nombre, plural, one {# clé à retirer} other {# clés à retirer}}",

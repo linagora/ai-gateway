@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, CircleUserRound } from "lucide-react";
 import Link from "next/link";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import { DUREES_VALIDITE, optionsDuree } from "@/lib/durees";
@@ -40,7 +40,7 @@ export async function SelecteurLangue() {
   );
 }
 
-/** Nom de l'utilisateur, accès à la gestion (admins), cloche des nouveautés et déconnexion. */
+/** Accès à la gestion (admins et responsables d'équipe), cloche des nouveautés et menu du compte. */
 export async function UserMenu() {
   const [user, t] = await Promise.all([getCurrentUser(), getTranslations("entete")]);
   if (!user) return null;
@@ -49,7 +49,7 @@ export async function UserMenu() {
   const gestion = equipes === null || equipes.length > 0;
   const aValider = gestion ? await countAdminPending(getDeps(), user) : 0;
   return (
-    <div className="ml-auto flex items-center gap-4">
+    <div className="ml-auto flex items-center gap-3">
       {gestion && (
         <Onglets
           onglets={[
@@ -67,13 +67,46 @@ export async function UserMenu() {
         />
       )}
       <Cloche user={user} />
-      <span>{user.name}</span>
-      <form action={signOutAction}>
-        <button type="submit" className="mt-0 border-neutral-400 bg-white text-neutral-800 hover:bg-neutral-100">
-          {t("deconnexion")}
-        </button>
-      </form>
+      <MenuCompte user={user} />
     </div>
+  );
+}
+
+/**
+ * Ticket #180 : menu du compte, avec le nom, le choix de la langue et la déconnexion, pour que l'en-tête tienne sur une
+ * ligne à 1 280 px quelle que soit la longueur du nom. Comme le panneau de la cloche, c'est un popover natif du
+ * navigateur : il s'ouvre au clic sur le bouton du compte, et se ferme par Échap ou par un clic ailleurs.
+ */
+async function MenuCompte({ user }: { user: SessionUser }) {
+  const t = await getTranslations("entete");
+  return (
+    <>
+      <button type="button" popoverTarget="compte-panneau" className="mt-0 inline-flex items-center gap-0.5 border-0 bg-transparent p-1 text-neutral-700">
+        <CircleUserRound aria-hidden="true" className="size-5" />
+        <ChevronDown aria-hidden="true" className="size-4" />
+        <span className="sr-only">{t("compte", { nom: user.name })}</span>
+      </button>
+      <div
+        id="compte-panneau"
+        popover="auto"
+        role="dialog"
+        aria-labelledby="compte-panneau-nom"
+        className="inset-auto top-14 right-4 m-0 w-max max-w-[calc(100vw-2rem)] rounded-lg border border-neutral-200 bg-white p-4 shadow-xl"
+      >
+        <p id="compte-panneau-nom" className="mt-0 font-semibold">
+          {user.name}
+        </p>
+        <div className="mt-3 flex items-center justify-between gap-4">
+          <span aria-hidden="true">{t("langue")}</span>
+          <SelecteurLangue />
+        </div>
+        <form action={signOutAction} className="mt-3">
+          <button type="submit" className="mt-0 w-full border-neutral-400 bg-white text-neutral-800 hover:bg-neutral-100">
+            {t("deconnexion")}
+          </button>
+        </form>
+      </div>
+    </>
   );
 }
 
