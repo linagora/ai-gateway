@@ -1,7 +1,6 @@
 import type { SessionUser } from "@/lib/auth-user";
 import type { Langue } from "@/lib/langue";
 import type { LiteLLMModel } from "@/lib/litellm/client";
-import type { DataLevel } from "@/lib/policy";
 import { entreApostrophes } from "@/lib/shell";
 import {
   type CleEcartee,
@@ -9,19 +8,13 @@ import {
   type CleProposee,
   choisie,
   cleProposee,
+  designee,
   PREFIXE,
   preparerLesCles,
   reference,
+  type TextesDesCles,
 } from "./cles-assistants";
 import type { KeyDeps } from "./keys";
-
-/** Textes de la configuration, dans la langue du collaborateur. */
-export interface TextesOpenCode {
-  /** Nom de chaque niveau de confidentialité. */
-  niveaux: Record<DataLevel, string>;
-  /** Invite de la saisie masquée d'une clé dans le terminal. */
-  invite: (cle: { alias: string; niveau: string; equipe: string }) => string;
-}
 
 /** Politique de mise à jour d'OpenCode : signaler les nouvelles versions, les installer, ou ne pas vérifier. */
 export const MISES_A_JOUR = ["notify", "auto", "disable"] as const;
@@ -32,7 +25,7 @@ export interface OptionsOpenCode {
   langue: Langue;
   /** Adresse publique de l'API, celle des exemples d'appel. */
   adresseApi: string;
-  textes: TextesOpenCode;
+  textes: TextesDesCles;
   /** Demandes des clés choisies ; null à l'arrivée sans choix : toutes les clés proposées. */
   requestIds: string[] | null;
   /** Modèle par défaut, désigné par sa référence ; ignoré s'il n'est pas parmi les modèles des clés choisies. */
@@ -97,10 +90,10 @@ function avecVariable(cle: ClePreparee): CleAvecVariable {
  * Enregistrement des clés auprès du service OpenCode : chaque clé est lue en saisie masquée (bash et zsh), jamais
  * écrite dans la commande, l'écran ni l'historique du shell ; puis le service redémarre.
  */
-function commandes(cles: CleAvecVariable[], textes: TextesOpenCode): string {
+function commandes(cles: CleAvecVariable[], textes: TextesDesCles): string {
   return [
     ...cles.flatMap((cle) => [
-      `printf '%s' ${entreApostrophes(textes.invite({ alias: cle.alias, niveau: textes.niveaux[cle.dataLevel], equipe: cle.teamAlias }))}; read -rs K; echo`,
+      `printf '%s' ${entreApostrophes(textes.invite(designee(cle, textes.niveaux)))}; read -rs K; echo`,
       `opencode service set env ${cle.variable} "$K"; unset K`,
     ]),
     "opencode service restart",

@@ -1,27 +1,22 @@
 import type { SessionUser } from "@/lib/auth-user";
 import type { Langue } from "@/lib/langue";
-import type { DataLevel } from "@/lib/policy";
 import { entreApostrophes } from "@/lib/shell";
 import {
+  type CleDesignee,
   type CleEcartee,
   type ClePreparee,
   type CleProposee,
   choisie,
   cleProposee,
+  designee,
   preparerLesCles,
   reference,
+  type TextesDesCles,
 } from "./cles-assistants";
 import type { KeyDeps } from "./keys";
 
-/** Clé désignée dans les textes : son alias, le nom de son niveau et son équipe. */
-type CleDesignee = { alias: string; niveau: string; equipe: string };
-
 /** Textes des commandes et des lanceurs, dans la langue du collaborateur. */
-export interface TextesClaudeCode {
-  /** Nom de chaque niveau de confidentialité. */
-  niveaux: Record<DataLevel, string>;
-  /** Invite de la saisie masquée d'une clé dans le terminal. */
-  invite: (cle: CleDesignee) => string;
+export interface TextesClaudeCode extends TextesDesCles {
   /** Libellé de la clé dans le trousseau. */
   libelle: (cle: CleDesignee) => string;
   /** Commentaire d'en-tête du lanceur ; `details` : niveau, équipe et, s'il y en a un, projet de la clé. */
@@ -134,11 +129,6 @@ function lanceur(cle: { entree: string }): string {
   return `claude-${cle.entree}`;
 }
 
-/** Clé désignée par son alias, le nom de son niveau et son équipe. */
-function designee(cle: ClePreparee, textes: TextesClaudeCode): CleDesignee {
-  return { alias: cle.alias, niveau: textes.niveaux[cle.dataLevel], equipe: cle.teamAlias };
-}
-
 /**
  * Enregistrement des clés dans le trousseau GNOME : chaque clé est lue en saisie masquée (bash et zsh), puis passée à
  * secret-tool par l'entrée standard, jamais écrite dans la commande, l'écran ni l'historique du shell.
@@ -146,8 +136,8 @@ function designee(cle: ClePreparee, textes: TextesClaudeCode): CleDesignee {
 function commandes(cles: ClePreparee[], textes: TextesClaudeCode): string {
   return cles
     .flatMap((cle) => [
-      `printf '%s' ${valeur(textes.invite(designee(cle, textes)))}; read -rs K; echo`,
-      `printf '%s' "$K" | secret-tool store --label=${valeur(textes.libelle(designee(cle, textes)))} service ${SERVICE} cle ${cle.entree}; unset K`,
+      `printf '%s' ${valeur(textes.invite(designee(cle, textes.niveaux)))}; read -rs K; echo`,
+      `printf '%s' "$K" | secret-tool store --label=${valeur(textes.libelle(designee(cle, textes.niveaux)))} service ${SERVICE} cle ${cle.entree}; unset K`,
     ])
     .join("\n");
 }

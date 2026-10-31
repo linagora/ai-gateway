@@ -2,13 +2,15 @@ import type { SessionUser } from "@/lib/auth-user";
 import { PortalError } from "@/lib/errors";
 import type { Langue } from "@/lib/langue";
 import type { ApiKind, LiteLLMModel } from "@/lib/litellm/client";
+import type { DataLevel } from "@/lib/policy";
 import { displayNames } from "./catalog";
 import { type IssuedKey, type KeyDeps, listMyKeys, slug } from "./keys";
 
 /*
  * Préparation des clés émises d'un collaborateur pour un assistant de code (OpenCode, Claude Code) : chaque clé reçoit un
  * identifiant stable, ses modèles de conversation sont retenus et les autres écartés avec la raison. Les deux pages en
- * tirent les clés qu'elles proposent, choisies ou non. La clé elle-même n'y figure jamais.
+ * tirent les clés qu'elles proposent, choisies ou non, et les désignent de la même façon dans leurs textes. La clé
+ * elle-même n'y figure jamais.
  */
 
 /** Ce qui désigne une clé émise sur la page : sa demande, son alias, son équipe, son niveau et son projet. */
@@ -59,6 +61,17 @@ export interface CleProposee extends IdentiteCle {
   /** Modèles de conversation de la clé, sous le nom affiché de leur fiche ; la référence, « entrée/modèle », les désigne. */
   modeles: ModelePropose[];
   modelesEcartes: { modelName: string; raison: RaisonModeleEcarte }[];
+}
+
+/** Clé désignée dans les textes : son alias, le nom de son niveau et son équipe. */
+export type CleDesignee = { alias: string; niveau: string; equipe: string };
+
+/** Textes communs aux assistants, dans la langue du collaborateur. */
+export interface TextesDesCles {
+  /** Nom de chaque niveau de confidentialité. */
+  niveaux: Record<DataLevel, string>;
+  /** Invite de la saisie masquée d'une clé dans le terminal. */
+  invite: (cle: CleDesignee) => string;
 }
 
 /** Début de l'identifiant de chaque entrée, qui permet de reconnaître les entrées de la passerelle. */
@@ -112,6 +125,11 @@ export function choisie(cle: { requestId: string }, requestIds: string[] | null)
 /** Clé préparée telle que la page la propose, choisie ou non d'après les demandes choisies. */
 export function cleProposee(cle: ClePreparee, requestIds: string[] | null): CleProposee {
   return { ...identite(cle), entree: cle.entree, choisie: choisie(cle, requestIds), modeles: modelesProposes(cle), modelesEcartes: cle.modelesEcartes };
+}
+
+/** Clé désignée par son alias, le nom de son niveau et son équipe. */
+export function designee(cle: IdentiteCle, niveaux: Record<DataLevel, string>): CleDesignee {
+  return { alias: cle.alias, niveau: niveaux[cle.dataLevel], equipe: cle.teamAlias };
 }
 
 /** Modèles retenus d'une clé, tels que la page les propose. */
