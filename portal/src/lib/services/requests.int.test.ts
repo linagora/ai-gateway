@@ -292,7 +292,7 @@ describe("budget demandé à la création", () => {
     const mailer = new FakeMailer();
     await createKeyRequest({ ...deps, mailer, adminEmails: ["jdupont@linagora.com"] }, demandeur, { ...demande, requestedBudget: 50, budgetJustification: "Traitement de 2 000 contrats" });
     const [courriel] = mailer.outbox;
-    expect(courriel.text).toContain("- Budget souhaité : 50 €\n- Justification du budget : Traitement de 2 000 contrats");
-    expect(courriel.text).toContain("- Requested budget: €50\n- Budget justification: Traitement de 2 000 contrats");
+    expect(courriel.text).toMatch(/- Budget souhaité : 50,00\s€\n- Justification du budget : Traitement de 2 000 contrats/);
+    expect(courriel.text).toContain("- Requested budget: €50.00\n- Budget justification: Traitement de 2 000 contrats");
   });
 });

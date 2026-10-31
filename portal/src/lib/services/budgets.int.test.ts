@@ -92,7 +92,7 @@ describe("hausse du budget d'une clé émise", () => {
     ]);
     expect(mailer.outbox[0].text).toContain(`Michel-Marie Maudet (mmaudet@linagora.com) demande une hausse du budget de sa clé d'API ${alias} :`);
     expect(mailer.outbox[0].text).toMatch(/- Plafond actuel : 15,00\s€ par période de 30 jours/);
-    expect(mailer.outbox[0].text).toMatch(/- Budget souhaité : 50\s€/);
+    expect(mailer.outbox[0].text).toMatch(/- Budget souhaité : 50,00\s€/);
     expect(mailer.outbox[0].text).toContain("- Motif : Lot de contrats");
     expect(mailer.outbox[0].text).toContain(`https://portail.test/gestion/demandes/${id}`);
     mailer.outbox.splice(0);
@@ -125,7 +125,7 @@ describe("hausse du budget d'une clé émise", () => {
   test("le montant demandé, puis accordé, doit dépasser le plafond actuel", async () => {
     await expect(createBudgetRequest(deps, titulaire, { keyRequestId: cle, requestedBudget: 15, justification: "x" })).rejects.toMatchObject({
       code: "budget_trop_bas",
-      params: { plafond: "15 €" },
+      params: { plafond: "15" },
     });
     const { id } = await createBudgetRequest(deps, titulaire, { keyRequestId: cle, requestedBudget: 50, justification: "x" });
     await expect(approveBudgetRequest(deps, admin, id, { budget: 15 })).rejects.toMatchObject({ code: "budget_trop_bas" });

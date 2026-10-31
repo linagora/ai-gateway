@@ -180,7 +180,8 @@ const plafond = (cle: AccessRequest) => cle.approvedBudget?.toNumber() ?? null;
 function verifierMontant(cle: AccessRequest, montant: number): void {
   const actuel = plafond(cle);
   if (actuel !== null && montant < plafondMinimalDeHausse(actuel)) {
-    throw new PortalError("budget_trop_bas", `Le montant doit dépasser le plafond actuel de la clé (${actuel} €).`, { plafond: `${actuel} €` });
+    // Le plafond va en nombre au message, qui le met au format monétaire de la langue de l'utilisateur.
+    throw new PortalError("budget_trop_bas", "Le montant doit dépasser le plafond actuel de la clé.", { plafond: String(actuel) });
   }
 }
 

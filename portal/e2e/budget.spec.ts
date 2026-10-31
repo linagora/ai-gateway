@@ -77,7 +77,7 @@ test("budget demandé à la création : justifié, approuvé, appliqué par la p
   await expect.poll(async () => (await courrielsSujet(salarie.uid, "Nouvelle demande de clé d'API")).length, { timeout: 15_000 }).toBeGreaterThan(0);
   const [annonce] = await courrielsSujet(salarie.uid, "Nouvelle demande de clé d'API");
   expect(annonce.to).toContain("admins-e2e@example.org");
-  expect(annonce.text).toMatch(/Budget souhaité\s*:\s*50\s€/);
+  expect(annonce.text).toMatch(/Budget souhaité\s*:\s*50,00\s€/);
   expect(annonce.text).toContain("Traitement de longs documents");
 
   const admin = await (await connecter(browser, ADMIN)).newPage();
@@ -119,6 +119,12 @@ test("budget épuisé, hausse demandée et approuvée : la même clé refonction
   await expect(plafond).toContainText("5,00 €");
   await expect(plafond).toContainText("tous les 30 jours");
   await expect(page.getByLabel("Nouveau budget (€)")).toHaveAttribute("min", "5.01");
+  // Sans le minimum de la saisie, le serveur refuse un plafond qui ne dépasse pas l'actuel, écrit au format monétaire.
+  await page.getByLabel("Nouveau budget (€)").evaluate((champ) => champ.removeAttribute("min"));
+  await page.getByLabel("Nouveau budget (€)").fill("5");
+  await page.getByLabel("Justification").fill("Chantier de migration");
+  await page.getByRole("button", { name: "Envoyer la demande" }).click();
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText("Le montant doit dépasser le plafond actuel de la clé (5,00 €).");
   await page.getByLabel("Nouveau budget (€)").fill("20.5");
   await page.getByLabel("Justification").fill("Chantier de migration");
   await page.getByRole("button", { name: "Envoyer la demande" }).click();
@@ -134,7 +140,7 @@ test("budget épuisé, hausse demandée et approuvée : la même clé refonction
   expect(annonce.to).toContain("admins-e2e@example.org");
   expect(annonce.text).toContain(alias);
   expect(annonce.text).toContain("Chantier de migration");
-  expect(annonce.text).toMatch(/Budget souhaité\s*:\s*20,5\s€/);
+  expect(annonce.text).toMatch(/Budget souhaité\s*:\s*20,50\s€/);
 
   const admin = await (await connecter(browser, ADMIN)).newPage();
   await admin.goto("/gestion/demandes");
