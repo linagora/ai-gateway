@@ -2,13 +2,15 @@ import type { SessionUser } from "@/lib/auth-user";
 import { PortalError } from "@/lib/errors";
 import type { Langue } from "@/lib/langue";
 import type { ApiKind, LiteLLMModel } from "@/lib/litellm/client";
+import type { DataLevel } from "@/lib/policy";
 import { displayNames } from "./catalog";
 import { type IssuedKey, type KeyDeps, listMyKeys, slug } from "./keys";
 
 /*
  * Préparation des clés émises d'un collaborateur pour un assistant de code (OpenCode, Claude Code) : chaque clé reçoit un
- * identifiant stable, ses modèles de conversation sont retenus et les autres écartés avec la raison. La clé elle-même n'y
- * figure jamais.
+ * identifiant stable, ses modèles de conversation sont retenus et les autres écartés avec la raison. Les deux pages en
+ * tirent les clés qu'elles proposent, choisies ou non, et les désignent de la même façon dans leurs textes. La clé
+ * elle-même n'y figure jamais.
  */
 
 /** Ce qui désigne une clé émise sur la page : sa demande, son alias, son équipe, son niveau et son projet. */
@@ -39,12 +41,37 @@ export interface ModelePropose {
   reference: string;
 }
 
-/** Clé émise proposée, avec son identifiant stable, ses modèles retenus et ses modèles écartés. */
+/**
+ * Clé émise proposée, telle que la configuration de l'assistant la reprend : son identifiant stable, ses modèles retenus,
+ * avec leurs faits techniques, et ses modèles écartés.
+ */
 export interface ClePreparee extends IdentiteCle {
   /** Identifiant stable de la clé auprès de l'assistant, par exemple `linagora-n2-r-d-compte-rendu-hebdo`. */
   entree: string;
   retenus: ModeleRetenu[];
   modelesEcartes: { modelName: string; raison: RaisonModeleEcarte }[];
+}
+
+/** Clé émise proposée, telle que la page de l'assistant l'affiche : choisie ou non, avec les modèles qu'elle y apporte. */
+export interface CleProposee extends IdentiteCle {
+  /** Identifiant stable de la clé auprès de l'assistant. */
+  entree: string;
+  /** La clé est choisie : elle entre dans la configuration de l'assistant. */
+  choisie: boolean;
+  /** Modèles de conversation de la clé, sous le nom affiché de leur fiche ; la référence, « entrée/modèle », les désigne. */
+  modeles: ModelePropose[];
+  modelesEcartes: { modelName: string; raison: RaisonModeleEcarte }[];
+}
+
+/** Clé désignée dans les textes : son alias, le nom de son niveau et son équipe. */
+export type CleDesignee = { alias: string; niveau: string; equipe: string };
+
+/** Textes communs aux assistants, dans la langue du collaborateur. */
+export interface TextesDesCles {
+  /** Nom de chaque niveau de confidentialité. */
+  niveaux: Record<DataLevel, string>;
+  /** Invite de la saisie masquée d'une clé dans le terminal. */
+  invite: (cle: CleDesignee) => string;
 }
 
 /** Début de l'identifiant de chaque entrée, qui permet de reconnaître les entrées de la passerelle. */
@@ -81,7 +108,7 @@ export async function preparerLesCles(deps: KeyDeps, user: SessionUser, langue: 
 }
 
 /** Ce qui désigne une clé émise sur la page. */
-export function identite({ requestId, alias, teamAlias, dataLevel, project }: IdentiteCle): IdentiteCle {
+function identite({ requestId, alias, teamAlias, dataLevel, project }: IdentiteCle): IdentiteCle {
   return { requestId, alias, teamAlias, dataLevel, project };
 }
 
@@ -90,8 +117,28 @@ export function reference(cle: { entree: string }, modelName: string): string {
   return `${cle.entree}/${modelName}`;
 }
 
+/** La clé est choisie : sa demande est parmi les demandes choisies ; sans choix (null), toutes les clés proposées le sont. */
+export function choisie(cle: { requestId: string }, requestIds: string[] | null): boolean {
+  return requestIds === null || requestIds.includes(cle.requestId);
+}
+
+/** Clé préparée telle que la page la propose, choisie ou non d'après les demandes choisies. */
+export function cleProposee(cle: ClePreparee, requestIds: string[] | null): CleProposee {
+  return { ...identite(cle), entree: cle.entree, choisie: choisie(cle, requestIds), modeles: modelesProposes(cle), modelesEcartes: cle.modelesEcartes };
+}
+
+/** Clé désignée par son alias, le nom de son niveau et son équipe. */
+export function designee(cle: IdentiteCle, niveaux: Record<DataLevel, string>): CleDesignee {
+  return { alias: cle.alias, niveau: niveaux[cle.dataLevel], equipe: cle.teamAlias };
+}
+
+/** Textes communs aux assistants, lus par le traducteur de l'espace « assistants » ; `niveaux` : nom de chaque niveau. */
+export function textesDesCles(t: (cle: "invite", valeurs: CleDesignee) => string, niveaux: Record<DataLevel, string>): TextesDesCles {
+  return { niveaux, invite: (cle) => t("invite", cle) };
+}
+
 /** Modèles retenus d'une clé, tels que la page les propose. */
-export function modelesProposes(cle: ClePreparee): ModelePropose[] {
+function modelesProposes(cle: ClePreparee): ModelePropose[] {
   return cle.retenus.map(({ modelName, displayName }) => ({ modelName, displayName, reference: reference(cle, modelName) }));
 }
 
@@ -118,9 +165,4 @@ function preparer(cle: IssuedKey, entree: string, modeles: LiteLLMModel[], noms:
     else preparee.retenus.push({ modelName: nom, displayName: noms.get(nom) ?? nom, faits });
   }
   return preparee;
-}
-
-/** Texte entre apostrophes pour le shell, où une apostrophe s'écrit '\''. */
-export function entreApostrophes(texte: string): string {
-  return `'${texte.replaceAll("'", "'\\''")}'`;
 }

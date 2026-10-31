@@ -1,29 +1,22 @@
 import type { SessionUser } from "@/lib/auth-user";
 import type { Langue } from "@/lib/langue";
-import type { DataLevel } from "@/lib/policy";
+import { entreApostrophes } from "@/lib/shell";
 import {
+  type CleDesignee,
   type CleEcartee,
   type ClePreparee,
-  entreApostrophes,
-  type IdentiteCle,
-  identite,
-  type ModelePropose,
-  modelesProposes,
+  type CleProposee,
+  choisie,
+  cleProposee,
+  designee,
   preparerLesCles,
-  type RaisonModeleEcarte,
   reference,
+  type TextesDesCles,
 } from "./cles-assistants";
 import type { KeyDeps } from "./keys";
 
-/** Clé désignée dans les textes : son alias, le nom de son niveau et son équipe. */
-type CleDesignee = { alias: string; niveau: string; equipe: string };
-
 /** Textes des commandes et des lanceurs, dans la langue du collaborateur. */
-export interface TextesClaudeCode {
-  /** Nom de chaque niveau de confidentialité. */
-  niveaux: Record<DataLevel, string>;
-  /** Invite de la saisie masquée d'une clé dans le terminal. */
-  invite: (cle: CleDesignee) => string;
+export interface TextesClaudeCode extends TextesDesCles {
   /** Libellé de la clé dans le trousseau. */
   libelle: (cle: CleDesignee) => string;
   /** Commentaire d'en-tête du lanceur ; `details` : niveau, équipe et, s'il y en a un, projet de la clé. */
@@ -50,6 +43,39 @@ export interface TextesClaudeCode {
   question: string;
 }
 
+/** Clés des textes de Claude Code dans l'espace de messages « claudeCode ». */
+type CleTexte =
+  | "libelle"
+  | "script.enTete"
+  | "script.priorite"
+  | "script.trafic"
+  | "script.adresse"
+  | "script.introuvable"
+  | "script.modeleUnique"
+  | "script.autresModeles"
+  | "script.contexte"
+  | "script.question";
+
+/**
+ * Textes des commandes et des lanceurs, lus par le traducteur de l'espace « claudeCode », avec les textes communs aux
+ * assistants : ceux de la page, que ses tests reprennent.
+ */
+export function textesClaudeCode(t: (cle: CleTexte, valeurs?: Record<string, string>) => string, communs: TextesDesCles): TextesClaudeCode {
+  return {
+    ...communs,
+    libelle: (cle) => t("libelle", cle),
+    enTete: (cle) => t("script.enTete", cle),
+    priorite: t("script.priorite"),
+    trafic: t("script.trafic"),
+    adresse: t("script.adresse"),
+    introuvable: t("script.introuvable"),
+    modeleUnique: t("script.modeleUnique"),
+    autresModeles: (liste) => t("script.autresModeles", { liste }),
+    contexte: t("script.contexte"),
+    question: t("script.question"),
+  };
+}
+
 /** Options de la page « Configurer Claude Code ». */
 export interface OptionsClaudeCode {
   langue: Langue;
@@ -62,17 +88,13 @@ export interface OptionsClaudeCode {
   modelesParDefaut: string[];
 }
 
-/** Clé émise proposée pour Claude Code, avec les modèles qu'elle y apporte. */
-export interface CleClaudeCode extends IdentiteCle {
-  /** Identifiant de la clé dans le trousseau, d'où vient le nom de son lanceur. */
-  entree: string;
+/**
+ * Clé émise proposée pour Claude Code : son entrée est son identifiant dans le trousseau, d'où vient le nom de son
+ * lanceur ; une clé choisie a un lanceur.
+ */
+export interface CleClaudeCode extends CleProposee {
   /** Commande qui lance Claude Code avec la clé, installée dans ~/.local/bin. */
   lanceur: string;
-  /** La clé a un lanceur. */
-  choisie: boolean;
-  /** Modèles de conversation de la clé, sous le nom affiché de leur fiche ; la référence, « entrée/modèle », les désigne. */
-  modeles: ModelePropose[];
-  modelesEcartes: { modelName: string; raison: RaisonModeleEcarte }[];
   /** Référence du modèle par défaut de la clé : celui des options s'il est parmi ses modèles, sinon le premier. */
   modeleParDefaut: string;
 }
@@ -120,17 +142,12 @@ export async function configurationClaudeCode(deps: KeyDeps, user: SessionUser, 
     ...cle,
     modeleParDefaut: cle.retenus.find((m) => options.modelesParDefaut.includes(reference(cle, m.modelName))) ?? cle.retenus[0],
   }));
-  const choisie = (cle: CleAvecModele) => options.requestIds === null || options.requestIds.includes(cle.requestId);
-  const choisies = cles.filter(choisie);
+  const choisies = cles.filter((cle) => choisie(cle, options.requestIds));
   const aucune = choisies.length === 0;
   return {
     cles: cles.map((cle) => ({
-      ...identite(cle),
-      entree: cle.entree,
+      ...cleProposee(cle, options.requestIds),
       lanceur: lanceur(cle),
-      choisie: choisie(cle),
-      modeles: modelesProposes(cle),
-      modelesEcartes: cle.modelesEcartes,
       modeleParDefaut: reference(cle, cle.modeleParDefaut.modelName),
     })),
     clesEcartees,
@@ -145,11 +162,6 @@ function lanceur(cle: { entree: string }): string {
   return `claude-${cle.entree}`;
 }
 
-/** Clé désignée par son alias, le nom de son niveau et son équipe. */
-function designee(cle: ClePreparee, textes: TextesClaudeCode): CleDesignee {
-  return { alias: cle.alias, niveau: textes.niveaux[cle.dataLevel], equipe: cle.teamAlias };
-}
-
 /**
  * Enregistrement des clés dans le trousseau GNOME : chaque clé est lue en saisie masquée (bash et zsh), puis passée à
  * secret-tool par l'entrée standard, jamais écrite dans la commande, l'écran ni l'historique du shell.
@@ -157,8 +169,8 @@ function designee(cle: ClePreparee, textes: TextesClaudeCode): CleDesignee {
 function commandes(cles: ClePreparee[], textes: TextesClaudeCode): string {
   return cles
     .flatMap((cle) => [
-      `printf '%s' ${valeur(textes.invite(designee(cle, textes)))}; read -rs K; echo`,
-      `printf '%s' "$K" | secret-tool store --label=${valeur(textes.libelle(designee(cle, textes)))} service ${SERVICE} cle ${cle.entree}; unset K`,
+      `printf '%s' ${valeur(textes.invite(designee(cle, textes.niveaux)))}; read -rs K; echo`,
+      `printf '%s' "$K" | secret-tool store --label=${valeur(textes.libelle(designee(cle, textes.niveaux)))} service ${SERVICE} cle ${cle.entree}; unset K`,
     ])
     .join("\n");
 }

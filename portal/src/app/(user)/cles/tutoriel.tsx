@@ -5,16 +5,15 @@ import type { ReactNode } from "react";
 import type { Langue } from "@/lib/langue";
 import { DATA_LEVELS, type DataLevel } from "@/lib/policy";
 import { recommendedModels } from "@/lib/services/catalog";
-import type { CleEcartee, IdentiteCle } from "@/lib/services/cles-assistants";
+import type { CleEcartee, CleProposee, IdentiteCle } from "@/lib/services/cles-assistants";
 import { getDeps } from "@/lib/session";
 import { BoutonCopier } from "../../bouton-copier";
 import { PastillesClassification } from "../../pastilles-classification";
 
 /*
  * Éléments communs aux tutoriels de configuration d'un assistant de code (OpenCode, Claude Code) à partir des clés
- * émises. Chaque tutoriel a son espace de traduction (`espace`), qui définit les mêmes textes : `endroits`, `copierCommande`,
- * `commandeCopiee`, `clesNonProposees`, `raisonsCle`, `etapeCles.rappel`, `etapeCles.niveau`, `etapeCles.niveaux` et
- * `sansCle`.
+ * émises. Leurs textes communs sont dans l'espace de traduction « assistants » ; chaque tutoriel a le sien (`espace`) pour
+ * les textes qui nomment son assistant : `titre`, `intro`, `endroits.assistant`, `etapeCles.rappel` et `sansCle.intro`.
  */
 
 export type Parametres = Record<string, string | string[] | undefined>;
@@ -22,7 +21,10 @@ export type Parametres = Record<string, string | string[] | undefined>;
 /** Espace de traduction d'un tutoriel. */
 type Espace = "opencode" | "claudeCode";
 
-/** Endroits où agir dans le tutoriel, chacun avec son pictogramme (jeu Lucide) ; `assistant` est l'assistant configuré. */
+/**
+ * Endroits où agir dans le tutoriel, chacun avec son pictogramme (jeu Lucide) ; `assistant` est l'assistant configuré,
+ * nommé dans l'espace du tutoriel.
+ */
 const ENDROITS = { terminal: SquareTerminal, navigateur: Globe, editeur: FilePen, assistant: Bot } satisfies Record<string, LucideIcon>;
 export type Endroit = keyof typeof ENDROITS;
 
@@ -65,7 +67,7 @@ export async function Etape({
   endroits: Endroit[];
   children: ReactNode;
 }) {
-  const t = await getTranslations(espace);
+  const [t, commun] = await Promise.all([getTranslations(espace), getTranslations("assistants")]);
   return (
     <section aria-labelledby={id} className="mt-8">
       <h2 id={id} className="flex items-center gap-2">
@@ -80,7 +82,7 @@ export async function Etape({
           return (
             <span key={endroit} className="inline-flex items-center gap-1 rounded-full border border-neutral-300 px-2 text-xs">
               <Pictogramme aria-hidden="true" className="size-3.5" />
-              {t(`endroits.${endroit}`)}
+              {endroit === "assistant" ? t("endroits.assistant") : commun(`endroits.${endroit}`)}
             </span>
           );
         })}
@@ -91,8 +93,8 @@ export async function Etape({
 }
 
 /** Texte à copier, une commande par défaut : les textes plus longs ont leurs propres libellés. */
-export async function ACopier({ espace, texte, libelle, libelleCopie }: { espace: Espace; texte: string; libelle?: string; libelleCopie?: string }) {
-  const t = await getTranslations(espace);
+export async function ACopier({ texte, libelle, libelleCopie }: { texte: string; libelle?: string; libelleCopie?: string }) {
+  const t = await getTranslations("assistants");
   return (
     <div>
       <pre className="max-h-[32rem] overflow-auto rounded bg-neutral-900 p-3 text-xs text-neutral-100">
@@ -112,16 +114,60 @@ export function IdentiteDeLaCle({ cle, niveau }: { cle: IdentiteCle; niveau: str
   );
 }
 
+/**
+ * Cases des clés proposées, cochées pour les clés choisies : chaque clé avec ses modèles, ceux qui ne sont pas repris et
+ * les classifications de son niveau. `details` ajoute des lignes à la case d'une clé, `reglages` des réglages sous sa case.
+ */
+export async function CasesDesCles<C extends CleProposee>({
+  cles,
+  niveaux,
+  details,
+  reglages,
+}: {
+  cles: C[];
+  niveaux: Record<DataLevel, string>;
+  details?: (cle: C) => ReactNode;
+  reglages?: (cle: C) => ReactNode;
+}) {
+  const t = await getTranslations("assistants");
+  return (
+    <fieldset>
+      <legend className="font-medium">{t("clesAInclure")}</legend>
+      <ul className="mt-2 flex flex-col gap-3">
+        {cles.map((cle) => (
+          <li key={cle.requestId}>
+            <label className="flex items-start gap-2">
+              <input type="checkbox" name="cle" value={cle.requestId} defaultChecked={cle.choisie} className="mt-1" />
+              <span>
+                <IdentiteDeLaCle cle={cle} niveau={niveaux[cle.dataLevel]} />
+                <span className="block text-sm">{t("modeles", { liste: cle.modeles.map((m) => m.displayName).join(", ") })}</span>
+                {cle.modelesEcartes.length > 0 && (
+                  <span className="block text-sm text-neutral-600">
+                    {t("modelesEcartes", { liste: cle.modelesEcartes.map((m) => `${m.modelName} (${t(`raisonsModele.${m.raison}`)})`).join(", ") })}
+                  </span>
+                )}
+                {details?.(cle)}
+                <PastillesClassification level={cle.dataLevel} className="mt-1 flex flex-wrap gap-1" />
+              </span>
+            </label>
+            {reglages?.(cle)}
+          </li>
+        ))}
+      </ul>
+    </fieldset>
+  );
+}
+
 /** Rappel des niveaux de confidentialité qu'un dépôt de code peut avoir, avec les classifications de chacun. */
 export async function RappelDesNiveaux({ espace, niveaux }: { espace: Espace; niveaux: Record<DataLevel, string> }) {
-  const t = await getTranslations(espace);
+  const [t, commun] = await Promise.all([getTranslations(espace), getTranslations("assistants")]);
   return (
     <>
       <p>{t("etapeCles.rappel")}</p>
       <ul className="flex flex-col gap-2">
         {NIVEAUX_DU_CODE.map((niveau) => (
           <li key={niveau}>
-            {t("etapeCles.niveau", { niveau: niveaux[niveau], description: t(`etapeCles.niveaux.${niveau}`) })}
+            {commun("etapeCles.niveau", { niveau: niveaux[niveau], description: commun(`etapeCles.niveaux.${niveau}`) })}
             <PastillesClassification level={niveau} className="mt-1 flex flex-wrap gap-1" />
           </li>
         ))}
@@ -131,9 +177,9 @@ export async function RappelDesNiveaux({ espace, niveaux }: { espace: Espace; ni
 }
 
 /** Clés émises qui ne sont pas proposées, avec la raison ; rien quand toutes le sont. */
-export async function ClesNonProposees({ espace, clesEcartees, niveaux }: { espace: Espace; clesEcartees: CleEcartee[]; niveaux: Record<DataLevel, string> }) {
+export async function ClesNonProposees({ clesEcartees, niveaux }: { clesEcartees: CleEcartee[]; niveaux: Record<DataLevel, string> }) {
   if (clesEcartees.length === 0) return null;
-  const t = await getTranslations(espace);
+  const t = await getTranslations("assistants");
   return (
     <section aria-labelledby="cles-non-proposees" className="mt-6">
       <h3 id="cles-non-proposees" className="font-medium">
@@ -152,7 +198,12 @@ export async function ClesNonProposees({ espace, clesEcartees, niveaux }: { espa
 
 /** Sans clé proposée : les étapes pour en obtenir une, et les modèles recommandés pour le code. */
 export async function SansCle({ espace, langue, niveaux, children }: { espace: Espace; langue: Langue; niveaux: Record<DataLevel, string>; children?: ReactNode }) {
-  const [t, mesCles, recommandes] = await Promise.all([getTranslations(espace), getTranslations("cles"), recommendedModels(getDeps(), "CODING", langue)]);
+  const [t, commun, mesCles, recommandes] = await Promise.all([
+    getTranslations(espace),
+    getTranslations("assistants"),
+    getTranslations("cles"),
+    recommendedModels(getDeps(), "CODING", langue),
+  ]);
   return (
     <>
       <h1>{t("titre")}</h1>
@@ -171,10 +222,10 @@ export async function SansCle({ espace, langue, niveaux, children }: { espace: E
         <li>{mesCles("etapes.retrait")}</li>
       </ol>
       <section aria-labelledby="recommandes" className="mt-6">
-        <h2 id="recommandes">{t("sansCle.recommandes")}</h2>
+        <h2 id="recommandes">{commun("sansCle.recommandes")}</h2>
         {recommandes.length === 0 ? (
           <p className="mt-2">
-            {t("sansCle.aucunRecommande")} <Link href="/catalogue">{mesCles("catalogue")}</Link>
+            {commun("sansCle.aucunRecommande")} <Link href="/catalogue">{mesCles("catalogue")}</Link>
           </p>
         ) : (
           <ul className="mt-2 list-disc pl-6">
@@ -193,12 +244,12 @@ export async function SansCle({ espace, langue, niveaux, children }: { espace: E
 
 /** La passerelle ne répond pas : la page n'a que son titre et l'alerte. */
 export async function Indisponible({ espace }: { espace: Espace }) {
-  const t = await getTranslations(espace);
+  const [t, commun] = await Promise.all([getTranslations(espace), getTranslations("assistants")]);
   return (
     <>
       <h1>{t("titre")}</h1>
       <p role="alert" className="mt-2 text-red-800">
-        {t("indisponible")}
+        {commun("indisponible")}
       </p>
     </>
   );

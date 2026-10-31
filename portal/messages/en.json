@@ -1148,9 +1148,7 @@
     "copierAdresse": "Copy the address",
     "adresseCopiee": "Address copied"
   },
-  "opencode": {
-    "titre": "Set up OpenCode",
-    "intro": "OpenCode is an open source coding assistant that works in the terminal. This page builds its configuration from your issued keys: each key becomes an entry, with its chat models. Your key never goes through the portal: the commands ask you for it in the terminal, without displaying it.",
+  "assistants": {
     "indisponible": "The gateway is not responding: the configuration cannot be built for now. Please try again in a few moments.",
     "clesAInclure": "Keys to include",
     "modeles": "Models: {liste}",
@@ -1162,6 +1160,42 @@
       "non_declare": "no longer declared by the gateway"
     },
     "modeleParDefaut": "Default model",
+    "clesNonProposees": "Keys not offered",
+    "raisonsCle": {
+      "bloquee": "blocked key",
+      "sans_modele": "no chat model"
+    },
+    "copierCommandes": "Copy the commands",
+    "commandesCopiees": "Commands copied",
+    "copierCommande": "Copy the command",
+    "commandeCopiee": "Command copied",
+    "invite": "LINAGORA key {alias} ({niveau}, {equipe}): ",
+    "endroits": {
+      "terminal": "Terminal",
+      "navigateur": "Browser",
+      "editeur": "Text editor"
+    },
+    "etapeInstaller": {
+      "terminal": "The terminal is the window where you type commands. To open it: <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>T</kbd>.",
+      "coller": "To run a command from this page: copy it, paste it into the terminal with <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd>, then press <kbd>Enter</kbd>."
+    },
+    "etapeCles": {
+      "titre": "Choose your keys",
+      "niveau": "{niveau}: {description}",
+      "niveaux": {
+        "N1": "open source code, or code shared with all employees",
+        "N2": "repository with restricted access",
+        "N3": "secret code or code of a customer"
+      }
+    },
+    "sansCle": {
+      "recommandes": "Models recommended for code",
+      "aucunRecommande": "No model is recommended for code yet."
+    }
+  },
+  "opencode": {
+    "titre": "Set up OpenCode",
+    "intro": "OpenCode is an open source coding assistant that works in the terminal. This page builds its configuration from your issued keys: each key becomes an entry, with its chat models. Your key never goes through the portal: the commands ask you for it in the terminal, without displaying it.",
     "aucunModeleParDefaut": "None: OpenCode keeps its choice",
     "miseAJour": "OpenCode updates",
     "misesAJour": {
@@ -1170,45 +1204,23 @@
       "auto": "Install them automatically",
       "disable": "Do not check"
     },
-    "clesNonProposees": "Keys not offered",
-    "raisonsCle": {
-      "bloquee": "blocked key",
-      "sans_modele": "no chat model"
-    },
     "aucuneChoisie": "Tick at least one key to get the configuration.",
     "couts": "OpenCode shows costs in dollars: the configuration converts the gateway's prices at LINAGORA's internal rate.",
     "copierConfiguration": "Copy the configuration",
     "configurationCopiee": "Configuration copied",
     "commandesExplication": "Run these commands in a terminal: they ask you for each key, without displaying it, then restart OpenCode.",
-    "copierCommandes": "Copy the commands",
-    "commandesCopiees": "Commands copied",
     "verification": "Then check that your models are recognized:",
-    "copierCommande": "Copy the command",
-    "commandeCopiee": "Command copied",
-    "invite": "LINAGORA key {alias} ({niveau}, {equipe}): ",
     "endroits": {
-      "terminal": "Terminal",
-      "navigateur": "Browser",
-      "editeur": "Text editor",
       "assistant": "OpenCode"
     },
     "etapeInstaller": {
       "titre": "Install OpenCode",
-      "terminal": "The terminal is the window where you type commands. To open it: <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>T</kbd>.",
-      "coller": "To run a command from this page: copy it, paste it into the terminal with <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd>, then press <kbd>Enter</kbd>.",
       "installer": "Install OpenCode with its official script, then close the terminal and open a new one:",
       "verifier": "Check the installed version: it should display <code>opencode v2.x</code>.",
       "mettreAJour": "Later, to update OpenCode:"
     },
     "etapeCles": {
-      "titre": "Choose your keys",
-      "rappel": "The code of the project opened in OpenCode is sent to the model: choose a key whose confidentiality level covers the classification of your repository.",
-      "niveau": "{niveau}: {description}",
-      "niveaux": {
-        "N1": "open source code, or code shared with all employees",
-        "N2": "repository with restricted access",
-        "N3": "secret code or code of a customer"
-      }
+      "rappel": "The code of the project opened in OpenCode is sent to the model: choose a key whose confidentiality level covers the classification of your repository."
     },
     "etapeConfiguration": {
       "titre": "Save the configuration",
@@ -1228,44 +1240,21 @@
       "changer": "To switch models quickly: <kbd>F2</kbd> moves to the next recent model, <kbd>Shift</kbd> + <kbd>F2</kbd> to the previous one."
     },
     "sansCle": {
-      "intro": "To set up OpenCode, you need an issued key with at least one chat model. To get one:",
-      "recommandes": "Models recommended for code",
-      "aucunRecommande": "No model is recommended for code yet."
+      "intro": "To set up OpenCode, you need an issued key with at least one chat model. To get one:"
     }
   },
   "claudeCode": {
     "titre": "Set up Claude Code",
     "intro": "Claude Code, Anthropic's coding assistant, works in the terminal. This page prepares, from your issued keys, one launcher per key: a command that opens Claude Code on the LINAGORA gateway, with the default model of your choice. Your key never goes through the portal: the commands ask you for it in the terminal, without displaying it, and save it in your session's keyring.",
-    "indisponible": "The gateway is not responding: the configuration cannot be built for now. Please try again in a few moments.",
-    "clesAInclure": "Keys to include",
-    "modeles": "Models: {liste}",
-    "modelesEcartes": "Left out: {liste}",
-    "raisonsModele": {
-      "image": "image model",
-      "decision": "decision API",
-      "embeddings": "embedding model",
-      "non_declare": "no longer declared by the gateway"
-    },
     "lanceur": "Launcher: <code>{nom}</code>",
-    "modeleParDefaut": "Default model",
     "modeleParDefautDe": "of key {alias}",
-    "clesNonProposees": "Keys not offered",
-    "raisonsCle": {
-      "bloquee": "blocked key",
-      "sans_modele": "no chat model"
-    },
     "aucuneChoisie": "Tick at least one key to get its commands and its launcher.",
     "commandesExplication": "Run these commands in a terminal: they ask you for each key, without displaying it or keeping it in the history, then save it in the GNOME keyring of your session, which opens when you log in.",
-    "copierCommandes": "Copy the commands",
-    "commandesCopiees": "Commands copied",
     "lanceursExplication": "Run this command: it installs one launcher per key in the <code>~/.local/bin</code> folder. Each time it starts, the launcher reads the key from the keyring and opens Claude Code on the LINAGORA gateway, with the key's default model.",
     "copierLanceurs": "Copy the launchers command",
     "lanceursCopies": "Command copied",
     "verification": "Then check that each launcher answers: the command should display OK.",
     "chemin": "The launcher is not found? Log out of your Ubuntu session and log back in: the <code>~/.local/bin</code> folder, if it has just been created, only enters the command path when the session opens.",
-    "copierCommande": "Copy the command",
-    "commandeCopiee": "Command copied",
-    "invite": "LINAGORA key {alias} ({niveau}, {equipe}): ",
     "libelle": "LINAGORA key {alias} ({niveau}, {equipe})",
     "script": {
       "enTete": "Claude Code on the LINAGORA gateway, key {alias} ({details})",
@@ -1279,28 +1268,17 @@
       "question": "Reply with the word OK only"
     },
     "endroits": {
-      "terminal": "Terminal",
-      "navigateur": "Browser",
       "assistant": "Claude Code"
     },
     "etapeInstaller": {
       "titre": "Install Claude Code",
-      "terminal": "The terminal is the window where you type commands. To open it: <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>T</kbd>.",
-      "coller": "To run a command from this page: copy it, paste it into the terminal with <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd>, then press <kbd>Enter</kbd>.",
       "installer": "Install Claude Code with its official script, then close the terminal and open a new one:",
       "verifier": "Check the installed version: it should display <code>2.1.x</code> or a more recent version.",
       "mettreAJour": "Later, to update Claude Code:",
       "secretTool": "Also install <code>secret-tool</code>, which saves your keys in your session's keyring and reads them back:"
     },
     "etapeCles": {
-      "titre": "Choose your keys",
       "rappel": "The code of the project opened in Claude Code is sent to the model: choose a key whose confidentiality level covers the classification of your repository.",
-      "niveau": "{niveau}: {description}",
-      "niveaux": {
-        "N1": "open source code, or code shared with all employees",
-        "N2": "repository with restricted access",
-        "N3": "secret code or code of a customer"
-      },
       "parDefaut": "For each chosen key, pick its default model: its launcher gives it to Claude Code for the conversation, background tasks and subagents."
     },
     "etapeCommandes": {
@@ -1317,9 +1295,7 @@
       "compte": "No Anthropic account needed: the launcher sends Claude Code through the LINAGORA gateway, with your key."
     },
     "sansCle": {
-      "intro": "To set up Claude Code, you need an issued key with at least one chat model. To get one:",
-      "recommandes": "Models recommended for code",
-      "aucunRecommande": "No model is recommended for code yet."
+      "intro": "To set up Claude Code, you need an issued key with at least one chat model. To get one:"
     }
   },
   "courriels": {

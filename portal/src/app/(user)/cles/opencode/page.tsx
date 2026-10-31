@@ -1,12 +1,12 @@
 import { getLocale, getTranslations } from "next-intl/server";
 import { PortalError } from "@/lib/errors";
 import type { Langue } from "@/lib/langue";
+import { textesDesCles } from "@/lib/services/cles-assistants";
 import { type ConfigurationOpenCode, configurationOpenCode, MISES_A_JOUR, type MiseAJour } from "@/lib/services/opencode";
 import { getDeps, requireUser } from "@/lib/session";
 import { adresseApi } from "../../../exemples-appel";
 import { FiltrageAutomatique } from "../../../filtrage-automatique";
-import { PastillesClassification } from "../../../pastilles-classification";
-import { ACopier, BALISES, ClesNonProposees, demandesChoisies, Etape, IdentiteDeLaCle, Indisponible, nomsDesNiveaux, type Parametres, RappelDesNiveaux, SansCle } from "../tutoriel";
+import { ACopier, BALISES, CasesDesCles, ClesNonProposees, demandesChoisies, Etape, Indisponible, nomsDesNiveaux, type Parametres, RappelDesNiveaux, SansCle } from "../tutoriel";
 
 /** Espace de traduction de la page. */
 const ESPACE = "opencode";
@@ -25,7 +25,13 @@ function miseAJour(parametres: Parametres): MiseAJour | null {
 /** Ticket #113 et suivants : configuration d'OpenCode à partir des clés émises, avec son tutoriel pour Ubuntu (#117). */
 export default async function ConfigurerOpenCodePage(props: PageProps<"/cles/opencode">) {
   const user = await requireUser();
-  const [t, domaine, locale, parametres] = await Promise.all([getTranslations(ESPACE), getTranslations("domaine"), getLocale(), props.searchParams]);
+  const [t, commun, domaine, locale, parametres] = await Promise.all([
+    getTranslations(ESPACE),
+    getTranslations("assistants"),
+    getTranslations("domaine"),
+    getLocale(),
+    props.searchParams,
+  ]);
   const langue: Langue = locale === "en" ? "en" : "fr";
   const niveaux = nomsDesNiveaux(domaine);
   let resultat: ConfigurationOpenCode;
@@ -33,7 +39,7 @@ export default async function ConfigurerOpenCodePage(props: PageProps<"/cles/ope
     resultat = await configurationOpenCode(getDeps(), user, {
       langue,
       adresseApi: adresseApi(),
-      textes: { niveaux, invite: (cle) => t("invite", cle) },
+      textes: textesDesCles(commun, niveaux),
       requestIds: demandesChoisies(parametres),
       modeleParDefaut: typeof parametres.modele === "string" ? parametres.modele : null,
       miseAJour: miseAJour(parametres),
@@ -44,7 +50,7 @@ export default async function ConfigurerOpenCodePage(props: PageProps<"/cles/ope
   }
   const { cles, clesEcartees, modeleParDefaut, configuration, commandes, verification } = resultat;
 
-  const nonProposees = <ClesNonProposees espace={ESPACE} clesEcartees={clesEcartees} niveaux={niveaux} />;
+  const nonProposees = <ClesNonProposees clesEcartees={clesEcartees} niveaux={niveaux} />;
 
   if (cles.length === 0) {
     return (
@@ -60,44 +66,23 @@ export default async function ConfigurerOpenCodePage(props: PageProps<"/cles/ope
       <p className="max-w-prose">{t("intro")}</p>
 
       <Etape espace={ESPACE} id="installer" numero={1} titre={t("etapeInstaller.titre")} endroits={["terminal"]}>
-        <p>{t.rich("etapeInstaller.terminal", BALISES)}</p>
-        <p>{t.rich("etapeInstaller.coller", BALISES)}</p>
+        <p>{commun.rich("etapeInstaller.terminal", BALISES)}</p>
+        <p>{commun.rich("etapeInstaller.coller", BALISES)}</p>
         <p>{t("etapeInstaller.installer")}</p>
-        <ACopier espace={ESPACE} texte={INSTALLATION} />
+        <ACopier texte={INSTALLATION} />
         <p>{t.rich("etapeInstaller.verifier", BALISES)}</p>
-        <ACopier espace={ESPACE} texte={VERSION} />
+        <ACopier texte={VERSION} />
         <p>{t("etapeInstaller.mettreAJour")}</p>
-        <ACopier espace={ESPACE} texte={MISE_A_JOUR} />
+        <ACopier texte={MISE_A_JOUR} />
       </Etape>
 
-      <Etape espace={ESPACE} id="cles" numero={2} titre={t("etapeCles.titre")} endroits={["navigateur"]}>
+      <Etape espace={ESPACE} id="cles" numero={2} titre={commun("etapeCles.titre")} endroits={["navigateur"]}>
         <RappelDesNiveaux espace={ESPACE} niveaux={niveaux} />
         <form method="get" className="mt-2">
-          <fieldset>
-            <legend className="font-medium">{t("clesAInclure")}</legend>
-            <ul className="mt-2 flex flex-col gap-3">
-              {cles.map((cle) => (
-                <li key={cle.requestId}>
-                  <label className="flex items-start gap-2">
-                    <input type="checkbox" name="cle" value={cle.requestId} defaultChecked={cle.choisie} className="mt-1" />
-                    <span>
-                      <IdentiteDeLaCle cle={cle} niveau={niveaux[cle.dataLevel]} />
-                      <span className="block text-sm">{t("modeles", { liste: cle.modeles.map((m) => m.displayName).join(", ") })}</span>
-                      {cle.modelesEcartes.length > 0 && (
-                        <span className="block text-sm text-neutral-600">
-                          {t("modelesEcartes", { liste: cle.modelesEcartes.map((m) => `${m.modelName} (${t(`raisonsModele.${m.raison}`)})`).join(", ") })}
-                        </span>
-                      )}
-                      <PastillesClassification level={cle.dataLevel} className="mt-1 flex flex-wrap gap-1" />
-                    </span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </fieldset>
+          <CasesDesCles cles={cles} niveaux={niveaux} />
           <div className="mt-4 flex flex-wrap gap-6">
             <label className="flex flex-col gap-1">
-              <span className="font-medium">{t("modeleParDefaut")}</span>
+              <span className="font-medium">{commun("modeleParDefaut")}</span>
               <select name="modele" defaultValue={modeleParDefaut ?? ""}>
                 <option value="">{t("aucunModeleParDefaut")}</option>
                 {cles
@@ -137,18 +122,18 @@ export default async function ConfigurerOpenCodePage(props: PageProps<"/cles/ope
         <>
           <Etape espace={ESPACE} id="configuration" numero={3} titre={t("etapeConfiguration.titre")} endroits={["terminal", "editeur"]}>
             <p>{t("etapeConfiguration.ouvrir")}</p>
-            <ACopier espace={ESPACE} texte={OUVERTURE} />
+            <ACopier texte={OUVERTURE} />
             <p className="text-sm">{t.rich("etapeConfiguration.gedit", BALISES)}</p>
             <p>{t.rich("etapeConfiguration.coller", BALISES)}</p>
             <p className="text-sm">{t.rich("etapeConfiguration.existant", BALISES)}</p>
             <p className="text-sm">{t("couts")}</p>
-            <ACopier espace={ESPACE} texte={configuration} libelle={t("copierConfiguration")} libelleCopie={t("configurationCopiee")} />
+            <ACopier texte={configuration} libelle={t("copierConfiguration")} libelleCopie={t("configurationCopiee")} />
           </Etape>
           <Etape espace={ESPACE} id="commandes" numero={4} titre={t("etapeCommandes.titre")} endroits={["terminal"]}>
             <p>{t("commandesExplication")}</p>
-            <ACopier espace={ESPACE} texte={commandes} libelle={t("copierCommandes")} libelleCopie={t("commandesCopiees")} />
+            <ACopier texte={commandes} libelle={commun("copierCommandes")} libelleCopie={commun("commandesCopiees")} />
             <p>{t("verification")}</p>
-            <ACopier espace={ESPACE} texte={verification} />
+            <ACopier texte={verification} />
           </Etape>
         </>
       )}

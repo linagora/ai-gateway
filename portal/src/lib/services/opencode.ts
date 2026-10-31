@@ -1,31 +1,20 @@
 import type { SessionUser } from "@/lib/auth-user";
 import type { Langue } from "@/lib/langue";
 import type { LiteLLMModel } from "@/lib/litellm/client";
-import type { DataLevel } from "@/lib/policy";
+import { entreApostrophes } from "@/lib/shell";
 import {
   type CleEcartee,
   type ClePreparee,
-  entreApostrophes,
-  type IdentiteCle,
-  identite,
-  type ModelePropose,
-  modelesProposes,
+  type CleProposee,
+  choisie,
+  cleProposee,
+  designee,
   PREFIXE,
   preparerLesCles,
-  type RaisonModeleEcarte,
   reference,
+  type TextesDesCles,
 } from "./cles-assistants";
 import type { KeyDeps } from "./keys";
-
-export type { CleEcartee, IdentiteCle, RaisonCleEcartee, RaisonModeleEcarte } from "./cles-assistants";
-
-/** Textes de la configuration, dans la langue du collaborateur. */
-export interface TextesOpenCode {
-  /** Nom de chaque niveau de confidentialité. */
-  niveaux: Record<DataLevel, string>;
-  /** Invite de la saisie masquée d'une clé dans le terminal. */
-  invite: (cle: { alias: string; niveau: string; equipe: string }) => string;
-}
 
 /** Politique de mise à jour d'OpenCode : signaler les nouvelles versions, les installer, ou ne pas vérifier. */
 export const MISES_A_JOUR = ["notify", "auto", "disable"] as const;
@@ -36,7 +25,7 @@ export interface OptionsOpenCode {
   langue: Langue;
   /** Adresse publique de l'API, celle des exemples d'appel. */
   adresseApi: string;
-  textes: TextesOpenCode;
+  textes: TextesDesCles;
   /** Demandes des clés choisies ; null à l'arrivée sans choix : toutes les clés proposées. */
   requestIds: string[] | null;
   /** Modèle par défaut, désigné par sa référence ; ignoré s'il n'est pas parmi les modèles des clés choisies. */
@@ -45,24 +34,10 @@ export interface OptionsOpenCode {
   miseAJour: MiseAJour | null;
 }
 
-/** Clé émise proposée pour OpenCode, avec les modèles qu'elle y apporte. */
-export interface CleOpenCode extends IdentiteCle {
-  /** Identifiant de l'entrée de la clé dans OpenCode. */
-  entree: string;
-  /** La clé entre dans la configuration. */
-  choisie: boolean;
-  /**
-   * Modèles de conversation de la clé, sous le nom affiché de leur fiche ; la référence, « entrée/modèle », désigne un
-   * modèle dans OpenCode, par exemple comme modèle par défaut.
-   */
-  modeles: ModelePropose[];
-  modelesEcartes: { modelName: string; raison: RaisonModeleEcarte }[];
-}
-
 /** Configuration d'OpenCode 2.x d'un collaborateur, à partir de ses clés émises. */
 export interface ConfigurationOpenCode {
-  /** Clés émises proposées, dans l'ordre de « Mes clés ». */
-  cles: CleOpenCode[];
+  /** Clés émises proposées, dans l'ordre de « Mes clés » ; l'entrée de chacune est celle de la clé dans OpenCode. */
+  cles: CleProposee[];
   clesEcartees: CleEcartee[];
   /** Modèle par défaut retenu : celui des options s'il est parmi les modèles des clés choisies. */
   modeleParDefaut: string | null;
@@ -77,7 +52,7 @@ export interface ConfigurationOpenCode {
 /** Paquet d'OpenCode pour une API compatible OpenAI. */
 const PAQUET = "@opencode/ai/providers/openai-compatible";
 
-/** Clé proposée, avec le nom de la variable d'environnement qui la contiendra. */
+/** Clé préparée, avec le nom de la variable d'environnement qui la contiendra. */
 interface CleAvecVariable extends ClePreparee {
   variable: string;
 }
@@ -89,19 +64,12 @@ interface CleAvecVariable extends ClePreparee {
 export async function configurationOpenCode(deps: KeyDeps, user: SessionUser, options: OptionsOpenCode): Promise<ConfigurationOpenCode> {
   const preparees = await preparerLesCles(deps, user, options.langue);
   const cles = preparees.cles.map(avecVariable);
-  const choisie = (cle: CleAvecVariable) => options.requestIds === null || options.requestIds.includes(cle.requestId);
-  const choisies = cles.filter(choisie);
+  const choisies = cles.filter((cle) => choisie(cle, options.requestIds));
   const references = choisies.flatMap((cle) => cle.retenus.map((m) => reference(cle, m.modelName)));
   const model = options.modeleParDefaut !== null && references.includes(options.modeleParDefaut) ? options.modeleParDefaut : null;
   const providers = Object.fromEntries(choisies.map((cle) => [cle.entree, entreeDeLaCle(cle, options)]));
   return {
-    cles: cles.map((cle) => ({
-      ...identite(cle),
-      entree: cle.entree,
-      choisie: choisie(cle),
-      modeles: modelesProposes(cle),
-      modelesEcartes: cle.modelesEcartes,
-    })),
+    cles: cles.map((cle) => cleProposee(cle, options.requestIds)),
     clesEcartees: preparees.clesEcartees,
     modeleParDefaut: model,
     configuration:
@@ -113,7 +81,7 @@ export async function configurationOpenCode(deps: KeyDeps, user: SessionUser, op
   };
 }
 
-/** Clé proposée, avec sa variable d'environnement, tirée de son entrée. */
+/** Clé préparée, avec sa variable d'environnement, tirée de son entrée. */
 function avecVariable(cle: ClePreparee): CleAvecVariable {
   return { ...cle, variable: `${cle.entree.replaceAll("-", "_").toUpperCase()}_KEY` };
 }
@@ -122,10 +90,10 @@ function avecVariable(cle: ClePreparee): CleAvecVariable {
  * Enregistrement des clés auprès du service OpenCode : chaque clé est lue en saisie masquée (bash et zsh), jamais
  * écrite dans la commande, l'écran ni l'historique du shell ; puis le service redémarre.
  */
-function commandes(cles: CleAvecVariable[], textes: TextesOpenCode): string {
+function commandes(cles: CleAvecVariable[], textes: TextesDesCles): string {
   return [
     ...cles.flatMap((cle) => [
-      `printf '%s' ${entreApostrophes(textes.invite({ alias: cle.alias, niveau: textes.niveaux[cle.dataLevel], equipe: cle.teamAlias }))}; read -rs K; echo`,
+      `printf '%s' ${entreApostrophes(textes.invite(designee(cle, textes.niveaux)))}; read -rs K; echo`,
       `opencode service set env ${cle.variable} "$K"; unset K`,
     ]),
     "opencode service restart",
