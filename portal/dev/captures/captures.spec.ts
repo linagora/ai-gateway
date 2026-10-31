@@ -26,6 +26,7 @@ const MODELES = [
   { nom: "dev-confidentiel", niveau: "N3", fr: "Modèle confidentiel", en: "Confidential model", courte: "Sovereign model for confidential data.", longue: "Model served by a sovereign host, for confidential documents that must never leave the European Union." },
   { nom: "dev-experimental", niveau: "EXP", fr: "Modèle expérimental", en: "Experimental model", courte: "Beta model, public data only.", longue: "Model under evaluation, available in dedicated keys and with public data only." },
   { nom: "dev-image", niveau: "N1", fr: "Modèle graphique", en: "Image model", courte: "Image generation from public briefs.", longue: "Generates illustrations and diagrams from a text description, for public content only." },
+  { nom: "dev-embeddings", niveau: "N3", fr: "Modèle vectoriel", en: "Embedding model", courte: "Embeddings for search over confidential documents.", longue: "Turns text into vectors for semantic search and retrieval, served by a sovereign host in the European Union." },
 ] as const;
 
 /**
