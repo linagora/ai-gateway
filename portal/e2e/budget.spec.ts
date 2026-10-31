@@ -115,9 +115,11 @@ test("budget épuisé, hausse demandée et approuvée : la même clé refonction
   await page.goto("/cles");
   await carte.getByRole("link", { name: "Demander plus de budget" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toContainText(alias);
-  const plafond = page.locator("dt", { hasText: "Plafond actuel" }).locator("xpath=following-sibling::dd[1]");
-  await expect(plafond).toContainText("5,00 €");
-  await expect(plafond).toContainText("tous les 30 jours");
+  // Une liste de définitions se lit terme après terme, chacun suivi de sa valeur.
+  await expect(page.getByRole("main")).toMatchAriaSnapshot(`
+    - term: Plafond actuel
+    - definition: 5,00 €, tous les 30 jours
+  `);
   await expect(page.getByLabel("Nouveau budget (€)")).toHaveAttribute("min", "5.01");
   // Sans le minimum de la saisie, le serveur refuse un plafond qui ne dépasse pas l'actuel, écrit au format monétaire.
   await page.getByLabel("Nouveau budget (€)").evaluate((champ) => champ.removeAttribute("min"));
@@ -146,11 +148,17 @@ test("budget épuisé, hausse demandée et approuvée : la même clé refonction
   await admin.goto("/gestion/demandes");
   await expect(ligneDeLaFile(admin, "À approuver", salarie).filter({ hasText: "Hausse de budget" })).toContainText(alias);
   await examinerHausse(admin, salarie);
-  const valeur = (intitule: string) => admin.locator("dt", { hasText: intitule }).locator("xpath=following-sibling::dd[1]");
-  await expect(valeur("Clé visée")).toContainText(alias);
-  await expect(valeur("Plafond actuel")).toHaveText("5,00 €, tous les 30 jours");
-  await expect(valeur("Montant demandé")).toHaveText("20,50 €");
-  await expect(valeur("Motif")).toHaveText("Chantier de migration");
+  await expect(admin.getByRole("main")).toMatchAriaSnapshot(`
+    - term: Clé visée
+    - definition:
+      - code: ${alias}
+    - term: Plafond actuel
+    - definition: 5,00 €, tous les 30 jours
+    - term: Montant demandé
+    - definition: 20,50 €
+    - term: Motif
+    - definition: Chantier de migration
+  `);
   await expect(admin.getByRole("heading", { name: "Contrôles de politique" })).toHaveCount(0);
   await expect(admin.getByLabel("Nouveau budget (€)")).toHaveValue("20.5");
 
@@ -162,8 +170,12 @@ test("budget épuisé, hausse demandée et approuvée : la même clé refonction
   const archivee = ligneDeLaFile(admin, "Archive : demandes traitées", salarie).filter({ hasText: "Hausse de budget" });
   await expect(archivee).toContainText("Montant accordé : 15,50 €");
   await archivee.getByRole("link", { name: "Voir" }).click();
-  await expect(valeur("Montant demandé")).toHaveText("20,50 €");
-  await expect(valeur("Montant accordé")).toHaveText("15,50 €");
+  await expect(admin.getByRole("main")).toMatchAriaSnapshot(`
+    - term: Montant demandé
+    - definition: 20,50 €
+    - term: Montant accordé
+    - definition: 15,50 €
+  `);
 
   await expect.poll(async () => (await courrielsSujet(salarie.uid, "est relevé")).length, { timeout: 15_000 }).toBeGreaterThan(0);
   const [releve] = await courrielsSujet(salarie.uid, "est relevé");
