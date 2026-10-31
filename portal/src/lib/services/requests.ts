@@ -4,7 +4,20 @@ import type { Db } from "@/lib/db";
 import type { LiteLLMClient, LiteLLMTeamSummary } from "@/lib/litellm/client";
 import { PolicyViolationError, PortalError } from "@/lib/errors";
 import type { Prisma, RequestKind } from "@/generated/prisma/client";
-import { type CatalogModel, checkKeyRequest, checkTransition, DATA_LEVELS, type DataLevel, type KeyRequestDraft, pasEncoreDecidee, type PolicyVerdict, type RequestStatus, seuilJustificationBudget } from "@/lib/policy";
+import {
+  type CatalogModel,
+  checkKeyRequest,
+  checkTransition,
+  DATA_LEVELS,
+  type DataLevel,
+  justificationBudgetExigee,
+  type KeyRequestDraft,
+  montantAuCentime,
+  pasEncoreDecidee,
+  type PolicyVerdict,
+  type RequestStatus,
+  seuilJustificationBudget,
+} from "@/lib/policy";
 import { parActeur, recordAudit } from "./audit";
 import { aliasDesCleVisees, DEMANDES_EN_COURS, hausseEnCours, PAS_ENCORE_DECIDEES } from "./demandes-en-cours";
 import { markExpired } from "./echeances";
@@ -20,6 +33,9 @@ interface RequestDeps extends NotificationDeps {
   now?: () => Date;
 }
 
+/** Budget en euros, demandé ou accordé : arrondi au centime, puis strictement positif. */
+export const budgetEnEurosSchema = z.number().transform(montantAuCentime).pipe(z.number().positive());
+
 /** F-20 / F-21 : formulaire de demande de clé. */
 export const keyRequestInputSchema = z.object({
   teamId: z.string().min(1),
@@ -28,7 +44,7 @@ export const keyRequestInputSchema = z.object({
   justification: z.string().trim().min(1),
   project: z.string().trim().nullable(),
   /** Budget souhaité, en euros ; sans lui, un renouvellement reprend celui de la clé d'origine. */
-  requestedBudget: z.number().positive().nullable(),
+  requestedBudget: budgetEnEurosSchema.nullable(),
   /** Justification du budget, exigée au-delà du budget par défaut ou de celui de la clé d'origine. */
   budgetJustification: z.string().trim().nullish(),
   /** Durée souhaitée, en jours ; SANS_EXPIRATION (0) : la clé n'expire jamais. */
@@ -51,7 +67,7 @@ export interface RequestSummary {
   dataLevel: DataLevel | null;
   models: string[];
   /** Hausse de budget : l'alias de la clé visée. */
-  keyAlias: string | null;
+  raisedKeyAlias: string | null;
   status: RequestStatus;
   decisionComment: string | null;
   /** Renouvellement d'une clé : la demande dont vient la clé renouvelée. */
@@ -135,7 +151,7 @@ async function validateKeyRequest(deps: RequestDeps, user: SessionUser, input: K
   if (!verdict.ok) throw new PolicyViolationError(verdict.checks.filter((c) => !c.ok));
   const parDefaut = (await readSettings(deps.db)).default_budget;
   const seuil = seuilJustificationBudget(parDefaut === undefined ? null : Number(parDefaut), origine?.approvedBudget?.toNumber() ?? null);
-  const depasse = data.requestedBudget !== null && data.requestedBudget > seuil;
+  const depasse = justificationBudgetExigee(data.requestedBudget, seuil);
   const budgetJustification = depasse ? data.budgetJustification || null : null;
   if (depasse && !budgetJustification) throw new PortalError("justification_budget_requise", "Justifiez le budget demandé.");
   return {
@@ -256,7 +272,7 @@ export async function listMyRequests(deps: RequestDeps, user: SessionUser): Prom
     teamAlias: r.teamAlias,
     dataLevel: r.dataLevel,
     models: r.models,
-    keyAlias: alias.get(r.id) ?? null,
+    raisedKeyAlias: alias.get(r.id) ?? null,
     status: r.status,
     decisionComment: r.decisionComment,
     renewsRequestId: r.renewsRequestId,

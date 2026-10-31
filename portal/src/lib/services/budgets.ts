@@ -3,18 +3,18 @@ import type { AccessRequest, Prisma } from "@/generated/prisma/client";
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
 import { PortalError } from "@/lib/errors";
-import { enAttenteDeValidation, STATUTS_PAS_ENCORE_DECIDES } from "@/lib/policy";
+import { enAttenteDeValidation, plafondMinimalDeHausse, STATUTS_PAS_ENCORE_DECIDES } from "@/lib/policy";
 import { type AdminDeps, annoncerDecision, requireDecision } from "./admin-requests";
 import { parActeur, recordAudit } from "./audit";
 import { managerEmails, requireGestion } from "./autorite";
 import { hausseEnCours } from "./demandes-en-cours";
 import { notifyBudgetRaised, notifyNewBudgetRequest } from "./notifications";
-import { transitionRequest } from "./requests";
+import { budgetEnEurosSchema, transitionRequest } from "./requests";
 
 /** Demande de hausse du budget d'une clé émise : nouveau plafond, strictement au-dessus de l'actuel, et justification. */
 export const budgetRaiseInputSchema = z.object({
   keyRequestId: z.string().min(1),
-  requestedBudget: z.number().positive(),
+  requestedBudget: budgetEnEurosSchema,
   justification: z.string().trim().min(1),
 });
 
@@ -22,7 +22,7 @@ export type BudgetRaiseInput = z.infer<typeof budgetRaiseInputSchema>;
 
 const complementSchema = budgetRaiseInputSchema.omit({ keyRequestId: true });
 
-const approbationSchema = z.object({ budget: z.number().positive() });
+const approbationSchema = z.object({ budget: budgetEnEurosSchema });
 
 /**
  * Hausse du budget d'une clé émise : le titulaire demande un plafond plus haut pour sa clé encore émise et non expirée,
@@ -174,13 +174,18 @@ function cleEmise(deps: AdminDeps, cle: AccessRequest): AccessRequest & { keyTok
   return { ...cle, keyTokenId: cle.keyTokenId, keyAlias: cle.keyAlias, approvedBudget: cle.approvedBudget, budgetDuration: cle.budgetDuration };
 }
 
+/**
+ * Plafond actuel d'une clé, lu dans la base du portail et non dans le `max_budget` de la passerelle : c'est le budget
+ * approuvé que remplacement et renouvellement réappliquent, et une hausse l'écrit dans la passerelle puis dans la base.
+ */
 const plafond = (cle: AccessRequest) => cle.approvedBudget?.toNumber() ?? null;
 
 /** Le nouveau plafond doit dépasser strictement celui de la clé. */
 function verifierMontant(cle: AccessRequest, montant: number): void {
   const actuel = plafond(cle);
-  if (actuel !== null && montant <= actuel) {
-    throw new PortalError("budget_trop_bas", `Le montant doit dépasser le plafond actuel de la clé (${actuel} €).`, { plafond: `${actuel} €` });
+  if (actuel !== null && montant < plafondMinimalDeHausse(actuel)) {
+    // Le plafond va en nombre au message, qui le met au format monétaire de la langue de l'utilisateur.
+    throw new PortalError("budget_trop_bas", "Le montant doit dépasser le plafond actuel de la clé.", { plafond: String(actuel) });
   }
 }
 

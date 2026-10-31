@@ -251,7 +251,8 @@ api -X POST "$PORTAIL/keys/<requestId>/revoke"
 **Renouveler une clé** (`cles`, puis `demandes`). Le brouillon de renouvellement donne les paramètres de la clé (alias,
 équipe, niveau, modèles, projet, durée) pour préremplir la demande de renouvellement, déposée ensuite comme une demande
 de clé avec `"renewsRequestId"` ; le portail reprend le budget de la clé renouvelée. Au retrait de la nouvelle clé,
-l'ancienne est révoquée.
+l'ancienne est révoquée. Tant qu'une hausse du budget de la clé est en cours, le renouvellement est refusé (409
+`demande_en_cours`, `details.case` `hausse_avant_renouvellement`).
 
 ```bash
 api "$PORTAIL/keys/<requestId>/renewal-draft"
@@ -272,7 +273,7 @@ défaut, anglais) et des détails, aux clés en anglais et aux valeurs stables :
 | 401 | `jeton_invalide` (motif dans `details.reason` : `absent`, `illisible`, `integration_inconnue`, `cle_inconnue`, `algorithme`, `signature`, `destinataire`, `expire`, `futur`, `duree`, `revendication`, avec alors `details.claim`) |
 | 403 | `adresse_non_autorisee`, `hors_perimetre` (périmètre exigé dans `details.scope`), `non_membre`, `interdit` |
 | 404 | `introuvable` : ressource ou route inconnue, ou appartenant à un autre collaborateur (`details.object`) |
-| 409 | `transition_interdite` (`details.case`), `demande_en_cours` et `deja_membre` (`details.team`), `identite_incoherente` |
+| 409 | `transition_interdite` (`details.case`), `demande_en_cours` (`details.team`, ou `details.case` `hausse_avant_renouvellement` quand une hausse du budget de la clé à renouveler est en cours), `deja_membre` (`details.team`), `identite_incoherente` |
 | 429 | `trop_de_requetes` (plafond de l'intégration) et `trop_de_generations` (retraits et remplacements du collaborateur), avec l'en-tête `Retry-After` en secondes |
 | 502 | `passerelle_indisponible` : la passerelle ne répond pas, rien n'a changé |
 | 503 | `integration_inactive` : l'intégration est désactivée |

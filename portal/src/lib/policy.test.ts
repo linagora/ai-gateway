@@ -12,9 +12,12 @@ import {
   empechementDeDecider,
   enAttenteDeValidation,
   isAdmin,
+  justificationBudgetExigee,
   type KeyRequestDraft,
   modelAcceptsLevel,
+  montantAuCentime,
   pasEncoreDecidee,
+  plafondMinimalDeHausse,
   type RequestStatus,
   seuilJustificationBudget,
   STATUTS_EN_ATTENTE_DE_VALIDATION,
@@ -359,5 +362,39 @@ describe("seuil de justification du budget", () => {
 
   test("sans budget par défaut ni clé d'origine, tout montant saisi se justifie", () => {
     expect(seuilJustificationBudget(null, null)).toBe(0);
+  });
+
+  test("un budget se justifie s'il dépasse le seuil une fois arrondi au centime", () => {
+    expect(justificationBudgetExigee(20.01, 20)).toBe(true);
+    expect(justificationBudgetExigee(20, 20)).toBe(false);
+    expect(justificationBudgetExigee(20.004, 20)).toBe(false);
+  });
+
+  test("sans budget demandé, rien à justifier", () => {
+    expect(justificationBudgetExigee(null, 0)).toBe(false);
+  });
+});
+
+describe("montant au centime", () => {
+  test("un budget est arrondi au centime le plus proche, quelle que soit la saisie", () => {
+    expect(montantAuCentime(20.126)).toBe(20.13);
+    expect(montantAuCentime(20.123)).toBe(20.12);
+    expect(montantAuCentime(15.5)).toBe(15.5);
+  });
+
+  test("un montant de moins d'un demi-centime s'arrondit à zéro", () => {
+    expect(montantAuCentime(0.004)).toBe(0);
+  });
+});
+
+describe("plafond minimal d'une hausse", () => {
+  test("une hausse vise au moins le centime au-dessus du plafond actuel", () => {
+    expect(plafondMinimalDeHausse(15)).toBe(15.01);
+    expect(plafondMinimalDeHausse(20.5)).toBe(20.51);
+    expect(plafondMinimalDeHausse(15.1)).toBe(15.11);
+  });
+
+  test("sans plafond actuel, un centime suffit", () => {
+    expect(plafondMinimalDeHausse(null)).toBe(0.01);
   });
 });

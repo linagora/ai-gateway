@@ -247,7 +247,9 @@ api -X POST "$PORTAL/keys/<requestId>/revoke"
 
 **Renew a key** (`cles`, then `demandes`). The renewal draft gives the key's parameters (alias, team, level, models,
 project, validity) to prefill the renewal request, then made as a key request with `"renewsRequestId"`; the portal
-takes over the budget of the renewed key. When the new key is picked up, the old one is revoked.
+takes over the budget of the renewed key. When the new key is picked up, the old one is revoked. While a budget
+increase of the key is pending, the renewal is refused (409 `demande_en_cours`, `details.case`
+`hausse_avant_renouvellement`).
 
 ```bash
 api "$PORTAL/keys/<requestId>/renewal-draft"
@@ -268,7 +270,7 @@ English) and details, with English keys and stable values:
 | 401 | `jeton_invalide` (reason in `details.reason`: `absent`, `illisible`, `integration_inconnue`, `cle_inconnue`, `algorithme`, `signature`, `destinataire`, `expire`, `futur`, `duree`, `revendication`, then with `details.claim`) |
 | 403 | `adresse_non_autorisee`, `hors_perimetre` (required scope in `details.scope`), `non_membre`, `interdit` |
 | 404 | `introuvable`: unknown resource or route, or one that belongs to another employee (`details.object`) |
-| 409 | `transition_interdite` (`details.case`), `demande_en_cours` and `deja_membre` (`details.team`), `identite_incoherente` |
+| 409 | `transition_interdite` (`details.case`), `demande_en_cours` (`details.team`, or `details.case` `hausse_avant_renouvellement` when a budget increase of the key to renew is pending), `deja_membre` (`details.team`), `identite_incoherente` |
 | 429 | `trop_de_requetes` (integration's request limit) and `trop_de_generations` (the employee's pickups and replacements), with the `Retry-After` header in seconds |
 | 502 | `passerelle_indisponible`: the gateway does not answer, nothing changed |
 | 503 | `integration_inactive`: the integration is disabled |

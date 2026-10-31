@@ -120,7 +120,11 @@ test("le formulaire propose le budget recommandé ; au-delà, une justification 
   const admin = await (await connecter(browser, ADMIN)).newPage();
   await admin.goto("/gestion/demandes");
   await admin.getByRole("row", { name: new RegExp(`${salarie.uid}.*Clé d'API`) }).getByRole("link", { name: "Examiner" }).click();
-  await expect(admin.locator("dt", { hasText: "Budget / durée" }).locator("+ dd")).toContainText(/50,00\s€/);
-  await expect(admin.locator("dt", { hasText: "Justification du budget" }).locator("+ dd")).toHaveText("Traitement de longs documents pour le projet");
+  await expect(admin.getByRole("main")).toMatchAriaSnapshot(`
+    - term: Budget / durée souhaités
+    - definition: /50,00 €/
+    - term: Justification du budget
+    - definition: Traitement de longs documents pour le projet
+  `);
   await expect(admin.getByLabel("Budget (€)")).toHaveValue("50");
 });

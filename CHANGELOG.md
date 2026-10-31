@@ -36,6 +36,9 @@ Notable changes to LINAGORA AI Gateway, newest first. The gateway and its portal
 
 ### Fixed
 
+- Budget increases: amounts are rounded to the cent and written in the portal's currency format everywhere; the
+  approval page and the archive show the amount granted, and the team budget warning follows the amount the
+  approver enters (#176).
 - Streamed responses are charged at the model's declared euro price, instead of the provider's cost in dollars
   (#149).
 - Tokens read from the cache are charged at their declared price; they cost nothing before (#120).

@@ -77,7 +77,7 @@ test("budget demandé à la création : justifié, approuvé, appliqué par la p
   await expect.poll(async () => (await courrielsSujet(salarie.uid, "Nouvelle demande de clé d'API")).length, { timeout: 15_000 }).toBeGreaterThan(0);
   const [annonce] = await courrielsSujet(salarie.uid, "Nouvelle demande de clé d'API");
   expect(annonce.to).toContain("admins-e2e@example.org");
-  expect(annonce.text).toMatch(/Budget souhaité\s*:\s*50\s€/);
+  expect(annonce.text).toMatch(/Budget souhaité\s*:\s*50,00\s€/);
   expect(annonce.text).toContain("Traitement de longs documents");
 
   const admin = await (await connecter(browser, ADMIN)).newPage();
@@ -115,10 +115,18 @@ test("budget épuisé, hausse demandée et approuvée : la même clé refonction
   await page.goto("/cles");
   await carte.getByRole("link", { name: "Demander plus de budget" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toContainText(alias);
-  const plafond = page.locator("dt", { hasText: "Plafond actuel" }).locator("xpath=following-sibling::dd[1]");
-  await expect(plafond).toContainText("5,00 €");
-  await expect(plafond).toContainText("tous les 30 jours");
+  // Une liste de définitions se lit terme après terme, chacun suivi de sa valeur.
+  await expect(page.getByRole("main")).toMatchAriaSnapshot(`
+    - term: Plafond actuel
+    - definition: 5,00 €, tous les 30 jours
+  `);
   await expect(page.getByLabel("Nouveau budget (€)")).toHaveAttribute("min", "5.01");
+  // Sans le minimum de la saisie, le serveur refuse un plafond qui ne dépasse pas l'actuel, écrit au format monétaire.
+  await page.getByLabel("Nouveau budget (€)").evaluate((champ) => champ.removeAttribute("min"));
+  await page.getByLabel("Nouveau budget (€)").fill("5");
+  await page.getByLabel("Justification").fill("Chantier de migration");
+  await page.getByRole("button", { name: "Envoyer la demande" }).click();
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText("Le montant doit dépasser le plafond actuel de la clé (5,00 €).");
   await page.getByLabel("Nouveau budget (€)").fill("20.5");
   await page.getByLabel("Justification").fill("Chantier de migration");
   await page.getByRole("button", { name: "Envoyer la demande" }).click();
@@ -134,17 +142,23 @@ test("budget épuisé, hausse demandée et approuvée : la même clé refonction
   expect(annonce.to).toContain("admins-e2e@example.org");
   expect(annonce.text).toContain(alias);
   expect(annonce.text).toContain("Chantier de migration");
-  expect(annonce.text).toMatch(/Budget souhaité\s*:\s*20,5\s€/);
+  expect(annonce.text).toMatch(/Budget souhaité\s*:\s*20,50\s€/);
 
   const admin = await (await connecter(browser, ADMIN)).newPage();
   await admin.goto("/gestion/demandes");
   await expect(ligneDeLaFile(admin, "À approuver", salarie).filter({ hasText: "Hausse de budget" })).toContainText(alias);
   await examinerHausse(admin, salarie);
-  const valeur = (intitule: string) => admin.locator("dt", { hasText: intitule }).locator("xpath=following-sibling::dd[1]");
-  await expect(valeur("Clé visée")).toContainText(alias);
-  await expect(valeur("Plafond actuel")).toHaveText("5,00 €, tous les 30 jours");
-  await expect(valeur("Montant demandé")).toHaveText("20,50 €");
-  await expect(valeur("Motif")).toHaveText("Chantier de migration");
+  await expect(admin.getByRole("main")).toMatchAriaSnapshot(`
+    - term: Clé visée
+    - definition:
+      - code: ${alias}
+    - term: Plafond actuel
+    - definition: 5,00 €, tous les 30 jours
+    - term: Montant demandé
+    - definition: 20,50 €
+    - term: Motif
+    - definition: Chantier de migration
+  `);
   await expect(admin.getByRole("heading", { name: "Contrôles de politique" })).toHaveCount(0);
   await expect(admin.getByLabel("Nouveau budget (€)")).toHaveValue("20.5");
 
@@ -152,6 +166,16 @@ test("budget épuisé, hausse demandée et approuvée : la même clé refonction
   await admin.getByRole("button", { name: "Relever le budget" }).click();
   await expect(admin.getByRole("status")).toHaveText("Budget relevé.");
   await expect(ligneDeLaFile(admin, "À approuver", salarie)).toHaveCount(0);
+  // Approuvée, la hausse montre le montant accordé dans l'archive, et sur sa fiche à côté du montant demandé.
+  const archivee = ligneDeLaFile(admin, "Archive : demandes traitées", salarie).filter({ hasText: "Hausse de budget" });
+  await expect(archivee).toContainText("Montant accordé : 15,50 €");
+  await archivee.getByRole("link", { name: "Voir" }).click();
+  await expect(admin.getByRole("main")).toMatchAriaSnapshot(`
+    - term: Montant demandé
+    - definition: 20,50 €
+    - term: Montant accordé
+    - definition: 15,50 €
+  `);
 
   await expect.poll(async () => (await courrielsSujet(salarie.uid, "est relevé")).length, { timeout: 15_000 }).toBeGreaterThan(0);
   const [releve] = await courrielsSujet(salarie.uid, "est relevé");
@@ -263,12 +287,21 @@ test("un responsable ne voit pas la hausse de sa propre clé ; un autre responsa
 
   await pageAutre.goto("/gestion/demandes");
   await ligneDeLaFile(pageAutre, "À traiter", responsable).filter({ hasText: "Hausse de budget" }).getByRole("link", { name: "Examiner" }).click();
-  await expect(pageAutre.getByText("Le montant demandé dépasse le budget de l'équipe (10,00 €).")).toBeVisible();
   await expect(pageAutre.getByLabel("Nouveau budget (€)")).toHaveValue("20");
+  // L'avertissement de budget d'équipe suit le montant que saisit le valideur, pas seulement le montant demandé.
+  const avertissement = pageAutre.getByText("Ce montant dépasse le budget de l'équipe (10,00 €).");
+  await expect(avertissement).toBeVisible();
+  await pageAutre.getByLabel("Nouveau budget (€)").fill("9");
+  await expect(avertissement).toHaveCount(0);
+  await pageAutre.getByLabel("Nouveau budget (€)").fill("20");
+  await expect(avertissement).toBeVisible();
   await pageAutre.getByRole("button", { name: "Relever le budget" }).click();
   await expect(pageAutre.getByRole("status")).toHaveText("Budget relevé.");
   expect((await infoCle(cle)).maxBudget).toBe(20);
 
   await admin.goto("/gestion/demandes");
   await expect(ligneDeLaFile(admin, "À approuver", responsable).filter({ hasText: "Hausse de budget" })).toHaveCount(0);
+  // Sans formulaire de hausse, la fiche avertit sur le montant demandé.
+  await ligneDeLaFile(admin, "Archive : demandes traitées", responsable).filter({ hasText: "Hausse de budget" }).getByRole("link", { name: "Voir" }).click();
+  await expect(admin.getByText("Le montant demandé dépasse le budget de l'équipe (10,00 €).")).toBeVisible();
 });

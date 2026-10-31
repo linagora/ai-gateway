@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Prisma, RequestKind } from "@/generated/prisma/client";
+import type { AccessRequest, Prisma, RequestKind } from "@/generated/prisma/client";
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
 import { estDureeAbonnement, PERIODE_BUDGET } from "@/lib/durees";
@@ -37,7 +37,7 @@ import {
 } from "./notifications";
 import { libelleOffre } from "./offers";
 import { reporterEcheance } from "./renouvellements";
-import { evaluateKeyRequest, transitionRequest } from "./requests";
+import { budgetEnEurosSchema, evaluateKeyRequest, transitionRequest } from "./requests";
 import { requestTerminationAfterRefusedRenewal } from "./resiliations";
 import { readSettings, type SettingValues } from "./settings";
 import { approversByTeam } from "./teams";
@@ -60,7 +60,7 @@ export interface PendingRequest {
   dataLevel: DataLevel | null;
   models: string[];
   /** Hausse de budget : l'alias de la clé visée. */
-  keyAlias: string | null;
+  raisedKeyAlias: string | null;
   project: string | null;
   status: RequestStatus;
   createdAt: Date;
@@ -111,7 +111,7 @@ function ligneDeLaFile(r: Prisma.AccessRequestGetPayload<{ include: { offer: tru
     teamAlias: r.teamAlias,
     dataLevel: r.dataLevel,
     models: r.models,
-    keyAlias: alias.get(r.id) ?? null,
+    raisedKeyAlias: alias.get(r.id) ?? null,
     project: r.project,
     status: r.status,
     createdAt: r.createdAt,
@@ -139,6 +139,8 @@ export interface ProcessedRequest extends PendingRequest {
   decidedAt: Date | null;
   decidedBy: string | null;
   decisionComment: string | null;
+  /** Hausse de budget approuvée : le plafond accordé, null pour toute autre demande. */
+  grantedBudget: number | null;
   updatedAt: Date;
 }
 
@@ -169,16 +171,22 @@ export async function listProcessedRequests(deps: AdminDeps, actor: SessionUser,
     teamAlias: r.teamAlias,
     dataLevel: r.dataLevel,
     models: r.approvedModels.length > 0 ? r.approvedModels : r.models,
-    keyAlias: alias.get(r.id) ?? null,
+    raisedKeyAlias: alias.get(r.id) ?? null,
     project: r.project,
     status: r.status,
     createdAt: r.createdAt,
     decidedAt: r.decidedAt,
     decidedBy: r.decidedBy,
     decisionComment: r.decisionComment,
+    grantedBudget: plafondAccorde(r),
     updatedAt: r.updatedAt,
   }));
   return { elements, page: courante, pages, total };
+}
+
+/** Plafond accordé d'une hausse de budget approuvée ; null pour toute autre demande. */
+function plafondAccorde(r: Pick<AccessRequest, "kind" | "status" | "approvedBudget">): number | null {
+  return r.kind === "BUDGET" && r.status === "APPROUVEE" ? (r.approvedBudget?.toNumber() ?? null) : null;
 }
 
 /** Fiche de validation (F-32) : la demande et ses contrôles, rejoués avec l'état actuel (règle 4). */
@@ -208,6 +216,8 @@ export interface RequestReview extends PendingRequest {
   sansAccord: boolean;
   /** Paramètres figés à l'approbation (F-40), null tant que la demande n'est pas approuvée. */
   approved: ApprovalInput | null;
+  /** Hausse de budget approuvée : le plafond accordé, null pour toute autre demande. */
+  grantedBudget: number | null;
   checks: PolicyCheck[];
   /** Renouvellement : alias de la clé d'origine et sa dépense (null si elle a été révoquée ou si la passerelle ne répond pas). */
   renewal: { alias: string; spend: number | null } | null;
@@ -280,9 +290,10 @@ export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: 
           tpmLimit: r.tpmLimit,
         }
       : null,
+    grantedBudget: plafondAccorde(r),
     checks,
     renewal: r.renewsRequestId ? await renewalOrigin(deps, r.renewsRequestId) : null,
-    keyAlias: budgetRaise?.keyAlias ?? null,
+    raisedKeyAlias: budgetRaise?.keyAlias ?? null,
     budgetRaise,
   };
 }
@@ -322,7 +333,7 @@ export const approvalInputSchema = z.object({
   /** Équipe de la clé : celle de la demande, sauf si l'admin en choisit une autre. */
   teamId: z.string().min(1).optional(),
   models: z.array(z.string().min(1)),
-  budget: z.number().positive().nullable(),
+  budget: budgetEnEurosSchema.nullable(),
   budgetDuration: z.string().regex(PERIODE_BUDGET).nullable(),
   /** Durée de validité en jours ; SANS_EXPIRATION (0) : la clé n'expire jamais. */
   days: z.number().int().nonnegative().nullable(),

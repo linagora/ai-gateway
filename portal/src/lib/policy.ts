@@ -79,9 +79,24 @@ export interface PolicyVerdict {
   checks: PolicyCheck[];
 }
 
+/** Budget en euros arrondi au centime le plus proche : les budgets se comptent en centimes, quelle que soit la saisie. */
+export function montantAuCentime(montant: number): number {
+  return Math.round(montant * 100) / 100;
+}
+
 /** Budget au-delà duquel une demande doit justifier son montant : le plus élevé du budget par défaut et de celui de la clé d'origine. */
 export function seuilJustificationBudget(parDefaut: number | null, origine: number | null): number {
   return Math.max(parDefaut ?? 0, origine ?? 0);
+}
+
+/** F-20 : un budget demandé doit être justifié s'il dépasse le seuil, une fois arrondi au centime. */
+export function justificationBudgetExigee(montant: number | null, seuil: number): boolean {
+  return montant !== null && montantAuCentime(montant) > seuil;
+}
+
+/** Plus petit plafond qu'une hausse de budget peut viser : le centime au-dessus du plafond actuel de la clé, s'il y en a un. */
+export function plafondMinimalDeHausse(actuel: number | null): number {
+  return actuel === null ? 0.01 : (Math.round(actuel * 100) + 1) / 100;
 }
 
 /** Règle 3 : contrôles d'une demande de clé, rejoués à la soumission, à l'approbation et à la génération. */
