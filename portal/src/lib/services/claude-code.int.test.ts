@@ -151,7 +151,7 @@ describe("configuration de Claude Code", () => {
         "set -euo pipefail",
         "# Une clé Anthropic présente dans l'environnement aurait priorité sur la clé LINAGORA",
         "unset ANTHROPIC_API_KEY",
-        `# Ni télémétrie, ni rapports d'erreur, ni mise à jour automatique vers Anthropic${NB}: seule la passerelle LINAGORA est appelée${NB}; mettre à jour avec claude update`,
+        `# Ni télémétrie, ni rapports d'erreur, ni mise à jour automatique vers Anthropic${NB}; mettre à jour avec claude update`,
         "export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1",
         `# Adresse de la passerelle, sans /v1${NB}: Claude Code ajoute lui-même /v1/messages`,
         "export ANTHROPIC_BASE_URL='https://ai-api.linagora.com'",
@@ -307,7 +307,7 @@ describe("configuration de Claude Code", () => {
     );
     const lanceur = lanceurDe(resultat.lanceurs, "linagora-n2-r-d-compte-rendu-hebdo");
     expect(lanceur).toContain(`# Claude Code on the LINAGORA gateway, key ${alias} (N2 Internal, R&D, Compte-rendu hebdo)\n`);
-    expect(lanceur).toContain("# No telemetry, error reports or automatic updates to Anthropic: only the LINAGORA gateway is called; update with claude update\n");
+    expect(lanceur).toContain("# No telemetry, error reports or automatic updates to Anthropic; update with claude update\n");
     expect(lanceur).toContain("# Gateway address, without /v1: Claude Code adds /v1/messages itself\n");
     expect(lanceur).toContain(`&& [ -n "$ANTHROPIC_AUTH_TOKEN" ] || { echo 'LINAGORA key not found in the keyring: save it again from the "Set up Claude Code" page of the portal.' >&2; exit 1; }\n`);
     expect(lanceur).toContain("# Model of the key, for the conversation, background tasks and subagents\n");

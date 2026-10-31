@@ -30,7 +30,11 @@ export interface TextesClaudeCode {
   enTete: (cle: { alias: string; details: string }) => string;
   /** Commentaire : une autre clé Anthropic de l'environnement aurait priorité. */
   priorite: string;
-  /** Commentaire : Claude Code n'appelle que la passerelle, ni télémétrie, ni rapports d'erreur, ni mise à jour automatique. */
+  /**
+   * Commentaire du trafic non essentiel coupé : ni télémétrie, ni rapports d'erreur, ni mise à jour automatique. D'autres
+   * appels restent possibles (contrôle de domaine de WebFetch, recherche sur le web, extensions) : pas de promesse que seule
+   * la passerelle est appelée.
+   */
   trafic: string;
   /** Commentaire : l'adresse est sans /v1, que Claude Code ajoute lui-même. */
   adresse: string;
