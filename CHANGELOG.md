@@ -1,12 +1,18 @@
 # Changelog
 
-Notable changes to LINAGORA AI Gateway, newest first. The gateway and its portal are deployed continuously from
-`main`, so changes are grouped by month rather than by version. Numbers refer to pull requests.
+All notable changes to LINAGORA AI Gateway, newest first. The format is based on
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html), as described in
+[CONTRIBUTING.md](CONTRIBUTING.md#releases). Numbers refer to pull requests.
 
-## October 2026
+## [Unreleased]
+
+## [1.1.0] - 2026-10-31
 
 ### Added
 
+- **Versions.** The project is released in numbered versions, described in this changelog and published on
+  GitHub; production runs published versions only, and the portal shows its version in the footer (#183).
 - **Claude Code** set up from issued keys: one launcher per key, with a step-by-step guide for Ubuntu (#151).
   Claude Code also works with `qwen3.8`, hosted in France on OVHcloud (#170).
 - **Budget in key requests and budget increases.** A key request states the budget it needs, prefilled with the
@@ -54,7 +60,7 @@ Notable changes to LINAGORA AI Gateway, newest first. The gateway and its portal
   version, and the journeys block a merge when they fail (#174).
 - Test and documentation fixes (#140, #147).
 
-## September 2026
+## [1.0.0] - 2026-09-30
 
 First release of the gateway and its portal.
 
@@ -96,3 +102,7 @@ First release of the gateway and its portal.
 - The email asking for more information says who asks for it (#100).
 - Development: translations left by the screenshots in the development catalog (#91); JEV no longer counted
   in the allowlist acceptance test (#106).
+
+[Unreleased]: https://github.com/linagora/ai-gateway/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/linagora/ai-gateway/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/linagora/ai-gateway/releases/tag/v1.0.0
