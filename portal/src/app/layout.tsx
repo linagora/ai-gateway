@@ -7,6 +7,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { countMyPending } from "@/lib/services/requests";
 import { getCurrentUser, getDeps } from "@/lib/session";
+import paquet from "../../package.json";
 import { SelecteurLangue, UserMenu } from "./components";
 import { Onglets } from "./onglets";
 import { Pastille } from "./pastille";
@@ -31,7 +32,7 @@ const inter = localFont({
 
 // Interface minimale (V1) : l'ergonomie et le graphisme seront repris dans un second temps.
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const [locale, t, user] = await Promise.all([getLocale(), getTranslations("entete"), getCurrentUser()]);
+  const [locale, t, pied, user] = await Promise.all([getLocale(), getTranslations("entete"), getTranslations("pied"), getCurrentUser()]);
   // Pastilles : ce que le salarié peut faire maintenant (clé approuvée à retirer, demande à compléter).
   const enAttente = user ? await countMyPending(getDeps(), user) : null;
   return (
@@ -91,6 +92,15 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             {!user && <SelecteurLangue />}
           </header>
           <main className="mx-auto max-w-6xl px-6 py-6">{children}</main>
+          {/* Version publiée du projet (SemVer, celle de package.json) et ses notes, montrées aux seules personnes connectées. */}
+          {user && (
+            <footer className="mx-auto max-w-6xl px-6 pb-6 text-sm print:hidden">
+              <a href={`https://github.com/linagora/ai-gateway/releases/tag/v${paquet.version}`} className="text-neutral-500">
+                {pied("version", { version: paquet.version })}
+                <span className="sr-only"> ({pied("notes")})</span>
+              </a>
+            </footer>
+          )}
         </NextIntlClientProvider>
       </body>
     </html>

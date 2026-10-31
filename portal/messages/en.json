@@ -3,6 +3,10 @@
     "titre": "LINAGORA AI Gateway",
     "description": "AI model catalog and API key requests"
   },
+  "pied": {
+    "version": "AI Gateway {version}",
+    "notes": "release notes"
+  },
   "entete": {
     "portail": "AI Gateway",
     "langue": "Language",
