@@ -21,15 +21,17 @@ defaults:
   run:
     working-directory: portal
 
+# Comme les images Docker (CONTRIBUTING.md), les actions sont épinglées par l'empreinte de leur commit, version en
+# commentaire, et le runner par sa version : ubuntu-26.04, l'image de ubuntu-latest depuis octobre 2026.
 jobs:
   # Lint, types et tests unitaires : sans service, en deux minutes.
   statique:
     name: Lint, types, tests unitaires
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: npm
@@ -48,11 +50,11 @@ jobs:
   # Services contre la base portal_test et le LiteLLM de dev.
   integration:
     name: Tests d'intégration
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: npm
@@ -72,27 +74,24 @@ jobs:
         run: docker compose -f dev/docker-compose.yml logs --no-color --tail 200
       - name: Rapport de couverture (lcov et HTML)
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: couverture
           path: portal/coverage/
           if-no-files-found: ignore
           retention-days: 14
 
-  # Parcours de bout en bout (Playwright, un seul worker) : une vingtaine de minutes. Non bloquant tant que les parcours
-  # qui échouent sur le runner et pas sur un poste de dev (courriels, mise en page du catalogue, délais du serveur de dev)
-  # ne sont pas stabilisés : voir la pull request qui a introduit ce workflow.
+  # Parcours de bout en bout (Playwright, un seul worker), contre le serveur de production construit : un quart d'heure.
   e2e:
     name: Parcours de bout en bout
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 45
-    continue-on-error: true
     env:
       # Le portail et ses courriels raisonnent en heure de Paris ; le runner est en UTC.
       TZ: Europe/Paris
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: npm
@@ -115,7 +114,7 @@ jobs:
         run: docker compose -f dev/docker-compose.yml logs --no-color --tail 200
       - name: Traces des parcours en échec
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: parcours-en-echec
           path: portal/test-results/

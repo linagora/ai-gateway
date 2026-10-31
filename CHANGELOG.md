@@ -45,7 +45,8 @@ Notable changes to LINAGORA AI Gateway, newest first. The gateway and its portal
 
 - Continuous integration on GitHub Actions: lint, types, unit and integration tests, end-to-end journeys (#152);
   code coverage with minimum thresholds (#169); journeys run against a production build of the portal, with
-  their default values set beforehand (#167, #171).
+  their default values set beforehand (#167, #171). Actions are pinned to commit hashes and the runner to its
+  version, and the journeys block a merge when they fail (#174).
 - Test and documentation fixes (#140, #147).
 
 ## September 2026
