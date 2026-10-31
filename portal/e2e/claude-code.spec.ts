@@ -65,7 +65,10 @@ test("depuis « Mes clés », le titulaire ouvre la configuration de Claude Code
   await expect(lanceurs).toContainText("export ANTHROPIC_MODEL='dev-public'");
   await expect(lanceurs).toContainText("export CLAUDE_CODE_MAX_CONTEXT_TOKENS=128000");
   await expect(lanceurs).toContainText("claude-linagora-n1-r-d-essai-claude -p 'Réponds uniquement par le mot OK'");
-  await expect(page.getByRole("region", { name: "Utiliser Claude Code" })).toContainText("claude-linagora-n1-r-d-essai-claude");
+  const utiliser = page.getByRole("region", { name: "Utiliser Claude Code" });
+  await expect(utiliser).toContainText("claude-linagora-n1-r-d-essai-claude");
+  // Une clé à un seul modèle : pas d'autre modèle à choisir par /model.
+  await expect(utiliser).not.toContainText("/model");
   expect(await page.content()).not.toContain(cle);
 });
 
@@ -85,17 +88,21 @@ test("le modèle par défaut choisi s'écrit dans le lanceur ; les autres modèl
   await page.goto("/cles/claude-code");
   const select = page.getByLabel("Modèle par défaut");
   const lanceurs = page.getByRole("region", { name: "Installer les lanceurs" });
-  // Sans choix, le modèle par défaut est le premier de la clé.
+  const utiliser = page.getByRole("region", { name: "Utiliser Claude Code" });
+  // Sans choix, le modèle par défaut est le premier de la clé ; l'exemple de /model est l'autre.
   await expect(select.locator("option")).toHaveCount(2);
-  await expect(lanceurs).toContainText(`export ANTHROPIC_MODEL='${(await select.inputValue()).split("/")[1]}'`);
-
+  const premier = (await select.inputValue()).split("/")[1];
+  await expect(lanceurs).toContainText(`export ANTHROPIC_MODEL='${premier}'`);
   const { reference, modele } = await autreModele(select);
+  await expect(utiliser).toContainText(`/model ${modele}`);
+
   await select.selectOption(reference);
   await expect(page).toHaveURL(new RegExp(`modele=${encodeURIComponent(reference)}`));
   await expect(lanceurs).toContainText(`export ANTHROPIC_MODEL='${modele}'`);
   await expect(lanceurs).toContainText(`export CLAUDE_CODE_SUBAGENT_MODEL='${modele}'`);
   await expect(lanceurs).toContainText("à choisir dans Claude Code par /model suivi du nom");
   await expect(select).toHaveValue(reference);
+  await expect(utiliser).toContainText(`/model ${premier}`);
 });
 
 test("avec deux clés, chaque clé a son lanceur et son modèle par défaut, choisi dans sa propre liste", async ({ browser }) => {

@@ -63,9 +63,10 @@ export default async function ConfigurerClaudeCodePage(props: PageProps<"/cles/c
     );
   }
 
-  // Exemples de l'étape « Utiliser » : le lanceur et le modèle par défaut de la première clé choisie.
-  const exemple = cles.find((cle) => cle.choisie) ?? cles[0];
-  const modeleExemple = exemple.modeles.find((m) => m.reference === exemple.modeleParDefaut) ?? exemple.modeles[0];
+  // Exemples de l'étape « Utiliser » : le lanceur de la première clé choisie, de préférence une clé à plusieurs modèles, et
+  // pour /model un autre de ses modèles que son modèle par défaut ; une clé à un seul modèle n'a pas d'exemple de /model.
+  const exemple = cles.find((cle) => cle.choisie && cle.modeles.length > 1) ?? cles.find((cle) => cle.choisie) ?? cles[0];
+  const autreModele = exemple.modeles.find((m) => m.reference !== exemple.modeleParDefaut);
 
   return (
     <>
@@ -154,7 +155,7 @@ export default async function ConfigurerClaudeCodePage(props: PageProps<"/cles/c
       <Etape espace={ESPACE} id="utiliser" numero={5} titre={t("etapeUtiliser.titre")} endroits={["terminal", "assistant"]}>
         <ul className="list-disc pl-6">
           <li>{t.rich("etapeUtiliser.lancer", { ...BALISES, lanceur: exemple.lanceur })}</li>
-          <li>{t.rich("etapeUtiliser.choisir", { ...BALISES, modele: modeleExemple.modelName })}</li>
+          {autreModele && <li>{t.rich("etapeUtiliser.choisir", { ...BALISES, modele: autreModele.modelName })}</li>}
           <li>{t.rich("etapeUtiliser.couts", { lien: (texte: ReactNode) => <Link href="/cles">{texte}</Link> })}</li>
           <li>{t("etapeUtiliser.compte")}</li>
         </ul>
