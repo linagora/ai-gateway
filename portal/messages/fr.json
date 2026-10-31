@@ -1145,9 +1145,7 @@
     "copierAdresse": "Copier l'adresse",
     "adresseCopiee": "Adresse copiée"
   },
-  "opencode": {
-    "titre": "Configurer OpenCode",
-    "intro": "OpenCode est un assistant de code open source qui travaille dans le terminal. Cette page en produit la configuration à partir de vos clés émises : chaque clé y devient une entrée, avec ses modèles de conversation. Votre clé ne passe jamais par le portail : les commandes vous la demandent dans le terminal, sans l'afficher.",
+  "assistants": {
     "indisponible": "La passerelle ne répond pas : la configuration ne peut pas être produite pour l'instant. Réessayez dans quelques instants.",
     "clesAInclure": "Clés à inclure",
     "modeles": "Modèles : {liste}",
@@ -1159,6 +1157,42 @@
       "non_declare": "la passerelle ne le déclare plus"
     },
     "modeleParDefaut": "Modèle par défaut",
+    "clesNonProposees": "Clés non proposées",
+    "raisonsCle": {
+      "bloquee": "clé bloquée",
+      "sans_modele": "aucun modèle de conversation"
+    },
+    "copierCommandes": "Copier les commandes",
+    "commandesCopiees": "Commandes copiées",
+    "copierCommande": "Copier la commande",
+    "commandeCopiee": "Commande copiée",
+    "invite": "Clé LINAGORA {alias} ({niveau}, {equipe}) : ",
+    "endroits": {
+      "terminal": "Terminal",
+      "navigateur": "Navigateur",
+      "editeur": "Éditeur de texte"
+    },
+    "etapeInstaller": {
+      "terminal": "Le terminal est la fenêtre où l'on tape des commandes. Pour l'ouvrir : <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>T</kbd>.",
+      "coller": "Pour lancer une commande de cette page : copiez-la, collez-la dans le terminal avec <kbd>Ctrl</kbd> + <kbd>Maj</kbd> + <kbd>V</kbd>, puis appuyez sur <kbd>Entrée</kbd>."
+    },
+    "etapeCles": {
+      "titre": "Choisir vos clés",
+      "niveau": "{niveau} : {description}",
+      "niveaux": {
+        "N1": "code open source, ou diffusé à tous les collaborateurs",
+        "N2": "dépôt à diffusion restreinte",
+        "N3": "code secret ou code d'un client"
+      }
+    },
+    "sansCle": {
+      "recommandes": "Modèles recommandés pour le code",
+      "aucunRecommande": "Aucun modèle n'est encore recommandé pour le code."
+    }
+  },
+  "opencode": {
+    "titre": "Configurer OpenCode",
+    "intro": "OpenCode est un assistant de code open source qui travaille dans le terminal. Cette page en produit la configuration à partir de vos clés émises : chaque clé y devient une entrée, avec ses modèles de conversation. Votre clé ne passe jamais par le portail : les commandes vous la demandent dans le terminal, sans l'afficher.",
     "aucunModeleParDefaut": "Aucun : OpenCode garde son choix",
     "miseAJour": "Mises à jour d'OpenCode",
     "misesAJour": {
@@ -1167,45 +1201,23 @@
       "auto": "Les installer automatiquement",
       "disable": "Ne pas vérifier"
     },
-    "clesNonProposees": "Clés non proposées",
-    "raisonsCle": {
-      "bloquee": "clé bloquée",
-      "sans_modele": "aucun modèle de conversation"
-    },
     "aucuneChoisie": "Cochez au moins une clé pour obtenir la configuration.",
     "couts": "OpenCode affiche les coûts en dollars : la configuration y convertit les prix de la passerelle au taux interne de LINAGORA.",
     "copierConfiguration": "Copier la configuration",
     "configurationCopiee": "Configuration copiée",
     "commandesExplication": "Lancez ces commandes dans un terminal : elles vous demandent chaque clé, sans l'afficher, puis redémarrent OpenCode.",
-    "copierCommandes": "Copier les commandes",
-    "commandesCopiees": "Commandes copiées",
     "verification": "Vérifiez ensuite que vos modèles sont reconnus :",
-    "copierCommande": "Copier la commande",
-    "commandeCopiee": "Commande copiée",
-    "invite": "Clé LINAGORA {alias} ({niveau}, {equipe}) : ",
     "endroits": {
-      "terminal": "Terminal",
-      "navigateur": "Navigateur",
-      "editeur": "Éditeur de texte",
       "assistant": "OpenCode"
     },
     "etapeInstaller": {
       "titre": "Installer OpenCode",
-      "terminal": "Le terminal est la fenêtre où l'on tape des commandes. Pour l'ouvrir : <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>T</kbd>.",
-      "coller": "Pour lancer une commande de cette page : copiez-la, collez-la dans le terminal avec <kbd>Ctrl</kbd> + <kbd>Maj</kbd> + <kbd>V</kbd>, puis appuyez sur <kbd>Entrée</kbd>.",
       "installer": "Installez OpenCode avec son script officiel, puis fermez le terminal et ouvrez-en un nouveau :",
       "verifier": "Vérifiez la version installée : elle doit afficher <code>opencode v2.x</code>.",
       "mettreAJour": "Plus tard, pour mettre OpenCode à jour :"
     },
     "etapeCles": {
-      "titre": "Choisir vos clés",
-      "rappel": "Le code du projet ouvert dans OpenCode est envoyé au modèle : choisissez une clé dont le niveau de confidentialité couvre la classification de votre dépôt.",
-      "niveau": "{niveau} : {description}",
-      "niveaux": {
-        "N1": "code open source, ou diffusé à tous les collaborateurs",
-        "N2": "dépôt à diffusion restreinte",
-        "N3": "code secret ou code d'un client"
-      }
+      "rappel": "Le code du projet ouvert dans OpenCode est envoyé au modèle : choisissez une clé dont le niveau de confidentialité couvre la classification de votre dépôt."
     },
     "etapeConfiguration": {
       "titre": "Enregistrer la configuration",
@@ -1225,44 +1237,21 @@
       "changer": "Pour changer vite de modèle : <kbd>F2</kbd> passe au modèle récent suivant, <kbd>Maj</kbd> + <kbd>F2</kbd> au précédent."
     },
     "sansCle": {
-      "intro": "Pour configurer OpenCode, il vous faut une clé émise avec au moins un modèle de conversation. Pour en obtenir une :",
-      "recommandes": "Modèles recommandés pour le code",
-      "aucunRecommande": "Aucun modèle n'est encore recommandé pour le code."
+      "intro": "Pour configurer OpenCode, il vous faut une clé émise avec au moins un modèle de conversation. Pour en obtenir une :"
     }
   },
   "claudeCode": {
     "titre": "Configurer Claude Code",
     "intro": "Claude Code, l'assistant de code d'Anthropic, travaille dans le terminal. Cette page prépare, à partir de vos clés émises, un lanceur par clé : une commande qui ouvre Claude Code sur la passerelle LINAGORA, avec le modèle par défaut de votre choix. Votre clé ne passe jamais par le portail : les commandes vous la demandent dans le terminal, sans l'afficher, et l'enregistrent dans le trousseau de votre session.",
-    "indisponible": "La passerelle ne répond pas : la configuration ne peut pas être produite pour l'instant. Réessayez dans quelques instants.",
-    "clesAInclure": "Clés à inclure",
-    "modeles": "Modèles : {liste}",
-    "modelesEcartes": "Non repris : {liste}",
-    "raisonsModele": {
-      "image": "modèle d'images",
-      "decision": "API de décision",
-      "embeddings": "modèle d'embeddings",
-      "non_declare": "la passerelle ne le déclare plus"
-    },
     "lanceur": "Lanceur : <code>{nom}</code>",
-    "modeleParDefaut": "Modèle par défaut",
     "modeleParDefautDe": "de la clé {alias}",
-    "clesNonProposees": "Clés non proposées",
-    "raisonsCle": {
-      "bloquee": "clé bloquée",
-      "sans_modele": "aucun modèle de conversation"
-    },
     "aucuneChoisie": "Cochez au moins une clé pour obtenir ses commandes et son lanceur.",
     "commandesExplication": "Lancez ces commandes dans un terminal : elles vous demandent chaque clé, sans l'afficher ni la garder dans l'historique, puis l'enregistrent dans le trousseau GNOME de votre session, qui s'ouvre à votre connexion.",
-    "copierCommandes": "Copier les commandes",
-    "commandesCopiees": "Commandes copiées",
     "lanceursExplication": "Lancez cette commande : elle installe un lanceur par clé dans le dossier <code>~/.local/bin</code>. À chaque lancement, le lanceur lit la clé dans le trousseau et ouvre Claude Code sur la passerelle LINAGORA, avec le modèle par défaut de la clé.",
     "copierLanceurs": "Copier la commande des lanceurs",
     "lanceursCopies": "Commande copiée",
     "verification": "Vérifiez ensuite que chaque lanceur répond : la commande doit afficher OK.",
     "chemin": "Le lanceur est introuvable ? Fermez votre session Ubuntu et rouvrez-la : le dossier <code>~/.local/bin</code>, s'il vient d'être créé, n'entre dans le chemin des commandes qu'à l'ouverture de session.",
-    "copierCommande": "Copier la commande",
-    "commandeCopiee": "Commande copiée",
-    "invite": "Clé LINAGORA {alias} ({niveau}, {equipe}) : ",
     "libelle": "Clé LINAGORA {alias} ({niveau}, {equipe})",
     "script": {
       "enTete": "Claude Code sur la passerelle LINAGORA, clé {alias} ({details})",
@@ -1276,28 +1265,17 @@
       "question": "Réponds uniquement par le mot OK"
     },
     "endroits": {
-      "terminal": "Terminal",
-      "navigateur": "Navigateur",
       "assistant": "Claude Code"
     },
     "etapeInstaller": {
       "titre": "Installer Claude Code",
-      "terminal": "Le terminal est la fenêtre où l'on tape des commandes. Pour l'ouvrir : <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>T</kbd>.",
-      "coller": "Pour lancer une commande de cette page : copiez-la, collez-la dans le terminal avec <kbd>Ctrl</kbd> + <kbd>Maj</kbd> + <kbd>V</kbd>, puis appuyez sur <kbd>Entrée</kbd>.",
       "installer": "Installez Claude Code avec son script officiel, puis fermez le terminal et ouvrez-en un nouveau :",
       "verifier": "Vérifiez la version installée : elle doit afficher <code>2.1.x</code> ou une version plus récente.",
       "mettreAJour": "Plus tard, pour mettre Claude Code à jour :",
       "secretTool": "Installez aussi <code>secret-tool</code>, qui enregistre vos clés dans le trousseau de votre session et les y relit :"
     },
     "etapeCles": {
-      "titre": "Choisir vos clés",
       "rappel": "Le code du projet ouvert dans Claude Code est envoyé au modèle : choisissez une clé dont le niveau de confidentialité couvre la classification de votre dépôt.",
-      "niveau": "{niveau} : {description}",
-      "niveaux": {
-        "N1": "code open source, ou diffusé à tous les collaborateurs",
-        "N2": "dépôt à diffusion restreinte",
-        "N3": "code secret ou code d'un client"
-      },
       "parDefaut": "Pour chaque clé choisie, choisissez son modèle par défaut : son lanceur le donne à Claude Code pour la conversation, les tâches de fond et les sous-agents."
     },
     "etapeCommandes": {
@@ -1314,9 +1292,7 @@
       "compte": "Pas besoin de compte Anthropic : le lanceur fait passer Claude Code par la passerelle LINAGORA, avec votre clé."
     },
     "sansCle": {
-      "intro": "Pour configurer Claude Code, il vous faut une clé émise avec au moins un modèle de conversation. Pour en obtenir une :",
-      "recommandes": "Modèles recommandés pour le code",
-      "aucunRecommande": "Aucun modèle n'est encore recommandé pour le code."
+      "intro": "Pour configurer Claude Code, il vous faut une clé émise avec au moins un modèle de conversation. Pour en obtenir une :"
     }
   },
   "courriels": {

@@ -27,9 +27,10 @@ const NB = "\u00a0";
 function textesDe(langue: Langue): TextesClaudeCode {
   const messages = langue === "fr" ? typographieFrancaise(fr) : en;
   const t = createTranslator({ locale: langue, messages, namespace: "claudeCode" });
+  const commun = createTranslator({ locale: langue, messages, namespace: "assistants" });
   return {
     niveaux: messages.domaine.niveaux,
-    invite: (cle) => t("invite", cle),
+    invite: (cle) => commun("invite", cle),
     libelle: (cle) => t("libelle", cle),
     enTete: (cle) => t("script.enTete", cle),
     priorite: t("script.priorite"),
