@@ -71,7 +71,7 @@ controle("les modèles OpenRouter déclarés sont exactement ceux de la liste bl
 for nom, m in sorted(openrouter.items()):
     p = (m.get("litellm_params") or {}).get("provider") or {}
     zone = cfg["zones"].get((liste.get(nom) or {}).get("zone"), [])
-    controle(f"{nom} : servi uniquement dans sa zone, sans repli", bool(p.get("only")) and set(p["only"]) <= set(zone) and p.get("allow_fallbacks") is False, json.dumps(p))
+    controle(f"{nom} : servi uniquement dans sa zone, repli entre ses points d'accès", bool(p.get("only")) and set(p["only"]) <= set(zone) and p.get("allow_fallbacks") is True, json.dumps(p))
 
 # 1 bis. Faits techniques déclarés pour le catalogue du portail : éditeur, capacités, hébergeurs, zone
 CAPACITES = {"images", "generation_images", "audio_video", "raisonnement"}
