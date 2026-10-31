@@ -1,4 +1,5 @@
 import type { ApiKind } from "@/lib/litellm/client";
+import { entreApostrophes } from "@/lib/shell";
 
 /** Adresse publique de l'API (plan d'adresses de la passerelle), sauf configuration contraire. */
 const ADRESSE_PAR_DEFAUT = "https://ai-api.linagora.com/v1";
@@ -56,7 +57,7 @@ export function exemplesAppel(modelName: string, apiKind: ApiKind, textes: Texte
       `curl ${adresse}/chat/completions \\`,
       `  -H "Authorization: Bearer $LINAGORA_API_KEY" \\`,
       `  -H "Content-Type: application/json" \\`,
-      `  -d '${corps.replaceAll("'", "'\\''")}'`,
+      `  -d ${entreApostrophes(corps)}`,
     ].join("\n"),
     python: [
       "import os",
@@ -95,7 +96,7 @@ function exemplesImage(modelName: string, description: string): Record<Langage, 
       `curl ${adresse}/chat/completions \\`,
       `  -H "Authorization: Bearer $LINAGORA_API_KEY" \\`,
       `  -H "Content-Type: application/json" \\`,
-      `  -d '${corps.replaceAll("'", "'\\''")}' \\`,
+      `  -d ${entreApostrophes(corps)} \\`,
       "  | jq -r '.choices[0].message.images[0].image_url.url' \\",
       "  | cut -d, -f2 | base64 --decode > image.png",
     ].join("\n"),
@@ -143,7 +144,7 @@ function exemplesEmbeddings(modelName: string, aVectoriser: readonly [string, st
       `curl ${adresse}/embeddings \\`,
       `  -H "Authorization: Bearer $LINAGORA_API_KEY" \\`,
       `  -H "Content-Type: application/json" \\`,
-      `  -d '${corps.replaceAll("'", "'\\''")}' \\`,
+      `  -d ${entreApostrophes(corps)} \\`,
       "  | jq '[.data[].embedding | length]'",
     ].join("\n"),
     python: [

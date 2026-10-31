@@ -2,10 +2,10 @@ import type { SessionUser } from "@/lib/auth-user";
 import type { Langue } from "@/lib/langue";
 import type { LiteLLMModel } from "@/lib/litellm/client";
 import type { DataLevel } from "@/lib/policy";
+import { entreApostrophes } from "@/lib/shell";
 import {
   type CleEcartee,
   type ClePreparee,
-  entreApostrophes,
   type IdentiteCle,
   identite,
   type ModelePropose,

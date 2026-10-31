@@ -1,10 +1,10 @@
 import type { SessionUser } from "@/lib/auth-user";
 import type { Langue } from "@/lib/langue";
 import type { DataLevel } from "@/lib/policy";
+import { entreApostrophes } from "@/lib/shell";
 import {
   type CleEcartee,
   type ClePreparee,
-  entreApostrophes,
   type IdentiteCle,
   identite,
   type ModelePropose,
