@@ -13,7 +13,7 @@ a budget per key, and data confidentiality rules enforced model by model.**
 [![PostgreSQL](https://img.shields.io/badge/database-PostgreSQL-336791.svg?logo=postgresql&logoColor=white)](https://www.postgresql.org)
 [![Languages: English, French](https://img.shields.io/badge/languages-English%20%7C%20French-c8102e.svg)](#features)
 
-[Features](#features) · [Screenshots](#screenshots) · [Architecture](#architecture) · [Getting started](#getting-started) · [Integration API](#integration-api) · [Contributing](#contributing)
+[Features](#features) · [Screenshots](#screenshots) · [Architecture](#architecture) · [Getting started](#getting-started) · [Integration API](#integration-api) · [Contributing](#contributing) · [Changelog](CHANGELOG.md)
 
 </div>
 

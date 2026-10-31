@@ -127,6 +127,8 @@ docs(runbook): Décrire la mise à jour de LiteLLM
 - One concern per pull request, with a short lowercase title (under 70 characters).
 - The description is a short summary, in bullets, of what the pull request changes; link the issue it
   resolves (`Closes #123`).
+- A change that employees, administrators or operators would notice adds a line to
+  [CHANGELOG.md](CHANGELOG.md), under the current month.
 - The maintainers review the pull request, merge it into `main`, and deploy from `main`.
 
 ## License
