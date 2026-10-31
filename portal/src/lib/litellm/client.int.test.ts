@@ -68,6 +68,7 @@ describe("modèles", () => {
       outputContents: null,
       dimensions: null,
       webSearchPerRequest: false,
+      toolCalling: true,
     });
   });
 
@@ -143,6 +144,21 @@ describe("modèles", () => {
     const models = await client.listModels();
     expect(models.find((m) => m.modelName === recherche)?.webSearchPerRequest).toBe(true);
     expect(models.find((m) => m.modelName === sansRecherche)?.webSearchPerRequest).toBe(false);
+  });
+
+  test("un modèle déclaré sans appel d'outils l'expose ; sans déclaration, un modèle prend des outils (ticket #178)", async () => {
+    const [sansOutils, avecOutils] = [uniqueId("moderation"), uniqueId("modele")];
+    for (const [modelName, declaration] of [[sansOutils, { appel_outils: false }], [avecOutils, {}]] as const) {
+      const created = await admin<{ model_info: { id: string } }>("POST", "/model/new", {
+        model_name: modelName,
+        litellm_params: { model: "openai/nvidia/nemotron-3.5-content-safety", api_key: "sk-factice", mock_response: "OK", input_cost_per_token: 0.0000001, output_cost_per_token: 0.0000001 },
+        model_info: { data_level: "N1", pricing_currency: "EUR", ...declaration },
+      });
+      createdModels.push(created.model_info.id);
+    }
+    const models = await client.listModels();
+    expect(models.find((m) => m.modelName === sansOutils)?.toolCalling).toBe(false);
+    expect(models.find((m) => m.modelName === avecOutils)?.toolCalling).toBe(true);
   });
 
   test("un modèle d'embeddings l'expose, avec la taille de ses vecteurs ; sans taille déclarée, ses dimensions sont nulles (ticket #126)", async () => {

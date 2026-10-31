@@ -303,12 +303,18 @@ describe("configuration de Claude Code", () => {
     expect(resultat.verification).toBe("claude-linagora-n2-r-d-compte-rendu-hebdo -p 'Reply with the word OK only'");
   });
 
-  test("les modèles qui ne sont pas de conversation, ou que la passerelle ne déclare plus, sont écartés, avec la raison", async () => {
-    litellm.withModel({ modelName: "flux-pro", apiKind: "image" }).withModel({ modelName: "bge-m3", apiKind: "embeddings", dimensions: 1024 }).withModel({ modelName: "ancien" });
+  test("les modèles qui ne sont pas de conversation, qui ne prennent pas d'outils, ou que la passerelle ne déclare plus, sont écartés, avec la raison", async () => {
+    litellm
+      .withModel({ modelName: "moderation", toolCalling: false })
+      .withModel({ modelName: "flux-pro", apiKind: "image" })
+      .withModel({ modelName: "bge-m3", apiKind: "embeddings", dimensions: 1024 })
+      .withModel({ modelName: "ancien" });
+    await fiche("moderation", "Modération", "N2");
     await fiche("flux-pro", "FLUX.2 [pro]", "N2");
     await fiche("bge-m3", "BGE-M3", "N2");
     await fiche("ancien", "Ancien modèle", "N2");
-    await cleEmise({ models: ["flux-pro", "mistral-small", "bge-m3", "ancien"] });
+    // Premier modèle de la clé, le modèle sans outils serait sinon le modèle par défaut.
+    await cleEmise({ models: ["moderation", "flux-pro", "mistral-small", "bge-m3", "ancien"] });
     litellm.models = litellm.models.filter((m) => m.modelName !== "ancien");
 
     const resultat = await configurationClaudeCode(deps, titulaire, OPTIONS);
@@ -317,6 +323,7 @@ describe("configuration de Claude Code", () => {
       expect.objectContaining({
         modeles: [{ modelName: "mistral-small", displayName: "Mistral Small", reference: "linagora-n2-r-d-compte-rendu-hebdo/mistral-small" }],
         modelesEcartes: [
+          { modelName: "moderation", raison: "sans_outils" },
           { modelName: "flux-pro", raison: "image" },
           { modelName: "bge-m3", raison: "embeddings" },
           { modelName: "ancien", raison: "non_declare" },
@@ -326,7 +333,7 @@ describe("configuration de Claude Code", () => {
     ]);
     const lanceur = lanceurDe(resultat.lanceurs, "linagora-n2-r-d-compte-rendu-hebdo");
     expect(lanceur).toContain("export ANTHROPIC_MODEL='mistral-small'\n");
-    expect(lanceur).not.toMatch(/flux-pro|bge-m3|ancien/);
+    expect(lanceur).not.toMatch(/moderation|flux-pro|bge-m3|ancien/);
   });
 
   test("une clé bloquée, ou sans aucun modèle de conversation, n'a pas de lanceur, avec la raison", async () => {

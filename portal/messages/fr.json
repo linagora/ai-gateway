@@ -1157,13 +1157,14 @@
       "image": "modèle d'images",
       "decision": "API de décision",
       "embeddings": "modèle d'embeddings",
+      "sans_outils": "sans appel d'outils",
       "non_declare": "la passerelle ne le déclare plus"
     },
     "modeleParDefaut": "Modèle par défaut",
     "clesNonProposees": "Clés non proposées",
     "raisonsCle": {
       "bloquee": "clé bloquée",
-      "sans_modele": "aucun modèle de conversation"
+      "sans_modele": "aucun modèle de conversation avec appel d'outils"
     },
     "copierCommandes": "Copier les commandes",
     "commandesCopiees": "Commandes copiées",

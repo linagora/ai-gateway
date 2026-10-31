@@ -8,16 +8,19 @@ import { type IssuedKey, type KeyDeps, listMyKeys, slug } from "./keys";
 
 /*
  * Préparation des clés émises d'un collaborateur pour un assistant de code (OpenCode, Claude Code) : chaque clé reçoit un
- * identifiant stable, ses modèles de conversation sont retenus et les autres écartés avec la raison. Les deux pages en
- * tirent les clés qu'elles proposent, choisies ou non, et les désignent de la même façon dans leurs textes. La clé
- * elle-même n'y figure jamais.
+ * identifiant stable, ses modèles de conversation qui prennent des outils sont retenus (les assistants en envoient à
+ * chaque requête) et les autres écartés avec la raison (ticket #178). Les deux pages en tirent les clés qu'elles
+ * proposent, choisies ou non, et les désignent de la même façon dans leurs textes. La clé elle-même n'y figure jamais.
  */
 
 /** Ce qui désigne une clé émise sur la page : sa demande, son alias, son équipe, son niveau et son projet. */
 export type IdentiteCle = Pick<IssuedKey, "requestId" | "alias" | "teamAlias" | "dataLevel" | "project">;
 
-/** Raison pour laquelle un modèle d'une clé n'entre pas dans la configuration : son type d'API, ou il n'est plus déclaré. */
-export type RaisonModeleEcarte = Exclude<ApiKind, "conversation"> | "non_declare";
+/**
+ * Raison pour laquelle un modèle d'une clé n'entre pas dans la configuration : son type d'API, il ne prend pas d'outils,
+ * ou il n'est plus déclaré.
+ */
+export type RaisonModeleEcarte = Exclude<ApiKind, "conversation"> | "sans_outils" | "non_declare";
 
 /** Raison pour laquelle une clé émise n'est pas proposée. */
 export type RaisonCleEcartee = "bloquee" | "sans_modele";
@@ -155,13 +158,14 @@ function nomsDesEntrees(cles: IssuedKey[]): string[] {
   });
 }
 
-/** Modèles de conversation retenus d'une clé, et ses autres modèles écartés avec la raison. */
+/** Modèles de conversation retenus d'une clé, s'ils prennent des outils, et ses autres modèles écartés avec la raison. */
 function preparer(cle: IssuedKey, entree: string, modeles: LiteLLMModel[], noms: Map<string, string>): ClePreparee {
   const preparee: ClePreparee = { ...identite(cle), entree, modelesEcartes: [], retenus: [] };
   for (const nom of cle.models) {
     const faits = modeles.find((m) => m.modelName === nom);
     if (!faits) preparee.modelesEcartes.push({ modelName: nom, raison: "non_declare" });
     else if (faits.apiKind !== "conversation") preparee.modelesEcartes.push({ modelName: nom, raison: faits.apiKind });
+    else if (!faits.toolCalling) preparee.modelesEcartes.push({ modelName: nom, raison: "sans_outils" });
     else preparee.retenus.push({ modelName: nom, displayName: noms.get(nom) ?? nom, faits });
   }
   return preparee;
