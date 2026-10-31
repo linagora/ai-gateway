@@ -3,6 +3,10 @@
     "titre": "LINAGORA AI Gateway",
     "description": "Catalogue des modèles d'IA et demandes de clés d'API"
   },
+  "pied": {
+    "version": "AI Gateway {version}",
+    "notes": "notes de version"
+  },
   "entete": {
     "portail": "AI Gateway",
     "langue": "Langue",
