@@ -40,6 +40,8 @@ Notable changes to LINAGORA AI Gateway, newest first. The gateway and its portal
   (#149).
 - Tokens read from the cache are charged at their declared price; they cost nothing before (#120).
 - A model without any available endpoint no longer stops the allowlist synchronization (#109).
+- Claude Code launcher: no context size guessed for a default model that declares none, a `/model` example that
+  names another model of the key, and no promise that only the gateway is called (#175).
 
 ### Development
 
