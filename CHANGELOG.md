@@ -36,6 +36,8 @@ Notable changes to LINAGORA AI Gateway, newest first. The gateway and its portal
 
 ### Fixed
 
+- The header fits on one line at 1280 px again: the name, the language choice and signing out move into an
+  account menu (#182).
 - Budget increases: amounts are rounded to the cent and written in the portal's currency format everywhere; the
   approval page and the archive show the amount granted, and the team budget warning follows the amount the
   approver enters (#176).
