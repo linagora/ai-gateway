@@ -187,13 +187,17 @@ Critères d'acceptation 1, 2, 3, 7, 9 du PRD §9, par les URL publiques. Mettre 
 
 ## Phase 9 — Déploiement du portail (après développement, cf. PORTAL-BRIEF)
 
+**Version déployée** : toujours une version publiée (tag `vX.Y.Z`, voir « Releases » dans `CONTRIBUTING.md`), synchronisée depuis une copie du dépôt à ce tag, jamais depuis une copie de travail ; `infra/` aussi, quand la version le modifie. `docs/INSTALL-LOG.md` donne la version de chaque mise en production.
+
 ```bash
+git fetch --tags origin && git worktree add --detach ../ai-gateway-vX.Y.Z vX.Y.Z && cd ../ai-gateway-vX.Y.Z
 rsync -av --delete --exclude node_modules --exclude .next --exclude '.env*' portal/ ia-host:/opt/linagora-ia/portal/
 ssh ia-host 'cd /opt/linagora-ia && docker compose --profile portal build portal portal-migrate && \
   docker compose --profile portal run --rm portal-migrate && \
   docker compose --profile portal up -d portal'
+cd - && git worktree remove ../ai-gateway-vX.Y.Z
 ```
-**Contrôle** : critères 4, 5, 6, 8 du PRD §9, puis contrôles du point de contrôle (phase 6), qui devient actif avec le portail.
+**Contrôle** : critères 4, 5, 6, 8 du PRD §9, puis contrôles du point de contrôle (phase 6), qui devient actif avec le portail. Le pied de page du portail, pour une personne connectée, donne la version déployée.
 
 **Courriels** (spécification #14) : le portail envoie ses notifications et ses rappels, bilingues, par le serveur SMTP de `.env`. Sans `SMTP_HOST` ou sans `SMTP_FROM`, il n'envoie rien et tout le reste fonctionne ; un échec d'envoi est journalisé sans bloquer l'action.
 - 🧑 Valeurs à fournir : `SMTP_HOST`, `SMTP_PORT` (465 : TLS implicite ; 587 : STARTTLS), `SMTP_USER`, `SMTP_FROM` (ex. `Portail IA Linagora <portail-ia@linagora.com>`), `ADMIN_NOTIFICATION_EMAILS` (admins à notifier, séparés par des virgules). L'agent les renseigne avec `sed -i` sur le serveur.
