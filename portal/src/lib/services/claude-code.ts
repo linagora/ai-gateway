@@ -43,6 +43,39 @@ export interface TextesClaudeCode extends TextesDesCles {
   question: string;
 }
 
+/** Clés des textes de Claude Code dans l'espace de messages « claudeCode ». */
+type CleTexte =
+  | "libelle"
+  | "script.enTete"
+  | "script.priorite"
+  | "script.trafic"
+  | "script.adresse"
+  | "script.introuvable"
+  | "script.modeleUnique"
+  | "script.autresModeles"
+  | "script.contexte"
+  | "script.question";
+
+/**
+ * Textes des commandes et des lanceurs, lus par le traducteur de l'espace « claudeCode », avec les textes communs aux
+ * assistants : ceux de la page, que ses tests reprennent.
+ */
+export function textesClaudeCode(t: (cle: CleTexte, valeurs?: Record<string, string>) => string, communs: TextesDesCles): TextesClaudeCode {
+  return {
+    ...communs,
+    libelle: (cle) => t("libelle", cle),
+    enTete: (cle) => t("script.enTete", cle),
+    priorite: t("script.priorite"),
+    trafic: t("script.trafic"),
+    adresse: t("script.adresse"),
+    introuvable: t("script.introuvable"),
+    modeleUnique: t("script.modeleUnique"),
+    autresModeles: (liste) => t("script.autresModeles", { liste }),
+    contexte: t("script.contexte"),
+    question: t("script.question"),
+  };
+}
+
 /** Options de la page « Configurer Claude Code ». */
 export interface OptionsClaudeCode {
   langue: Langue;

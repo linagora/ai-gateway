@@ -1,6 +1,7 @@
 import { getLocale, getTranslations } from "next-intl/server";
 import { PortalError } from "@/lib/errors";
 import type { Langue } from "@/lib/langue";
+import { textesDesCles } from "@/lib/services/cles-assistants";
 import { type ConfigurationOpenCode, configurationOpenCode, MISES_A_JOUR, type MiseAJour } from "@/lib/services/opencode";
 import { getDeps, requireUser } from "@/lib/session";
 import { adresseApi } from "../../../exemples-appel";
@@ -39,7 +40,7 @@ export default async function ConfigurerOpenCodePage(props: PageProps<"/cles/ope
     resultat = await configurationOpenCode(getDeps(), user, {
       langue,
       adresseApi: adresseApi(),
-      textes: { niveaux, invite: (cle) => commun("invite", cle) },
+      textes: textesDesCles(commun, niveaux),
       requestIds: demandesChoisies(parametres),
       modeleParDefaut: typeof parametres.modele === "string" ? parametres.modele : null,
       miseAJour: miseAJour(parametres),

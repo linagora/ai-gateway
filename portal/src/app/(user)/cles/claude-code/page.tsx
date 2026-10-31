@@ -3,7 +3,8 @@ import { getLocale, getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
 import { PortalError } from "@/lib/errors";
 import type { Langue } from "@/lib/langue";
-import { type ConfigurationClaudeCode, configurationClaudeCode } from "@/lib/services/claude-code";
+import { type ConfigurationClaudeCode, configurationClaudeCode, textesClaudeCode } from "@/lib/services/claude-code";
+import { textesDesCles } from "@/lib/services/cles-assistants";
 import { getDeps, requireUser } from "@/lib/session";
 import { adresseApi } from "../../../exemples-appel";
 import { FiltrageAutomatique } from "../../../filtrage-automatique";
@@ -36,20 +37,7 @@ export default async function ConfigurerClaudeCodePage(props: PageProps<"/cles/c
     resultat = await configurationClaudeCode(getDeps(), user, {
       langue,
       adresseApi: adresseApi(),
-      textes: {
-        niveaux,
-        invite: (cle) => commun("invite", cle),
-        libelle: (cle) => t("libelle", cle),
-        enTete: (cle) => t("script.enTete", cle),
-        priorite: t("script.priorite"),
-        trafic: t("script.trafic"),
-        adresse: t("script.adresse"),
-        introuvable: t("script.introuvable"),
-        modeleUnique: t("script.modeleUnique"),
-        autresModeles: (liste) => t("script.autresModeles", { liste }),
-        contexte: t("script.contexte"),
-        question: t("script.question"),
-      },
+      textes: textesClaudeCode(t, textesDesCles(commun, niveaux)),
       requestIds: demandesChoisies(parametres),
       modelesParDefaut: [parametres.modele ?? []].flat(),
     });

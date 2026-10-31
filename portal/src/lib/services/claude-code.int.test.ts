@@ -12,7 +12,8 @@ import en from "../../../messages/en.json";
 import fr from "../../../messages/fr.json";
 import { approveKeyRequest } from "./admin-requests";
 import { saveCatalogEntry } from "./catalog";
-import { configurationClaudeCode, type OptionsClaudeCode, type TextesClaudeCode } from "./claude-code";
+import { configurationClaudeCode, type OptionsClaudeCode, type TextesClaudeCode, textesClaudeCode } from "./claude-code";
+import { textesDesCles } from "./cles-assistants";
 import { blockKey, pickUpKey } from "./keys";
 import { createKeyRequest, type KeyRequestInput } from "./requests";
 import { saveSettings } from "./settings";
@@ -28,20 +29,7 @@ function textesDe(langue: Langue): TextesClaudeCode {
   const messages = langue === "fr" ? typographieFrancaise(fr) : en;
   const t = createTranslator({ locale: langue, messages, namespace: "claudeCode" });
   const commun = createTranslator({ locale: langue, messages, namespace: "assistants" });
-  return {
-    niveaux: messages.domaine.niveaux,
-    invite: (cle) => commun("invite", cle),
-    libelle: (cle) => t("libelle", cle),
-    enTete: (cle) => t("script.enTete", cle),
-    priorite: t("script.priorite"),
-    trafic: t("script.trafic"),
-    adresse: t("script.adresse"),
-    introuvable: t("script.introuvable"),
-    modeleUnique: t("script.modeleUnique"),
-    autresModeles: (liste) => t("script.autresModeles", { liste }),
-    contexte: t("script.contexte"),
-    question: t("script.question"),
-  };
+  return textesClaudeCode(t, textesDesCles(commun, messages.domaine.niveaux));
 }
 
 /** Options de la page, en français, avec l'adresse publique de l'API de production. */

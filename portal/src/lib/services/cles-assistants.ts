@@ -132,6 +132,11 @@ export function designee(cle: IdentiteCle, niveaux: Record<DataLevel, string>): 
   return { alias: cle.alias, niveau: niveaux[cle.dataLevel], equipe: cle.teamAlias };
 }
 
+/** Textes communs aux assistants, lus par le traducteur de l'espace « assistants » ; `niveaux` : nom de chaque niveau. */
+export function textesDesCles(t: (cle: "invite", valeurs: CleDesignee) => string, niveaux: Record<DataLevel, string>): TextesDesCles {
+  return { niveaux, invite: (cle) => t("invite", cle) };
+}
+
 /** Modèles retenus d'une clé, tels que la page les propose. */
 function modelesProposes(cle: ClePreparee): ModelePropose[] {
   return cle.retenus.map(({ modelName, displayName }) => ({ modelName, displayName, reference: reference(cle, modelName) }));
