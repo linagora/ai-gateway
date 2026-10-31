@@ -9,12 +9,12 @@ import { parActeur, recordAudit } from "./audit";
 import { managerEmails, requireGestion } from "./autorite";
 import { hausseEnCours } from "./demandes-en-cours";
 import { notifyBudgetRaised, notifyNewBudgetRequest } from "./notifications";
-import { transitionRequest } from "./requests";
+import { budgetEnEurosSchema, transitionRequest } from "./requests";
 
 /** Demande de hausse du budget d'une clé émise : nouveau plafond, strictement au-dessus de l'actuel, et justification. */
 export const budgetRaiseInputSchema = z.object({
   keyRequestId: z.string().min(1),
-  requestedBudget: z.number().positive(),
+  requestedBudget: budgetEnEurosSchema,
   justification: z.string().trim().min(1),
 });
 
@@ -22,7 +22,7 @@ export type BudgetRaiseInput = z.infer<typeof budgetRaiseInputSchema>;
 
 const complementSchema = budgetRaiseInputSchema.omit({ keyRequestId: true });
 
-const approbationSchema = z.object({ budget: z.number().positive() });
+const approbationSchema = z.object({ budget: budgetEnEurosSchema });
 
 /**
  * Hausse du budget d'une clé émise : le titulaire demande un plafond plus haut pour sa clé encore émise et non expirée,

@@ -37,7 +37,7 @@ import {
 } from "./notifications";
 import { libelleOffre } from "./offers";
 import { reporterEcheance } from "./renouvellements";
-import { evaluateKeyRequest, transitionRequest } from "./requests";
+import { budgetEnEurosSchema, evaluateKeyRequest, transitionRequest } from "./requests";
 import { requestTerminationAfterRefusedRenewal } from "./resiliations";
 import { readSettings, type SettingValues } from "./settings";
 import { approversByTeam } from "./teams";
@@ -322,7 +322,7 @@ export const approvalInputSchema = z.object({
   /** Équipe de la clé : celle de la demande, sauf si l'admin en choisit une autre. */
   teamId: z.string().min(1).optional(),
   models: z.array(z.string().min(1)),
-  budget: z.number().positive().nullable(),
+  budget: budgetEnEurosSchema.nullable(),
   budgetDuration: z.string().regex(PERIODE_BUDGET).nullable(),
   /** Durée de validité en jours ; SANS_EXPIRATION (0) : la clé n'expire jamais. */
   days: z.number().int().nonnegative().nullable(),

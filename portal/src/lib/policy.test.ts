@@ -14,6 +14,7 @@ import {
   isAdmin,
   type KeyRequestDraft,
   modelAcceptsLevel,
+  montantAuCentime,
   pasEncoreDecidee,
   type RequestStatus,
   seuilJustificationBudget,
@@ -359,5 +360,17 @@ describe("seuil de justification du budget", () => {
 
   test("sans budget par défaut ni clé d'origine, tout montant saisi se justifie", () => {
     expect(seuilJustificationBudget(null, null)).toBe(0);
+  });
+});
+
+describe("montant au centime", () => {
+  test("un budget est arrondi au centime le plus proche, quelle que soit la saisie", () => {
+    expect(montantAuCentime(20.126)).toBe(20.13);
+    expect(montantAuCentime(20.123)).toBe(20.12);
+    expect(montantAuCentime(15.5)).toBe(15.5);
+  });
+
+  test("un montant de moins d'un demi-centime s'arrondit à zéro", () => {
+    expect(montantAuCentime(0.004)).toBe(0);
   });
 });

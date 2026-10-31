@@ -242,6 +242,15 @@ describe("budget demandé à la création", () => {
     expect((await getRequestReview(deps, admin, id)).budgetJustification).toBe("Traitement de 2 000 contrats");
   });
 
+  test("le budget demandé, puis approuvé, est arrondi au centime : un montant arrondi au budget par défaut ne se justifie pas", async () => {
+    const { id } = await createKeyRequest(deps, demandeur, { ...demande, requestedBudget: 20.004, budgetJustification: null });
+    expect((await getRequestReview(deps, admin, id)).requestedBudget).toBe(20);
+    await approveKeyRequest(deps, admin, id, { models: ["mistral-small"], budget: 15.555, budgetDuration: "30d", days: 60, rpmLimit: null, tpmLimit: null });
+    expect((await getRequestReview(deps, admin, id)).approved?.budget).toBe(15.56);
+    await pickUpKey(deps, demandeur, id);
+    expect([...litellm.keys.values()].map((k) => k.maxBudget)).toEqual([15.56]);
+  });
+
   test("au budget par défaut ou en dessous, aucune justification n'est demandée, et une justification saisie n'est pas gardée", async () => {
     const { id } = await createKeyRequest(deps, demandeur, { ...demande, requestedBudget: 20, budgetJustification: "inutile" });
     expect(await testDb.accessRequest.findUniqueOrThrow({ where: { id } })).toMatchObject({ requestedBudget: expect.anything(), budgetJustification: null });

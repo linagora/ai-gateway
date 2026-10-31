@@ -79,6 +79,11 @@ export interface PolicyVerdict {
   checks: PolicyCheck[];
 }
 
+/** Budget en euros arrondi au centime le plus proche : les budgets se comptent en centimes, quelle que soit la saisie. */
+export function montantAuCentime(montant: number): number {
+  return Math.round(montant * 100) / 100;
+}
+
 /** Budget au-delà duquel une demande doit justifier son montant : le plus élevé du budget par défaut et de celui de la clé d'origine. */
 export function seuilJustificationBudget(parDefaut: number | null, origine: number | null): number {
   return Math.max(parDefaut ?? 0, origine ?? 0);

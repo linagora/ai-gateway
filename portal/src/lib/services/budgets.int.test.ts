@@ -134,6 +134,17 @@ describe("hausse du budget d'une clé émise", () => {
     expect(litellm.keys.get(tokenId)?.maxBudget).toBe(15);
   });
 
+  test("le montant demandé, puis accordé, est arrondi au centime ; arrondi au plafond actuel, il ne le dépasse pas", async () => {
+    await expect(createBudgetRequest(deps, titulaire, { keyRequestId: cle, requestedBudget: 15.004, justification: "x" })).rejects.toMatchObject({ code: "budget_trop_bas" });
+    const { id } = await createBudgetRequest(deps, titulaire, { keyRequestId: cle, requestedBudget: 20.126, justification: "x" });
+    expect((await getRequestReview(deps, admin, id)).requestedBudget).toBe(20.13);
+    await expect(approveBudgetRequest(deps, admin, id, { budget: 0.004 })).rejects.toBeInstanceOf(ZodError);
+
+    await approveBudgetRequest(deps, admin, id, { budget: 25.554 });
+    expect(litellm.keys.get(tokenId)?.maxBudget).toBe(25.55);
+    expect(await plafondDeLaCle(cle)).toBe(25.55);
+  });
+
   test("une clé bloquée peut recevoir une hausse ; elle reste bloquée", async () => {
     await blockKey(deps, admin, cle);
     const { id } = await createBudgetRequest(deps, titulaire, { keyRequestId: cle, requestedBudget: 50, justification: "Lot de contrats" });

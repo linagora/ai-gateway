@@ -4,7 +4,19 @@ import type { Db } from "@/lib/db";
 import type { LiteLLMClient, LiteLLMTeamSummary } from "@/lib/litellm/client";
 import { PolicyViolationError, PortalError } from "@/lib/errors";
 import type { Prisma, RequestKind } from "@/generated/prisma/client";
-import { type CatalogModel, checkKeyRequest, checkTransition, DATA_LEVELS, type DataLevel, type KeyRequestDraft, pasEncoreDecidee, type PolicyVerdict, type RequestStatus, seuilJustificationBudget } from "@/lib/policy";
+import {
+  type CatalogModel,
+  checkKeyRequest,
+  checkTransition,
+  DATA_LEVELS,
+  type DataLevel,
+  type KeyRequestDraft,
+  montantAuCentime,
+  pasEncoreDecidee,
+  type PolicyVerdict,
+  type RequestStatus,
+  seuilJustificationBudget,
+} from "@/lib/policy";
 import { parActeur, recordAudit } from "./audit";
 import { aliasDesCleVisees, DEMANDES_EN_COURS, hausseEnCours, PAS_ENCORE_DECIDEES } from "./demandes-en-cours";
 import { markExpired } from "./echeances";
@@ -20,6 +32,9 @@ interface RequestDeps extends NotificationDeps {
   now?: () => Date;
 }
 
+/** Budget en euros, demandé ou accordé : arrondi au centime, puis strictement positif. */
+export const budgetEnEurosSchema = z.number().transform(montantAuCentime).pipe(z.number().positive());
+
 /** F-20 / F-21 : formulaire de demande de clé. */
 export const keyRequestInputSchema = z.object({
   teamId: z.string().min(1),
@@ -28,7 +43,7 @@ export const keyRequestInputSchema = z.object({
   justification: z.string().trim().min(1),
   project: z.string().trim().nullable(),
   /** Budget souhaité, en euros ; sans lui, un renouvellement reprend celui de la clé d'origine. */
-  requestedBudget: z.number().positive().nullable(),
+  requestedBudget: budgetEnEurosSchema.nullable(),
   /** Justification du budget, exigée au-delà du budget par défaut ou de celui de la clé d'origine. */
   budgetJustification: z.string().trim().nullish(),
   /** Durée souhaitée, en jours ; SANS_EXPIRATION (0) : la clé n'expire jamais. */
