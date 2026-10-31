@@ -128,8 +128,32 @@ docs(runbook): Décrire la mise à jour de LiteLLM
 - The description is a short summary, in bullets, of what the pull request changes; link the issue it
   resolves (`Closes #123`).
 - A change that employees, administrators or operators would notice adds a line to
-  [CHANGELOG.md](CHANGELOG.md), under the current month.
-- The maintainers review the pull request, merge it into `main`, and deploy from `main`.
+  [CHANGELOG.md](CHANGELOG.md), under `[Unreleased]`.
+- The maintainers review the pull request and merge it into `main`. Production runs published versions only:
+  see [Releases](#releases).
+
+## Releases
+
+Versions follow [Semantic Versioning](https://semver.org). The version of the portal, in
+[`portal/package.json`](portal/package.json), is the version of the whole project; the portal shows it in its
+footer.
+
+- **Major** (2.0.0): a change that breaks what others rely on, such as an endpoint of the gateway or of the
+  integration API removed or changed incompatibly, or an upgrade that needs manual work beyond the documented
+  deployment steps.
+- **Minor** (1.2.0): new features or changes that stay compatible. Models come and go with the catalog in minor
+  versions.
+- **Patch** (1.1.1): fixes only.
+
+Before each deployment, the maintainers publish a version:
+
+1. A pull request titled `publier la version X.Y.Z`, with a single commit `chore: Publier la version X.Y.Z`,
+   turns the `[Unreleased]` section of the changelog into `[X.Y.Z] - YYYY-MM-DD`, updates the comparison links
+   at the bottom, and sets the version in `portal/package.json` and `portal/package-lock.json`
+   (`npm version X.Y.Z --no-git-tag-version`, from `portal/`).
+2. Once it is merged, its merge commit is tagged `vX.Y.Z`, and a GitHub release takes the section of the
+   changelog as its notes: `gh release create vX.Y.Z --target <commit> --title vX.Y.Z --notes-file <notes>`.
+3. That tag is deployed, as described in the installation runbook (phase 9).
 
 ## License
 

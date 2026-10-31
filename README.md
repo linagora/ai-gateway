@@ -229,6 +229,9 @@ machine, phase by phase, each with its checks: host preparation, DNS, secrets ge
 version pinning and verification, core services, single sign-on, reporting and backups, acceptance, then the
 portal. [`infra/`](infra) holds the files deployed on the server.
 
+Production runs published versions only: each one is tagged `vX.Y.Z`, described in the
+[changelog](CHANGELOG.md) and listed on the [releases page](https://github.com/linagora/ai-gateway/releases).
+
 ## Using the gateway
 
 Once a key is picked up in the portal, any OpenAI-compatible client works. The model names are those of the
