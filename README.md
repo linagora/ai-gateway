@@ -13,7 +13,7 @@ a budget per key, and data confidentiality rules enforced model by model.**
 [![PostgreSQL](https://img.shields.io/badge/database-PostgreSQL-336791.svg?logo=postgresql&logoColor=white)](https://www.postgresql.org)
 [![Languages: English, French](https://img.shields.io/badge/languages-English%20%7C%20French-c8102e.svg)](#features)
 
-[Features](#features) · [Screenshots](#screenshots) · [Architecture](#architecture) · [Getting started](#getting-started) · [Integration API](#integration-api) · [Contributing](#contributing)
+[Features](#features) · [Screenshots](#screenshots) · [Architecture](#architecture) · [Getting started](#getting-started) · [Integration API](#integration-api) · [Contributing](#contributing) · [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -42,24 +42,27 @@ self-hosted on a single virtual machine with Docker Compose.
 - **Model catalog by confidentiality level.** N1 Public, N2 Internal, N3 Confidential and Experimental: for
   each level, what may and may not be entrusted to it, the hosting guarantees, and each model's execution
   region and price per million tokens.
-- **Key requests with a declared data level.** Team, level, models, reason, project and requested duration,
-  with an explicit commitment not to submit data above the declared level.
-- **Self-service keys.** Pick up an approved key, follow spend against budget and the expiry date, renew,
-  replace a lost key or revoke it, with ready-to-use examples in curl, Python and JavaScript.
+- **Key requests with a declared data level.** Team, level, models, reason, project, requested duration and
+  budget, with an explicit commitment not to submit data above the declared level. The budget is prefilled
+  with the default value; a higher budget must be justified.
+- **Self-service keys.** Pick up an approved key, follow spend against budget and the expiry date, ask for a
+  higher budget, renew, replace a lost key or revoke it, with ready-to-use examples in curl, Python and
+  JavaScript.
 - **Code assistants.** Set up OpenCode or Claude Code from your issued keys: the portal builds the OpenCode
   configuration, or one Claude Code launcher per key, with a step-by-step guide for Ubuntu. The key never goes
   through the portal: the commands ask for it in the terminal and keep it outside the configuration.
 - **Teams and subscriptions.** Ask to join a team; as an exception, request an individual subscription
   (ChatGPT, Claude, Kimi…), granted after an enhanced review, with reimbursement of declared charges.
-- **Service status.** The current state of each catalog model (operational, degraded, incident), checked
-  regularly by the gateway, so that employees know an incident is already being handled.
+- **Service status.** The current state of each catalog model (operational, degraded, incident, not
+  monitored), checked regularly by the gateway, so that employees know an incident is already being handled.
 - **Bilingual.** The portal and its email notifications are available in English and French.
 
 ### For administrators and team managers
 
 - **Approval workflow.** A review queue, the policy checks of each request, the budget, budget period and
-  validity of the key; ask the requester for more information, approve or refuse. Team managers approve
-  their team's requests, never their own.
+  validity of the key; ask the requester for more information, approve or refuse. Requests for a higher
+  budget on an issued key go through the same queue. Team managers approve their team's requests, never
+  their own.
 - **Administration.** Keys, subscriptions, teams and managers, employees, the catalog (display names and
   descriptions in both languages, maximum level, visibility), default key values, and the accounting export
   of subscription charges.
@@ -70,14 +73,18 @@ self-hosted on a single virtual machine with Docker Compose.
 - **Daily task.** Expiry reminders and expirations, run by the server's cron.
 - **Model monitoring.** Every model visible in the catalog is probed through the same route as employees, every
   10 minutes by default (`SUPERVISION_INTERVAL_MINUTES`); administrators get an email after two consecutive failures and another on recovery, and a
-  **Supervision** tab shows the state of each model. New models are picked up automatically.
+  **Supervision** tab shows the state of each model. New models are picked up automatically. Image models and
+  models that search the web on every request are not probed, since each probe would be billed.
 
 ### Gateway
 
-- **One endpoint.** `https://ai-api.linagora.com/v1`, compatible with any OpenAI SDK; models are declared in
-  the database and priced in euros.
+- **One endpoint.** `https://ai-api.linagora.com/v1`, compatible with any OpenAI SDK, and with the Anthropic
+  Messages API (`/v1/messages`) used by Claude Code; models are declared in the database and priced in euros.
+- **Spend in euros.** Every request is charged to its key at the model's declared euro price, streamed or not,
+  including tokens read from the cache and, for search models, the web search billed with each request.
 - **Model allowlist.** OpenRouter models are allowlisted one by one, each routed only to the providers of its
-  execution zone, without fallback; confidential data goes to models hosted in France on OVHcloud AI
+  execution zone, without fallback; models served outside the EU only go to providers that do not collect the
+  data, under a price cap where needed. Confidential data goes to models hosted in France on OVHcloud AI
   Endpoints.
 - **Guard hook.** Requests may not switch model or provider through their parameters (fallbacks, provider
   preferences, plugins, presets), nor use the image and video APIs whose cost would escape key budgets.
@@ -89,8 +96,9 @@ self-hosted on a single virtual machine with Docker Compose.
 
 - **Requests from other applications.** Applications declared by the administrators, such as a team
   management tool, act for one employee at a time: they read the employee's teams, the catalog, their
-  requests and keys, and submit key or team access requests. Requests are still approved in the portal, with
-  the same rules, emails and audit trail.
+  requests and keys, submit key or team access requests, pick up an approved key, replace or revoke a key and
+  prepare its renewal. Requests are still approved in the portal, with the same rules, emails and audit
+  trail.
 - **Defense in depth.** Short-lived JWTs signed by the integration (EdDSA with Ed25519, or RS256), scopes,
   IP allowlist, rate limit and an on/off switch per integration.
 - **Documented contract.** OpenAPI 3.1 contract, Swagger UI in the portal and an integration guide in
@@ -271,8 +279,12 @@ Run from `portal/`. Integration and end-to-end tests need the development enviro
 | `npm test` | Unit tests: business rules, OpenID claims, integration tokens, address allowlists, rate limit, API contract |
 | `npm run test:int` | Integration tests: services against the `portal_test` database, contract with the development LiteLLM |
 | `npm run test:e2e` | End-to-end journeys in a browser (Playwright), emails checked in Mailpit |
+| `npm run test:coverage` | Unit and integration tests with code coverage; the run fails below the thresholds of `vitest.config.ts` |
 | `npm run lint` | ESLint |
 | `npm run captures` | Screenshots of this README |
+
+On GitHub Actions, every pull request and every push to `main` runs lint, types and unit tests, the integration
+tests with coverage, and the end-to-end journeys against a production build of the portal (`next start`).
 
 ## Repository layout
 
@@ -281,11 +293,11 @@ Run from `portal/`. Integration and end-to-end tests need the development enviro
 | [`infra/`](infra) | Files deployed on the server: Docker Compose, Caddy, LiteLLM configuration and hooks, PostgreSQL initialization and reporting views, Superset, operation scripts (bootstrap, secrets, backups and restore tests, model synchronization, smoke tests) |
 | [`portal/`](portal) | The portal: Next.js application, Prisma schema and migrations, tests, development environment |
 | [`docs/`](docs) | Installation runbook, pointer to the integration guide, screenshots |
+| [`.github/`](.github) | Continuous integration workflow (GitHub Actions) |
 
 ## Roadmap
 
 - Traces of the gateway's calls with [Langfuse](https://langfuse.com), under `/traces/`.
-- Key operations in the integration API: pick up, replace and revoke a key, prepare its renewal.
 
 ## Contributing
 
