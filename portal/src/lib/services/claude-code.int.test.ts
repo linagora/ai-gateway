@@ -252,19 +252,26 @@ describe("configuration de Claude Code", () => {
     expect(hebdo).toContain("export ANTHROPIC_MODEL='mistral-small'\n");
   });
 
-  test("la fenêtre de contexte est la plus petite des contextes déclarés des modèles de la clé, que /model peut choisir en cours de session", async () => {
+  test("la fenêtre de contexte est la plus petite des contextes déclarés des modèles de la clé, que /model peut choisir en cours de session ; un modèle par défaut sans contexte déclaré n'en reçoit pas", async () => {
     litellm.withModel({ modelName: "devstral", maxInputTokens: 262144 }).withModel({ modelName: "qwen3.8", maxInputTokens: null }).withModel({ modelName: "glm", maxInputTokens: 200000 });
     await fiche("devstral", "Devstral", "N2");
     await fiche("qwen3.8", "Qwen 3.8", "N2");
     await fiche("glm", "GLM", "N2");
     await cleEmise({ models: ["qwen3.8", "devstral", "glm"] });
+    const lanceurAvec = async (modele: string) => {
+      const { lanceurs } = await configurationClaudeCode(deps, titulaire, { ...OPTIONS, modelesParDefaut: [`linagora-n2-r-d-compte-rendu-hebdo/${modele}`] });
+      return lanceurDe(lanceurs, "linagora-n2-r-d-compte-rendu-hebdo");
+    };
 
-    const { lanceurs } = await configurationClaudeCode(deps, titulaire, OPTIONS);
-
-    // Le modèle par défaut, Qwen, ne déclare pas de contexte : la variable vient des autres modèles de la clé.
-    const lanceur = lanceurDe(lanceurs, "linagora-n2-r-d-compte-rendu-hebdo");
-    expect(lanceur).toContain("export ANTHROPIC_MODEL='qwen3.8'\n");
-    expect(lanceur).toContain("export CLAUDE_CODE_MAX_CONTEXT_TOKENS=200000\n");
+    // Devstral par défaut : le plus petit des contextes déclarés, celui de GLM ; Qwen n'en déclare pas.
+    const devstral = await lanceurAvec("devstral");
+    expect(devstral).toContain("export ANTHROPIC_MODEL='devstral'\n");
+    expect(devstral).toContain("export CLAUDE_CODE_MAX_CONTEXT_TOKENS=200000\n");
+    // Qwen par défaut : pas de contexte deviné d'après les autres modèles de la clé.
+    const qwen = await lanceurAvec("qwen3.8");
+    expect(qwen).toContain("export ANTHROPIC_MODEL='qwen3.8'\n");
+    expect(qwen).not.toContain("CLAUDE_CODE_MAX_CONTEXT_TOKENS");
+    syntaxeValide(qwen);
   });
 
   test("depuis une clé, seule cette clé a un lanceur ; sans choix, toutes les clés proposées en ont un ; sans clé choisie, rien n'est produit", async () => {

@@ -196,10 +196,11 @@ function valeur(texte: string): string {
  * fond et les sous-agents ; une clé absente ou vide du trousseau arrête le lanceur. Claude Code ne connaît pas les modèles
  * de la passerelle : la fenêtre de contexte lui est donnée, sans quoi il en supposerait une de 200 000 jetons. C'est le
  * plus petit des contextes déclarés des modèles de la clé, puisque /model change de modèle en cours de session sans que
- * la variable suive.
+ * la variable suive. Un modèle par défaut sans contexte déclaré n'en reçoit pas, plutôt qu'un contexte deviné d'après
+ * les autres modèles, comme pour OpenCode.
  */
 function scriptDuLanceur(cle: CleAvecModele, { adresseApi, textes }: OptionsClaudeCode): string {
-  const { modelName } = cle.modeleParDefaut;
+  const { modelName, faits } = cle.modeleParDefaut;
   const details = [textes.niveaux[cle.dataLevel], cle.teamAlias, ...(cle.project ? [cle.project] : [])].join(", ");
   const autres = cle.retenus.filter((m) => m.modelName !== modelName).map((m) => m.modelName);
   const contextes = cle.retenus.flatMap((m) => (m.faits.maxInputTokens === null ? [] : [m.faits.maxInputTokens]));
@@ -217,7 +218,7 @@ function scriptDuLanceur(cle: CleAvecModele, { adresseApi, textes }: OptionsClau
     "export ANTHROPIC_AUTH_TOKEN",
     commentaire(autres.length === 0 ? textes.modeleUnique : textes.autresModeles(autres.join(", "))),
     ...VARIABLES_DU_MODELE.map((variable) => `export ${variable}=${valeur(modelName)}`),
-    ...(contextes.length === 0 ? [] : [commentaire(textes.contexte), `export CLAUDE_CODE_MAX_CONTEXT_TOKENS=${Math.min(...contextes)}`]),
+    ...(faits.maxInputTokens === null ? [] : [commentaire(textes.contexte), `export CLAUDE_CODE_MAX_CONTEXT_TOKENS=${Math.min(...contextes)}`]),
     'exec claude "$@"',
   ].join("\n");
 }
