@@ -5,7 +5,7 @@ import { vueDemandes } from "@/lib/integrations/vues";
 import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
 import { FakeMailer } from "@/test/fake-mailer";
-import { approveKeyRequest, getRequestReview, listPendingRequests, refuseRequest, requestCompletion } from "./admin-requests";
+import { approveKeyRequest, getRequestReview, listPendingRequests, listProcessedRequests, refuseRequest, requestCompletion } from "./admin-requests";
 import { listAudit } from "./audit";
 import { approveBudgetRequest, completeBudgetRequest, createBudgetRequest } from "./budgets";
 import { saveCatalogEntry } from "./catalog";
@@ -143,6 +143,15 @@ describe("hausse du budget d'une clé émise", () => {
     await approveBudgetRequest(deps, admin, id, { budget: 25.554 });
     expect(litellm.keys.get(tokenId)?.maxBudget).toBe(25.55);
     expect(await plafondDeLaCle(cle)).toBe(25.55);
+  });
+
+  test("approuvée à un autre montant que celui demandé, la hausse montre le montant accordé sur sa fiche et dans l'archive", async () => {
+    const { id } = await createBudgetRequest(deps, titulaire, { keyRequestId: cle, requestedBudget: 50, justification: "x" });
+    expect((await getRequestReview(deps, admin, id)).grantedBudget).toBeNull();
+
+    await approveBudgetRequest(deps, admin, id, { budget: 40 });
+    expect(await getRequestReview(deps, admin, id)).toMatchObject({ requestedBudget: 50, grantedBudget: 40 });
+    expect((await listProcessedRequests(deps, admin)).elements.find((r) => r.id === id)).toMatchObject({ grantedBudget: 40 });
   });
 
   test("une clé bloquée peut recevoir une hausse ; elle reste bloquée", async () => {

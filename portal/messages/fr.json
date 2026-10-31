@@ -687,6 +687,7 @@
       "archive": {
         "titre": "Archive : demandes traitées",
         "aucune": "Aucune demande traitée pour l'instant.",
+        "montantAccorde": "Montant accordé : {montant}",
         "colonnes": {
           "date": "Dernière mise à jour",
           "statut": "Statut",
@@ -751,6 +752,7 @@
         "depense": "Dépense de la période",
         "remiseAZero": "Remise à zéro",
         "montantDemande": "Montant demandé",
+        "montantAccorde": "Montant accordé",
         "budgetEquipe": "Budget de l'équipe",
         "depasseEquipe": "Le montant demandé dépasse le budget de l'équipe ({budget}).",
         "inactive": "Cette clé n'est plus active.",

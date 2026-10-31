@@ -12,7 +12,7 @@ import { LienCollaborateur } from "../lien-collaborateur";
  */
 export default async function PendingRequestsPage(props: PageProps<"/gestion/demandes">) {
   const admin = await requireGestionPage();
-  const [{ date }, t, domaine, searchParams] = await Promise.all([formats(), getTranslations("gestion.file"), getTranslations("domaine"), props.searchParams]);
+  const [{ date, euros }, t, domaine, searchParams] = await Promise.all([formats(), getTranslations("gestion.file"), getTranslations("domaine"), props.searchParams]);
   const [file, archive] = await Promise.all([listPendingRequests(getDeps(), admin), listProcessedRequests(getDeps(), admin, Number(searchParams.page) || 1)]);
   // Spécification #93 : un admin approuve, et peut décider sans attendre l'accord d'un responsable ; un responsable
   // traite les demandes de ses équipes et suit, en lecture seule, celles qui ont reçu l'accord.
@@ -63,7 +63,10 @@ export default async function PendingRequestsPage(props: PageProps<"/gestion/dem
                   <td>{r.teamAlias}</td>
                   <td>{r.dataLevel ? domaine(`niveaux.${r.dataLevel}`) : ""}</td>
                   <td>{domaine(`statuts.${r.status}`)}</td>
-                  <td>{r.decidedBy ? [r.decidedBy, r.decisionComment].filter(Boolean).join(" : ") : ""}</td>
+                  <td>
+                    {r.decidedBy ? [r.decidedBy, r.decisionComment].filter(Boolean).join(" : ") : ""}
+                    {r.grantedBudget !== null && <div>{t("archive.montantAccorde", { montant: euros(r.grantedBudget) })}</div>}
+                  </td>
                   <td>
                     <Link href={`/gestion/demandes/${r.id}`}>{t("archive.voir")}</Link>
                   </td>

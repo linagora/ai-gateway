@@ -158,6 +158,12 @@ test("budget épuisé, hausse demandée et approuvée : la même clé refonction
   await admin.getByRole("button", { name: "Relever le budget" }).click();
   await expect(admin.getByRole("status")).toHaveText("Budget relevé.");
   await expect(ligneDeLaFile(admin, "À approuver", salarie)).toHaveCount(0);
+  // Approuvée, la hausse montre le montant accordé dans l'archive, et sur sa fiche à côté du montant demandé.
+  const archivee = ligneDeLaFile(admin, "Archive : demandes traitées", salarie).filter({ hasText: "Hausse de budget" });
+  await expect(archivee).toContainText("Montant accordé : 15,50 €");
+  await archivee.getByRole("link", { name: "Voir" }).click();
+  await expect(valeur("Montant demandé")).toHaveText("20,50 €");
+  await expect(valeur("Montant accordé")).toHaveText("15,50 €");
 
   await expect.poll(async () => (await courrielsSujet(salarie.uid, "est relevé")).length, { timeout: 15_000 }).toBeGreaterThan(0);
   const [releve] = await courrielsSujet(salarie.uid, "est relevé");

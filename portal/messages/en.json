@@ -687,6 +687,7 @@
       "archive": {
         "titre": "Archive: processed requests",
         "aucune": "No processed request yet.",
+        "montantAccorde": "Amount granted: {montant}",
         "colonnes": {
           "date": "Last update",
           "statut": "Status",
@@ -751,6 +752,7 @@
         "depense": "Spend this period",
         "remiseAZero": "Reset",
         "montantDemande": "Amount requested",
+        "montantAccorde": "Amount granted",
         "budgetEquipe": "Team budget",
         "depasseEquipe": "The requested amount exceeds the team budget ({budget}).",
         "inactive": "This key is no longer active.",

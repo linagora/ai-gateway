@@ -167,6 +167,12 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
             )}
             <dt>{t("hausse.montantDemande")}</dt>
             <dd>{review.requestedBudget !== null ? euros(review.requestedBudget) : domaine("nonRenseigne")}</dd>
+            {review.grantedBudget !== null && (
+              <>
+                <dt>{t("hausse.montantAccorde")}</dt>
+                <dd>{euros(review.grantedBudget)}</dd>
+              </>
+            )}
             {review.budgetRaise.team && (
               <>
                 <dt>{t("hausse.budgetEquipe")}</dt>
