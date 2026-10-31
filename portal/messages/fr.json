@@ -1267,7 +1267,7 @@
     "script": {
       "enTete": "Claude Code sur la passerelle LINAGORA, clé {alias} ({details})",
       "priorite": "Une clé Anthropic présente dans l'environnement aurait priorité sur la clé LINAGORA",
-      "trafic": "Ni télémétrie, ni rapports d'erreur, ni mise à jour automatique vers Anthropic : seule la passerelle LINAGORA est appelée ; mettre à jour avec claude update",
+      "trafic": "Ni télémétrie, ni rapports d'erreur, ni mise à jour automatique vers Anthropic ; mettre à jour avec claude update",
       "adresse": "Adresse de la passerelle, sans /v1 : Claude Code ajoute lui-même /v1/messages",
       "introuvable": "Clé LINAGORA introuvable dans le trousseau : enregistrez-la de nouveau depuis la page « Configurer Claude Code » du portail.",
       "modeleUnique": "Modèle de la clé, pour la conversation, les tâches de fond et les sous-agents",

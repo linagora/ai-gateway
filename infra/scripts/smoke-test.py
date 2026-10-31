@@ -4,10 +4,10 @@ Crée une équipe et une clé de test limitées à un modèle, vérifie /v1/mode
 une complétion, la dépense calculée au tarif EUR du modèle, le prix des jetons lus depuis le cache
 (même requête longue envoyée deux fois), un message au format Anthropic (/v1/messages, utilisé par
 des assistants de code), puis une requête telle que l'envoie Claude Code (en-têtes anthropic-beta, système en
-blocs, outils, metadata.user_id, réflexion, context_management) : en flux, avec les événements SSE attendus et la
-dépense enregistrée sur la clé au coût des jetons du flux (les budgets s'appliquent aux appels de Claude Code),
-puis sans flux avec un appel d'outil demandé (un 200 sans tool_use n'est qu'un avertissement) ; enfin révoque la
-clé (critère 7 : 401) et supprime l'équipe. N'affiche
+blocs, outils, metadata.user_id, réflexion, context_management) : en flux, avec les événements SSE du message et de
+ses blocs de contenu et la dépense enregistrée sur la clé au coût des jetons du flux (les budgets s'appliquent aux
+appels de Claude Code), puis sans flux avec un appel d'outil demandé, auquel le modèle doit répondre par un bloc
+tool_use ; enfin révoque la clé (critère 7 : 401) et supprime l'équipe. N'affiche
 jamais la clé maître ni la clé de test. Sort en erreur si les jetons lus depuis le cache ne sont pas
 comptés à leur prix déclaré, dans le coût calculé comme dans la dépense enregistrée sur la clé ; sans jeton
 lu depuis le cache, ce contrôle n'est pas concluant. Sort aussi en erreur si /v1/models ne donne pas le
@@ -162,6 +162,9 @@ EN_TETES_CLAUDE_CODE = {
     "anthropic-version": "2023-06-01",
     "anthropic-beta": "claude-code-20250219,interleaved-thinking-2025-05-14,context-management-2025-06-27,effort-2025-11-24",
 }
+# Événements d'une réponse en flux de l'API Messages, dans leur ordre : le contenu de la réponse, texte ou appel d'outil,
+# n'arrive que par les événements de ses blocs (content_block_*).
+EVENEMENTS_DU_FLUX = ("message_start", "content_block_start", "content_block_delta", "content_block_stop", "message_delta", "message_stop")
 
 
 def requete_claude_code(question, flux_sse):
@@ -209,10 +212,11 @@ def controle_claude_code(test_key, token_id, echecs):
     st, type_contenu, evenements, debut = flux(
         "/v1/messages?beta=true", requete_claude_code("Réponds uniquement par le mot OK.", True), test_key, EN_TETES_CLAUDE_CODE)
     types = {e.get("type") for e in evenements}
-    manquants = [t for t in ("message_start", "message_delta", "message_stop") if t not in types]
+    manquants = [t for t in EVENEMENTS_DU_FLUX if t not in types]
     conforme = st == 200 and "text/event-stream" in type_contenu and not manquants
     step(f"/v1/messages tel que l'envoie Claude Code, en flux → HTTP {st} ; {type_contenu or 'sans content-type'} ; "
-         f"événements : {sorted(t for t in types if t)} → {'conforme' if conforme else 'échec'}")
+         f"événements : {sorted(t for t in types if t)}" + (f" ; manquants : {manquants}" if manquants else "")
+         + f" → {'conforme' if conforme else 'échec'}")
     if not conforme:
         print(debut[:300])
         echecs.append("Claude Code (flux)")
@@ -238,16 +242,18 @@ def controle_claude_code(test_key, token_id, echecs):
              + f" → {'conforme' if conforme else 'échec'}")
         if not conforme:
             echecs.append("Claude Code (dépense du flux)")
-    # Sans flux, avec un appel d'outil demandé : le 200 est exigé, tool_use est seulement signalé.
+    # Sans flux, avec un appel d'outil demandé : Claude Code lit les fichiers et agit par les blocs tool_use de la réponse,
+    # qui sont donc exigés.
     st, _, _, brut = flux(
         "/v1/messages?beta=true", requete_claude_code("Appelle l'outil Read sur /etc/hostname.", False), test_key, EN_TETES_CLAUDE_CODE)
     try:
         outil = any(b.get("type") == "tool_use" for b in json.loads(brut).get("content", []))
     except (ValueError, AttributeError, TypeError):
         outil = False
+    conforme = st == 200 and outil
     step(f"/v1/messages tel que l'envoie Claude Code, sans flux, outil Read demandé → HTTP {st} ; bloc tool_use : "
-         f"{'oui' if outil else 'non (avertissement, le modèle a pu répondre sans outil)'} → {'conforme' if st == 200 else 'échec'}")
-    if st != 200:
+         f"{'oui' if outil else 'non'} → {'conforme' if conforme else 'échec'}")
+    if not conforme:
         print(brut[:300])
         echecs.append("Claude Code (outil)")
 

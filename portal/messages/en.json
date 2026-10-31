@@ -1267,7 +1267,7 @@
     "script": {
       "enTete": "Claude Code on the LINAGORA gateway, key {alias} ({details})",
       "priorite": "An Anthropic key present in the environment would take precedence over the LINAGORA key",
-      "trafic": "No telemetry, error reports or automatic updates to Anthropic: only the LINAGORA gateway is called; update with claude update",
+      "trafic": "No telemetry, error reports or automatic updates to Anthropic; update with claude update",
       "adresse": "Gateway address, without /v1: Claude Code adds /v1/messages itself",
       "introuvable": "LINAGORA key not found in the keyring: save it again from the \"Set up Claude Code\" page of the portal.",
       "modeleUnique": "Model of the key, for the conversation, background tasks and subagents",
