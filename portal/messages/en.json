@@ -1046,7 +1046,10 @@
         "en_attente": "Not probed yet",
         "non_supervise": "Not probed"
       },
-      "nonSupervise": "Image model: each probe would generate a paid image.",
+      "nonSupervise": {
+        "image": "Image model: each probe would generate a paid image.",
+        "recherche_web": "Model that searches the web on every request: each probe would run a paid search."
+      },
       "typesApi": {
         "conversation": "chat",
         "image": "images",

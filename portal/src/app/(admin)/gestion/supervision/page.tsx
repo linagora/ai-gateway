@@ -80,7 +80,7 @@ export default async function SupervisionPage(props: PageProps<"/gestion/supervi
                       <td className="whitespace-nowrap">{m.checkedAt && t("date", { date: m.checkedAt })}</td>
                       <td className="whitespace-nowrap">{m.latencyMs !== null && t("dureeValeur", { ms: m.latencyMs })}</td>
                       <td className="text-sm">
-                        {m.statut === "non_supervise" ? t("nonSupervise") : erreur && <span className="break-words">{m.httpStatus ? t("erreurHttp", { statut: m.httpStatus, erreur }) : erreur}</span>}
+                        {m.raisonNonSupervise ? t(`nonSupervise.${m.raisonNonSupervise}`) : erreur && <span className="break-words">{m.httpStatus ? t("erreurHttp", { statut: m.httpStatus, erreur }) : erreur}</span>}
                         {m.alertedAt && <p className="mt-1 text-xs text-neutral-600">{t("alerte", { date: m.alertedAt })}</p>}
                       </td>
                     </tr>
