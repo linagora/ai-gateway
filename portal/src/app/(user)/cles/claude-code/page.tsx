@@ -8,8 +8,7 @@ import { textesDesCles } from "@/lib/services/cles-assistants";
 import { getDeps, requireUser } from "@/lib/session";
 import { adresseApi } from "../../../exemples-appel";
 import { FiltrageAutomatique } from "../../../filtrage-automatique";
-import { PastillesClassification } from "../../../pastilles-classification";
-import { ACopier, BALISES, ClesNonProposees, demandesChoisies, Etape, IdentiteDeLaCle, Indisponible, nomsDesNiveaux, RappelDesNiveaux, SansCle } from "../tutoriel";
+import { ACopier, BALISES, CasesDesCles, ClesNonProposees, demandesChoisies, Etape, Indisponible, nomsDesNiveaux, RappelDesNiveaux, SansCle } from "../tutoriel";
 
 /** Espace de traduction de la page. */
 const ESPACE = "claudeCode";
@@ -84,46 +83,28 @@ export default async function ConfigurerClaudeCodePage(props: PageProps<"/cles/c
         <RappelDesNiveaux espace={ESPACE} niveaux={niveaux} />
         <p>{t("etapeCles.parDefaut")}</p>
         <form method="get" className="mt-2">
-          <fieldset>
-            <legend className="font-medium">{commun("clesAInclure")}</legend>
-            <ul className="mt-2 flex flex-col gap-3">
-              {cles.map((cle) => (
-                <li key={cle.requestId}>
-                  <label className="flex items-start gap-2">
-                    <input type="checkbox" name="cle" value={cle.requestId} defaultChecked={cle.choisie} className="mt-1" />
-                    <span>
-                      <IdentiteDeLaCle cle={cle} niveau={niveaux[cle.dataLevel]} />
-                      <span className="block text-sm">{commun("modeles", { liste: cle.modeles.map((m) => m.displayName).join(", ") })}</span>
-                      {cle.modelesEcartes.length > 0 && (
-                        <span className="block text-sm text-neutral-600">
-                          {commun("modelesEcartes", {
-                            liste: cle.modelesEcartes.map((m) => `${m.modelName} (${commun(`raisonsModele.${m.raison}`)})`).join(", "),
-                          })}
-                        </span>
-                      )}
-                      <span className="block text-sm">{t.rich("lanceur", { ...BALISES, nom: cle.lanceur })}</span>
-                      <PastillesClassification level={cle.dataLevel} className="mt-1 flex flex-wrap gap-1" />
-                    </span>
-                  </label>
-                  {cle.choisie && (
-                    <label className="mt-2 ml-6 flex flex-col gap-1">
-                      <span className="font-medium">
-                        {commun("modeleParDefaut")}
-                        <span className="sr-only"> {t("modeleParDefautDe", { alias: cle.alias })}</span>
-                      </span>
-                      <select name="modele" defaultValue={cle.modeleParDefaut} className="self-start">
-                        {cle.modeles.map((m) => (
-                          <option key={m.modelName} value={m.reference}>
-                            {m.displayName}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </fieldset>
+          <CasesDesCles
+            cles={cles}
+            niveaux={niveaux}
+            details={(cle) => <span className="block text-sm">{t.rich("lanceur", { ...BALISES, nom: cle.lanceur })}</span>}
+            reglages={(cle) =>
+              cle.choisie && (
+                <label className="mt-2 ml-6 flex flex-col gap-1">
+                  <span className="font-medium">
+                    {commun("modeleParDefaut")}
+                    <span className="sr-only"> {t("modeleParDefautDe", { alias: cle.alias })}</span>
+                  </span>
+                  <select name="modele" defaultValue={cle.modeleParDefaut} className="self-start">
+                    {cle.modeles.map((m) => (
+                      <option key={m.modelName} value={m.reference}>
+                        {m.displayName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )
+            }
+          />
           <input type="hidden" name="choix" value="1" />
           <FiltrageAutomatique minimum={0} />
         </form>

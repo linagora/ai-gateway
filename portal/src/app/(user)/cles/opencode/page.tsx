@@ -6,8 +6,7 @@ import { type ConfigurationOpenCode, configurationOpenCode, MISES_A_JOUR, type M
 import { getDeps, requireUser } from "@/lib/session";
 import { adresseApi } from "../../../exemples-appel";
 import { FiltrageAutomatique } from "../../../filtrage-automatique";
-import { PastillesClassification } from "../../../pastilles-classification";
-import { ACopier, BALISES, ClesNonProposees, demandesChoisies, Etape, IdentiteDeLaCle, Indisponible, nomsDesNiveaux, type Parametres, RappelDesNiveaux, SansCle } from "../tutoriel";
+import { ACopier, BALISES, CasesDesCles, ClesNonProposees, demandesChoisies, Etape, Indisponible, nomsDesNiveaux, type Parametres, RappelDesNiveaux, SansCle } from "../tutoriel";
 
 /** Espace de traduction de la page. */
 const ESPACE = "opencode";
@@ -80,30 +79,7 @@ export default async function ConfigurerOpenCodePage(props: PageProps<"/cles/ope
       <Etape espace={ESPACE} id="cles" numero={2} titre={commun("etapeCles.titre")} endroits={["navigateur"]}>
         <RappelDesNiveaux espace={ESPACE} niveaux={niveaux} />
         <form method="get" className="mt-2">
-          <fieldset>
-            <legend className="font-medium">{commun("clesAInclure")}</legend>
-            <ul className="mt-2 flex flex-col gap-3">
-              {cles.map((cle) => (
-                <li key={cle.requestId}>
-                  <label className="flex items-start gap-2">
-                    <input type="checkbox" name="cle" value={cle.requestId} defaultChecked={cle.choisie} className="mt-1" />
-                    <span>
-                      <IdentiteDeLaCle cle={cle} niveau={niveaux[cle.dataLevel]} />
-                      <span className="block text-sm">{commun("modeles", { liste: cle.modeles.map((m) => m.displayName).join(", ") })}</span>
-                      {cle.modelesEcartes.length > 0 && (
-                        <span className="block text-sm text-neutral-600">
-                          {commun("modelesEcartes", {
-                            liste: cle.modelesEcartes.map((m) => `${m.modelName} (${commun(`raisonsModele.${m.raison}`)})`).join(", "),
-                          })}
-                        </span>
-                      )}
-                      <PastillesClassification level={cle.dataLevel} className="mt-1 flex flex-wrap gap-1" />
-                    </span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </fieldset>
+          <CasesDesCles cles={cles} niveaux={niveaux} />
           <div className="mt-4 flex flex-wrap gap-6">
             <label className="flex flex-col gap-1">
               <span className="font-medium">{commun("modeleParDefaut")}</span>

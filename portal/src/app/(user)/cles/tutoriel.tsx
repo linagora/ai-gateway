@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import type { Langue } from "@/lib/langue";
 import { DATA_LEVELS, type DataLevel } from "@/lib/policy";
 import { recommendedModels } from "@/lib/services/catalog";
-import type { CleEcartee, IdentiteCle } from "@/lib/services/cles-assistants";
+import type { CleEcartee, CleProposee, IdentiteCle } from "@/lib/services/cles-assistants";
 import { getDeps } from "@/lib/session";
 import { BoutonCopier } from "../../bouton-copier";
 import { PastillesClassification } from "../../pastilles-classification";
@@ -111,6 +111,50 @@ export function IdentiteDeLaCle({ cle, niveau }: { cle: IdentiteCle; niveau: str
     <>
       <code>{cle.alias}</code> · {cle.teamAlias} · {niveau}
     </>
+  );
+}
+
+/**
+ * Cases des clés proposées, cochées pour les clés choisies : chaque clé avec ses modèles, ceux qui ne sont pas repris et
+ * les classifications de son niveau. `details` ajoute des lignes à la case d'une clé, `reglages` des réglages sous sa case.
+ */
+export async function CasesDesCles<C extends CleProposee>({
+  cles,
+  niveaux,
+  details,
+  reglages,
+}: {
+  cles: C[];
+  niveaux: Record<DataLevel, string>;
+  details?: (cle: C) => ReactNode;
+  reglages?: (cle: C) => ReactNode;
+}) {
+  const t = await getTranslations("assistants");
+  return (
+    <fieldset>
+      <legend className="font-medium">{t("clesAInclure")}</legend>
+      <ul className="mt-2 flex flex-col gap-3">
+        {cles.map((cle) => (
+          <li key={cle.requestId}>
+            <label className="flex items-start gap-2">
+              <input type="checkbox" name="cle" value={cle.requestId} defaultChecked={cle.choisie} className="mt-1" />
+              <span>
+                <IdentiteDeLaCle cle={cle} niveau={niveaux[cle.dataLevel]} />
+                <span className="block text-sm">{t("modeles", { liste: cle.modeles.map((m) => m.displayName).join(", ") })}</span>
+                {cle.modelesEcartes.length > 0 && (
+                  <span className="block text-sm text-neutral-600">
+                    {t("modelesEcartes", { liste: cle.modelesEcartes.map((m) => `${m.modelName} (${t(`raisonsModele.${m.raison}`)})`).join(", ") })}
+                  </span>
+                )}
+                {details?.(cle)}
+                <PastillesClassification level={cle.dataLevel} className="mt-1 flex flex-wrap gap-1" />
+              </span>
+            </label>
+            {reglages?.(cle)}
+          </li>
+        ))}
+      </ul>
+    </fieldset>
   );
 }
 
