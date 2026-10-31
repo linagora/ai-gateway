@@ -79,6 +79,11 @@ export interface PolicyVerdict {
   checks: PolicyCheck[];
 }
 
+/** Budget au-delà duquel une demande doit justifier son montant : le plus élevé du budget par défaut et de celui de la clé d'origine. */
+export function seuilJustificationBudget(parDefaut: number | null, origine: number | null): number {
+  return Math.max(parDefaut ?? 0, origine ?? 0);
+}
+
 /** Règle 3 : contrôles d'une demande de clé, rejoués à la soumission, à l'approbation et à la génération. */
 export function checkKeyRequest(draft: KeyRequestDraft, team: TeamForPolicy, catalog: readonly CatalogModel[]): PolicyVerdict {
   const checks: PolicyCheck[] = [
@@ -135,7 +140,7 @@ export function enAttenteDeValidation(status: RequestStatus): boolean {
   return (STATUTS_EN_ATTENTE_DE_VALIDATION as readonly RequestStatus[]).includes(status);
 }
 
-export type RequestKind = "CLE" | "ADHESION_EQUIPE" | "ABONNEMENT";
+export type RequestKind = "CLE" | "ADHESION_EQUIPE" | "ABONNEMENT" | "BUDGET";
 
 /** Demande de la file de validation, telle que la politique la voit. */
 export interface DemandeDeLaFile {
@@ -156,11 +161,13 @@ export function attendUnResponsable(demande: DemandeDeLaFile, responsables: read
 /**
  * La demande de la file, dont l'équipe a ces responsables, attend-elle cet acteur (spécification #93) ? Un responsable
  * traite les demandes soumises de ses équipes, hors les siennes ; une demande qui a reçu l'accord attend un admin. Un
- * admin traite toute la file, sauf une demande d'abonnement qui attend l'accord d'un responsable qu'il n'est pas
- * lui-même : responsable de l'équipe, il en reçoit les demandes et les approuve en un seul temps.
+ * admin traite toute la file, sauf sa propre demande de hausse de budget, et une demande d'abonnement qui attend
+ * l'accord d'un responsable qu'il n'est pas lui-même : responsable de l'équipe, il en reçoit les demandes et les
+ * approuve en un seul temps.
  */
 export function attendLActeur(acteur: PortalUser, demande: DemandeDeLaFile, responsables: readonly string[]): boolean {
   if (!acteur.isAdmin) return enAttenteDeValidation(demande.status) && empechementDeDecider(acteur, demande) === null;
+  if (empechementDeDecider(acteur, demande) !== null) return false;
   return !attendUnResponsable(demande, responsables) || (acteur.uid !== demande.requesterUid && responsables.includes(acteur.uid));
 }
 
@@ -170,7 +177,7 @@ export function attendLActeur(acteur: PortalUser, demande: DemandeDeLaFile, resp
  * un seul temps. La fiche l'en avertit ; le journal d'audit et l'annonce aux responsables le disent.
  */
 export function decideraitSansAccord(acteur: PortalUser, demande: DemandeDeLaFile, responsables: readonly string[]): boolean {
-  return acteur.isAdmin && !attendLActeur(acteur, demande, responsables);
+  return acteur.isAdmin && attendUnResponsable(demande, responsables) && !attendLActeur(acteur, demande, responsables);
 }
 
 /**
@@ -185,10 +192,11 @@ export function accordDonnePar(acteur: PortalUser, demande: DemandeDeLaFile & { 
 /**
  * Ce qui empêche un acteur de décider d'une demande de ses équipes, qu'il peut consulter (F-54, spécification #93) :
  * un responsable ne décide jamais de sa propre demande (quatre yeux), ni d'une demande qui a reçu l'accord du
- * responsable, dont seul un admin décide (interdit). Un admin décide de toute la file ; le statut de la demande est
- * contrôlé par les transitions.
+ * responsable, dont seul un admin décide (interdit). Un admin décide de toute la file, sauf de sa propre demande de
+ * hausse de budget ; le statut de la demande est contrôlé par les transitions.
  */
 export function empechementDeDecider(acteur: PortalUser, demande: DemandeDeLaFile): "quatre_yeux" | "interdit" | null {
+  if (demande.kind === "BUDGET" && demande.requesterUid === acteur.uid) return "quatre_yeux";
   if (acteur.isAdmin) return null;
   if (demande.requesterUid === acteur.uid) return "quatre_yeux";
   return demande.status === "ACCORD_RESPONSABLE" ? "interdit" : null;

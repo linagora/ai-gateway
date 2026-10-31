@@ -3,7 +3,11 @@
 Crée une équipe et une clé de test limitées à un modèle, vérifie /v1/models (critère 1),
 une complétion, la dépense calculée au tarif EUR du modèle, le prix des jetons lus depuis le cache
 (même requête longue envoyée deux fois), un message au format Anthropic (/v1/messages, utilisé par
-des assistants de code), puis révoque la clé (critère 7 : 401) et supprime l'équipe. N'affiche
+des assistants de code), puis une requête telle que l'envoie Claude Code (en-têtes anthropic-beta, système en
+blocs, outils, metadata.user_id, réflexion, context_management) : en flux, avec les événements SSE attendus et la
+dépense enregistrée sur la clé au coût des jetons du flux (les budgets s'appliquent aux appels de Claude Code),
+puis sans flux avec un appel d'outil demandé (un 200 sans tool_use n'est qu'un avertissement) ; enfin révoque la
+clé (critère 7 : 401) et supprime l'équipe. N'affiche
 jamais la clé maître ni la clé de test. Sort en erreur si les jetons lus depuis le cache ne sont pas
 comptés à leur prix déclaré, dans le coût calculé comme dans la dépense enregistrée sur la clé ; sans jeton
 lu depuis le cache, ce contrôle n'est pas concluant. Sort aussi en erreur si /v1/models ne donne pas le
@@ -69,20 +73,30 @@ def call(method, path, body=None, key=MASTER_KEY, timeout=120):
         return e.code, payload, {k.lower(): v for k, v in e.headers.items()}
 
 
-def call_flux(body, key):
-    """Conversation en flux (stream), l'usage demandé en fin de flux : statut, puis les morceaux reçus (erreur en cas de refus)."""
+def flux(chemin, corps, key, en_tetes=None, timeout=120):
+    """Appel en flux (SSE) : lit le corps brut et rend le statut, le content-type, les événements reçus
+    (objets des lignes « data: {"type": …} ») et le corps décodé (le début sert à afficher une erreur)."""
     req = urllib.request.Request(
-        BASE + "/v1/chat/completions",
-        data=json.dumps({**body, "stream": True, "stream_options": {"include_usage": True}}).encode(),
+        BASE + chemin,
+        data=json.dumps(corps).encode(),
         method="POST",
-        headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
+        headers={"Authorization": "Bearer " + key, "Content-Type": "application/json", **(en_tetes or {})},
     )
     try:
-        with urllib.request.urlopen(req, timeout=120) as r:
-            lignes = r.read().decode().splitlines()
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            statut, type_contenu, brut = r.status, r.headers.get("content-type", ""), r.read()
     except urllib.error.HTTPError as e:
-        return e.code, e.read()[:300].decode(errors="replace")
-    return 200, [json.loads(l[len("data:"):]) for l in lignes if l.startswith("data:") and l[len("data:"):].strip() != "[DONE]"]
+        statut, type_contenu, brut = e.code, e.headers.get("content-type", ""), e.read()
+    evenements = []
+    for ligne in brut.decode(errors="replace").splitlines():
+        if ligne.startswith("data:"):
+            try:
+                evenement = json.loads(ligne[5:].strip())
+            except ValueError:
+                continue
+            if isinstance(evenement, dict):
+                evenements.append(evenement)
+    return statut, type_contenu, evenements, brut.decode(errors="replace")
 
 
 def step(msg):
@@ -140,6 +154,102 @@ def attendre_depense(token_id, attendue):
             break
         time.sleep(5)
     return enregistree
+
+
+# Requête de Claude Code 2.1.312 (capturée) : en-têtes, puis corps (système en blocs, outil, identifiant de session, réflexion).
+# Depuis la 2.1.314 au moins, l'environnement suit la question dans une entrée « system » (ticket #159).
+EN_TETES_CLAUDE_CODE = {
+    "anthropic-version": "2023-06-01",
+    "anthropic-beta": "claude-code-20250219,interleaved-thinking-2025-05-14,context-management-2025-06-27,effort-2025-11-24",
+}
+
+
+def requete_claude_code(question, flux_sse):
+    return {
+        "model": MODEL,
+        "max_tokens": 300,
+        "stream": flux_sse,
+        "system": [
+            {"type": "text", "text": "x-anthropic-billing-header: cc_version=2.1.312; cc_entrypoint=cli;"},
+            {"type": "text", "text": "You are Claude Code, Anthropic's official CLI for Claude.", "cache_control": {"type": "ephemeral"}},
+        ],
+        "messages": [
+            {"role": "user", "content": [{"type": "text", "text": question}]},
+            {"role": "system", "content": [{"type": "text", "text": "# Environment\n - Platform: linux"}]},
+        ],
+        "tools": [{
+            "name": "Read",
+            "description": "Reads a file from the local filesystem.",
+            "input_schema": {"type": "object", "properties": {"file_path": {"type": "string"}}, "required": ["file_path"]},
+        }],
+        "metadata": {"user_id": json.dumps({"device_id": "smoke-test", "account_uuid": "", "session_id": "smoke-test"})},
+        "thinking": {"type": "adaptive", "display": "omitted"},
+        "output_config": {"effort": "high"},
+        "context_management": {"edits": [{"type": "clear_thinking_20251015", "keep": "all"}]},
+    }
+
+
+def usage_du_flux(evenements):
+    """Usage d'un flux Anthropic (message_start, puis message_delta) converti en clés de chat/completions ; None s'il manque."""
+    usage = {}
+    for evenement in evenements:
+        brut = (evenement.get("message") or {}).get("usage") if evenement.get("type") == "message_start" else evenement.get("usage")
+        if isinstance(brut, dict):
+            usage.update({k: v for k, v in brut.items() if isinstance(v, int)})
+    if "output_tokens" not in usage:
+        return None
+    lus = usage.get("cache_read_input_tokens", 0)
+    return {"prompt_tokens": usage.get("input_tokens", 0) + lus + usage.get("cache_creation_input_tokens", 0),
+            "completion_tokens": usage["output_tokens"], "prompt_tokens_details": {"cached_tokens": lus}}
+
+
+def controle_claude_code(test_key, token_id, echecs):
+    """/v1/messages tel que l'envoie Claude Code : en flux (événements SSE, dépense enregistrée), puis sans flux avec un outil."""
+    avant = depense(token_id)
+    st, type_contenu, evenements, debut = flux(
+        "/v1/messages?beta=true", requete_claude_code("Réponds uniquement par le mot OK.", True), test_key, EN_TETES_CLAUDE_CODE)
+    types = {e.get("type") for e in evenements}
+    manquants = [t for t in ("message_start", "message_delta", "message_stop") if t not in types]
+    conforme = st == 200 and "text/event-stream" in type_contenu and not manquants
+    step(f"/v1/messages tel que l'envoie Claude Code, en flux → HTTP {st} ; {type_contenu or 'sans content-type'} ; "
+         f"événements : {sorted(t for t in types if t)} → {'conforme' if conforme else 'échec'}")
+    if not conforme:
+        print(debut[:300])
+        echecs.append("Claude Code (flux)")
+    # Les budgets des clés ne s'appliquent aux appels de Claude Code que si le flux est compté sur la clé : la dépense
+    # enregistrée (en différé) doit augmenter du coût des jetons du flux.
+    if st != 200:
+        step("Claude Code, dépense du flux — non vérifiée : flux refusé")
+    elif not in_cost or not out_cost:
+        step("Claude Code, dépense du flux — non vérifiée : tarifs du modèle absents")
+    else:
+        usage = usage_du_flux(evenements)
+        attendu = None if usage is None else cout_attendu(usage, cache_cost)
+        apres = avant
+        for i in range(20):
+            apres = depense(token_id)
+            if (attendu is None and apres > avant) or (attendu is not None and proche(apres - avant, attendu)):
+                break
+            if i < 19:
+                time.sleep(5)
+        conforme = apres > avant if attendu is None else proche(apres - avant, attendu)
+        step(f"Claude Code, dépense du flux : {avant:.10f} avant, {apres:.10f} après ; "
+             + ("jetons du flux introuvables, hausse seule contrôlée" if attendu is None else f"attendue : {avant + attendu:.10f}")
+             + f" → {'conforme' if conforme else 'échec'}")
+        if not conforme:
+            echecs.append("Claude Code (dépense du flux)")
+    # Sans flux, avec un appel d'outil demandé : le 200 est exigé, tool_use est seulement signalé.
+    st, _, _, brut = flux(
+        "/v1/messages?beta=true", requete_claude_code("Appelle l'outil Read sur /etc/hostname.", False), test_key, EN_TETES_CLAUDE_CODE)
+    try:
+        outil = any(b.get("type") == "tool_use" for b in json.loads(brut).get("content", []))
+    except (ValueError, AttributeError, TypeError):
+        outil = False
+    step(f"/v1/messages tel que l'envoie Claude Code, sans flux, outil Read demandé → HTTP {st} ; bloc tool_use : "
+         f"{'oui' if outil else 'non (avertissement, le modèle a pu répondre sans outil)'} → {'conforme' if st == 200 else 'échec'}")
+    if st != 200:
+        print(brut[:300])
+        echecs.append("Claude Code (outil)")
 
 
 def controle_embeddings(test_key, token_id, echecs):
@@ -230,10 +340,12 @@ def controle_flux(test_key, token_id, echecs):
     """Question posée en flux : dépense enregistrée sur la clé au tarif déclaré, comme hors flux (LiteLLM 1.102.1 y reprenait
     le coût renvoyé par OpenRouter, en dollars, au lieu des prix déclarés ; corrigé par la garde)."""
     avant = depense(token_id)
-    st, morceaux = call_flux({"model": MODEL, "messages": [{"role": "user", "content": "Réponds uniquement par le mot OK."}], "max_tokens": 300}, test_key)
+    corps = {"model": MODEL, "messages": [{"role": "user", "content": "Réponds uniquement par le mot OK."}], "max_tokens": 300,
+             "stream": True, "stream_options": {"include_usage": True}}
+    st, _, morceaux, brut = flux("/v1/chat/completions", corps, test_key)
     if st != 200:
         echecs.append("flux (requête refusée)")
-        step(f"flux → HTTP {st} ; {morceaux}")
+        step(f"flux → HTTP {st} ; {brut[:300]}")
         return
     usage = next((m["usage"] for m in reversed(morceaux) if m.get("usage")), None)
     if not usage:
@@ -413,9 +525,14 @@ try:
                 if not refuse:
                     echecs.append(f"recherche ({chemin} accepté)")
         else:
-            st, msg, _ = call("POST", "/v1/messages", message, key=test_key)
+            avant_message = depense(token_id)
+            st, msg, hdr = call("POST", "/v1/messages", message, key=test_key)
             texte = [b.get("text") for b in (msg or {}).get("content", []) if b.get("type") == "text"] if st == 200 else None
             step(f"/v1/messages (format Anthropic) → HTTP {st} ; " + (f"réponse : {str(texte)[:60]}" if st == 200 else f"erreur : {json.dumps(msg, ensure_ascii=False)[:300]}"))
+            if st == 200 and in_cost and out_cost:
+                # La dépense de cet appel s'écrit en différé : l'attendre, pour ne pas la prendre pour celle du flux.
+                attendre_depense(token_id, avant_message + float(hdr.get("x-litellm-response-cost") or 0))
+            controle_claude_code(test_key, token_id, echecs)
 finally:
     if token_id:
         st, _, _ = call("POST", "/key/delete", {"keys": [token_id]})

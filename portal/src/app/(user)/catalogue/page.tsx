@@ -10,7 +10,7 @@ import { PastillesClassification } from "../../pastilles-classification";
 import { BORDURES_GAUCHES_NIVEAUX } from "./couleurs";
 
 /** Intitulé discret d'une rubrique de carte. */
-const RUBRIQUE = "mt-2.5 text-xs font-semibold uppercase tracking-wide text-neutral-500";
+const RUBRIQUE = "mt-2 text-xs font-semibold uppercase tracking-wide text-neutral-500";
 
 /** Texte d'une carte, un peu plus petit que le texte courant pour que les pastilles tiennent sans défilement. */
 const TEXTE = "text-[13px] leading-snug";
@@ -52,12 +52,12 @@ export default async function CataloguePage(props: PageProps<"/catalogue">) {
         )}
       </div>
       <Notice searchParams={searchParams} />
-      <div className="mt-3 grid gap-4 md:grid-cols-2 xl:grid-cols-4 2xl:-mx-16">
+      <div className="mt-3 grid gap-4 md:grid-cols-2 xl:-mx-16 xl:grid-cols-4">
         {niveaux.map(({ level, modelCount, startingPricePerMillion }) => (
           <section
             key={level}
             aria-labelledby={`niveau-${level}`}
-            className={`flex flex-col rounded-lg border border-l-[6px] border-neutral-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md ${BORDURES_GAUCHES_NIVEAUX[level]}`}
+            className={`flex flex-col rounded-lg border border-l-[6px] border-neutral-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md ${BORDURES_GAUCHES_NIVEAUX[level]}`}
           >
             <h2 id={`niveau-${level}`} className="mt-0 mb-1 text-lg">
               {domaine(`niveaux.${level}`)}
@@ -84,8 +84,8 @@ export default async function CataloguePage(props: PageProps<"/catalogue">) {
               ))}
             </ul>
             <h3 className={RUBRIQUE}>{t("garanties")}</h3>
-            <p className="mt-1 rounded-md bg-neutral-50 p-2 text-xs leading-snug text-neutral-700">{t(`niveaux.${level}.garanties`)}</p>
-            <div className="mt-auto pt-3">
+            <p className="mt-1 rounded-md bg-neutral-50 px-2 py-1.5 text-xs leading-snug text-neutral-700">{t(`niveaux.${level}.garanties`)}</p>
+            <div className="mt-auto pt-2">
               {modelCount === 0 ? (
                 <p className={`${TEXTE} italic`}>{t("aucunModele")}</p>
               ) : (

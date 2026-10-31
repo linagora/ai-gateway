@@ -23,6 +23,12 @@ Réponses en flux (stream) : LiteLLM y reprend le coût que renvoie le fournisse
 à son tarif) au lieu de compter les jetons au tarif déclaré pour le modèle, comme il le fait hors flux (mesuré sur la 1.102.1
 le 2026-10-15 : 7,7 % de plus ; même code sur la branche principale de LiteLLM). Au chargement de la garde, LiteLLM est réglé
 pour suivre en flux la même règle que hors flux : le coût renvoyé par le fournisseur est écarté pour un modèle à tarif déclaré.
+
+Modèles qui n'acceptent de message système qu'en tête de la conversation (model_info.systeme_en_tete : Qwen3.8 chez
+OVHcloud, dont le gabarit refuse les autres) : Claude Code envoie par /v1/messages des entrées « system » au milieu de la
+conversation (son environnement, après la première question ; 2.1.314), que LiteLLM transmet à leur place (1.102.1). La
+garde les rattache au message de l'utilisateur qui les précède, entre balises <system-reminder>, comme Claude Code le
+fait de ses rappels.
 """
 import sys
 
@@ -74,6 +80,38 @@ def appliquer_tarif_declare_en_flux():
 appliquer_tarif_declare_en_flux()
 
 
+def systeme_en_tete(modele):
+    """Vrai si le modèle n'accepte de message système qu'en tête de la conversation (model_info.systeme_en_tete)."""
+    from litellm.proxy.proxy_server import llm_router
+
+    deploiements = (llm_router.get_model_list(model_name=modele) if llm_router is not None and modele else None) or []
+    return any((deploiement.get("model_info") or {}).get("systeme_en_tete") for deploiement in deploiements)
+
+
+def rappels_systeme(messages):
+    """Messages au format Anthropic sans entrée « system » : le texte de chacune, entre balises <system-reminder>, rejoint
+    le message de l'utilisateur qui la précède, ou un nouveau message de l'utilisateur après une réponse du modèle."""
+    resultat = []
+    for message in messages:
+        if message.get("role") != "system":
+            resultat.append(message)
+            continue
+        contenu = message.get("content")
+        textes = [contenu] if isinstance(contenu, str) else [bloc.get("text") for bloc in contenu or [] if isinstance(bloc, dict) and bloc.get("type") == "text"]
+        texte = "\n\n".join(t for t in textes if t)
+        if not texte:
+            continue
+        rappel = {"type": "text", "text": f"<system-reminder>\n{texte}\n</system-reminder>"}
+        precedent = resultat[-1] if resultat else None
+        if precedent is not None and precedent.get("role") == "user":
+            blocs = precedent.get("content")
+            blocs = [{"type": "text", "text": blocs}] if isinstance(blocs, str) else list(blocs or [])
+            resultat[-1] = {**precedent, "content": [*blocs, rappel]}
+        else:
+            resultat.append({"role": "user", "content": [rappel]})
+    return resultat
+
+
 class GardePasserelle(CustomLogger):
     async def async_pre_call_hook(self, user_api_key_dict, cache, data, call_type):
         if any(motif in str(call_type) for motif in MOTIFS_APPELS_REFUSES):
@@ -84,6 +122,8 @@ class GardePasserelle(CustomLogger):
         if interdits:
             raise HTTPException(status_code=400, detail={"error": f"Paramètre refusé par la passerelle LINAGORA : {', '.join(interdits)}. "
                                                                   "Le modèle et le fournisseur sont fixés par la passerelle."})
+        if call_type == "anthropic_messages" and systeme_en_tete(data.get("model")):
+            data["messages"] = rappels_systeme(data.get("messages") or [])
         declaration = declaration_recherche(data.get("model"))
         if declaration is not None:
             if call_type != "acompletion":

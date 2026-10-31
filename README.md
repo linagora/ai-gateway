@@ -46,6 +46,9 @@ self-hosted on a single virtual machine with Docker Compose.
   with an explicit commitment not to submit data above the declared level.
 - **Self-service keys.** Pick up an approved key, follow spend against budget and the expiry date, renew,
   replace a lost key or revoke it, with ready-to-use examples in curl, Python and JavaScript.
+- **Code assistants.** Set up OpenCode or Claude Code from your issued keys: the portal builds the OpenCode
+  configuration, or one Claude Code launcher per key, with a step-by-step guide for Ubuntu. The key never goes
+  through the portal: the commands ask for it in the terminal and keep it outside the configuration.
 - **Teams and subscriptions.** Ask to join a team; as an exception, request an individual subscription
   (ChatGPT, Claude, Kimi…), granted after an enhanced review, with reimbursement of declared charges.
 - **Service status.** The current state of each catalog model (operational, degraded, incident), checked

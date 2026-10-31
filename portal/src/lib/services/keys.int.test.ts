@@ -35,7 +35,7 @@ beforeEach(async () => {
   const fiche = { shortDescriptionFr: "…", longDescriptionFr: "…", useCases: [], recommendedFor: [], visible: true };
   await saveCatalogEntry(deps, admin, { ...fiche, modelName: "mistral-small", displayNameFr: "Mistral Small", dataLevel: "N2" });
   await saveCatalogEntry(deps, admin, { ...fiche, modelName: "qwen3.8", displayNameFr: "Qwen 3.8", dataLevel: "N3" });
-  await saveSettings(deps, admin, { pickup_days: "14" });
+  await saveSettings(deps, admin, { pickup_days: "14", default_budget: "20" });
 });
 
 const demande: KeyRequestInput = {
