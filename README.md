@@ -83,9 +83,9 @@ self-hosted on a single virtual machine with Docker Compose.
 - **Spend in euros.** Every request is charged to its key at the model's declared euro price, streamed or not,
   including tokens read from the cache and, for search models, the web search billed with each request.
 - **Model allowlist.** OpenRouter models are allowlisted one by one, each routed only to the providers of its
-  execution zone, without fallback; models served outside the EU only go to providers that do not collect the
-  data, under a price cap where needed. Confidential data goes to models hosted in France on OVHcloud AI
-  Endpoints.
+  execution zone, falling back from one to another when the first is saturated; models served outside the EU
+  only go to providers that do not collect the data, under a price cap where needed. Confidential data goes to
+  models hosted in France on OVHcloud AI Endpoints.
 - **Guard hook.** Requests may not switch model or provider through their parameters (fallbacks, provider
   preferences, plugins, presets), nor use the image and video APIs whose cost would escape key budgets.
 - **Privacy by default.** Prompts and responses are never stored in spend logs, and per-request details are

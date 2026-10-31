@@ -12,7 +12,9 @@ le passage pour les autres modèles.
 
 Pour chaque modèle : points d'accès OpenRouter de sa zone (API publique /models/<id>/endpoints), prix
 en € = prix le plus élevé de ces points d'accès × (1 + frais) × taux, routage limité à ces points
-d'accès sans repli. Jetons lus depuis le cache (et écrits) : même calcul sur les prix de cache publiés, à défaut
+d'accès, avec repli de l'un à l'autre quand le premier choisi par OpenRouter est saturé ou en panne : le repli
+ne sort pas de provider.only (vérifié le 2026-10-31). Jetons lus depuis le cache (et écrits) : même calcul sur les
+prix de cache publiés, à défaut
 le prix d'entrée ; sans prix de cache déclaré, LiteLLM les compterait à 0 €. Déclaration « openai/<id> » sur l'API d'OpenRouter, et non par la route
 « openrouter/ » de LiteLLM : celle-ci enregistre le coût renvoyé par OpenRouter, en dollars, à la
 place de nos tarifs en euros (vérifié sur la 1.102.1).
@@ -117,7 +119,9 @@ def declaration(entree, cfg, modeles_openrouter):
         usd_out = max(usd_out, max(float((e.get("pricing") or {}).get("image_output") or 0) for e in retenus))
     majoration = entree.get("majoration", 1)
     k = (1 + cfg["frais_openrouter"]) * cfg["taux_usd_eur"]
-    provider = {"only": sorted({z for e in retenus for z in dans_zone(e["tag"], zone)}), "allow_fallbacks": False}
+    # Repli permis entre les points d'accès retenus : sans lui, un seul point d'accès saturé, le moins cher, qu'OpenRouter
+    # choisit d'abord, rendait le modèle indisponible. Le repli ne sort pas de « only » (vérifié le 2026-10-31).
+    provider = {"only": sorted({z for e in retenus for z in dans_zone(e["tag"], zone)}), "allow_fallbacks": True}
     if entree["zone"] == "monde":
         provider["data_collection"] = "deny"
     if plafond is not None:

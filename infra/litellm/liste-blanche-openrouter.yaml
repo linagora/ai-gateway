@@ -5,8 +5,9 @@
 # de changer de modèle ou de fournisseur par leurs paramètres (modèles de repli, préférences de
 # fournisseur…). Aucun modèle fermé premium (Anthropic, OpenAI) : décision du 2026-09-25.
 #
-# Zones d'exécution : chaque modèle n'est servi que par les points d'accès OpenRouter de sa zone,
-# sans repli ailleurs (provider.only + allow_fallbacks: false, vérifié le 2026-09-25).
+# Zones d'exécution : chaque modèle n'est servi que par les points d'accès OpenRouter de sa zone
+# (provider.only, vérifié le 2026-09-25), avec repli de l'un à l'autre quand le premier choisi est saturé
+# (allow_fallbacks: true ; le repli ne sort pas de provider.only, vérifié le 2026-10-31).
 #   UE    : points d'accès en Union européenne. Pour Mistral et Google, seul le point d'accès « /eu »
 #           (Mistral publie aussi /zdr et /us, Google Vertex /global et /us).
 #   monde : fournisseurs dont OpenRouter publie un siège aux États-Unis (liste du 2026-09-25), sans

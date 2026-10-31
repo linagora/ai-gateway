@@ -7,6 +7,11 @@ All notable changes to LINAGORA AI Gateway, newest first. The format is based on
 
 ## [Unreleased]
 
+### Fixed
+
+- A model served by several providers no longer fails when the provider OpenRouter picks first, the cheapest, is
+  saturated: requests fall back to another provider of the model's execution zone, never outside it (#185).
+
 ## [1.1.0] - 2026-10-31
 
 ### Added
