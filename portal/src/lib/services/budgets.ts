@@ -174,6 +174,10 @@ function cleEmise(deps: AdminDeps, cle: AccessRequest): AccessRequest & { keyTok
   return { ...cle, keyTokenId: cle.keyTokenId, keyAlias: cle.keyAlias, approvedBudget: cle.approvedBudget, budgetDuration: cle.budgetDuration };
 }
 
+/**
+ * Plafond actuel d'une clé, lu dans la base du portail et non dans le `max_budget` de la passerelle : c'est le budget
+ * approuvé que remplacement et renouvellement réappliquent, et une hausse l'écrit dans la passerelle puis dans la base.
+ */
 const plafond = (cle: AccessRequest) => cle.approvedBudget?.toNumber() ?? null;
 
 /** Le nouveau plafond doit dépasser strictement celui de la clé. */
