@@ -51,9 +51,12 @@ modeles:
   - {nom: devstral-2, openrouter: mistralai/devstral-2512, zone: UE}
   - {nom: voxtral-small-2507, openrouter: mistralai/voxtral-small-24b-2507, zone: UE}
 
-  # --- Google Gemini (Flash, Flash-Lite), Vertex AI région UE ---
-  - {nom: gemini-2.5-flash, openrouter: google/gemini-2.5-flash, zone: UE}
+  # --- Google Gemini Flash-Lite, Vertex AI région UE ---
   - {nom: gemini-3.5-flash-lite, openrouter: google/gemini-3.5-flash-lite, zone: UE}
+
+  # --- Gemini 2.5 Flash : OpenRouter ne le sert plus par Vertex AI en UE, seulement par Google AI Studio (2026-10-29) ;
+  # zone monde, plafonné au prix déclaré jusque-là (décision de l'utilisateur du 2026-10-31) ---
+  - {nom: gemini-2.5-flash, openrouter: google/gemini-2.5-flash, zone: monde, prix_max_usd: [0.3, 2.5]}
 
   # --- Modèles ouverts servis en UE (Inceptron : Suède/Finlande ; NextBit : Espagne) ---
   - {nom: glm-5.3, openrouter: z-ai/glm-5.3, zone: UE}
