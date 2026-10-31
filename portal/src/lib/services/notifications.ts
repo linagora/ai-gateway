@@ -98,6 +98,9 @@ type Libelle =
   | "projet"
   | "motif"
   | "dureeSouhaitee"
+  | "budgetSouhaite"
+  | "justificationBudget"
+  | "plafondActuel"
   | "budget"
   | "validite"
   | "expiration"
@@ -130,6 +133,8 @@ function recapDemande(t: Traducteur, r: DemandeAvecOffre): string[] {
     ["projet", r.project],
     ["motif", r.justification],
     ["dureeSouhaitee", r.requestedDays !== null ? duree(t, r.requestedDays) : null],
+    ["budgetSouhaite", r.requestedBudget && t("courriels.recap.budgetSouhaiteValeur", { montant: r.requestedBudget.toNumber() })],
+    ["justificationBudget", r.budgetJustification],
   ]);
 }
 
@@ -202,6 +207,55 @@ export async function notifyNewRequest(deps: NotificationDeps, demande: DemandeA
     lienVers(deps, `/gestion/demandes/${demande.id}`),
   );
   await envoyer(deps, demande.kind === "ABONNEMENT" && responsables.length > 0 ? responsables : adminsEtResponsables(deps, responsables), message);
+}
+
+/**
+ * Nouvelle demande de hausse du budget d'une clé émise : la clé, son plafond actuel, le montant demandé et sa
+ * justification, aux admins et aux responsables de l'équipe désignés par le service (hors le demandeur), comme une demande de clé.
+ */
+export async function notifyNewBudgetRequest(
+  deps: NotificationDeps,
+  demande: AccessRequest,
+  cle: { alias: string; budgetActuel: number | null; periode: string | null },
+  responsables: string[],
+): Promise<void> {
+  const qui = { nom: nom(demande), email: demande.requesterEmail, alias: cle.alias };
+  const message = bilingue(
+    (t) => ({
+      sujet: t("courriels.nouvelleDemandeBudget.sujet", qui),
+      paragraphes: [
+        t("courriels.bonjourAdmins"),
+        avecRecap(
+          t("courriels.nouvelleDemandeBudget.corps", qui),
+          lignes(t, [
+            ["equipe", demande.teamAlias],
+            ["plafondActuel", cle.budgetActuel !== null && cle.periode ? t("courriels.recap.budgetValeur", { montant: cle.budgetActuel, periode: periode(t, cle.periode) }) : null],
+            ["budgetSouhaite", demande.requestedBudget && t("courriels.recap.budgetSouhaiteValeur", { montant: demande.requestedBudget.toNumber() })],
+            ["motif", demande.justification],
+          ]),
+        ),
+        t("courriels.examiner"),
+      ],
+    }),
+    lienVers(deps, `/gestion/demandes/${demande.id}`),
+  );
+  await envoyer(deps, adminsEtResponsables(deps, responsables), message);
+}
+
+/** Hausse de budget approuvée : le nouveau plafond de la clé, qui ne change pas et garde sa dépense. */
+export async function notifyBudgetRaised(deps: NotificationDeps, demande: AccessRequest, cle: { alias: string; budget: number; periode: string }): Promise<void> {
+  const message = bilingue(
+    (t) => ({
+      sujet: t("courriels.budgetReleve.sujet", { alias: cle.alias }),
+      paragraphes: [
+        t("courriels.bonjour", { nom: nom(demande) }),
+        t("courriels.budgetReleve.corps", { alias: cle.alias, budget: t("courriels.recap.budgetValeur", { montant: cle.budget, periode: periode(t, cle.periode) }) }),
+        t("courriels.budgetReleve.suite"),
+      ],
+    }),
+    lienVers(deps, "/cles"),
+  );
+  await envoyer(deps, [demande.requesterEmail], message);
 }
 
 /**
@@ -560,7 +614,7 @@ export type TeamChange =
   | { type: "responsableDesigne"; responsable: string }
   | { type: "responsableRetire"; responsable: string }
   | { type: "budget"; plafond: { montant: number; periode: string } | null }
-  | { type: "decision"; decision: "approuvee" | "refusee" | "complement" | "adhesion" | "abonnement"; sansAccord: boolean; demandeur: string; demandeId: string }
+  | { type: "decision"; decision: "approuvee" | "refusee" | "complement" | "adhesion" | "abonnement" | "budget"; sansAccord: boolean; demandeur: string; demandeId: string }
   | { type: "cle"; action: "revocation" | "blocage" | "deblocage"; alias: string; titulaire: string }
   | { type: "resiliationDemandee"; titulaire: string; offre: string };
 

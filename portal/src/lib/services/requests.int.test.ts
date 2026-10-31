@@ -3,10 +3,13 @@ import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
 import { FakeMailer } from "@/test/fake-mailer";
 import { saveCatalogEntry } from "./catalog";
+import { pickUpKey } from "./keys";
 import { provisionUser } from "./provisioning";
-import { approveKeyRequest, requestCompletion } from "./admin-requests";
+import { approveKeyRequest, getRequestReview, requestCompletion } from "./admin-requests";
 import {
   cancelRequest,
+  completeRequest,
+  completionDraft,
   countMyPending,
   createKeyRequest,
   createTeamJoinRequest,
@@ -15,6 +18,7 @@ import {
   listMyRequests,
   listMyTeams,
 } from "./requests";
+import { saveSettings } from "./settings";
 
 const admin = { uid: "jdupont", email: "jdupont@linagora.com", name: "Jeanne Dupont", isAdmin: true };
 const demandeur = { uid: "mmaudet", email: "mmaudet@linagora.com", name: "Michel-Marie Maudet", isAdmin: false };
@@ -33,6 +37,7 @@ beforeEach(async () => {
   deps = { db: testDb, litellm };
   await saveCatalogEntry(deps, admin, { ...entry, modelName: "mistral-small", displayNameFr: "Mistral Small", dataLevel: "N2" });
   await saveCatalogEntry(deps, admin, { ...entry, modelName: "qwen3.8", displayNameFr: "Qwen 3.8", dataLevel: "N3" });
+  await saveSettings(deps, admin, { default_budget: "20" });
 });
 
 const demande: KeyRequestInput = {
@@ -225,5 +230,60 @@ describe("pastilles du menu du salarié", () => {
     await createKeyRequest(deps, demandeur, { ...demande, project: "en attente" });
     expect(await countMyPending(deps, demandeur)).toEqual({ clesARetirer: 1, abonnementsADeclarer: 0, demandesACompleter: 1 });
     expect(await countMyPending(deps, admin)).toEqual({ clesARetirer: 0, abonnementsADeclarer: 0, demandesACompleter: 0 });
+  });
+});
+
+describe("budget demandé à la création", () => {
+  test("au-delà du budget par défaut, la justification du budget est obligatoire", async () => {
+    await expect(createKeyRequest(deps, demandeur, { ...demande, requestedBudget: 50, budgetJustification: null })).rejects.toMatchObject({ code: "justification_budget_requise" });
+    await expect(createKeyRequest(deps, demandeur, { ...demande, requestedBudget: 50, budgetJustification: "   " })).rejects.toMatchObject({ code: "justification_budget_requise" });
+    const { id } = await createKeyRequest(deps, demandeur, { ...demande, requestedBudget: 50, budgetJustification: "Traitement de 2 000 contrats" });
+    expect(await testDb.accessRequest.findUniqueOrThrow({ where: { id } })).toMatchObject({ budgetJustification: "Traitement de 2 000 contrats" });
+    expect((await getRequestReview(deps, admin, id)).budgetJustification).toBe("Traitement de 2 000 contrats");
+  });
+
+  test("au budget par défaut ou en dessous, aucune justification n'est demandée, et une justification saisie n'est pas gardée", async () => {
+    const { id } = await createKeyRequest(deps, demandeur, { ...demande, requestedBudget: 20, budgetJustification: "inutile" });
+    expect(await testDb.accessRequest.findUniqueOrThrow({ where: { id } })).toMatchObject({ requestedBudget: expect.anything(), budgetJustification: null });
+  });
+
+  test("un renouvellement au budget de la clé d'origine ne se rejustifie pas ; au-delà, si", async () => {
+    const { id: origine } = await createKeyRequest(deps, demandeur, { ...demande, requestedBudget: 50, budgetJustification: "Gros volume" });
+    await approveKeyRequest(deps, admin, origine, { models: ["mistral-small"], budget: 50, budgetDuration: "30d", days: 60, rpmLimit: null, tpmLimit: null });
+    await pickUpKey(deps, demandeur, origine);
+    const renouvellement = { ...demande, renewsRequestId: origine, budgetJustification: null };
+    await expect(createKeyRequest(deps, demandeur, { ...renouvellement, requestedBudget: 60 })).rejects.toMatchObject({ code: "justification_budget_requise" });
+    const { id } = await createKeyRequest(deps, demandeur, { ...renouvellement, requestedBudget: 50 });
+    expect(await testDb.accessRequest.findUniqueOrThrow({ where: { id } })).toMatchObject({ renewsRequestId: origine, budgetJustification: null });
+  });
+
+  test("un complément peut changer le budget et sa justification", async () => {
+    const { id } = await createKeyRequest(deps, demandeur, { ...demande, requestedBudget: 50, budgetJustification: "Traitement de 2 000 contrats" });
+    await requestCompletion(deps, admin, id, "Précisez le volume");
+    await expect(completeRequest(deps, demandeur, id, { ...demande, requestedBudget: 80, budgetJustification: null })).rejects.toMatchObject({ code: "justification_budget_requise" });
+    await completeRequest(deps, demandeur, id, { ...demande, requestedBudget: 80, budgetJustification: "Volume revu à 4 000 contrats" });
+    const demandeComplete = await testDb.accessRequest.findUniqueOrThrow({ where: { id } });
+    expect(demandeComplete).toMatchObject({ status: "SOUMISE", budgetJustification: "Volume revu à 4 000 contrats" });
+    expect(demandeComplete.requestedBudget?.toNumber()).toBe(80);
+  });
+
+  test("le formulaire de complément reprend le budget demandé et sa justification ; rien pour un autre utilisateur, même admin", async () => {
+    const { id } = await createKeyRequest(deps, demandeur, { ...demande, requestedBudget: 50, budgetJustification: "Traitement de 2 000 contrats" });
+    await requestCompletion(deps, admin, id, "Précisez le volume");
+    expect(await completionDraft(deps, demandeur, id)).toEqual({ renewsRequestId: null, requestedBudget: 50, budgetJustification: "Traitement de 2 000 contrats" });
+    expect(await completionDraft(deps, admin, id)).toBeNull();
+  });
+
+  test("une demande sans budget (canal de l'API) garde son comportement : ni budget, ni justification exigée", async () => {
+    const { id } = await createKeyRequest(deps, demandeur, { ...demande, requestedBudget: null });
+    expect(await testDb.accessRequest.findUniqueOrThrow({ where: { id } })).toMatchObject({ requestedBudget: null, budgetJustification: null });
+  });
+
+  test("le courriel de nouvelle demande récapitule le budget souhaité et sa justification", async () => {
+    const mailer = new FakeMailer();
+    await createKeyRequest({ ...deps, mailer, adminEmails: ["jdupont@linagora.com"] }, demandeur, { ...demande, requestedBudget: 50, budgetJustification: "Traitement de 2 000 contrats" });
+    const [courriel] = mailer.outbox;
+    expect(courriel.text).toContain("- Budget souhaité : 50 €\n- Justification du budget : Traitement de 2 000 contrats");
+    expect(courriel.text).toContain("- Requested budget: €50\n- Budget justification: Traitement de 2 000 contrats");
   });
 });

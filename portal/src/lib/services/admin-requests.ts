@@ -22,6 +22,7 @@ import { requireAdmin } from "@/lib/rbac";
 import { recordAudit } from "./audit";
 import { dansEquipes, managerEmails, requireAutorite, requireGestion } from "./autorite";
 import { pickupDeadline, readPickupDays } from "./delais";
+import { aliasDesCleVisees } from "./demandes-en-cours";
 import { markExpired } from "./echeances";
 import {
   type NotificationDeps,
@@ -41,7 +42,7 @@ import { requestTerminationAfterRefusedRenewal } from "./resiliations";
 import { readSettings, type SettingValues } from "./settings";
 import { approversByTeam } from "./teams";
 
-interface AdminDeps extends NotificationDeps {
+export interface AdminDeps extends NotificationDeps {
   db: Db;
   litellm: LiteLLMClient;
   /** Date du jour, injectée par les tests ; l'heure réelle sinon. */
@@ -58,6 +59,8 @@ export interface PendingRequest {
   teamAlias: string;
   dataLevel: DataLevel | null;
   models: string[];
+  /** Hausse de budget : l'alias de la clé visée. */
+  keyAlias: string | null;
   project: string | null;
   status: RequestStatus;
   createdAt: Date;
@@ -80,7 +83,8 @@ export async function listPendingRequests(deps: AdminDeps, actor: SessionUser): 
   const equipes = await requireGestion(deps.db, actor);
   const rows = await deps.db.accessRequest.findMany({ where: demandesDeLaFile(actor, equipes), orderBy: { createdAt: "asc" }, include: { offer: true } });
   const { aTraiter, aSuivre } = await partager(deps, actor, rows);
-  return { aTraiter: aTraiter.map(ligneDeLaFile), aSuivre: aSuivre.map(ligneDeLaFile) };
+  const alias = await aliasDesCleVisees(deps.db, rows);
+  return { aTraiter: aTraiter.map((r) => ligneDeLaFile(r, alias)), aSuivre: aSuivre.map((r) => ligneDeLaFile(r, alias)) };
 }
 
 /** Demandes de la file de l'acteur ; un responsable n'y voit ni les autres équipes, ni ses propres demandes. */
@@ -98,7 +102,7 @@ async function partager<D extends DemandeDeLaFile & { teamId: string }>(deps: Ad
   return { aTraiter: demandes.filter(attend), aSuivre: demandes.filter((d) => !attend(d)) };
 }
 
-function ligneDeLaFile(r: Prisma.AccessRequestGetPayload<{ include: { offer: true } }>): PendingRequest {
+function ligneDeLaFile(r: Prisma.AccessRequestGetPayload<{ include: { offer: true } }>, alias: Map<string, string>): PendingRequest {
   return {
     id: r.id,
     kind: r.kind,
@@ -107,6 +111,7 @@ function ligneDeLaFile(r: Prisma.AccessRequestGetPayload<{ include: { offer: tru
     teamAlias: r.teamAlias,
     dataLevel: r.dataLevel,
     models: r.models,
+    keyAlias: alias.get(r.id) ?? null,
     project: r.project,
     status: r.status,
     createdAt: r.createdAt,
@@ -155,6 +160,7 @@ export async function listProcessedRequests(deps: AdminDeps, actor: SessionUser,
     take,
     include: { offer: true },
   });
+  const alias = await aliasDesCleVisees(deps.db, rows);
   const elements = rows.map((r) => ({
     id: r.id,
     kind: r.kind,
@@ -163,6 +169,7 @@ export async function listProcessedRequests(deps: AdminDeps, actor: SessionUser,
     teamAlias: r.teamAlias,
     dataLevel: r.dataLevel,
     models: r.approvedModels.length > 0 ? r.approvedModels : r.models,
+    keyAlias: alias.get(r.id) ?? null,
     project: r.project,
     status: r.status,
     createdAt: r.createdAt,
@@ -190,6 +197,8 @@ export interface RequestReview extends PendingRequest {
   teamId: string;
   justification: string;
   requestedBudget: number | null;
+  /** Justification du budget demandé, null quand il ne dépasse pas le seuil. */
+  budgetJustification: string | null;
   requestedDays: number | null;
   decidedBy: string | null;
   decisionComment: string | null;
@@ -202,6 +211,19 @@ export interface RequestReview extends PendingRequest {
   checks: PolicyCheck[];
   /** Renouvellement : alias de la clé d'origine et sa dépense (null si elle a été révoquée ou si la passerelle ne répond pas). */
   renewal: { alias: string; spend: number | null } | null;
+  /**
+   * Hausse de budget : la clé visée, son plafond et sa période, sa dépense et sa remise à zéro (null si elle n'est plus
+   * émise ou si la passerelle ne répond pas), et le budget de l'équipe (null sans plafond d'équipe).
+   */
+  budgetRaise: {
+    keyAlias: string;
+    currentBudget: number | null;
+    budgetDuration: string | null;
+    spend: number | null;
+    budgetResetAt: Date | null;
+    keyActive: boolean;
+    team: { maxBudget: number; budgetDuration: string | null } | null;
+  } | null;
 }
 
 export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: string): Promise<RequestReview> {
@@ -221,6 +243,7 @@ export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: 
     r.kind === "CLE" && r.dataLevel
       ? (await evaluateKeyRequest(deps, { requesterUid: r.requesterUid, teamId: r.teamId, dataLevel: r.dataLevel, models: r.models })).checks
       : [];
+  const budgetRaise = r.kind === "BUDGET" && r.raisesBudgetOfRequestId ? await cleDeLaHausse(deps, r.raisesBudgetOfRequestId) : null;
   return {
     id: r.id,
     kind: r.kind,
@@ -239,6 +262,7 @@ export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: 
     project: r.project,
     justification: r.justification,
     requestedBudget: r.requestedBudget?.toNumber() ?? null,
+    budgetJustification: r.budgetJustification,
     requestedDays: r.requestedDays,
     status: r.status,
     createdAt: r.createdAt,
@@ -258,6 +282,8 @@ export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: 
       : null,
     checks,
     renewal: r.renewsRequestId ? await renewalOrigin(deps, r.renewsRequestId) : null,
+    keyAlias: budgetRaise?.keyAlias ?? null,
+    budgetRaise,
   };
 }
 
@@ -268,6 +294,27 @@ async function renewalOrigin(deps: AdminDeps, requestId: string): Promise<Reques
   const lisible = (origine.status === "CLE_EMISE" || origine.status === "EXPIREE") && origine.keyTokenId;
   const info = lisible ? await deps.litellm.getKeyInfo(lisible).catch(() => null) : null;
   return { alias: origine.keyAlias, spend: info?.spend ?? null };
+}
+
+async function cleDeLaHausse(deps: AdminDeps, requestId: string): Promise<RequestReview["budgetRaise"]> {
+  const cle = await deps.db.accessRequest.findUnique({ where: { id: requestId } });
+  if (!cle?.keyAlias) return null;
+  // La fiche constate les expirations avant d'être lue : une clé encore émise n'est pas expirée.
+  const active = cle.status === "CLE_EMISE";
+  const [info, equipe] = await Promise.all([
+    active && cle.keyTokenId ? deps.litellm.getKeyInfo(cle.keyTokenId).catch(() => null) : null,
+    deps.litellm.getTeam(cle.teamId).catch(() => null),
+  ]);
+  return {
+    keyAlias: cle.keyAlias,
+    currentBudget: cle.approvedBudget?.toNumber() ?? null,
+    budgetDuration: cle.budgetDuration,
+    spend: info?.spend ?? null,
+    budgetResetAt: info?.budgetResetAt ?? null,
+    keyActive: active,
+    // Un budget d'équipe à 0 vaut « sans limite », comme pour les alertes de budget.
+    team: equipe?.maxBudget ? { maxBudget: equipe.maxBudget, budgetDuration: equipe.budgetDuration } : null,
+  };
 }
 
 /** Paramètres de la clé fixés par l'admin (F-31). Durées au format LiteLLM : 30d, 12h… */
@@ -513,13 +560,14 @@ async function teamForApproval(
 
 /**
  * Droit de décider d'une demande (F-54) : autorité sur son équipe (admin, ou responsable de cette équipe) et, pour un
- * responsable, jamais sur sa propre demande : un autre responsable de l'équipe ou un admin en décide. Après l'accord du
- * responsable, seul un admin décide encore d'une demande d'abonnement (spécification #93).
+ * responsable, jamais sur sa propre demande : un autre responsable de l'équipe ou un admin en décide ; un admin, jamais
+ * sur sa propre demande de hausse de budget. Après l'accord du responsable, seul un admin décide encore d'une demande
+ * d'abonnement (spécification #93).
  */
-async function requireDecision(deps: AdminDeps, actor: SessionUser, request: DemandeDeLaFile & { teamId: string }, objet: string): Promise<void> {
+export async function requireDecision(deps: AdminDeps, actor: SessionUser, request: DemandeDeLaFile & { teamId: string }, objet: string): Promise<void> {
   await requireAutorite(deps.db, actor, request.teamId, objet);
   const empechement = empechementDeDecider(actor, request);
-  if (empechement === "quatre_yeux") throw new PortalError("quatre_yeux", "Un responsable ne décide pas de sa propre demande.", { cas: "demande" });
+  if (empechement === "quatre_yeux") throw new PortalError("quatre_yeux", "On ne décide pas de sa propre demande.", { cas: "demande" });
   if (empechement === "interdit") throw new PortalError("interdit", "Après l'accord du responsable, seul un admin décide de la demande.");
 }
 
@@ -532,11 +580,11 @@ async function responsablesDe(deps: AdminDeps, teamId: string): Promise<string[]
  * Une décision est annoncée aux responsables de l'équipe, hors son auteur et le demandeur, et, celle d'un responsable,
  * aux admins (F-54) ; l'annonce dit quand un admin a décidé sans l'accord d'un responsable (ticket #97).
  */
-async function annoncerDecision(
+export async function annoncerDecision(
   deps: AdminDeps,
   actor: SessionUser,
   request: { id: string; teamId: string; teamAlias: string; requesterUid: string },
-  decision: "approuvee" | "refusee" | "complement" | "adhesion" | "abonnement",
+  decision: "approuvee" | "refusee" | "complement" | "adhesion" | "abonnement" | "budget",
   sansAccord = false,
 ): Promise<void> {
   await notifyTeamChange(

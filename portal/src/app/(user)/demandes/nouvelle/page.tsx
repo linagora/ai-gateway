@@ -1,16 +1,18 @@
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import type { Langue } from "@/lib/langue";
-import { DATA_LEVELS } from "@/lib/policy";
+import { joursDePeriode } from "@/lib/durees";
+import { DATA_LEVELS, seuilJustificationBudget } from "@/lib/policy";
 import { listCatalog } from "@/lib/services/catalog";
 import { renewalDraft } from "@/lib/services/keys";
-import { listMyTeams } from "@/lib/services/requests";
+import { completionDraft, listMyTeams } from "@/lib/services/requests";
 import { readSettings } from "@/lib/services/settings";
 import { getDeps, requireUser } from "@/lib/session";
 import { createKeyRequestAction } from "../../../actions";
 import { ChoixEquipe } from "../../../choix-equipe";
-import { ChoixDuree, equipesProposees, ExplicationObligatoires, Notice } from "../../../components";
+import { ChoixDuree, equipesProposees, ExplicationObligatoires, formats, Notice } from "../../../components";
 import { Obligatoire } from "../../../obligatoire";
+import { Budget } from "./budget";
 import { NiveauEtModeles } from "./niveau-et-modeles";
 
 /**
@@ -36,6 +38,18 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
   const niveau = renouvellement?.dataLevel ?? DATA_LEVELS.find((l) => l === searchParams.niveau) ?? null;
   const preselected = renouvellement?.models ?? [searchParams.modeles].flat().filter((m): m is string => typeof m === "string");
   const [teams, catalog, settings] = await Promise.all([listMyTeams(deps, user), listCatalog(deps, language), readSettings(deps.db)]);
+  const complement = completing ? await completionDraft(deps, user, completing) : null;
+  const origine = renouvellement ?? (complement?.renewsRequestId ? await renewalDraft(deps, user, complement.renewsRequestId).catch(() => null) : null);
+  const budgetParDefaut = settings.default_budget ? Number(settings.default_budget) : null;
+  const periode = settings.default_budget_duration || null;
+  const { euros } = await formats();
+  const jours = periode ? joursDePeriode(periode) : null;
+  const libelleBudget =
+    budgetParDefaut === null
+      ? t("budget")
+      : periode
+        ? t("budgetRecommandePeriode", { montant: euros(budgetParDefaut), periode: jours !== null ? domaine("dureeEnJours", { nombre: jours }) : periode })
+        : t("budgetRecommande", { montant: euros(budgetParDefaut) });
   const dureeParDefaut = settings.default_days ? Number(settings.default_days) : null;
   const equipes = await equipesProposees(user, teams);
 
@@ -75,7 +89,13 @@ export default async function NewRequestPage(props: PageProps<"/demandes/nouvell
             {t("projet")}
             <input name="project" defaultValue={renouvellement?.project ?? ""} />
           </label>
-          {/* Le budget n'est plus demandé au collaborateur : l'admin le fixe ; un renouvellement reprend celui de la clé d'origine. */}
+          <Budget
+            parDefaut={budgetParDefaut}
+            valeurInitiale={complement?.requestedBudget ?? renouvellement?.requestedBudget ?? null}
+            seuil={seuilJustificationBudget(budgetParDefaut, origine?.requestedBudget ?? null)}
+            justificationInitiale={complement?.budgetJustification ?? undefined}
+            textes={{ libelle: libelleBudget, justification: t("justificationBudget") }}
+          />
           <label>
             {t("duree")}
             <ChoixDuree name="requestedDays" valeur={renouvellement?.requestedDays ?? dureeParDefaut} />

@@ -3,6 +3,7 @@ import type { LiteLLMClient, LiteLLMTeam } from "@/lib/litellm/client";
 import { recordAudit } from "./audit";
 import { managerEmails } from "./autorite";
 import { calendarDaysUntil, horizonDeRappel, JOUR, pickupDeadline, RAPPELS_EXPIRATION, rappelsDus, readPickupDays, SYSTEME } from "./delais";
+import { annulerHaussesDeLaCle } from "./demandes-en-cours";
 import {
   type NotificationDeps,
   notifyDeclarationReminder,
@@ -44,6 +45,7 @@ export async function markExpired(db: Db, now: Date): Promise<{ demandesExpirees
     const { count } = await db.accessRequest.updateMany({ where: { id: r.id, status: "CLE_EMISE" }, data: { status: "EXPIREE" } });
     if (count === 0) continue;
     clesExpirees++;
+    await annulerHaussesDeLaCle(db, r.id);
     await recordAudit(db, { actorUid: SYSTEME, action: "KEY_EXPIRED", targetId: r.id, details: { alias: r.keyAlias } });
   }
   return { demandesExpirees, clesExpirees };
