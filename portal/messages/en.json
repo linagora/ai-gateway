@@ -755,6 +755,7 @@
         "montantAccorde": "Amount granted",
         "budgetEquipe": "Team budget",
         "depasseEquipe": "The requested amount exceeds the team budget ({budget}).",
+        "depasseEquipeSaisi": "This amount exceeds the team budget ({budget}).",
         "inactive": "This key is no longer active.",
         "titre": "Raise the budget",
         "nouveauBudget": "New budget (€)",

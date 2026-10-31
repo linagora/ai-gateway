@@ -275,12 +275,21 @@ test("un responsable ne voit pas la hausse de sa propre clé ; un autre responsa
 
   await pageAutre.goto("/gestion/demandes");
   await ligneDeLaFile(pageAutre, "À traiter", responsable).filter({ hasText: "Hausse de budget" }).getByRole("link", { name: "Examiner" }).click();
-  await expect(pageAutre.getByText("Le montant demandé dépasse le budget de l'équipe (10,00 €).")).toBeVisible();
   await expect(pageAutre.getByLabel("Nouveau budget (€)")).toHaveValue("20");
+  // L'avertissement de budget d'équipe suit le montant que saisit le valideur, pas seulement le montant demandé.
+  const avertissement = pageAutre.getByText("Ce montant dépasse le budget de l'équipe (10,00 €).");
+  await expect(avertissement).toBeVisible();
+  await pageAutre.getByLabel("Nouveau budget (€)").fill("9");
+  await expect(avertissement).toHaveCount(0);
+  await pageAutre.getByLabel("Nouveau budget (€)").fill("20");
+  await expect(avertissement).toBeVisible();
   await pageAutre.getByRole("button", { name: "Relever le budget" }).click();
   await expect(pageAutre.getByRole("status")).toHaveText("Budget relevé.");
   expect((await infoCle(cle)).maxBudget).toBe(20);
 
   await admin.goto("/gestion/demandes");
   await expect(ligneDeLaFile(admin, "À approuver", responsable).filter({ hasText: "Hausse de budget" })).toHaveCount(0);
+  // Sans formulaire de hausse, la fiche avertit sur le montant demandé.
+  await ligneDeLaFile(admin, "Archive : demandes traitées", responsable).filter({ hasText: "Hausse de budget" }).getByRole("link", { name: "Voir" }).click();
+  await expect(admin.getByText("Le montant demandé dépasse le budget de l'équipe (10,00 €).")).toBeVisible();
 });

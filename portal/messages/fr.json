@@ -755,6 +755,7 @@
         "montantAccorde": "Montant accordé",
         "budgetEquipe": "Budget de l'équipe",
         "depasseEquipe": "Le montant demandé dépasse le budget de l'équipe ({budget}).",
+        "depasseEquipeSaisi": "Ce montant dépasse le budget de l'équipe ({budget}).",
         "inactive": "Cette clé n'est plus active.",
         "titre": "Relever le budget",
         "nouveauBudget": "Nouveau budget (€)",

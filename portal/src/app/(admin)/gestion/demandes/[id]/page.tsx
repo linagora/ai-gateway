@@ -23,6 +23,7 @@ import { ChoixDuree, ExplicationObligatoires, libelleDuree, Notice, formats } fr
 import { Obligatoire } from "../../../../obligatoire";
 import { AdminNav } from "../../admin-nav";
 import { LienCollaborateur } from "../../lien-collaborateur";
+import { NouveauBudget } from "./nouveau-budget";
 
 /** F-31 / F-32 : fiche d'une demande, contrôles de politique réussis ou en échec, et décisions. */
 export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id]">) {
@@ -65,6 +66,8 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
   // Décision proposée, toujours accompagnée du refus et du complément ; sinon, ce qui empêche l'acteur de décider.
   const decision = decisionProposee(admin, review);
   const empechement = empechementDeDecider(admin, review);
+  // Hausse de budget que l'acteur peut relever, par le formulaire du nouveau plafond.
+  const relevable = decision === "approuver" && review.kind === "BUDGET" && review.budgetRaise?.keyActive === true;
   const parPeriode = (montant: number, periode: string | null) => {
     const jours = periode ? joursDePeriode(periode) : null;
     if (jours !== null) return t("hausse.plafondJours", { montant: euros(montant), nombre: jours });
@@ -253,7 +256,12 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
         <p className="mt-6 rounded border-l-4 border-amber-500 bg-amber-50 px-3 py-2">{t("sansAccord")}</p>
       )}
 
-      {review.kind === "BUDGET" && review.budgetRaise?.team && review.requestedBudget !== null && review.requestedBudget > review.budgetRaise.team.maxBudget && (
+      {/* Sans formulaire de hausse, l'avertissement porte sur le montant demandé ; le formulaire suit le montant saisi. */}
+      {review.kind === "BUDGET" &&
+        !relevable &&
+        review.budgetRaise?.team &&
+        review.requestedBudget !== null &&
+        review.requestedBudget > review.budgetRaise.team.maxBudget && (
         <p className="mt-6 rounded border-l-4 border-amber-500 bg-amber-50 px-3 py-2">{t("hausse.depasseEquipe", { budget: euros(review.budgetRaise.team.maxBudget) })}</p>
       )}
 
@@ -311,18 +319,15 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
           {review.budgetRaise?.keyActive ? (
             <form action={approuverBudgetAction}>
               <input type="hidden" name="id" value={review.id} />
-              <label>
-                {t("hausse.nouveauBudget")}
-                <Obligatoire />
-                <input
-                  name="budget"
-                  type="number"
-                  min={plafondMinimalDeHausse(review.budgetRaise.currentBudget)}
-                  step="0.01"
-                  required
-                  defaultValue={review.requestedBudget ?? ""}
-                />
-              </label>
+              <NouveauBudget
+                minimum={plafondMinimalDeHausse(review.budgetRaise.currentBudget)}
+                valeurInitiale={review.requestedBudget}
+                budgetEquipe={review.budgetRaise.team?.maxBudget ?? null}
+                textes={{
+                  libelle: t("hausse.nouveauBudget"),
+                  depasseEquipe: review.budgetRaise.team ? t("hausse.depasseEquipeSaisi", { budget: euros(review.budgetRaise.team.maxBudget) }) : "",
+                }}
+              />
               <p className="text-sm text-neutral-600">{t("hausse.aide")}</p>
               <button type="submit">{t("hausse.relever")}</button>
             </form>
