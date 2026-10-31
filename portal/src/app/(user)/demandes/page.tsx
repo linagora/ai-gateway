@@ -40,7 +40,7 @@ export default async function MyRequestsPage(props: PageProps<"/demandes">) {
               <td>{domaine(`typesDemande.${r.kind}`)}</td>
               <td>{r.teamAlias}</td>
               <td>{r.dataLevel ? domaine(`niveaux.${r.dataLevel}`) : ""}</td>
-              <td>{r.offer ?? r.keyAlias ?? r.models.join(", ")}</td>
+              <td>{r.offer ?? r.raisedKeyAlias ?? r.models.join(", ")}</td>
               <td>
                 {domaine(`statuts.${r.status}`)}
                 {r.status === "ACCORD_RESPONSABLE" && <span className="block text-sm text-neutral-600">{t("attenteApprobation")}</span>}

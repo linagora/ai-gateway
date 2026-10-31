@@ -60,7 +60,7 @@ export interface PendingRequest {
   dataLevel: DataLevel | null;
   models: string[];
   /** Hausse de budget : l'alias de la clé visée. */
-  keyAlias: string | null;
+  raisedKeyAlias: string | null;
   project: string | null;
   status: RequestStatus;
   createdAt: Date;
@@ -111,7 +111,7 @@ function ligneDeLaFile(r: Prisma.AccessRequestGetPayload<{ include: { offer: tru
     teamAlias: r.teamAlias,
     dataLevel: r.dataLevel,
     models: r.models,
-    keyAlias: alias.get(r.id) ?? null,
+    raisedKeyAlias: alias.get(r.id) ?? null,
     project: r.project,
     status: r.status,
     createdAt: r.createdAt,
@@ -171,7 +171,7 @@ export async function listProcessedRequests(deps: AdminDeps, actor: SessionUser,
     teamAlias: r.teamAlias,
     dataLevel: r.dataLevel,
     models: r.approvedModels.length > 0 ? r.approvedModels : r.models,
-    keyAlias: alias.get(r.id) ?? null,
+    raisedKeyAlias: alias.get(r.id) ?? null,
     project: r.project,
     status: r.status,
     createdAt: r.createdAt,
@@ -293,7 +293,7 @@ export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: 
     grantedBudget: plafondAccorde(r),
     checks,
     renewal: r.renewsRequestId ? await renewalOrigin(deps, r.renewsRequestId) : null,
-    keyAlias: budgetRaise?.keyAlias ?? null,
+    raisedKeyAlias: budgetRaise?.keyAlias ?? null,
     budgetRaise,
   };
 }

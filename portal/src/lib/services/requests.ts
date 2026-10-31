@@ -67,7 +67,7 @@ export interface RequestSummary {
   dataLevel: DataLevel | null;
   models: string[];
   /** Hausse de budget : l'alias de la clé visée. */
-  keyAlias: string | null;
+  raisedKeyAlias: string | null;
   status: RequestStatus;
   decisionComment: string | null;
   /** Renouvellement d'une clé : la demande dont vient la clé renouvelée. */
@@ -272,7 +272,7 @@ export async function listMyRequests(deps: RequestDeps, user: SessionUser): Prom
     teamAlias: r.teamAlias,
     dataLevel: r.dataLevel,
     models: r.models,
-    keyAlias: alias.get(r.id) ?? null,
+    raisedKeyAlias: alias.get(r.id) ?? null,
     status: r.status,
     decisionComment: r.decisionComment,
     renewsRequestId: r.renewsRequestId,
