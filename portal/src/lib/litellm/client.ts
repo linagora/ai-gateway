@@ -220,6 +220,8 @@ export interface LiteLLMClient {
   blockKey(tokenId: string): Promise<void>;
   /** F-43 : débloque une clé bloquée. */
   unblockKey(tokenId: string): Promise<void>;
+  /** Relève le plafond d'une clé ; sa dépense, sa remise à zéro et son expiration sont inchangées. */
+  updateKeyBudget(tokenId: string, maxBudget: number): Promise<void>;
   /**
    * Supervision : appel minimal du modèle par la route d'inférence des collaborateurs (garde comprise), selon son type
    * d'API. Ne lève jamais : une panne, un refus ou un délai dépassé est rendu dans le résultat.
@@ -554,6 +556,11 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
     async unblockKey(tokenId) {
       const { status, data } = await call("POST", "/key/unblock", { key: tokenId });
       if (status !== 200) fail("POST", "/key/unblock", status, data);
+    },
+
+    async updateKeyBudget(tokenId, maxBudget) {
+      const { status, data } = await call("POST", "/key/update", { key: tokenId, max_budget: maxBudget });
+      if (status !== 200) fail("POST", "/key/update", status, data);
     },
 
     async probeModel(modelName, apiKind) {

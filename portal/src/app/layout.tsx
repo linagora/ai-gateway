@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import localFont from "next/font/local";
 import Image from "next/image";
 import Link from "next/link";
 import { NextIntlClientProvider } from "next-intl";
@@ -16,13 +17,25 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("titre"), description: t("description") };
 }
 
+/*
+ * Police du portail : Inter 4.1 (licence OFL, polices/LICENSE.txt), variable, réduite aux alphabets latins par pyftsubset
+ * (fontTools). Embarquée, elle donne le même rendu sur tous les postes, Linux compris (ticket #155).
+ */
+const inter = localFont({
+  src: [
+    { path: "./polices/InterVariable.woff2", weight: "100 900", style: "normal" },
+    { path: "./polices/InterVariable-Italic.woff2", weight: "100 900", style: "italic" },
+  ],
+  variable: "--police-inter",
+});
+
 // Interface minimale (V1) : l'ergonomie et le graphisme seront repris dans un second temps.
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const [locale, t, user] = await Promise.all([getLocale(), getTranslations("entete"), getCurrentUser()]);
   // Pastilles : ce que le salarié peut faire maintenant (clé approuvée à retirer, demande à compléter).
   const enAttente = user ? await countMyPending(getDeps(), user) : null;
   return (
-    <html lang={locale}>
+    <html lang={locale} className={inter.variable}>
       <body>
         <NextIntlClientProvider>
           <header className="flex flex-wrap items-center gap-4 border-t-4 border-b border-t-linagora px-6 py-3 print:hidden">

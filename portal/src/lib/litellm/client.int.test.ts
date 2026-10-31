@@ -439,6 +439,16 @@ describe("clés", () => {
     await expect.poll(appel, { timeout: 15_000, interval: 1_000 }).toBe(401);
   });
 
+  test("le plafond d'une clé se relève sans toucher à sa dépense, à sa remise à zéro ni à son expiration", async () => {
+    const { userId, teamId } = await titulaire();
+    const alias = uniqueId("cle");
+    createdKeyAliases.push(alias);
+    const cle = await client.generateKey({ userId, teamId, models: ["dev-public"], maxBudget: 5, budgetDuration: "30d", duration: "90d", rpmLimit: null, tpmLimit: null, alias, metadata: {}, spend: 1.5 });
+    const avant = await client.getKeyInfo(cle.tokenId);
+    await client.updateKeyBudget(cle.tokenId, 12.5);
+    expect(await client.getKeyInfo(cle.tokenId)).toEqual({ ...avant, maxBudget: 12.5 });
+  });
+
   test("une clé bloquée est signalée et refusée par la passerelle ; débloquée, elle fonctionne à nouveau", async () => {
     const { userId, teamId } = await titulaire();
     const alias = uniqueId("cle");

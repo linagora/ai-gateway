@@ -161,6 +161,10 @@ export class FakeLiteLLM implements LiteLLMClient {
     this.cleConnue(tokenId).blocked = false;
   }
 
+  async updateKeyBudget(tokenId: string, maxBudget: number): Promise<void> {
+    this.cleConnue(tokenId).maxBudget = maxBudget;
+  }
+
   async probeModel(modelName: string, apiKind: ProbedApiKind): Promise<ProbeResult> {
     this.sondes.push({ modelName, apiKind });
     if (this.panne) return { status: null, latencyMs: 0, error: "fetch failed", errorCode: "passerelle_injoignable" };
