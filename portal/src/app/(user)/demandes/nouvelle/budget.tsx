@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { justificationBudgetExigee } from "@/lib/policy";
 import { Obligatoire } from "../../../obligatoire";
 
 /**
@@ -15,7 +16,7 @@ export function Budget(props: {
   textes: { libelle: string; justification: string };
 }) {
   const [montant, setMontant] = useState(String(props.valeurInitiale ?? props.parDefaut ?? ""));
-  const depasse = Number(montant) > props.seuil;
+  const depasse = justificationBudgetExigee(Number(montant), props.seuil);
   return (
     <>
       <label>

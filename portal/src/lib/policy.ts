@@ -89,6 +89,16 @@ export function seuilJustificationBudget(parDefaut: number | null, origine: numb
   return Math.max(parDefaut ?? 0, origine ?? 0);
 }
 
+/** F-20 : un budget demandé doit être justifié s'il dépasse le seuil, une fois arrondi au centime. */
+export function justificationBudgetExigee(montant: number | null, seuil: number): boolean {
+  return montant !== null && montantAuCentime(montant) > seuil;
+}
+
+/** Plus petit plafond qu'une hausse de budget peut viser : le centime au-dessus du plafond actuel de la clé, s'il y en a un. */
+export function plafondMinimalDeHausse(actuel: number | null): number {
+  return actuel === null ? 0.01 : (Math.round(actuel * 100) + 1) / 100;
+}
+
 /** Règle 3 : contrôles d'une demande de clé, rejoués à la soumission, à l'approbation et à la génération. */
 export function checkKeyRequest(draft: KeyRequestDraft, team: TeamForPolicy, catalog: readonly CatalogModel[]): PolicyVerdict {
   const checks: PolicyCheck[] = [

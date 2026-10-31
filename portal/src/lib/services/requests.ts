@@ -10,6 +10,7 @@ import {
   checkTransition,
   DATA_LEVELS,
   type DataLevel,
+  justificationBudgetExigee,
   type KeyRequestDraft,
   montantAuCentime,
   pasEncoreDecidee,
@@ -150,7 +151,7 @@ async function validateKeyRequest(deps: RequestDeps, user: SessionUser, input: K
   if (!verdict.ok) throw new PolicyViolationError(verdict.checks.filter((c) => !c.ok));
   const parDefaut = (await readSettings(deps.db)).default_budget;
   const seuil = seuilJustificationBudget(parDefaut === undefined ? null : Number(parDefaut), origine?.approvedBudget?.toNumber() ?? null);
-  const depasse = data.requestedBudget !== null && data.requestedBudget > seuil;
+  const depasse = justificationBudgetExigee(data.requestedBudget, seuil);
   const budgetJustification = depasse ? data.budgetJustification || null : null;
   if (depasse && !budgetJustification) throw new PortalError("justification_budget_requise", "Justifiez le budget demandé.");
   return {

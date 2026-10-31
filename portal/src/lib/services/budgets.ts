@@ -3,7 +3,7 @@ import type { AccessRequest, Prisma } from "@/generated/prisma/client";
 import type { SessionUser } from "@/lib/auth-user";
 import type { Db } from "@/lib/db";
 import { PortalError } from "@/lib/errors";
-import { enAttenteDeValidation, STATUTS_PAS_ENCORE_DECIDES } from "@/lib/policy";
+import { enAttenteDeValidation, plafondMinimalDeHausse, STATUTS_PAS_ENCORE_DECIDES } from "@/lib/policy";
 import { type AdminDeps, annoncerDecision, requireDecision } from "./admin-requests";
 import { parActeur, recordAudit } from "./audit";
 import { managerEmails, requireGestion } from "./autorite";
@@ -179,7 +179,7 @@ const plafond = (cle: AccessRequest) => cle.approvedBudget?.toNumber() ?? null;
 /** Le nouveau plafond doit dépasser strictement celui de la clé. */
 function verifierMontant(cle: AccessRequest, montant: number): void {
   const actuel = plafond(cle);
-  if (actuel !== null && montant <= actuel) {
+  if (actuel !== null && montant < plafondMinimalDeHausse(actuel)) {
     throw new PortalError("budget_trop_bas", `Le montant doit dépasser le plafond actuel de la clé (${actuel} €).`, { plafond: `${actuel} €` });
   }
 }

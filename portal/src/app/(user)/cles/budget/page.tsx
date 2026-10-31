@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { joursDePeriode } from "@/lib/durees";
+import { plafondMinimalDeHausse } from "@/lib/policy";
 import { budgetRaiseDraft } from "@/lib/services/budgets";
 import { getDeps, requireUser } from "@/lib/session";
 import { demanderBudgetAction } from "../../../actions";
@@ -36,8 +37,6 @@ export default async function DemandeBudgetPage(props: PageProps<"/cles/budget">
         : budgetDuration
           ? t("plafondPeriode", { montant: euros(currentBudget), periode: budgetDuration })
           : euros(currentBudget);
-  const minimum = currentBudget === null ? 0.01 : (Math.round(currentBudget * 100) + 1) / 100;
-
   return (
     <>
       <h1>{t(completing ? "titreCompleter" : "titre", { alias: brouillon.alias })}</h1>
@@ -69,7 +68,7 @@ export default async function DemandeBudgetPage(props: PageProps<"/cles/budget">
         <label>
           {t("nouveauBudget")}
           <Obligatoire />
-          <input type="number" name="requestedBudget" min={minimum} step="0.01" required defaultValue={brouillon.requestedBudget ?? ""} />
+          <input type="number" name="requestedBudget" min={plafondMinimalDeHausse(currentBudget)} step="0.01" required defaultValue={brouillon.requestedBudget ?? ""} />
         </label>
         <p className="text-sm text-neutral-600">{t("aideMontant")}</p>
         <label>

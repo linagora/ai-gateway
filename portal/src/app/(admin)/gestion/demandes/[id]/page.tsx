@@ -4,7 +4,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { PortalError } from "@/lib/errors";
 import type { Langue } from "@/lib/langue";
 import { DUREE_ABONNEMENT_PAR_DEFAUT, DUREES_ABONNEMENT, joursDePeriode } from "@/lib/durees";
-import { decisionProposee, empechementDeDecider, enAttenteDeValidation, modelAcceptsLevel } from "@/lib/policy";
+import { decisionProposee, empechementDeDecider, enAttenteDeValidation, modelAcceptsLevel, plafondMinimalDeHausse } from "@/lib/policy";
 import { getRequestReview } from "@/lib/services/admin-requests";
 import { equipesGerees } from "@/lib/services/autorite";
 import { listCatalog } from "@/lib/services/catalog";
@@ -308,7 +308,14 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
               <label>
                 {t("hausse.nouveauBudget")}
                 <Obligatoire />
-                <input name="budget" type="number" min="0.01" step="0.01" required defaultValue={review.requestedBudget ?? ""} />
+                <input
+                  name="budget"
+                  type="number"
+                  min={plafondMinimalDeHausse(review.budgetRaise.currentBudget)}
+                  step="0.01"
+                  required
+                  defaultValue={review.requestedBudget ?? ""}
+                />
               </label>
               <p className="text-sm text-neutral-600">{t("hausse.aide")}</p>
               <button type="submit">{t("hausse.relever")}</button>
