@@ -17,8 +17,6 @@ import {
 } from "./cles-assistants";
 import type { KeyDeps } from "./keys";
 
-export type { CleEcartee, IdentiteCle, RaisonCleEcartee, RaisonModeleEcarte } from "./cles-assistants";
-
 /** Textes de la configuration, dans la langue du collaborateur. */
 export interface TextesOpenCode {
   /** Nom de chaque niveau de confidentialité. */
