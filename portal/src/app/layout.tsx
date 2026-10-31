@@ -38,14 +38,14 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
     <html lang={locale} className={inter.variable}>
       <body>
         <NextIntlClientProvider>
-          <header className="flex flex-wrap items-center gap-4 border-t-4 border-b border-t-linagora px-6 py-3 print:hidden">
+          <header className="flex flex-wrap items-center gap-3 border-t-4 border-b border-t-linagora px-6 py-3 print:hidden">
             <Link href="/" className="flex items-center gap-2 font-semibold text-neutral-900 no-underline">
               {/* Logo de référence : Linagora-logo.png de Wikimedia Commons (656 × 138), servi tel quel. */}
               <Image src="/linagora-logo.png" alt="LINAGORA" width={114} height={24} loading="eager" unoptimized />
               {t("portail")}
             </Link>
             {user && (
-              <nav className="flex flex-wrap gap-x-4" aria-label={t("navigation")}>
+              <nav className="flex flex-wrap gap-x-3" aria-label={t("navigation")}>
                 <Onglets
                   onglets={[
                     { href: "/catalogue", contenu: t("catalogue") },
@@ -87,7 +87,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             <Suspense fallback={null}>
               <UserMenu />
             </Suspense>
-            <SelecteurLangue />
+            {/* Connecté, on choisit la langue dans le menu du compte. */}
+            {!user && <SelecteurLangue />}
           </header>
           <main className="mx-auto max-w-6xl px-6 py-6">{children}</main>
         </NextIntlClientProvider>
