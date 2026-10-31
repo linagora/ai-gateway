@@ -5,12 +5,10 @@ import { entreApostrophes } from "@/lib/shell";
 import {
   type CleEcartee,
   type ClePreparee,
-  type IdentiteCle,
-  identite,
-  type ModelePropose,
-  modelesProposes,
+  type CleProposee,
+  choisie,
+  cleProposee,
   preparerLesCles,
-  type RaisonModeleEcarte,
   reference,
 } from "./cles-assistants";
 import type { KeyDeps } from "./keys";
@@ -62,17 +60,13 @@ export interface OptionsClaudeCode {
   modelesParDefaut: string[];
 }
 
-/** Clé émise proposée pour Claude Code, avec les modèles qu'elle y apporte. */
-export interface CleClaudeCode extends IdentiteCle {
-  /** Identifiant de la clé dans le trousseau, d'où vient le nom de son lanceur. */
-  entree: string;
+/**
+ * Clé émise proposée pour Claude Code : son entrée est son identifiant dans le trousseau, d'où vient le nom de son
+ * lanceur ; une clé choisie a un lanceur.
+ */
+export interface CleClaudeCode extends CleProposee {
   /** Commande qui lance Claude Code avec la clé, installée dans ~/.local/bin. */
   lanceur: string;
-  /** La clé a un lanceur. */
-  choisie: boolean;
-  /** Modèles de conversation de la clé, sous le nom affiché de leur fiche ; la référence, « entrée/modèle », les désigne. */
-  modeles: ModelePropose[];
-  modelesEcartes: { modelName: string; raison: RaisonModeleEcarte }[];
   /** Référence du modèle par défaut de la clé : celui des options s'il est parmi ses modèles, sinon le premier. */
   modeleParDefaut: string;
 }
@@ -120,17 +114,12 @@ export async function configurationClaudeCode(deps: KeyDeps, user: SessionUser, 
     ...cle,
     modeleParDefaut: cle.retenus.find((m) => options.modelesParDefaut.includes(reference(cle, m.modelName))) ?? cle.retenus[0],
   }));
-  const choisie = (cle: CleAvecModele) => options.requestIds === null || options.requestIds.includes(cle.requestId);
-  const choisies = cles.filter(choisie);
+  const choisies = cles.filter((cle) => choisie(cle, options.requestIds));
   const aucune = choisies.length === 0;
   return {
     cles: cles.map((cle) => ({
-      ...identite(cle),
-      entree: cle.entree,
+      ...cleProposee(cle, options.requestIds),
       lanceur: lanceur(cle),
-      choisie: choisie(cle),
-      modeles: modelesProposes(cle),
-      modelesEcartes: cle.modelesEcartes,
       modeleParDefaut: reference(cle, cle.modeleParDefaut.modelName),
     })),
     clesEcartees,

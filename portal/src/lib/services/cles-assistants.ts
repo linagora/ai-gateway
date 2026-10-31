@@ -7,8 +7,8 @@ import { type IssuedKey, type KeyDeps, listMyKeys, slug } from "./keys";
 
 /*
  * Préparation des clés émises d'un collaborateur pour un assistant de code (OpenCode, Claude Code) : chaque clé reçoit un
- * identifiant stable, ses modèles de conversation sont retenus et les autres écartés avec la raison. La clé elle-même n'y
- * figure jamais.
+ * identifiant stable, ses modèles de conversation sont retenus et les autres écartés avec la raison. Les deux pages en
+ * tirent les clés qu'elles proposent, choisies ou non. La clé elle-même n'y figure jamais.
  */
 
 /** Ce qui désigne une clé émise sur la page : sa demande, son alias, son équipe, son niveau et son projet. */
@@ -39,11 +39,25 @@ export interface ModelePropose {
   reference: string;
 }
 
-/** Clé émise proposée, avec son identifiant stable, ses modèles retenus et ses modèles écartés. */
+/**
+ * Clé émise proposée, telle que la configuration de l'assistant la reprend : son identifiant stable, ses modèles retenus,
+ * avec leurs faits techniques, et ses modèles écartés.
+ */
 export interface ClePreparee extends IdentiteCle {
   /** Identifiant stable de la clé auprès de l'assistant, par exemple `linagora-n2-r-d-compte-rendu-hebdo`. */
   entree: string;
   retenus: ModeleRetenu[];
+  modelesEcartes: { modelName: string; raison: RaisonModeleEcarte }[];
+}
+
+/** Clé émise proposée, telle que la page de l'assistant l'affiche : choisie ou non, avec les modèles qu'elle y apporte. */
+export interface CleProposee extends IdentiteCle {
+  /** Identifiant stable de la clé auprès de l'assistant. */
+  entree: string;
+  /** La clé est choisie : elle entre dans la configuration de l'assistant. */
+  choisie: boolean;
+  /** Modèles de conversation de la clé, sous le nom affiché de leur fiche ; la référence, « entrée/modèle », les désigne. */
+  modeles: ModelePropose[];
   modelesEcartes: { modelName: string; raison: RaisonModeleEcarte }[];
 }
 
@@ -81,7 +95,7 @@ export async function preparerLesCles(deps: KeyDeps, user: SessionUser, langue: 
 }
 
 /** Ce qui désigne une clé émise sur la page. */
-export function identite({ requestId, alias, teamAlias, dataLevel, project }: IdentiteCle): IdentiteCle {
+function identite({ requestId, alias, teamAlias, dataLevel, project }: IdentiteCle): IdentiteCle {
   return { requestId, alias, teamAlias, dataLevel, project };
 }
 
@@ -90,8 +104,18 @@ export function reference(cle: { entree: string }, modelName: string): string {
   return `${cle.entree}/${modelName}`;
 }
 
+/** La clé est choisie : sa demande est parmi les demandes choisies ; sans choix (null), toutes les clés proposées le sont. */
+export function choisie(cle: { requestId: string }, requestIds: string[] | null): boolean {
+  return requestIds === null || requestIds.includes(cle.requestId);
+}
+
+/** Clé préparée telle que la page la propose, choisie ou non d'après les demandes choisies. */
+export function cleProposee(cle: ClePreparee, requestIds: string[] | null): CleProposee {
+  return { ...identite(cle), entree: cle.entree, choisie: choisie(cle, requestIds), modeles: modelesProposes(cle), modelesEcartes: cle.modelesEcartes };
+}
+
 /** Modèles retenus d'une clé, tels que la page les propose. */
-export function modelesProposes(cle: ClePreparee): ModelePropose[] {
+function modelesProposes(cle: ClePreparee): ModelePropose[] {
   return cle.retenus.map(({ modelName, displayName }) => ({ modelName, displayName, reference: reference(cle, modelName) }));
 }
 
