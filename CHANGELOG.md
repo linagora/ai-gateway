@@ -7,6 +7,11 @@ All notable changes to LINAGORA AI Gateway, newest first. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- Models: d3-ultra, the most capable Decision 3.0 decision model by vLLM Semantic Router, at the Experimental level
+  and free of charge, through the free System One API of decision.vllm-sr.ai (#187).
+
 ## [1.1.1] - 2026-10-31
 
 ### Fixed
