@@ -1,14 +1,17 @@
-"""JEV (Typesafe, niveau Expérimental) comme modèle de la passerelle : fournisseur personnalisé de
-LiteLLM (CustomLLM, édition communautaire), déclaré dans config.yaml (litellm_settings.custom_provider_map).
-Typesafe n'ouvrant plus de compte, JEV passe par l'API System One d'OpenRouter, au format de Typesafe
-(décision de l'utilisateur du 2026-09-30, ticket #104).
+"""API de décision « System One » comme modèle de la passerelle : fournisseur personnalisé de LiteLLM
+(CustomLLM, édition communautaire), déclaré dans config.yaml (litellm_settings.custom_provider_map) sous
+deux noms, un par service :
+- « typesafe » : JEV (Typesafe, niveau Expérimental). Typesafe n'ouvrant plus de compte, JEV passe par l'API
+  System One d'OpenRouter, au format de Typesafe (décision de l'utilisateur du 2026-09-30, ticket #104) ;
+- « vllm-sr » : d3-ultra (Decision 3.0 de vLLM Semantic Router, niveau Expérimental), par l'accès gratuit de
+  decision.vllm-sr.ai (décision de l'utilisateur du 2026-11-02).
 
-JEV n'est pas un modèle de conversation : son API System One reçoit un état et des questions typées,
+Une API de décision n'est pas un modèle de conversation : elle reçoit un état et des questions typées,
 et renvoie des réponses structurées. Convention de la passerelle : le dernier message contient la
 requête System One en JSON, sans le champ « model » ; la réponse du modèle est le JSON renvoyé
-(modèle et réponses). Seuls l'état et les questions sont transmis : aucune préférence de routage.
-Les clés, budgets et coûts sont ceux de LiteLLM, comme pour tout modèle (coût calculé sur les jetons
-d'entrée et de sortie comptés par Typesafe).
+(modèle et réponses). Seuls l'état et les questions sont transmis : aucune préférence de routage, ni
+image, ni vidéo. Les clés, budgets et coûts sont ceux de LiteLLM, comme pour tout modèle (coût calculé
+sur les jetons d'entrée et de sortie comptés par le service).
 
   {"model": "jev-latest", "messages": [{"role": "user", "content":
     "{\"state\": \"…\", \"questions\": {\"urgent\": {\"type\": \"noul\", \"instructions\": \"…\"}}}"}]}
@@ -21,17 +24,27 @@ from litellm import CustomLLM, ModelResponse
 from litellm.llms.custom_llm import CustomLLMError
 
 API_PAR_DEFAUT = "https://openrouter.ai/api/v1"
-FORMAT = ('JEV attend dans le dernier message la requête System One de Typesafe en JSON : '
-          '{"state": …, "questions": {…}} (voir https://openrouter.ai/docs/guides/community/jev).')
+# Documentation du format, par préfixe du modèle chez le service.
+DOCUMENTATION = {
+    "~typesafe/": "https://openrouter.ai/docs/guides/community/jev",
+    "vllm-sr/": "https://decision.vllm-sr.ai/docs",
+}
+
+
+def format_attendu(model):
+    doc = next((url for prefixe, url in DOCUMENTATION.items() if str(model).startswith(prefixe)), None)
+    # Sans point final : LiteLLM ajoute « . Received Model Group=… » au message.
+    return ('Ce modèle de décision attend dans le dernier message une requête System One en JSON : '
+            '{"state": …, "questions": {…}}' + (f" (voir {doc})" if doc else ""))
 
 
 def requete(model, messages, api_base, api_key):
     try:
         contenu = json.loads(messages[-1]["content"])
     except (KeyError, IndexError, TypeError, ValueError):
-        raise CustomLLMError(status_code=400, message=FORMAT)
+        raise CustomLLMError(status_code=400, message=format_attendu(model))
     if not isinstance(contenu, dict) or "state" not in contenu or not isinstance(contenu.get("questions"), dict):
-        raise CustomLLMError(status_code=400, message=FORMAT)
+        raise CustomLLMError(status_code=400, message=format_attendu(model))
     return {
         "url": f"{(api_base or API_PAR_DEFAUT).rstrip('/')}/systemone",
         "json": {"model": model, "state": contenu["state"], "questions": contenu["questions"]},
@@ -41,7 +54,7 @@ def requete(model, messages, api_base, api_key):
 
 def reponse(r: httpx.Response, model: str) -> ModelResponse:
     if r.status_code != 200:
-        raise CustomLLMError(status_code=r.status_code, message=f"JEV : {r.text[:500]}")
+        raise CustomLLMError(status_code=r.status_code, message=f"{model} : {r.text[:500]}")
     corps = r.json()
     usage = corps.get("usage") or {}
     entree, sortie = usage.get("input_tokens", 0), usage.get("output_tokens", 0)
@@ -70,7 +83,7 @@ class Jev(CustomLLM):
     async def astreaming(self, model, messages, api_base, custom_prompt_dict, model_response, print_verbose, encoding, api_key,
                          logging_obj, optional_params, acompletion=None, litellm_params=None, logger_fn=None, headers={},
                          timeout=None, client=None):
-        # Pas de flux côté Typesafe : la réponse complète est rendue en un seul morceau.
+        # Pas de flux côté service : la réponse complète est rendue en un seul morceau.
         r = await self.acompletion(model, messages, api_base, custom_prompt_dict, model_response, print_verbose, encoding,
                                    api_key, logging_obj, optional_params, timeout=timeout)
         yield {"text": r.choices[0].message.content, "is_finished": True, "finish_reason": "stop", "index": 0,

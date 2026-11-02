@@ -1,6 +1,7 @@
 """Déclare dans LiteLLM les modèles hors de la liste blanche OpenRouter : Qwen3.8 et trois modèles d'embeddings
-(OVHcloud, N3, ticket #125), JEV (Typesafe, niveau Expérimental, par l'API System One d'OpenRouter, ticket #104)
-et Nox-4B (N3, même API que JEV, sur une carte GPU de LINAGORA).
+(OVHcloud, N3, ticket #125), JEV (Typesafe, niveau Expérimental, par l'API System One d'OpenRouter, ticket #104),
+Nox-4B (N3, même API que JEV, sur une carte GPU de LINAGORA) et d3-ultra (vLLM Semantic Router, niveau Expérimental,
+même API que JEV, par l'accès gratuit de decision.vllm-sr.ai).
 Idempotent : un modèle absent est déclaré ; un modèle présent reçoit les informations ci-dessous (toutes, pour ne
 rien réécrire de ce que LiteLLM dérive lui-même), sa route, son adresse et sa clé (des références à l'environnement),
 et les paramètres qu'il écarte ; ses tarifs restent inchangés.
@@ -14,6 +15,10 @@ les jetons comptés par Typesafe.
 Nox-4B (Decision 2.0, vLLM Semantic Router) est servi par le LiteLLM de la carte GPU sous le nom jev-latest, avec
 l'API de JEV en surface OpenAI : une route openai/ suffit, sans fournisseur personnalisé. Son adresse et sa clé, qui
 n'ouvre que ce modèle, sont dans .env (NOX_API_BASE, NOX_API_KEY).
+
+d3-ultra (Decision 3.0, 27B) passe par le même fournisseur personnalisé que JEV, sous le nom « vllm-sr », vers l'API
+System One de decision.vllm-sr.ai. Sa clé (VLLM_SR_API_KEY dans .env) est créée sur le serveur par
+creer-cle-vllm-sr.py, qui accepte les conditions d'utilisation du service.
 """
 import json
 import os
@@ -150,6 +155,40 @@ MODELES = [
             "pricing_source": "0 € : modèle exécuté sur une carte GPU de LINAGORA, sans coût à l'usage, retenu par LINAGORA le 2026-10-04",
             # Situation, questions et critères compris ; au-delà, chaque question est refusée (max_length_exceeded), sans troncature.
             "max_input_tokens": 16384,
+            "type_api": "decision",
+            "usage": "API System One : requête JSON {state, questions} dans le dernier message, comme JEV",
+            "contenus_entree": ["text"],
+            "contenus_sortie": ["text"],
+        },
+    },
+    {
+        "model_name": "d3-ultra",
+        "litellm_params": {
+            # Fournisseur personnalisé « vllm-sr » (jev.py), qui transmet « vllm-sr/d3-ultra » au service : le plus
+            # performant de Decision 3.0 que sert l'accès gratuit, qui répond aussi aux alias vllm-sr/d3 et vllm-sr/d3-turbo.
+            "model": "vllm-sr/vllm-sr/d3-ultra",
+            "api_base": "https://decision.vllm-sr.ai/v1",
+            "api_key": "os.environ/VLLM_SR_API_KEY",
+            # 0 € : accès gratuit de vLLM Semantic Router (décision de l'utilisateur du 2026-11-02).
+            "input_cost_per_token": 0.0,
+            "output_cost_per_token": 0.0,
+        },
+        "model_info": {
+            "source": "vllm-sr-decision",
+            "fournisseur": "vLLM Semantic Router",
+            "editeur": "vLLM Semantic Router",
+            "capacites": [],
+            "hebergeurs": ["vLLM Semantic Router"],
+            # Lieu d'exécution non publié ; requêtes et réponses conservées et réutilisables pour entraîner les modèles :
+            # données publiques uniquement (niveau Expérimental).
+            "zone": "monde",
+            "data_level": "EXP",
+            "hosting": "HORS_UE",
+            "pricing_currency": "EUR",
+            "fx_rate_usd_eur": TAUX_USD_EUR,
+            "pricing_source": "0 € : accès gratuit de vLLM Semantic Router (decision.vllm-sr.ai), retenu par LINAGORA le 2026-11-02",
+            # Pas de max_input_tokens : le service borne une estimation en octets (131 072 par requête, la situation
+            # comptée une fois) et 131 072 caractères de situation, et non un nombre de jetons.
             "type_api": "decision",
             "usage": "API System One : requête JSON {state, questions} dans le dernier message, comme JEV",
             "contenus_entree": ["text"],
