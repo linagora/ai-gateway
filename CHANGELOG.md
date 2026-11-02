@@ -7,6 +7,8 @@ All notable changes to LINAGORA AI Gateway, newest first. The format is based on
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-02
+
 ### Added
 
 - Models: d3-ultra, the most capable Decision 3.0 decision model by vLLM Semantic Router, at the Experimental level
@@ -120,7 +122,8 @@ First release of the gateway and its portal.
 - Development: translations left by the screenshots in the development catalog (#91); JEV no longer counted
   in the allowlist acceptance test (#106).
 
-[Unreleased]: https://github.com/linagora/ai-gateway/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/linagora/ai-gateway/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/linagora/ai-gateway/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/linagora/ai-gateway/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/linagora/ai-gateway/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/linagora/ai-gateway/releases/tag/v1.0.0
