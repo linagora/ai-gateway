@@ -23,7 +23,7 @@ taille déclarée, au format base64 des SDK OpenAI puis sans format ; avec une t
 vecteurs de cette taille pour un modèle qui l'accepte, un refus explicite (400) pour les autres ; la dépense
 enregistrée sur la clé, au prix d'entrée déclaré. La recette sort en erreur si l'un de ces contrôles échoue.
 
-Une API de décision (type d'API « decision » : JEV, Nox-4B) reçoit à la place une requête System One : une réponse par
+Une API de décision (type d'API « decision » : JEV, Nox-4B, d3-ultra) reçoit à la place une requête System One : une réponse par
 question, sans erreur ; le coût calculé et la dépense enregistrée sur la clé, au tarif déclaré ; un message hors format
 refusé explicitement (400). La recette sort en erreur si l'un de ces contrôles échoue.
 
