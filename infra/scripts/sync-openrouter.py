@@ -97,7 +97,7 @@ def contenus(modalites):
 
 def declaration(entree, cfg, modeles_openrouter):
     """Déclaration LiteLLM d'un modèle de la liste blanche ; `modeles_openrouter` : liste publique d'OpenRouter, par identifiant."""
-    zone = cfg["zones"][entree["zone"]]
+    zone = [z for z in cfg["zones"][entree["zone"]] if z not in entree.get("exclus", [])]
     donnees = http("GET", f"{OPENROUTER}/models/{entree['openrouter']}/endpoints", auth=False)["data"]
     tous = donnees["endpoints"]
     plafond = entree.get("prix_max_usd")

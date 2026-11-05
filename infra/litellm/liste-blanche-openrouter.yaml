@@ -21,6 +21,7 @@
 # (sans prix de cache déclaré, LiteLLM compterait les jetons lus depuis le cache à 0 €).
 # prix_max_usd (facultatif) : plafond en $ par million de jetons (entrée, sortie), transmis à
 # OpenRouter (provider.max_price) : les points d'accès plus chers sont exclus du routage.
+# exclus (facultatif) : fournisseurs de la zone écartés pour ce modèle, ni routés ni comptés dans son prix.
 #
 # Modèles d'images : appelés par la conversation (modalities), facturés au jeton d'image.
 # jetons_par_image : jetons d'une image par défaut, pour le prix indicatif affiché au catalogue.
@@ -78,9 +79,11 @@ modeles:
   # l'utilisateur du 2026-10-07) ---
   - {nom: glm-5.3-flash, openrouter: z-ai/glm-5.3-flash, zone: monde, prix_max_usd: [0.225, 0.6]}
 
-  # --- Kimi (Moonshot) : aucun fournisseur en UE, zone monde ---
+  # --- Kimi (Moonshot) : aucun fournisseur en UE, zone monde. kimi-k3 sans Morph : son prix de lecture du cache (0,523 $,
+  # contre 0,30 $ au plus pour les autres au 2026-11-05) ferait monter de 45 % le prix déclaré du cache, pour tous les
+  # appels (décision de l'utilisateur du 2026-11-05) ---
   - {nom: kimi-k2.5, openrouter: moonshotai/kimi-k2.5, zone: monde}
-  - {nom: kimi-k3, openrouter: moonshotai/kimi-k3, zone: monde, prix_max_usd: [3, 15]}   # hors offres « fast »
+  - {nom: kimi-k3, openrouter: moonshotai/kimi-k3, zone: monde, prix_max_usd: [3, 15], exclus: [morph]}   # hors offres « fast »
 
   # --- MiMo (Xiaomi) : aucun point d'accès en UE, zone monde ; le point d'accès de Xiaomi (fournisseur chinois) est
   # exclu (décision de l'utilisateur du 2026-10-01). Servi par DeepInfra et GMICloud, puis aussi par Novita, apparu

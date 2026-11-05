@@ -7,6 +7,11 @@ All notable changes to LINAGORA AI Gateway, newest first. The format is based on
 
 ## [Unreleased]
 
+### Changed
+
+- `kimi-k3` is no longer served by Morph, whose price would have raised the model's declared cached input price by
+  45% for every call: a model of the allowlist can now exclude providers of its zone (#194).
+
 ## [1.3.0] - 2026-11-05
 
 ### Added
