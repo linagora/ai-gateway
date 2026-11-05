@@ -9,7 +9,7 @@ All notable changes to LINAGORA AI Gateway, newest first. The format is based on
 
 ### Added
 
-- Models: Mistral Small 3.2 24B (N1 Public, EU zone through Mistral); and `qwen3.8-public`, a Public (N1) OpenRouter
+- Models: Mistral Small 3.2 24B (N1 Public, EU zone through Mistral); and `qwen3.8-public`, an N1 Public OpenRouter
   version of Qwen3.8 27B whose reasoning can be turned off per request, alongside the N3 OVHcloud-hosted `qwen3.8`
   (#190).
 
