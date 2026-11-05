@@ -7,6 +7,8 @@ All notable changes to LINAGORA AI Gateway, newest first. The format is based on
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-05
+
 ### Added
 
 - Models: Mistral Small 3.2 24B (N1 Public, EU zone through Mistral); and `qwen3.8-public`, an N1 Public OpenRouter
@@ -128,7 +130,8 @@ First release of the gateway and its portal.
 - Development: translations left by the screenshots in the development catalog (#91); JEV no longer counted
   in the allowlist acceptance test (#106).
 
-[Unreleased]: https://github.com/linagora/ai-gateway/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/linagora/ai-gateway/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/linagora/ai-gateway/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/linagora/ai-gateway/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/linagora/ai-gateway/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/linagora/ai-gateway/compare/v1.0.0...v1.1.0
