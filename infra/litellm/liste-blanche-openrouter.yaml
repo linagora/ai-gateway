@@ -88,9 +88,10 @@ modeles:
   - {nom: mimo-v2.6-pro, openrouter: xiaomi/mimo-v2.6-pro, zone: monde}
 
   # --- Qwen3.8 27B (Alibaba), version N1 publique servie par OpenRouter, en plus de la version N3 sur OVHcloud
-  # (qwen3.8) : ouverte pour pouvoir désactiver le raisonnement par requête (demande de l'utilisateur du 2026-11-05).
+  # (qwen3.8) : ouverte pour pouvoir désactiver le raisonnement par requête (ticket #189).
   # Aucun point d'accès en UE, zone monde ; le point d'accès d'Alibaba (fournisseur chinois) est exclu. Plafonné pour
-  # écarter les points d'accès les plus chers, dont l'écart de prix est important (décision de l'utilisateur du 2026-11-05) ---
+  # écarter les points d'accès les plus chers : au 2026-11-05, 9 des 14 de la zone restent ; CoreWeave, Novita,
+  # Cloudflare, Venice et Cerebras sont écartés (ticket #189) ---
   - {nom: qwen3.8-public, openrouter: qwen/qwen3.8-27b, zone: monde, prix_max_usd: [0.45, 2.5]}
 
   # --- NVIDIA Nemotron 3.5 Content Safety : aucun point d'accès en UE, zone monde ; servi par DeepInfra,
