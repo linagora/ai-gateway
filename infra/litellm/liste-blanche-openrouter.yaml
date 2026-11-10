@@ -46,6 +46,7 @@ zones:
 
 modeles:
   # --- Mistral (France), point d'accès UE de Mistral ---
+  - {nom: mistral-large-4, openrouter: mistralai/mistral-large-4-0, zone: UE}
   - {nom: mistral-large-3, openrouter: mistralai/mistral-large-2512, zone: UE}
   - {nom: mistral-medium-3.5, openrouter: mistralai/mistral-medium-3-5, zone: UE}
   - {nom: mistral-small-2603, openrouter: mistralai/mistral-small-2603, zone: UE}
