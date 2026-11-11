@@ -187,6 +187,23 @@ export function attendLActeur(acteur: PortalUser, demande: DemandeDeLaFile, resp
 }
 
 /**
+ * Partie de la file de validation où l'acteur trouve la demande (F-30, spécification #93) : ce qui l'attend, ou ce qui
+ * attend quelqu'un d'autre. Personne n'y trouve ses propres demandes dont il ne peut pas décider (ticket #199), et la
+ * partie est alors null : un responsable n'y trouve aucune des siennes ; un admin, pas sa propre hausse de budget
+ * quand il n'en est pas le seul décideur possible. Il les suit dans « Mes demandes ». Le statut n'est pas contrôlé
+ * ici : la file ne contient que des demandes qui attendent une validation.
+ */
+export function partieDeLaFile(
+  acteur: PortalUser,
+  demande: DemandeDeLaFile,
+  responsables: readonly string[],
+  demandeurSeulDecideur = false,
+): "aTraiter" | "aSuivre" | null {
+  if (empechementDeDecider(acteur, demande, demandeurSeulDecideur) === "quatre_yeux") return null;
+  return attendLActeur(acteur, demande, responsables, demandeurSeulDecideur) ? "aTraiter" : "aSuivre";
+}
+
+/**
  * L'admin déciderait-il sans attendre l'accord d'un responsable (spécification #93) ? Quand la demande d'abonnement
  * attend encore l'accord d'un responsable de l'équipe qu'il n'est pas lui-même : responsable de l'équipe, il décide en
  * un seul temps. La fiche l'en avertit ; le journal d'audit et l'annonce aux responsables le disent.

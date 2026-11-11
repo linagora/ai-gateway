@@ -173,8 +173,11 @@ describe("le responsable valide les demandes de ses équipes (ticket #41)", () =
     expect(mailer.outbox.find((m) => m.subject.includes("jdupont"))?.text).toContain("Jeanne Dupont (jdupont) a accepté la demande d'accès de jdupont.");
   });
 
-  test("il ne peut pas décider de ses propres demandes ; un autre responsable de l'équipe ou un admin le peut", async () => {
+  test("il ne trouve pas ses propres demandes dans sa file, et ne peut pas en décider ; un autre responsable de l'équipe ou un admin le peut", async () => {
     const sienne = await demande("lbernard", "equipe-rd", "R&D");
+    // Ni à traiter, ni à suivre (ticket #199).
+    const file = await listPendingRequests(deps, responsable);
+    expect([...file.aTraiter, ...file.aSuivre].map((r) => r.id)).not.toContain(sienne.id);
     await expect(approveKeyRequest(deps, responsable, sienne.id, parametres)).rejects.toMatchObject({ code: "quatre_yeux" });
     await expect(refuseRequest(deps, responsable, sienne.id, "Non")).rejects.toMatchObject({ code: "quatre_yeux" });
     await expect(requestCompletion(deps, responsable, sienne.id, "Précisez")).rejects.toMatchObject({ code: "quatre_yeux" });

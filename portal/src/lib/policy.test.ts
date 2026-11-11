@@ -17,6 +17,7 @@ import {
   type KeyRequestDraft,
   modelAcceptsLevel,
   montantAuCentime,
+  partieDeLaFile,
   pasEncoreDecidee,
   plafondMinimalDeHausse,
   type RequestStatus,
@@ -184,12 +185,34 @@ describe("où attend une demande de la file (spécification #93, ticket #96)", (
     expect(attendLActeur(admin, hausse, ["jdupont"], !demandeurSeulDecideur)).toBe(false);
   });
 
+  test("un admin ne trouve pas dans sa file sa propre hausse de budget dont il n'est pas le seul décideur possible ; ses autres demandes y restent (ticket #199)", () => {
+    const admin = { uid: "jdupont", isAdmin: true };
+    const hausse = { kind: "BUDGET" as const, status: "SOUMISE" as const, requesterUid: "jdupont" };
+    const demandeurSeulDecideur = true;
+    // Un autre admin ou un autre responsable de l'équipe en décide ; seul décideur possible, il la traite.
+    expect(partieDeLaFile(admin, hausse, ["jdupont", "lbernard"])).toBeNull();
+    expect(partieDeLaFile(admin, hausse, ["jdupont"], demandeurSeulDecideur)).toBe("aTraiter");
+    // Ses autres demandes y restent, comme celles des autres.
+    expect(partieDeLaFile(admin, { ...hausse, kind: "CLE" }, [])).toBe("aTraiter");
+    expect(partieDeLaFile(admin, { ...abonnement, requesterUid: "jdupont" }, ["jdupont", "lbernard"])).toBe("aSuivre");
+    expect(partieDeLaFile(admin, { ...hausse, requesterUid: "pmartin" }, [])).toBe("aTraiter");
+    expect(partieDeLaFile(admin, abonnement, ["lbernard"])).toBe("aSuivre");
+  });
+
   test("un responsable traite les demandes soumises de ses équipes, hors les siennes ; celles qui ont reçu l'accord attendent un admin", () => {
     const responsable = { uid: "lbernard", isAdmin: false };
     expect(attendLActeur(responsable, abonnement, ["lbernard"])).toBe(true);
     expect(attendLActeur(responsable, { ...abonnement, kind: "CLE" }, ["lbernard"])).toBe(true);
     expect(attendLActeur(responsable, { ...abonnement, status: "ACCORD_RESPONSABLE" }, ["lbernard"])).toBe(false);
     expect(attendLActeur(responsable, { ...abonnement, requesterUid: "lbernard" }, ["lbernard", "pmartin"])).toBe(false);
+  });
+
+  test("un responsable ne trouve dans sa file aucune de ses propres demandes ; celles qui ont reçu l'accord y sont à suivre (ticket #199)", () => {
+    const responsable = { uid: "lbernard", isAdmin: false };
+    expect(partieDeLaFile(responsable, { ...abonnement, requesterUid: "lbernard" }, ["lbernard", "pmartin"])).toBeNull();
+    expect(partieDeLaFile(responsable, { ...abonnement, kind: "BUDGET", requesterUid: "lbernard" }, [])).toBeNull();
+    expect(partieDeLaFile(responsable, abonnement, ["lbernard"])).toBe("aTraiter");
+    expect(partieDeLaFile(responsable, { ...abonnement, status: "ACCORD_RESPONSABLE" }, ["lbernard"])).toBe("aSuivre");
   });
 });
 
