@@ -8,6 +8,7 @@ import {
   checkKeyRequest,
   checkTransition,
   decideraitSansAccord,
+  decideSeulDeSaHausse,
   decisionProposee,
   empechementDeDecider,
   enAttenteDeValidation,
@@ -20,6 +21,7 @@ import {
   plafondMinimalDeHausse,
   type RequestStatus,
   seuilJustificationBudget,
+  seulDecideurPossible,
   STATUTS_EN_ATTENTE_DE_VALIDATION,
   STATUTS_PAS_ENCORE_DECIDES,
   statutApresComplement,
@@ -174,6 +176,14 @@ describe("où attend une demande de la file (spécification #93, ticket #96)", (
     expect(decideraitSansAccord(admin, hausse, [])).toBe(false);
   });
 
+  test("seul décideur possible, un admin traite sa propre demande de hausse de budget (ticket #198)", () => {
+    const admin = { uid: "jdupont", isAdmin: true };
+    const hausse = { kind: "BUDGET" as const, status: "SOUMISE" as const, requesterUid: "jdupont" };
+    const demandeurSeulDecideur = true;
+    expect(attendLActeur(admin, hausse, ["jdupont"], demandeurSeulDecideur)).toBe(true);
+    expect(attendLActeur(admin, hausse, ["jdupont"], !demandeurSeulDecideur)).toBe(false);
+  });
+
   test("un responsable traite les demandes soumises de ses équipes, hors les siennes ; celles qui ont reçu l'accord attendent un admin", () => {
     const responsable = { uid: "lbernard", isAdmin: false };
     expect(attendLActeur(responsable, abonnement, ["lbernard"])).toBe(true);
@@ -229,6 +239,38 @@ describe("décider d'une demande (spécification #93, ticket #98)", () => {
     expect(empechementDeDecider(admin, { ...hausse, requesterUid: "pmartin" })).toBeNull();
     for (const kind of ["CLE", "ADHESION_EQUIPE", "ABONNEMENT"] as const) expect(empechementDeDecider(admin, { ...hausse, kind }), kind).toBeNull();
     expect(empechementDeDecider(responsable, { ...hausse, requesterUid: "lbernard" })).toBe("quatre_yeux");
+  });
+
+  test("seul décideur possible, un admin décide de sa propre hausse de budget ; un responsable, jamais (ticket #198)", () => {
+    const hausse = { kind: "BUDGET" as const, status: "SOUMISE" as const, requesterUid: "jdupont" };
+    const demandeurSeulDecideur = true;
+    expect(empechementDeDecider(admin, hausse, demandeurSeulDecideur)).toBeNull();
+    expect(decisionProposee(admin, hausse, demandeurSeulDecideur)).toBe("approuver");
+    expect(empechementDeDecider(responsable, { ...hausse, requesterUid: "lbernard" }, demandeurSeulDecideur)).toBe("quatre_yeux");
+    expect(decisionProposee(responsable, { ...hausse, requesterUid: "lbernard" }, demandeurSeulDecideur)).toBeNull();
+  });
+
+  test("seul décideur possible, l'admin décide seul de sa propre hausse de budget, et de rien d'autre ; un responsable, jamais (ticket #198)", () => {
+    const hausse = { kind: "BUDGET" as const, status: "SOUMISE" as const, requesterUid: "jdupont" };
+    expect(decideSeulDeSaHausse(admin, hausse, true)).toBe(true);
+    expect(decideSeulDeSaHausse(admin, hausse, false)).toBe(false);
+    expect(decideSeulDeSaHausse(admin, { ...hausse, requesterUid: "pmartin" }, true)).toBe(false);
+    expect(decideSeulDeSaHausse(admin, { ...hausse, kind: "CLE" }, true)).toBe(false);
+    expect(decideSeulDeSaHausse(responsable, { ...hausse, requesterUid: "lbernard" }, true)).toBe(false);
+  });
+
+  test("le demandeur est le seul décideur possible sans autre admin ni autre responsable de l'équipe (ticket #198)", () => {
+    const hausse = { kind: "BUDGET" as const, status: "SOUMISE" as const, requesterUid: "jdupont" };
+    expect(seulDecideurPossible(hausse, ["jdupont"], [])).toBe(true);
+    expect(seulDecideurPossible(hausse, ["jdupont"], ["jdupont"])).toBe(true);
+    expect(seulDecideurPossible(hausse, ["jdupont", "pmartin"], ["jdupont"])).toBe(false);
+    expect(seulDecideurPossible(hausse, ["jdupont"], ["jdupont", "lbernard"])).toBe(false);
+  });
+
+  test("un demandeur qui n'est pas admin n'est jamais le seul décideur possible, même sans admin connu (ticket #198)", () => {
+    const hausse = { kind: "BUDGET" as const, status: "SOUMISE" as const, requesterUid: "jdupont" };
+    expect(seulDecideurPossible(hausse, [], [])).toBe(false);
+    expect(seulDecideurPossible(hausse, [], ["jdupont"])).toBe(false);
   });
 
   test("sur une demande d'abonnement soumise, la fiche propose au responsable son accord ; à l'admin, l'approbation, avant comme après l'accord", () => {

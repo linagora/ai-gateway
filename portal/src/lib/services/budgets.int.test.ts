@@ -5,7 +5,15 @@ import { vueDemandes } from "@/lib/integrations/vues";
 import { resetDb, testDb } from "@/test/db";
 import { FakeLiteLLM } from "@/test/fake-litellm";
 import { FakeMailer } from "@/test/fake-mailer";
-import { approveKeyRequest, getRequestReview, listPendingRequests, listProcessedRequests, refuseRequest, requestCompletion } from "./admin-requests";
+import {
+  approveKeyRequest,
+  countAdminPending,
+  getRequestReview,
+  listPendingRequests,
+  listProcessedRequests,
+  refuseRequest,
+  requestCompletion,
+} from "./admin-requests";
 import { listAudit } from "./audit";
 import { approveBudgetRequest, completeBudgetRequest, createBudgetRequest } from "./budgets";
 import { saveCatalogEntry } from "./catalog";
@@ -53,6 +61,16 @@ async function cleEmise(input: Partial<KeyRequestInput> = {}): Promise<{ id: str
 const statut = async (id: string) => (await testDb.accessRequest.findUniqueOrThrow({ where: { id } })).status;
 const plafondDeLaCle = async (id: string) => (await testDb.accessRequest.findUniqueOrThrow({ where: { id } })).approvedBudget?.toNumber();
 const designerResponsable = (uid: string) => testDb.teamManager.create({ data: { teamId: "equipe-rd", uid, email: `${uid}@linagora.com`, designatedBy: "jdupont" } });
+
+/** Clé émise de l'admin, approuvée à 15 € tous les 30 jours, et sa demande de hausse à 50 €. */
+async function hausseDeLAdmin(): Promise<{ cleAdmin: string; id: string }> {
+  litellm.teams.get("equipe-rd")!.memberUids.push("jdupont");
+  const { id: cleAdmin } = await createKeyRequest(deps, admin, demande);
+  await approveKeyRequest(deps, admin, cleAdmin, approbation);
+  await pickUpKey(deps, admin, cleAdmin);
+  const { id } = await createBudgetRequest(deps, admin, { keyRequestId: cleAdmin, requestedBudget: 50, justification: "Lot de contrats" });
+  return { cleAdmin, id };
+}
 
 beforeEach(async () => {
   await resetDb();
@@ -239,6 +257,58 @@ describe("hausse du budget d'une clé émise", () => {
     await approveBudgetRequest(deps, autreAdmin, id, { budget: 40 });
     expect(await testDb.accessRequest.findUniqueOrThrow({ where: { id } })).toMatchObject({ status: "APPROUVEE", decidedBy: "lbernard" });
     expect(await plafondDeLaCle(cleAdmin)).toBe(40);
+  });
+
+  test("seul admin et seul responsable de l'équipe, un admin décide de la hausse de sa propre clé, et le journal le dit (ticket #198)", async () => {
+    await designerResponsable("jdupont");
+    const { cleAdmin, id } = await hausseDeLAdmin();
+    await approveBudgetRequest({ ...deps, adminUids: ["jdupont"] }, admin, id, { budget: 40 });
+    expect(await testDb.accessRequest.findUniqueOrThrow({ where: { id } })).toMatchObject({ status: "APPROUVEE", decidedBy: "jdupont" });
+    expect(await plafondDeLaCle(cleAdmin)).toBe(40);
+    expect((await listAudit(testDb)).at(-1)).toMatchObject({
+      actorUid: "jdupont",
+      action: "BUDGET_RAISED",
+      targetId: id,
+      details: { avant: 15, demande: 50, accorde: 40, seulDecideur: true },
+    });
+  });
+
+  test("avec un autre admin ou un autre responsable de l'équipe, l'admin ne décide toujours pas de sa propre hausse (ticket #198)", async () => {
+    await designerResponsable("jdupont");
+    const { id } = await hausseDeLAdmin();
+    await expect(approveBudgetRequest({ ...deps, adminUids: ["jdupont", "lbernard"] }, admin, id, { budget: 40 })).rejects.toMatchObject({ code: "quatre_yeux" });
+    await designerResponsable("pmartin");
+    await expect(approveBudgetRequest({ ...deps, adminUids: ["jdupont"] }, admin, id, { budget: 40 })).rejects.toMatchObject({ code: "quatre_yeux" });
+    expect(await statut(id)).toBe("SOUMISE");
+  });
+
+  test("seul décideur possible, l'admin trouve sa propre hausse dans les demandes à traiter, et sa fiche l'en avertit (ticket #198)", async () => {
+    const { id } = await hausseDeLAdmin();
+    const seulAdmin = { ...deps, adminUids: ["jdupont"] };
+    const file = await listPendingRequests(seulAdmin, admin);
+    expect(file.aTraiter.map((r) => r.id)).toContain(id);
+    expect(file.aSuivre.map((r) => r.id)).not.toContain(id);
+    expect(await countAdminPending(seulAdmin, admin)).toBe(1);
+    expect((await getRequestReview(seulAdmin, admin, id)).seulDecideur).toBe(true);
+    expect((await getRequestReview({ ...deps, adminUids: ["jdupont", "lbernard"] }, admin, id)).seulDecideur).toBe(false);
+  });
+
+  test("seul décideur possible, l'admin peut aussi renvoyer sa propre hausse pour complément ou la refuser ; le journal le dit (ticket #198)", async () => {
+    const { id } = await hausseDeLAdmin();
+    const seulAdmin = { ...deps, adminUids: ["jdupont"] };
+    await requestCompletion(seulAdmin, admin, id, "Précisez le lot");
+    expect((await listAudit(testDb)).at(-1)).toMatchObject({ actorUid: "jdupont", action: "COMPLETION_REQUESTED", targetId: id, details: { seulDecideur: true } });
+    await completeBudgetRequest(deps, admin, id, { requestedBudget: 60, justification: "Lot de contrats de novembre" });
+    await refuseRequest(seulAdmin, admin, id, "Finalement non");
+    expect(await statut(id)).toBe("REFUSEE");
+    // Décidée, la demande n'attend plus personne : sa fiche n'avertit plus.
+    expect((await getRequestReview(seulAdmin, admin, id)).seulDecideur).toBe(false);
+    expect((await listAudit(testDb)).at(-1)).toMatchObject({
+      actorUid: "jdupont",
+      action: "REQUEST_REFUSED",
+      targetId: id,
+      details: { motif: "Finalement non", seulDecideur: true },
+    });
   });
 
   test("au dépôt, la hausse part aux admins et aux responsables de l'équipe, hors le demandeur, comme une demande de clé", async () => {

@@ -64,8 +64,8 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
     </label>
   );
   // Décision proposée, toujours accompagnée du refus et du complément ; sinon, ce qui empêche l'acteur de décider.
-  const decision = decisionProposee(admin, review);
-  const empechement = empechementDeDecider(admin, review);
+  const decision = decisionProposee(admin, review, review.seulDecideur);
+  const empechement = empechementDeDecider(admin, review, review.seulDecideur);
   // Hausse de budget que l'acteur peut relever, par le formulaire du nouveau plafond.
   const relevable = decision === "approuver" && review.kind === "BUDGET" && review.budgetRaise?.keyActive === true;
   const parPeriode = (montant: number, periode: string | null) => {
@@ -254,6 +254,10 @@ export default async function ReviewPage(props: PageProps<"/gestion/demandes/[id
       {/* Ticket #97 : l'admin peut décider sans attendre l'accord d'un responsable, et il en est averti. */}
       {review.sansAccord && (
         <p className="mt-6 rounded border-l-4 border-amber-500 bg-amber-50 px-3 py-2">{t("sansAccord")}</p>
+      )}
+      {/* Ticket #198 : sans autre décideur possible, l'admin décide seul de sa propre hausse de budget, et il en est averti. */}
+      {review.seulDecideur && (
+        <p className="mt-6 rounded border-l-4 border-amber-500 bg-amber-50 px-3 py-2">{t("seulDecideur")}</p>
       )}
 
       {/* Sans formulaire de hausse, l'avertissement porte sur le montant demandé ; le formulaire suit le montant saisi. */}

@@ -11,11 +11,13 @@ import {
   attendLActeur,
   type DataLevel,
   decideraitSansAccord,
+  decideSeulDeSaHausse,
   type DemandeDeLaFile,
   empechementDeDecider,
   enAttenteDeValidation,
   type PolicyCheck,
   type RequestStatus,
+  seulDecideurPossible,
   STATUTS_EN_ATTENTE_DE_VALIDATION,
 } from "@/lib/policy";
 import { requireAdmin } from "@/lib/rbac";
@@ -47,6 +49,11 @@ export interface AdminDeps extends NotificationDeps {
   litellm: LiteLLMClient;
   /** Date du jour, injectée par les tests ; l'heure réelle sinon. */
   now?: () => Date;
+  /**
+   * uid des admins (PORTAL_ADMIN_UIDS), qui disent si un admin est le seul décideur possible de sa propre hausse de
+   * budget (ticket #198) ; sans eux, il ne l'est jamais.
+   */
+  adminUids?: readonly string[];
 }
 
 /** Ligne de la file de validation (F-30). */
@@ -98,7 +105,10 @@ function demandesDeLaFile(actor: SessionUser, equipes: string[] | null): Prisma.
  */
 async function partager<D extends DemandeDeLaFile & { teamId: string }>(deps: AdminDeps, actor: SessionUser, demandes: D[]) {
   const responsables = actor.isAdmin ? await approversByTeam(deps.db, [...new Set(demandes.map((d) => d.teamId))]) : new Map<string, string[]>();
-  const attend = (d: D) => attendLActeur(actor, d, responsables.get(d.teamId) ?? []);
+  const attend = (d: D) => {
+    const deLEquipe = responsables.get(d.teamId) ?? [];
+    return attendLActeur(actor, d, deLEquipe, seulDecideurPossible(d, deps.adminUids ?? [], deLEquipe));
+  };
   return { aTraiter: demandes.filter(attend), aSuivre: demandes.filter((d) => !attend(d)) };
 }
 
@@ -214,6 +224,8 @@ export interface RequestReview extends PendingRequest {
   agreement: { by: string; at: Date; comment: string | null } | null;
   /** Pour un admin, la demande attend encore l'accord d'un responsable : en décider, c'est décider sans lui (ticket #97). */
   sansAccord: boolean;
+  /** Pour un admin, sa propre hausse de budget en attente, dont personne d'autre ne peut décider : il en décide seul (ticket #198). */
+  seulDecideur: boolean;
   /** Paramètres figés à l'approbation (F-40), null tant que la demande n'est pas approuvée. */
   approved: ApprovalInput | null;
   /** Hausse de budget approuvée : le plafond accordé, null pour toute autre demande. */
@@ -254,6 +266,7 @@ export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: 
       ? (await evaluateKeyRequest(deps, { requesterUid: r.requesterUid, teamId: r.teamId, dataLevel: r.dataLevel, models: r.models })).checks
       : [];
   const budgetRaise = r.kind === "BUDGET" && r.raisesBudgetOfRequestId ? await cleDeLaHausse(deps, r.raisesBudgetOfRequestId) : null;
+  const responsables = await responsablesDe(deps, r.teamId);
   return {
     id: r.id,
     kind: r.kind,
@@ -279,7 +292,8 @@ export async function getRequestReview(deps: AdminDeps, actor: SessionUser, id: 
     decidedBy: r.decidedBy,
     decisionComment: r.decisionComment,
     agreement: r.agreedBy && r.agreedAt ? { by: r.agreedBy, at: r.agreedAt, comment: r.agreementComment } : null,
-    sansAccord: decideraitSansAccord(actor, r, await responsablesDe(deps, r.teamId)),
+    sansAccord: decideraitSansAccord(actor, r, responsables),
+    seulDecideur: enAttenteDeValidation(r.status) && decideSeulDeSaHausse(actor, r, seulDecideurPossible(r, deps.adminUids ?? [], responsables)),
     approved: r.decidedAt && r.approvedModels.length
       ? {
           models: r.approvedModels,
@@ -407,13 +421,18 @@ export async function refuseRequest(deps: AdminDeps, actor: SessionUser, id: str
   await requireGestion(deps.db, actor);
   const request = await deps.db.accessRequest.findUnique({ where: { id }, include: { offer: true } });
   if (!request) throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
-  await requireDecision(deps, actor, request, "demande");
+  const { seulDecideur } = await requireDecision(deps, actor, request, "demande");
   const sansAccord = decideraitSansAccord(actor, request, await responsablesDe(deps, request.teamId));
   await transitionRequest(deps.db, request, "REFUSEE", {
     comment,
     data: { decidedBy: actor.uid, decidedAt: new Date(), decisionComment: comment.trim() },
   });
-  await recordAudit(deps.db, { actorUid: actor.uid, action: "REQUEST_REFUSED", targetId: request.id, details: { motif: comment.trim(), ...(sansAccord ? { sansAccord } : {}) } });
+  await recordAudit(deps.db, {
+    actorUid: actor.uid,
+    action: "REQUEST_REFUSED",
+    targetId: request.id,
+    details: { motif: comment.trim(), ...(sansAccord ? { sansAccord } : {}), ...(seulDecideur ? { seulDecideur } : {}) },
+  });
   await notifyRefused(deps, request, comment.trim());
   await annoncerDecision(deps, actor, request, "refusee", sansAccord);
   // Ticket #59 : refusé, le renouvellement d'un abonnement en fait une demande de résiliation.
@@ -453,11 +472,16 @@ export async function requestCompletion(deps: AdminDeps, actor: SessionUser, id:
   await requireGestion(deps.db, actor);
   const request = await deps.db.accessRequest.findUnique({ where: { id }, include: { offer: true } });
   if (!request) throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
-  await requireDecision(deps, actor, request, "demande");
+  const { seulDecideur } = await requireDecision(deps, actor, request, "demande");
   await transitionRequest(deps.db, request, "A_COMPLETER", {
     data: { decidedBy: actor.uid, decidedAt: new Date(), decisionComment: comment.trim() || null },
   });
-  await recordAudit(deps.db, { actorUid: actor.uid, action: "COMPLETION_REQUESTED", targetId: request.id, details: { commentaire: comment.trim() || null } });
+  await recordAudit(deps.db, {
+    actorUid: actor.uid,
+    action: "COMPLETION_REQUESTED",
+    targetId: request.id,
+    details: { commentaire: comment.trim() || null, ...(seulDecideur ? { seulDecideur } : {}) },
+  });
   await notifyCompletionRequested(deps, request, comment.trim() || null, actor.isAdmin ? "admin" : "responsable");
   await annoncerDecision(deps, actor, request, "complement");
 }
@@ -572,14 +596,22 @@ async function teamForApproval(
 /**
  * Droit de décider d'une demande (F-54) : autorité sur son équipe (admin, ou responsable de cette équipe) et, pour un
  * responsable, jamais sur sa propre demande : un autre responsable de l'équipe ou un admin en décide ; un admin, jamais
- * sur sa propre demande de hausse de budget. Après l'accord du responsable, seul un admin décide encore d'une demande
- * d'abonnement (spécification #93).
+ * sur sa propre demande de hausse de budget, sauf s'il en est le seul décideur possible (ticket #198). Après l'accord du
+ * responsable, seul un admin décide encore d'une demande d'abonnement (spécification #93). `seulDecideur` dit que
+ * l'acteur décide ainsi de sa propre hausse de budget : le journal d'audit le dit.
  */
-export async function requireDecision(deps: AdminDeps, actor: SessionUser, request: DemandeDeLaFile & { teamId: string }, objet: string): Promise<void> {
+export async function requireDecision(
+  deps: AdminDeps,
+  actor: SessionUser,
+  request: DemandeDeLaFile & { teamId: string },
+  objet: string,
+): Promise<{ seulDecideur: boolean }> {
   await requireAutorite(deps.db, actor, request.teamId, objet);
-  const empechement = empechementDeDecider(actor, request);
+  const demandeurSeulDecideur = seulDecideurPossible(request, deps.adminUids ?? [], await responsablesDe(deps, request.teamId));
+  const empechement = empechementDeDecider(actor, request, demandeurSeulDecideur);
   if (empechement === "quatre_yeux") throw new PortalError("quatre_yeux", "On ne décide pas de sa propre demande.", { cas: "demande" });
   if (empechement === "interdit") throw new PortalError("interdit", "Après l'accord du responsable, seul un admin décide de la demande.");
+  return { seulDecideur: decideSeulDeSaHausse(actor, request, demandeurSeulDecideur) };
 }
 
 /** Responsables de l'équipe d'une demande, dont se déduisent son étape et une décision sans accord (spécification #93). */

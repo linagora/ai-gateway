@@ -7,6 +7,12 @@ All notable changes to LINAGORA AI Gateway, newest first. The format is based on
 
 ## [Unreleased]
 
+### Fixed
+
+- An administrator's own budget raise no longer waits forever when nobody else can decide on it (no other
+  administrator, no other manager of the team): the administrator decides on it alone, and the audit log says so
+  (#200).
+
 ## [1.3.1] - 2026-11-05
 
 ### Changed

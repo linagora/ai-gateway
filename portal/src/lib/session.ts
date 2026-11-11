@@ -2,7 +2,7 @@ import "server-only";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { auth } from "@/auth";
-import { type SessionUser, toPortalUser } from "@/lib/auth-user";
+import { parseUidList, type SessionUser, toPortalUser } from "@/lib/auth-user";
 import { addressesFromEnv, mailerFromEnv } from "@/lib/courriel";
 import { getDb } from "@/lib/db";
 import { getLiteLLM } from "@/lib/litellm/instance";
@@ -61,6 +61,7 @@ export function getDeps() {
     limiteGenerations,
     mailer: mailerFromEnv(),
     adminEmails: addressesFromEnv(process.env.ADMIN_NOTIFICATION_EMAILS),
+    adminUids: parseUidList(process.env.PORTAL_ADMIN_UIDS),
     portalUrl: process.env.AUTH_URL,
     intervalleMinutes: lireIntervalle(process.env.SUPERVISION_INTERVAL_MINUTES),
   };
