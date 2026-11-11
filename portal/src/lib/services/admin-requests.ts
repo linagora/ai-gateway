@@ -8,13 +8,13 @@ import type { LiteLLMClient } from "@/lib/litellm/client";
 import { type Page, tranche } from "@/lib/pagination";
 import {
   accordDonnePar,
-  attendLActeur,
   type DataLevel,
   decideraitSansAccord,
   decideSeulDeSaHausse,
   type DemandeDeLaFile,
   empechementDeDecider,
   enAttenteDeValidation,
+  partieDeLaFile,
   type PolicyCheck,
   type RequestStatus,
   seulDecideurPossible,
@@ -85,31 +85,40 @@ export interface FileDeValidation {
   aSuivre: PendingRequest[];
 }
 
-/** F-30 : la file de validation de l'acteur ; pour un responsable, les demandes de ses équipes, hors les siennes. */
+/**
+ * F-30 : la file de validation de l'acteur ; pour un responsable, les demandes de ses équipes, hors les siennes ; pour
+ * un admin, toutes, hors sa propre hausse de budget quand il n'en est pas le seul décideur possible (ticket #199).
+ */
 export async function listPendingRequests(deps: AdminDeps, actor: SessionUser): Promise<FileDeValidation> {
   const equipes = await requireGestion(deps.db, actor);
-  const rows = await deps.db.accessRequest.findMany({ where: demandesDeLaFile(actor, equipes), orderBy: { createdAt: "asc" }, include: { offer: true } });
+  const rows = await deps.db.accessRequest.findMany({ where: demandesDeLaFile(equipes), orderBy: { createdAt: "asc" }, include: { offer: true } });
   const { aTraiter, aSuivre } = await partager(deps, actor, rows);
   const alias = await aliasDesCleVisees(deps.db, rows);
   return { aTraiter: aTraiter.map((r) => ligneDeLaFile(r, alias)), aSuivre: aSuivre.map((r) => ligneDeLaFile(r, alias)) };
 }
 
-/** Demandes de la file de l'acteur ; un responsable n'y voit ni les autres équipes, ni ses propres demandes. */
-function demandesDeLaFile(actor: SessionUser, equipes: string[] | null): Prisma.AccessRequestWhereInput {
-  return { status: { in: [...STATUTS_EN_ATTENTE_DE_VALIDATION] }, ...dansEquipes(equipes), ...(equipes === null ? {} : { requesterUid: { not: actor.uid } }) };
+/**
+ * Demandes que la file de l'acteur peut contenir : celles qui attendent une validation, dans ses équipes pour un
+ * responsable. `partager` en écarte ses propres demandes dont il ne peut pas décider (ticket #199).
+ */
+function demandesDeLaFile(equipes: string[] | null): Prisma.AccessRequestWhereInput {
+  return { status: { in: [...STATUTS_EN_ATTENTE_DE_VALIDATION] }, ...dansEquipes(equipes) };
 }
 
 /**
- * Partage de la file entre ce qui attend l'acteur et ce qui attend quelqu'un d'autre ; pour un admin, l'étape d'une
- * demande d'abonnement se déduit des responsables de son équipe.
+ * Partage de la file entre ce qui attend l'acteur et ce qui attend quelqu'un d'autre, sans les demandes de l'acteur dont
+ * il ne peut pas décider (ticket #199) ; pour un admin, l'étape d'une demande d'abonnement se déduit des responsables
+ * de son équipe.
  */
 async function partager<D extends DemandeDeLaFile & { teamId: string }>(deps: AdminDeps, actor: SessionUser, demandes: D[]) {
   const responsables = actor.isAdmin ? await approversByTeam(deps.db, [...new Set(demandes.map((d) => d.teamId))]) : new Map<string, string[]>();
-  const attend = (d: D) => {
+  const file: Record<"aTraiter" | "aSuivre", D[]> = { aTraiter: [], aSuivre: [] };
+  for (const d of demandes) {
     const deLEquipe = responsables.get(d.teamId) ?? [];
-    return attendLActeur(actor, d, deLEquipe, seulDecideurPossible(d, deps.adminUids ?? [], deLEquipe));
-  };
-  return { aTraiter: demandes.filter(attend), aSuivre: demandes.filter((d) => !attend(d)) };
+    const partie = partieDeLaFile(actor, d, deLEquipe, seulDecideurPossible(d, deps.adminUids ?? [], deLEquipe));
+    if (partie) file[partie].push(d);
+  }
+  return file;
 }
 
 function ligneDeLaFile(r: Prisma.AccessRequestGetPayload<{ include: { offer: true } }>, alias: Map<string, string>): PendingRequest {
@@ -138,7 +147,7 @@ export async function countAdminPending(deps: AdminDeps, actor: SessionUser): Pr
   const equipes = await requireGestion(deps.db, actor);
   await markExpired(deps.db, deps.now?.() ?? new Date());
   const demandes = await deps.db.accessRequest.findMany({
-    where: demandesDeLaFile(actor, equipes),
+    where: demandesDeLaFile(equipes),
     select: { kind: true, status: true, requesterUid: true, teamId: true },
   });
   return (await partager(deps, actor, demandes)).aTraiter.length;

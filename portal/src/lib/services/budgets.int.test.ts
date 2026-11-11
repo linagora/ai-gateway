@@ -8,6 +8,7 @@ import { FakeMailer } from "@/test/fake-mailer";
 import {
   approveKeyRequest,
   countAdminPending,
+  type FileDeValidation,
   getRequestReview,
   listPendingRequests,
   listProcessedRequests,
@@ -24,6 +25,7 @@ import { saveSettings } from "./settings";
 const admin = { uid: "jdupont", email: "jdupont@linagora.com", name: "Jeanne Dupont", isAdmin: true };
 const titulaire = { uid: "mmaudet", email: "mmaudet@linagora.com", name: "Michel-Marie Maudet", isAdmin: false };
 const collegue = { uid: "pmartin", email: "pmartin@linagora.com", name: "Paul Martin", isAdmin: false };
+const autreAdmin = { uid: "lbernard", email: "lbernard@linagora.com", name: "Louise Bernard", isAdmin: true };
 
 const JOUR = 86_400_000;
 let maintenant = new Date("2026-10-01T09:00:00Z");
@@ -61,6 +63,7 @@ async function cleEmise(input: Partial<KeyRequestInput> = {}): Promise<{ id: str
 const statut = async (id: string) => (await testDb.accessRequest.findUniqueOrThrow({ where: { id } })).status;
 const plafondDeLaCle = async (id: string) => (await testDb.accessRequest.findUniqueOrThrow({ where: { id } })).approvedBudget?.toNumber();
 const designerResponsable = (uid: string) => testDb.teamManager.create({ data: { teamId: "equipe-rd", uid, email: `${uid}@linagora.com`, designatedBy: "jdupont" } });
+const idsDeLaFile = ({ aTraiter, aSuivre }: FileDeValidation) => [...aTraiter, ...aSuivre].map((r) => r.id);
 
 /** Clé émise de l'admin, approuvée à 15 € tous les 30 jours, et sa demande de hausse à 50 €. */
 async function hausseDeLAdmin(): Promise<{ cleAdmin: string; id: string }> {
@@ -224,8 +227,7 @@ describe("hausse du budget d'une clé émise", () => {
     await designerResponsable("mmaudet");
     const { id } = await createBudgetRequest(deps, titulaire, { keyRequestId: cle, requestedBudget: 50, justification: "Lot de contrats" });
     await expect(approveBudgetRequest(deps, titulaire, id, { budget: 40 })).rejects.toMatchObject({ code: "quatre_yeux" });
-    const file = await listPendingRequests(deps, titulaire);
-    expect([...file.aTraiter, ...file.aSuivre].map((r) => r.id)).not.toContain(id);
+    expect(idsDeLaFile(await listPendingRequests(deps, titulaire))).not.toContain(id);
 
     await designerResponsable("pmartin");
     mailer.outbox.splice(0);
@@ -238,7 +240,6 @@ describe("hausse du budget d'une clé émise", () => {
   });
 
   test("un admin ne décide pas de la hausse de sa propre clé ; un autre admin, si", async () => {
-    const autreAdmin = { uid: "lbernard", email: "lbernard@linagora.com", name: "Louise Bernard", isAdmin: true };
     litellm.teams.get("equipe-rd")!.memberUids.push("jdupont");
     const { id: cleAdmin } = await createKeyRequest(deps, admin, demande);
     await approveKeyRequest(deps, autreAdmin, cleAdmin, approbation);
@@ -249,9 +250,8 @@ describe("hausse du budget d'une clé émise", () => {
     await expect(refuseRequest(deps, admin, id, "Non")).rejects.toMatchObject({ code: "quatre_yeux" });
     await expect(requestCompletion(deps, admin, id, "Précisez")).rejects.toMatchObject({ code: "quatre_yeux" });
     expect(await statut(id)).toBe("SOUMISE");
-    const file = await listPendingRequests(deps, admin);
-    expect(file.aTraiter.map((r) => r.id)).not.toContain(id);
-    expect(file.aSuivre.map((r) => r.id)).toContain(id);
+    // Il ne la trouve pas dans sa file, ni à traiter, ni à suivre (ticket #199) ; l'autre admin l'y trouve à traiter.
+    expect(idsDeLaFile(await listPendingRequests(deps, admin))).not.toContain(id);
     expect((await listPendingRequests(deps, autreAdmin)).aTraiter.map((r) => r.id)).toContain(id);
 
     await approveBudgetRequest(deps, autreAdmin, id, { budget: 40 });
@@ -291,6 +291,23 @@ describe("hausse du budget d'une clé émise", () => {
     expect(await countAdminPending(seulAdmin, admin)).toBe(1);
     expect((await getRequestReview(seulAdmin, admin, id)).seulDecideur).toBe(true);
     expect((await getRequestReview({ ...deps, adminUids: ["jdupont", "lbernard"] }, admin, id)).seulDecideur).toBe(false);
+  });
+
+  test("quand un autre admin ou un autre responsable de l'équipe en décide, l'admin ne trouve pas sa propre hausse dans sa file ; il la suit dans « Mes demandes » (ticket #199)", async () => {
+    await designerResponsable("jdupont");
+    const { id } = await hausseDeLAdmin();
+    // Un autre admin, sans autre responsable de l'équipe : l'autre admin la trouve à traiter.
+    const deuxAdmins = { ...deps, adminUids: ["jdupont", "lbernard"] };
+    expect(idsDeLaFile(await listPendingRequests(deuxAdmins, admin))).not.toContain(id);
+    expect(await countAdminPending(deuxAdmins, admin)).toBe(0);
+    expect((await listPendingRequests(deuxAdmins, autreAdmin)).aTraiter.map((r) => r.id)).toContain(id);
+    // Seul admin, avec un autre responsable de l'équipe : ce responsable la trouve à traiter.
+    await designerResponsable("pmartin");
+    const seulAdmin = { ...deps, adminUids: ["jdupont"] };
+    expect(idsDeLaFile(await listPendingRequests(seulAdmin, admin))).not.toContain(id);
+    expect(await countAdminPending(seulAdmin, admin)).toBe(0);
+    expect((await listPendingRequests(seulAdmin, collegue)).aTraiter.map((r) => r.id)).toContain(id);
+    expect(await listMyRequests(seulAdmin, admin)).toContainEqual(expect.objectContaining({ id, kind: "BUDGET", status: "SOUMISE" }));
   });
 
   test("seul décideur possible, l'admin peut aussi renvoyer sa propre hausse pour complément ou la refuser ; le journal le dit (ticket #198)", async () => {
