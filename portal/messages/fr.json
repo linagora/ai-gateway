@@ -750,6 +750,7 @@
       "commentaireAccord": "Commentaire pour les administrateurs",
       "attenteApprobation": "Un responsable de l'équipe a donné son accord : la demande attend l'approbation d'un administrateur.",
       "sansAccord": "Sans accord d'un responsable : un responsable de l'équipe n'a pas encore donné son accord. Vous pouvez approuver ou refuser la demande sans l'attendre ; le journal d'audit et l'annonce aux responsables le diront.",
+      "seulDecideur": "Seul décideur possible : il n'y a ni autre administrateur, ni autre responsable de l'équipe. Vous décidez seul de votre propre demande ; le journal d'audit le dira.",
       "approuverAbonnement": "Approuver (durée de validité de l'abonnement)",
       "hausse": {
         "cle": "Clé visée",

@@ -750,6 +750,7 @@
       "commentaireAccord": "Comment for the administrators",
       "attenteApprobation": "A manager of the team has given their agreement: the request awaits an administrator's approval.",
       "sansAccord": "No manager agreement: a manager of the team has not given their agreement yet. You can approve or refuse the request without waiting; the audit log and the announcement to the managers will say so.",
+      "seulDecideur": "Only possible decider: there is no other administrator and no other manager of the team. You decide on your own request alone; the audit log will say so.",
       "approuverAbonnement": "Approve (subscription validity period)",
       "hausse": {
         "cle": "Key concerned",

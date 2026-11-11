@@ -176,13 +176,13 @@ export function attendUnResponsable(demande: DemandeDeLaFile, responsables: read
 /**
  * La demande de la file, dont l'équipe a ces responsables, attend-elle cet acteur (spécification #93) ? Un responsable
  * traite les demandes soumises de ses équipes, hors les siennes ; une demande qui a reçu l'accord attend un admin. Un
- * admin traite toute la file, sauf sa propre demande de hausse de budget, et une demande d'abonnement qui attend
- * l'accord d'un responsable qu'il n'est pas lui-même : responsable de l'équipe, il en reçoit les demandes et les
- * approuve en un seul temps.
+ * admin traite toute la file, sauf sa propre demande de hausse de budget quand il n'en est pas le seul décideur possible
+ * (ticket #198), et une demande d'abonnement qui attend l'accord d'un responsable qu'il n'est pas lui-même : responsable
+ * de l'équipe, il en reçoit les demandes et les approuve en un seul temps.
  */
-export function attendLActeur(acteur: PortalUser, demande: DemandeDeLaFile, responsables: readonly string[]): boolean {
+export function attendLActeur(acteur: PortalUser, demande: DemandeDeLaFile, responsables: readonly string[], demandeurSeulDecideur = false): boolean {
   if (!acteur.isAdmin) return enAttenteDeValidation(demande.status) && empechementDeDecider(acteur, demande) === null;
-  if (empechementDeDecider(acteur, demande) !== null) return false;
+  if (empechementDeDecider(acteur, demande, demandeurSeulDecideur) !== null) return false;
   return !attendUnResponsable(demande, responsables) || (acteur.uid !== demande.requesterUid && responsables.includes(acteur.uid));
 }
 
@@ -205,12 +205,30 @@ export function accordDonnePar(acteur: PortalUser, demande: DemandeDeLaFile & { 
 }
 
 /**
+ * Le demandeur est-il le seul décideur possible de sa demande (ticket #198) ? Admin, il n'a ni autre admin, ni autre
+ * responsable de son équipe pour en décider. Sans admin connu, personne ne l'est.
+ */
+export function seulDecideurPossible(demande: Pick<DemandeDeLaFile, "requesterUid">, admins: readonly string[], responsables: readonly string[]): boolean {
+  return admins.includes(demande.requesterUid) && [...admins, ...responsables].every((uid) => uid === demande.requesterUid);
+}
+
+/**
+ * L'admin décide-t-il seul de sa propre hausse de budget, dont il est le seul décideur possible (ticket #198) ? Sa fiche
+ * l'en avertit, et le journal d'audit le dit.
+ */
+export function decideSeulDeSaHausse(acteur: PortalUser, demande: DemandeDeLaFile, demandeurSeulDecideur: boolean): boolean {
+  return acteur.isAdmin && demandeurSeulDecideur && demande.kind === "BUDGET" && demande.requesterUid === acteur.uid;
+}
+
+/**
  * Ce qui empêche un acteur de décider d'une demande de ses équipes, qu'il peut consulter (F-54, spécification #93) :
  * un responsable ne décide jamais de sa propre demande (quatre yeux), ni d'une demande qui a reçu l'accord du
  * responsable, dont seul un admin décide (interdit). Un admin décide de toute la file, sauf de sa propre demande de
- * hausse de budget ; le statut de la demande est contrôlé par les transitions.
+ * hausse de budget, dont il ne décide que s'il en est le seul décideur possible (ticket #198) : sans le savoir, les
+ * quatre yeux s'appliquent. Le statut de la demande est contrôlé par les transitions.
  */
-export function empechementDeDecider(acteur: PortalUser, demande: DemandeDeLaFile): "quatre_yeux" | "interdit" | null {
+export function empechementDeDecider(acteur: PortalUser, demande: DemandeDeLaFile, demandeurSeulDecideur = false): "quatre_yeux" | "interdit" | null {
+  if (decideSeulDeSaHausse(acteur, demande, demandeurSeulDecideur)) return null;
   if (demande.kind === "BUDGET" && demande.requesterUid === acteur.uid) return "quatre_yeux";
   if (acteur.isAdmin) return null;
   if (demande.requesterUid === acteur.uid) return "quatre_yeux";
@@ -223,8 +241,8 @@ export function empechementDeDecider(acteur: PortalUser, demande: DemandeDeLaFil
  * contrôlent de nouveau. Un responsable approuve une demande de clé ou accepte une demande d'accès ; d'une demande
  * d'abonnement, il ne donne que son accord. Un admin approuve tant que la demande attend une validation.
  */
-export function decisionProposee(acteur: PortalUser, demande: DemandeDeLaFile): "approuver" | "donnerAccord" | null {
-  if (!enAttenteDeValidation(demande.status) || empechementDeDecider(acteur, demande) !== null) return null;
+export function decisionProposee(acteur: PortalUser, demande: DemandeDeLaFile, demandeurSeulDecideur = false): "approuver" | "donnerAccord" | null {
+  if (!enAttenteDeValidation(demande.status) || empechementDeDecider(acteur, demande, demandeurSeulDecideur) !== null) return null;
   return !acteur.isAdmin && demande.kind === "ABONNEMENT" ? "donnerAccord" : "approuver";
 }
 

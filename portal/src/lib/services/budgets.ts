@@ -94,7 +94,7 @@ export async function approveBudgetRequest(deps: AdminDeps, actor: SessionUser, 
   const { budget } = approbationSchema.parse(input);
   const request = await deps.db.accessRequest.findUnique({ where: { id } });
   if (!request || request.kind !== "BUDGET" || !request.raisesBudgetOfRequestId) throw new PortalError("introuvable", "Demande introuvable.", { objet: "demande" });
-  await requireDecision(deps, actor, request, "demande");
+  const { seulDecideur } = await requireDecision(deps, actor, request, "demande");
   if (!enAttenteDeValidation(request.status)) throw new PortalError("transition_interdite", "Cette demande a déjà été traitée.", { cas: "traitee" });
   const cle = cleEmise(deps, await deps.db.accessRequest.findUniqueOrThrow({ where: { id: request.raisesBudgetOfRequestId } }));
   const avant = cle.approvedBudget.toNumber();
@@ -122,7 +122,7 @@ export async function approveBudgetRequest(deps: AdminDeps, actor: SessionUser, 
     actorUid: actor.uid,
     action: "BUDGET_RAISED",
     targetId: request.id,
-    details: { alias: cle.keyAlias, avant, demande: request.requestedBudget?.toNumber() ?? null, accorde: budget },
+    details: { alias: cle.keyAlias, avant, demande: request.requestedBudget?.toNumber() ?? null, accorde: budget, ...(seulDecideur ? { seulDecideur } : {}) },
   });
   await notifyBudgetRaised(deps, request, { alias: cle.keyAlias, budget, periode: cle.budgetDuration });
   await annoncerDecision(deps, actor, request, "budget");
