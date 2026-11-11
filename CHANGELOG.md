@@ -7,6 +7,12 @@ All notable changes to LINAGORA AI Gateway, newest first. The format is based on
 
 ## [Unreleased]
 
+### Fixed
+
+- An administrator no longer finds their own budget raise in their approval queue, under "Awaiting a manager's
+  agreement", when another administrator or another manager of the team decides on it: like a manager, they follow it
+  in "My requests" (#202).
+
 ## [1.3.2] - 2026-11-11
 
 ### Fixed
