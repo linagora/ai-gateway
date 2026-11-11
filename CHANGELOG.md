@@ -7,6 +7,8 @@ All notable changes to LINAGORA AI Gateway, newest first. The format is based on
 
 ## [Unreleased]
 
+## [1.3.3] - 2026-11-11
+
 ### Fixed
 
 - An administrator no longer finds their own budget raise in their approval queue, under "Awaiting a manager's
@@ -151,7 +153,8 @@ First release of the gateway and its portal.
 - Development: translations left by the screenshots in the development catalog (#91); JEV no longer counted
   in the allowlist acceptance test (#106).
 
-[Unreleased]: https://github.com/linagora/ai-gateway/compare/v1.3.2...HEAD
+[Unreleased]: https://github.com/linagora/ai-gateway/compare/v1.3.3...HEAD
+[1.3.3]: https://github.com/linagora/ai-gateway/compare/v1.3.2...v1.3.3
 [1.3.2]: https://github.com/linagora/ai-gateway/compare/v1.3.1...v1.3.2
 [1.3.1]: https://github.com/linagora/ai-gateway/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/linagora/ai-gateway/compare/v1.2.0...v1.3.0
