@@ -7,6 +7,10 @@ All notable changes to LINAGORA AI Gateway, newest first. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- Models: Mistral Large 4 (N1 Public, EU zone through Mistral), alongside Mistral Large 3 (#197).
+
 ## [1.3.3] - 2026-11-11
 
 ### Fixed
