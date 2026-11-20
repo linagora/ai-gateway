@@ -183,8 +183,9 @@ api() { curl -s -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/
 ```
 
 **Teams and catalog** (`lecture`). The employee's teams, the teams they may ask to join, and the catalog:
-confidentiality levels, the classifications each accepts, visible models, and the **exact commitment text** the employee
-must accept before a key request.
+confidentiality levels, the classifications each accepts, visible models priced per token (a transcription model,
+priced per minute of audio, is not listed), and the **exact commitment text** the employee must accept before a key
+request.
 
 ```bash
 api "$PORTAL/me/teams"

@@ -208,7 +208,7 @@
           "Catalog"
         ],
         "summary": "Visible catalog",
-        "description": "Confidentiality levels with their accepted classifications and the models that accept each level, the exact commitment text the employee must accept before a key request, and the visible models.",
+        "description": "Confidentiality levels with their accepted classifications and the models that accept each level, the exact commitment text the employee must accept before a key request, and the visible models priced per token. A model priced otherwise, such as a transcription model priced per minute of audio, is not listed.",
         "x-scope": "lecture",
         "x-delivery": 1,
         "x-status": "available",

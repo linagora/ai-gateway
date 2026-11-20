@@ -50,6 +50,7 @@ describe("modèles", () => {
       executionRegion: null,
       apiKind: "conversation",
       imagePrice: null,
+      minutePrice: null,
       inputCostPerToken: 0.000001,
       outputCostPerToken: 0.000004,
       cacheReadCostPerToken: null,
@@ -175,6 +176,31 @@ describe("modèles", () => {
     const models = await client.listModels();
     expect(models.find((m) => m.modelName === avecTaille)).toMatchObject({ apiKind: "embeddings", dimensions: 1024 });
     expect(models.find((m) => m.modelName === sansTaille)).toMatchObject({ apiKind: "embeddings", dimensions: null });
+  });
+
+  test("un modèle de transcription l'expose, avec son prix par minute d'audio, nul s'il n'est pas déclaré ; un modèle d'OCR, avec son type ; un type inconnu reste un modèle de conversation (ticket #214)", async () => {
+    const [transcription, sansPrix, ocr, inconnu] = [uniqueId("transcription"), uniqueId("transcription"), uniqueId("ocr"), uniqueId("modele")];
+    // Routes inconnues de la table de LiteLLM : leurs informations sont celles déclarées ici. LiteLLM facture la
+    // transcription à la seconde d'audio ; le portail annonce le prix par minute que déclare la passerelle.
+    const declarationTranscription = { mode: "audio_transcription", type_api: "transcription", capacites: ["audio_video"] };
+    for (const [modelName, prix, declaration] of [
+      [transcription, { input_cost_per_second: 0.00005 }, { ...declarationTranscription, prix_minute_eur: 0.003 }],
+      [sansPrix, { input_cost_per_second: 0.00005 }, declarationTranscription],
+      [ocr, { input_cost_per_token: 0.0000022, output_cost_per_token: 0 }, { type_api: "ocr", appel_outils: false }],
+      [inconnu, { input_cost_per_token: 0.0000001, output_cost_per_token: 0.0000001 }, { type_api: "reclassement" }],
+    ] as const) {
+      const created = await admin<{ model_info: { id: string } }>("POST", "/model/new", {
+        model_name: modelName,
+        litellm_params: { model: `hosted_vllm/essai/${modelName}`, api_key: "sk-factice", ...prix },
+        model_info: { data_level: "EXP", pricing_currency: "EUR", ...declaration },
+      });
+      createdModels.push(created.model_info.id);
+    }
+    const models = await client.listModels();
+    expect(models.find((m) => m.modelName === transcription)).toMatchObject({ apiKind: "transcription", minutePrice: 0.003, capabilities: ["audio_video"] });
+    expect(models.find((m) => m.modelName === sansPrix)).toMatchObject({ apiKind: "transcription", minutePrice: null });
+    expect(models.find((m) => m.modelName === ocr)).toMatchObject({ apiKind: "ocr", minutePrice: null, inputCostPerToken: 0.0000022, outputCostPerToken: 0, toolCalling: false });
+    expect(models.find((m) => m.modelName === inconnu)?.apiKind).toBe("conversation");
   });
 
   test("un modèle expose sa sortie maximale, ses efforts de raisonnement et les contenus qu'il accepte, déclarés par la passerelle (ticket #114)", async () => {

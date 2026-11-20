@@ -149,6 +149,28 @@ describe("configuration d'OpenCode (ticket #113)", () => {
     expect(Object.keys(JSON.parse(resultat.configuration ?? "null").providers["linagora-n2-r-d-compte-rendu-hebdo"].models)).toEqual(["mistral-small"]);
   });
 
+  test("un modèle de transcription et un modèle d'OCR sont écartés, avec leur type d'API pour raison, même quand le modèle ne prend pas d'outils (ticket #214)", async () => {
+    litellm
+      .withModel({ modelName: "whisper-large-v3", apiKind: "transcription", inputCostPerToken: null, outputCostPerToken: null, minutePrice: 0.003 })
+      .withModel({ modelName: "lightonocr-3", apiKind: "ocr", outputCostPerToken: 0, toolCalling: false });
+    await fiche("whisper-large-v3", "Whisper Large v3", "N2");
+    await fiche("lightonocr-3", "LightOnOCR 3", "N2");
+    await cleEmise({ models: ["mistral-small", "whisper-large-v3", "lightonocr-3"] });
+
+    const resultat = await configurationOpenCode(deps, titulaire, OPTIONS);
+
+    expect(resultat.cles).toEqual([
+      expect.objectContaining({
+        modeles: [{ modelName: "mistral-small", displayName: "Mistral Small", reference: "linagora-n2-r-d-compte-rendu-hebdo/mistral-small" }],
+        modelesEcartes: [
+          { modelName: "whisper-large-v3", raison: "transcription" },
+          { modelName: "lightonocr-3", raison: "ocr" },
+        ],
+      }),
+    ]);
+    expect(Object.keys(JSON.parse(resultat.configuration ?? "null").providers["linagora-n2-r-d-compte-rendu-hebdo"].models)).toEqual(["mistral-small"]);
+  });
+
   test("en anglais, l'entrée porte le nom anglais du niveau, et chaque modèle le nom anglais de sa fiche, à défaut son nom français", async () => {
     litellm.withModel({ modelName: "codestral" });
     await fiche("codestral", "Codestral (code)", "N2", "Codestral (coding)");

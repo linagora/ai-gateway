@@ -2,7 +2,7 @@ import { ArrowDown } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { DATA_LEVELS } from "@/lib/policy";
-import { listCatalogForAdmin } from "@/lib/services/catalog";
+import { hasTokenPrices, listCatalogForAdmin } from "@/lib/services/catalog";
 import { type AdminOffer, libelleOffre, listOffersForAdmin } from "@/lib/services/offers";
 import { getDeps, requireAdminPage } from "@/lib/session";
 import { USE_CASES } from "@/lib/use-cases";
@@ -61,11 +61,14 @@ export default async function AdminCataloguePage(props: PageProps<"/gestion/cata
             <dd>{m.hosts.join(", ") || domaine("nonRenseigne")}</dd>
             <dt className="font-medium">{t("zone")}</dt>
             <dd>{m.executionRegion ? domaine(`zones.${m.executionRegion}`) : domaine("nonRenseigne")}</dd>
-            <dt className="font-medium">{t("prix")}</dt>
+            {/* Un modèle de transcription est facturé à la minute d'audio, pas au jeton. */}
+            <dt className="font-medium">{m.pricePerMinute === null ? t("prix") : t("prixMinute")}</dt>
             <dd>
-              {m.hasEuroPricing && m.inputPricePerMillion !== null && m.outputPricePerMillion !== null
-                ? `${euros(m.inputPricePerMillion)} / ${euros(m.outputPricePerMillion)}`
-                : t("sansTarif")}
+              {m.hasEuroPricing && m.pricePerMinute !== null
+                ? euros(m.pricePerMinute)
+                : m.hasEuroPricing && hasTokenPrices(m)
+                  ? `${euros(m.inputPricePerMillion)} / ${euros(m.outputPricePerMillion)}`
+                  : t("sansTarif")}
             </dd>
             <dt className="font-medium">{t("contexte")}</dt>
             <dd>{m.maxInputTokens ? t("jetons", { nombre: nombre(m.maxInputTokens) }) : domaine("nonRenseigne")}</dd>

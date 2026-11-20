@@ -1,6 +1,6 @@
 import type { RequestKind, RequestStatus } from "@/generated/prisma/client";
 import { CLASSIFICATIONS_ACCEPTEES, DATA_LEVELS, modelAcceptsLevel } from "@/lib/policy";
-import type { CatalogItem } from "@/lib/services/catalog";
+import { type CatalogItem, hasTokenPrices } from "@/lib/services/catalog";
 import type { MyKeys, RenewalDraft } from "@/lib/services/keys";
 import type { RequestSummary } from "@/lib/services/requests";
 import type { Traducteur } from "./api";
@@ -96,9 +96,11 @@ export function vueBrouillonDeRenouvellement({ alias, teamId, dataLevel, models,
 
 /**
  * Catalogue visible (GET /catalog) : le texte exact de l'engagement du formulaire de demande de clé, les niveaux avec
- * les classifications qu'ils acceptent et les modèles qui les acceptent, puis les modèles.
+ * les classifications qu'ils acceptent et les modèles qui les acceptent, puis les modèles. Le contrat ne connaît que
+ * les prix par million de jetons : un modèle facturé autrement (la transcription, à la minute d'audio) n'y figure pas.
  */
-export function vueCatalogue(modeles: CatalogItem[], t: Traducteur) {
+export function vueCatalogue(catalogue: CatalogItem[], t: Traducteur) {
+  const modeles = catalogue.filter(hasTokenPrices);
   return {
     commitment: t("nouvelleDemande.engagement"),
     levels: DATA_LEVELS.map((niveau) => ({

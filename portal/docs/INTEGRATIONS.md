@@ -184,8 +184,9 @@ api() { curl -s -H "Authorization: Bearer $JETON" -H "Content-Type: application/
 ```
 
 **Équipes et catalogue** (`lecture`). Les équipes du collaborateur, celles qu'il peut demander à rejoindre, et le
-catalogue : niveaux de confidentialité, classifications acceptées par chacun, modèles visibles, et le **texte exact de
-l'engagement** que le collaborateur doit accepter avant une demande de clé.
+catalogue : niveaux de confidentialité, classifications acceptées par chacun, modèles visibles facturés au jeton (un
+modèle de transcription, facturé à la minute d'audio, n'y figure pas), et le **texte exact de l'engagement** que le
+collaborateur doit accepter avant une demande de clé.
 
 ```bash
 api "$PORTAIL/me/teams"

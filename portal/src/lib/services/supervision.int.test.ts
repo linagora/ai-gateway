@@ -203,6 +203,22 @@ describe("supervision des modèles", () => {
     });
   });
 
+  test("un modèle de transcription ou d'OCR n'est pas sondé : son type d'API n'a pas encore de sonde (ticket #214)", async () => {
+    litellm
+      .withModel({ modelName: "whisper-large-v3", apiKind: "transcription", inputCostPerToken: null, outputCostPerToken: null, minutePrice: 0.003 })
+      .withModel({ modelName: "lightonocr-3", apiKind: "ocr", outputCostPerToken: 0, toolCalling: false });
+    await fiche("whisper-large-v3", "Whisper Large v3");
+    await fiche("lightonocr-3", "LightOnOCR 3");
+
+    const rapport = await superviserModeles(deps());
+    expect(litellm.sondes.map((s) => s.modelName).sort()).toEqual(["bge-m3", "jev-latest", "qwen3.8"]);
+    expect(rapport).toMatchObject({ sondes: 3, nonSupervises: ["flux-2-pro", "lightonocr-3", "whisper-large-v3"] });
+    const etats = await etatDesModeles(deps(), admin, "fr");
+    for (const [modelName, apiKind] of [["whisper-large-v3", "transcription"], ["lightonocr-3", "ocr"]]) {
+      expect(etats.find((e) => e.modelName === modelName)).toMatchObject({ apiKind, statut: "non_supervise", raisonNonSupervise: "type_sans_sonde", checkedAt: null });
+    }
+  });
+
   test("l'onglet « Supervision » montre les modèles en panne, puis les dégradés ; il est réservé aux admins, comme la sonde immédiate", async () => {
     litellm.modelesEnPanne.set("jev-latest", "Provider returned error");
     await superviserModeles(deps());

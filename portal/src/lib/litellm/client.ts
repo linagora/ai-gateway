@@ -78,12 +78,14 @@ export const CONTENUS: readonly Contenu[] = ["text", "image", "pdf", "audio", "v
 /**
  * Manière d'appeler un modèle : conversation (par défaut), API de décision comme JEV (« System One »), qui
  * attend dans le dernier message une requête JSON et non un texte libre, modèle d'images, appelé comme un
- * modèle de conversation en demandant une image en sortie, ou modèle d'embeddings, appelé par /v1/embeddings.
+ * modèle de conversation en demandant une image en sortie, modèle d'embeddings, appelé par /v1/embeddings,
+ * modèle de transcription, appelé par /v1/audio/transcriptions avec un fichier audio, ou modèle d'OCR, qui rend
+ * le texte d'un PDF envoyé dans un message.
  */
-export type ApiKind = "conversation" | "decision" | "image" | "embeddings";
+export type ApiKind = "conversation" | "decision" | "image" | "embeddings" | "transcription" | "ocr";
 
 /** Types d'API connus du portail, dans l'ordre où le catalogue les présente. */
-export const API_KINDS: readonly ApiKind[] = ["conversation", "image", "embeddings", "decision"];
+export const API_KINDS: readonly ApiKind[] = ["conversation", "image", "embeddings", "transcription", "ocr", "decision"];
 
 /**
  * Modèle déclaré dans LiteLLM. Les prix, déclarés dans litellm_params, sont relus via model_info.
@@ -100,6 +102,8 @@ export interface LiteLLMModel {
   apiKind: ApiKind;
   /** Prix indicatif d'une image en euros, déclaré par la passerelle pour un modèle d'images ; null sinon. */
   imagePrice: number | null;
+  /** Prix d'une minute d'audio en euros, déclaré par la passerelle pour un modèle de transcription ; null sinon. */
+  minutePrice: number | null;
   inputCostPerToken: number | null;
   outputCostPerToken: number | null;
   /** Prix d'un jeton lu depuis le cache et d'un jeton écrit dans le cache ; null s'ils ne sont pas déclarés. */
@@ -171,8 +175,11 @@ export interface KeyInfo {
   blocked: boolean;
 }
 
-/** Types d'API sondés par la supervision : un modèle d'images n'est pas sondé, chaque appel générant une image payante. */
-export type ProbedApiKind = Exclude<ApiKind, "image">;
+/**
+ * Types d'API sondés par la supervision : un modèle d'images n'est pas sondé, chaque appel générant une image payante ;
+ * la transcription et l'OCR n'ont pas encore de sonde.
+ */
+export type ProbedApiKind = Exclude<ApiKind, "image" | "transcription" | "ocr">;
 
 /** Erreur propre à la sonde, enregistrée par son code et traduite à l'affichage (onglet « Supervision », courriels). */
 export type CodeErreurSonde = "delai_depasse" | "passerelle_injoignable" | "absent_de_la_passerelle";
@@ -322,6 +329,7 @@ const modelInfoSchema = z.object({
         zone: z.string().nullish(),
         type_api: z.string().nullish(),
         prix_image_eur: z.number().nullish(),
+        prix_minute_eur: z.number().nullish(),
         input_cost_per_token: z.number().nullish(),
         output_cost_per_token: z.number().nullish(),
         cache_read_input_token_cost: z.number().nullish(),
@@ -463,6 +471,7 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
         executionRegion: mi.zone === "UE" ? "UE" : mi.zone === "monde" ? "HORS_UE" : null,
         apiKind: API_KINDS.find((type) => type === mi.type_api) ?? "conversation",
         imagePrice: mi.prix_image_eur ?? null,
+        minutePrice: mi.prix_minute_eur ?? null,
         inputCostPerToken: mi.input_cost_per_token ?? null,
         outputCostPerToken: mi.output_cost_per_token ?? null,
         cacheReadCostPerToken: mi.cache_read_input_token_cost ?? null,

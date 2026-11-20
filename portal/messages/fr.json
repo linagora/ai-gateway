@@ -67,6 +67,8 @@
       "conversation": "Conversation",
       "image": "Images",
       "embeddings": "Embeddings",
+      "transcription": "Transcription",
+      "ocr": "OCR",
       "decision": "Décision"
     },
     "categoriesNouveaute": {
@@ -263,6 +265,7 @@
     "hebergeurs": "Hébergeurs",
     "zone": "Zone d'exécution",
     "prix": "Prix entrée / sortie (par million de jetons)",
+    "prixMinute": "Prix par minute d'audio",
     "contexte": "Contexte",
     "jetons": "{nombre} jetons",
     "capacites": "Capacités",
@@ -435,8 +438,10 @@
     },
     "prix": "{entree} en entrée, {sortie} en sortie, par million de jetons",
     "prixEntree": "{entree} en entrée, par million de jetons",
+    "prixSortieGratuite": "{entree} en entrée, sortie gratuite, par million de jetons",
     "dimensions": "Vecteurs de {dimensions} dimensions",
     "prixImage": "Environ {prix} par image",
+    "prixMinute": "{prix} par minute d'audio",
     "contexte": "{jetons} jetons, soit environ {pages} pages",
     "hypothesePages": "Hypothèse : une page de texte en français compte environ 750 jetons.",
     "contexteInconnu": "Taille du contexte non communiquée",
@@ -1057,12 +1062,15 @@
       },
       "nonSupervise": {
         "image": "Modèle d'images : chaque sonde générerait une image payante.",
-        "recherche_web": "Modèle qui cherche sur le web à chaque requête : chaque sonde lancerait une recherche payante."
+        "recherche_web": "Modèle qui cherche sur le web à chaque requête : chaque sonde lancerait une recherche payante.",
+        "type_sans_sonde": "Ce type d'API n'a pas encore de sonde."
       },
       "typesApi": {
         "conversation": "conversation",
         "image": "images",
         "embeddings": "embeddings",
+        "transcription": "transcription",
+        "ocr": "OCR",
         "decision": "décision"
       },
       "erreurHttp": "HTTP {statut} : {erreur}",
@@ -1163,6 +1171,8 @@
       "image": "modèle d'images",
       "decision": "API de décision",
       "embeddings": "modèle d'embeddings",
+      "transcription": "modèle de transcription",
+      "ocr": "modèle d'OCR",
       "sans_outils": "sans appel d'outils",
       "non_declare": "la passerelle ne le déclare plus"
     },
