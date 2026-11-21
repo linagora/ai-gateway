@@ -28,6 +28,11 @@ Une API de décision (type d'API « decision » : JEV, Nox-4B, d3-ultra) reçoit
 question, sans erreur ; le coût calculé et la dépense enregistrée sur la clé, au tarif déclaré ; un message hors format
 refusé explicitement (400). La recette sort en erreur si l'un de ces contrôles échoue.
 
+Un modèle de transcription (type d'API « transcription ») reçoit à la place, par /v1/audio/transcriptions, un extrait parlé
+de quelques secondes (voix de synthèse) : texte attendu, dépense enregistrée sur la clé égale à la durée de l'extrait
+multipliée par le prix par seconde, prix par minute déclaré au portail cohérent ; puis un M4A, dont la durée est illisible,
+que la garde doit refuser (400) en listant les formats acceptés.
+
 Un modèle qui cherche sur le web à chaque requête (prix de recherche déclaré : Perplexity Sonar) reçoit en plus une
 question sans profondeur de recherche, puis avec des options sans profondeur (la garde applique celle de la déclaration),
 puis à la profondeur « high » : coût calculé et dépense enregistrée sur la clé au prix déclaré, coût facturé par
@@ -45,6 +50,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
+import uuid
 
 BASE = "http://localhost:4000/admin"
 MASTER_KEY = os.environ["LITELLM_MASTER_KEY"]
@@ -55,13 +61,14 @@ TEXTE_LONG = "\n".join(
 ) + "\n\nRéponds uniquement par le mot OK."
 
 
-def call(method, path, body=None, key=MASTER_KEY, timeout=120):
-    data = json.dumps(body).encode() if body is not None else None
+def call(method, path, body=None, key=MASTER_KEY, timeout=120, formulaire=None):
+    """formulaire : corps multipart/form-data déjà construit (octets, Content-Type), à la place d'un corps JSON."""
+    data, type_contenu = formulaire or (json.dumps(body).encode() if body is not None else None, "application/json")
     req = urllib.request.Request(
         BASE + path,
         data=data,
         method=method,
-        headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"},
+        headers={"Authorization": "Bearer " + key, "Content-Type": type_contenu},
     )
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
@@ -395,6 +402,69 @@ def controle_decision(test_key, token_id, echecs):
         echecs.append("décision (message hors format)")
 
 
+# Fichiers des recettes, dans le dossier de la passerelle (infra/litellm/recette), seul dossier du serveur monté dans le
+# conteneur : la recette, elle, est lue sur l'entrée standard.
+FICHIERS_RECETTE = "/app/passerelle/recette"
+# Extrait parlé, voix de synthèse sans donnée personnelle : « Bonjour. Ceci est un essai de transcription de la passerelle. »
+# (espeak-ng 1.52.0, voix fr, 150 mots par minute), en OGG Opus à 12 kb/s, mono, 16 kHz (ffmpeg). Sa durée, telle que la
+# lit soundfile dans l'image de LiteLLM 1.102.1 : 65 386 échantillons à 16 kHz.
+DUREE_EXTRAIT = 65386 / 16000
+MOTS_EXTRAIT = ("transcription", "passerelle")
+
+
+def fichier_recette(nom):
+    with open(f"{FICHIERS_RECETTE}/{nom}", "rb") as f:
+        return f.read()
+
+
+def transcrire(nom, type_contenu, test_key):
+    """Appel de /v1/audio/transcriptions avec un fichier de la recette, en multipart/form-data comme les SDK OpenAI."""
+    frontiere = uuid.uuid4().hex
+    corps = (f'--{frontiere}\r\nContent-Disposition: form-data; name="model"\r\n\r\n{MODEL}\r\n'
+             f'--{frontiere}\r\nContent-Disposition: form-data; name="file"; filename="{nom}"\r\n'
+             f"Content-Type: {type_contenu}\r\n\r\n").encode() + fichier_recette(nom) + f"\r\n--{frontiere}--\r\n".encode()
+    return call("POST", "/v1/audio/transcriptions", key=test_key, formulaire=(corps, f"multipart/form-data; boundary={frontiere}"))
+
+
+def controle_transcription(test_key, token_id, echecs):
+    """Extrait parlé transcrit ; dépense égale à sa durée multipliée par le prix par seconde, prix par minute du portail
+    cohérent ; M4A refusé par la garde (400), avec la liste des formats acceptés."""
+    # Prix par seconde : dans litellm_params seulement, /model/info ne le recopie pas dans model_info (1.102.1).
+    prix_seconde, prix_minute = lp.get("input_cost_per_second"), mi.get("prix_minute_eur")
+    conforme = prix_seconde is not None and prix_minute is not None and proche(prix_minute / 60, prix_seconde)
+    step(f"transcription — prix déclarés : {prix_seconde} par seconde (LiteLLM), {prix_minute} par minute (portail) → "
+         f"{'conformes' if conforme else 'échec'}")
+    if not conforme:
+        echecs.append("transcription (prix)")
+    avant = depense(token_id)
+    st, rep, hdr = transcrire("extrait.ogg", "audio/ogg", test_key)
+    texte = rep.get("text") if st == 200 and isinstance(rep, dict) else None
+    conforme = isinstance(texte, str) and all(mot in texte.lower() for mot in MOTS_EXTRAIT)
+    step(f"transcription d'un extrait de {DUREE_EXTRAIT:.2f} s (OGG Opus) → HTTP {st} ; texte : {texte!r} ; mots attendus : "
+         f"{', '.join(MOTS_EXTRAIT)} → {'conforme' if conforme else 'échec'}")
+    if st != 200:
+        print(json.dumps(rep, ensure_ascii=False)[:500])
+    if not conforme:
+        echecs.append("transcription (texte)")
+    if st == 200 and prix_seconde is not None:
+        attendue = avant + DUREE_EXTRAIT * prix_seconde
+        enregistree = attendre_depense(token_id, attendue)
+        conforme = proche(enregistree, attendue)
+        step(f"transcription — coût calculé : {hdr.get('x-litellm-response-cost')} ; dépense enregistrée sur la clé : "
+             f"{enregistree:.10f} ; attendue, {DUREE_EXTRAIT} s à {prix_seconde} : {attendue:.10f} → "
+             f"{'conforme' if conforme else 'échec'}")
+        if not conforme:
+            echecs.append("transcription (dépense)")
+    # M4A (AAC, une demi-seconde de silence) : durée illisible par soundfile dans l'image de LiteLLM, sur amd64 comme sur
+    # arm64 ; LiteLLM compterait la transcription à 0 €. Le MP3, lu sur amd64 seulement, ne convient pas.
+    st, rep, _ = transcrire("silence.m4a", "audio/mp4", test_key)
+    message = json.dumps(rep, ensure_ascii=False)
+    conforme = st == 400 and all(extrait in message for extrait in ("Formats acceptés", "Accepted formats", "WAV", "FLAC", "OGG"))
+    step(f"transcription d'un M4A (durée illisible) → HTTP {st} ; {message[:300]} → {'conforme' if conforme else 'échec'}")
+    if not conforme:
+        echecs.append("transcription (format illisible)")
+
+
 def controle_flux(test_key, token_id, echecs):
     """Question posée en flux : dépense enregistrée sur la clé au tarif déclaré, comme hors flux (LiteLLM 1.102.1 y reprenait
     le coût renvoyé par OpenRouter, en dollars, au lieu des prix déclarés ; corrigé par la garde)."""
@@ -499,6 +569,8 @@ try:
         controle_embeddings(test_key, token_id, echecs)
     elif mi.get("type_api") == "decision":
         controle_decision(test_key, token_id, echecs)
+    elif mi.get("type_api") == "transcription":
+        controle_transcription(test_key, token_id, echecs)
     else:
         t0 = time.time()
         st, comp, hdr = call(
