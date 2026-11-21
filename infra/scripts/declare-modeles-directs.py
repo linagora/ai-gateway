@@ -154,6 +154,35 @@ def modele_conversation_scaleway(nom, nom_scaleway, editeur, *, prix_entree, pri
         },
     }
 
+
+def modele_embeddings_scaleway(nom, nom_scaleway, editeur, *, prix_entree, contexte, taille):
+    """Modèle d'embeddings de Scaleway, au niveau Expérimental pendant l'essai, facturé à l'entrée seule. Prix en € HT par
+    million de jetons d'entrée, relevé le RELEVE_PRIX_SCALEWAY ; contexte en jetons par texte ; taille des vecteurs."""
+    return {
+        "model_name": nom,
+        "litellm_params": {
+            # Route compatible OpenAI de vLLM, comme pour les embeddings d'OVH : la route scaleway/ de LiteLLM 1.102.1
+            # ne fait pas d'embeddings (« Unmapped LLM provider »). Scaleway rend le format demandé, base64 des SDK
+            # OpenAI compris : aucun format n'est imposé, et la garde n'a rien à convertir (vérifié le 2026-11-21).
+            "model": f"hosted_vllm/{nom_scaleway}",
+            **ACCES_SCALEWAY,
+            "input_cost_per_token": par_jeton(prix_entree),
+            "output_cost_per_token": 0.0,  # un modèle d'embeddings ne produit pas de jetons de sortie
+        },
+        "model_info": {
+            **FAITS_SCALEWAY,
+            "editeur": editeur,
+            "capacites": [],
+            "pricing_source": f"Tarif public de Scaleway Generative APIs : {montant(prix_entree)} € HT par million de jetons "
+                              f"d'entrée, relevé le {RELEVE_PRIX_SCALEWAY}",
+            "max_input_tokens": contexte,
+            "type_api": "embeddings",  # lu par le portail : appelé par /v1/embeddings, et non par la conversation
+            "output_vector_size": taille,  # champ standard de LiteLLM pour la taille des vecteurs, lu par le portail
+            "mode": "embedding",  # pour que les contrôles de santé de LiteLLM l'interrogent par /embeddings
+        },
+    }
+
+
 MODELES = [
     {
         "model_name": "qwen3.8",
@@ -289,12 +318,12 @@ MODELES = [
     modele_embeddings("bge-m3", "bge-m3", "BAAI", 0.01, 8192, 1024),
     modele_embeddings("bge-multilingual-gemma2", "bge-multilingual-gemma2", "BAAI", 0.01, 8192, 3584),
     modele_embeddings("qwen3-embedding-8b", "Qwen3-Embedding-8B", "Alibaba (Qwen)", 0.10, 32768, 4096),
-    # --- Scaleway (appels directs du 2026-11-21, tickets #206 et #207) ---
+    # --- Scaleway (appels directs du 2026-11-21, tickets #206, #207 et #208) ---
     # Contexte : d'après le refus d'une entrée plus longue ; sortie maximale : « max_completion_tokens is limited to … » ;
     # efforts : ceux que publie Scaleway (« Supported reasoning efforts »), l'effort par défaut quand une requête sans effort
-    # se comporte comme l'un d'eux. Tous appellent des outils (tool_choice auto, required et nommé, résultat renvoyé, flux).
-    # Ceux que la documentation dit non pris en charge (frequency_penalty, n, top_logprobs, user) passent, comme
-    # prompt_cache_key.
+    # se comporte comme l'un d'eux. Les modèles de conversation appellent tous des outils (tool_choice auto, required et
+    # nommé, résultat renvoyé, flux). Les paramètres que la documentation dit non pris en charge (frequency_penalty, n,
+    # top_logprobs, user) passent, comme prompt_cache_key.
     modele_conversation_scaleway(
         "qwen3.8-scaleway", "qwen3.8-27b", "Alibaba (Qwen)", prix_entree=0.60, prix_sortie=3.30, prix_cache=0.12,
         # Contexte de 262 144 jetons (« 256k » publiés).
@@ -372,6 +401,10 @@ MODELES = [
         efforts_raisonnement=["none", "low", "high", "max"],
         parametres_ecartes=PARAMETRES_REFUSES_DECODAGE_SPECULATIF,
     ),
+    # Base64 et nombres rendus comme demandé ; taille réglable de 32 à 4 096 (dimensions). Contexte de 40 960 jetons par
+    # texte (32k publiés), refus au-delà.
+    modele_embeddings_scaleway("qwen3-embedding-8b-scaleway", "qwen3-embedding-8b", "Alibaba (Qwen)", prix_entree=0.10,
+                               contexte=40960, taille=4096),
 ]
 
 

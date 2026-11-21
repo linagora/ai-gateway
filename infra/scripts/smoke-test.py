@@ -131,8 +131,9 @@ def depense(token):
 
 # Deux textes : un vecteur par texte.
 TEXTES = ["La passerelle compte chaque jeton au tarif déclaré.", "Un modèle d'embeddings rend un vecteur par texte."]
-# Modèles dont OVH accepte une taille réduite (dimensions), vérifié le 2026-10-04 ; les autres doivent la refuser (400).
-TAILLE_REGLABLE = {"qwen3-embedding-8b"}
+# Modèles qui acceptent une taille réduite (dimensions) : qwen3-embedding-8b chez OVH (vérifié le 2026-10-04) et chez
+# Scaleway (le 2026-11-21) ; les autres doivent la refuser (400).
+TAILLE_REGLABLE = {"qwen3-embedding-8b", "qwen3-embedding-8b-scaleway"}
 
 
 def tailles(reponse):
