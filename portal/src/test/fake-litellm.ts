@@ -197,6 +197,7 @@ export class FakeLiteLLM implements LiteLLMClient {
       executionRegion: "UE",
       apiKind: "conversation",
       imagePrice: null,
+      minutePrice: null,
       inputCostPerToken: 0.0000004,
       outputCostPerToken: 0.0000027,
       cacheReadCostPerToken: null,

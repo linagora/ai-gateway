@@ -45,8 +45,9 @@ export interface CatalogItem {
   publisher: string | null;
   executionRegion: ExecutionRegion | null;
   dataLevel: DataLevel;
-  inputPricePerMillion: number;
-  outputPricePerMillion: number;
+  /** null pour un modèle de transcription, facturé à la minute d'audio. */
+  inputPricePerMillion: number | null;
+  outputPricePerMillion: number | null;
   maxInputTokens: number | null;
 }
 
@@ -100,17 +101,43 @@ export async function recommendedModels(deps: CatalogDeps, useCase: UseCase, lan
     .sort((a, b) => DATA_LEVELS.indexOf(a.dataLevel) - DATA_LEVELS.indexOf(b.dataLevel) || a.displayName.localeCompare(b.displayName, language));
 }
 
-/** Fiche visible et modèle LiteLLM correspondant, avec ses prix en euros par million de jetons. */
+/** Fiche visible et modèle LiteLLM correspondant, avec ses prix au catalogue. */
 type VisibleModel = Awaited<ReturnType<typeof visibleModels>>[number];
 
-/** Fiches visibles dont le modèle est déclaré dans LiteLLM avec ses prix, en euros par million de jetons. */
+/** Fiches visibles dont le modèle est déclaré dans LiteLLM avec ses prix au catalogue. */
 async function visibleModels(deps: CatalogDeps) {
   const [models, entries] = await Promise.all([deps.litellm.listModels(), deps.db.catalogEntry.findMany({ where: { visible: true } })]);
   return entries.flatMap((entry) => {
     const model = models.find((m) => m.modelName === entry.modelName);
-    if (!model || model.inputCostPerToken === null || model.outputCostPerToken === null) return [];
-    return [{ entry, model, inputPricePerMillion: perMillion(model.inputCostPerToken), outputPricePerMillion: perMillion(model.outputCostPerToken) }];
+    const prix = model && catalogPrices(model);
+    return model && prix ? [{ entry, model, ...prix }] : [];
   });
+}
+
+/** Prix d'un modèle au catalogue : par million de jetons, ou, pour un modèle de transcription, par minute d'audio. */
+interface CatalogPrices {
+  inputPricePerMillion: number | null;
+  outputPricePerMillion: number | null;
+  pricePerMinute: number | null;
+}
+
+/**
+ * Prix d'un modèle au catalogue ; null s'il lui en manque un. Un modèle de transcription, facturé à la durée de l'audio, n'a
+ * que son prix par minute ; les autres ont leurs prix par jeton d'entrée et de sortie.
+ */
+function catalogPrices(model: LiteLLMModel): CatalogPrices | null {
+  if (model.apiKind === "transcription") {
+    return model.minutePrice === null ? null : { inputPricePerMillion: null, outputPricePerMillion: null, pricePerMinute: model.minutePrice };
+  }
+  if (model.inputCostPerToken === null || model.outputCostPerToken === null) return null;
+  return { inputPricePerMillion: perMillion(model.inputCostPerToken), outputPricePerMillion: perMillion(model.outputCostPerToken), pricePerMinute: null };
+}
+
+/** Vrai si le modèle a ses prix par million de jetons d'entrée et de sortie : tous, sauf un modèle de transcription. */
+export function hasTokenPrices<T extends { inputPricePerMillion: number | null; outputPricePerMillion: number | null }>(
+  m: T,
+): m is T & { inputPricePerMillion: number; outputPricePerMillion: number } {
+  return m.inputPricePerMillion !== null && m.outputPricePerMillion !== null;
 }
 
 /** Carte d'un modèle sur la page d'un niveau (ticket #7), dans la langue du salarié. Prix en euros par million de jetons. */
@@ -121,19 +148,23 @@ export interface LevelModel {
   publisher: string | null;
   executionRegion: ExecutionRegion | null;
   capabilities: Capability[];
-  inputPricePerMillion: number;
-  outputPricePerMillion: number;
+  /** Prix par million de jetons d'entrée et de sortie ; null pour un modèle de transcription, facturé à la minute d'audio. */
+  inputPricePerMillion: number | null;
+  outputPricePerMillion: number | null;
   useCases: UseCase[];
   /** Niveau maximal du modèle quand il dépasse celui de la page (badge « accepte jusqu'à N3 »), sinon null. */
   acceptsUpTo: DataLevel | null;
   /** Cas d'usage pour lesquels l'admin recommande le modèle, sur la seule page de son niveau maximal. */
   recommendedFor: UseCase[];
-  priceTier: PriceTier;
+  /** Repère calculé sur le prix mixte ; null pour un modèle de transcription, qui n'a pas de prix mixte. */
+  priceTier: PriceTier | null;
   /** Prix indicatif d'une image, en euros, pour un modèle d'images ; null pour les autres modèles. */
   pricePerImage: number | null;
+  /** Prix d'une minute d'audio, en euros, pour un modèle de transcription ; null pour les autres modèles. */
+  pricePerMinute: number | null;
   /**
-   * Contexte arrondi au millier de jetons et son équivalent en pages ; null si la passerelle ne le déclare pas,
-   * ou pour un modèle d'images, dont le contexte en jetons ne dit rien d'utile au salarié.
+   * Contexte arrondi au millier de jetons et son équivalent en pages ; null si la passerelle ne le déclare pas, ou pour
+   * un modèle d'images ou de transcription, dont le contexte en jetons ne dit rien d'utile au collaborateur.
    */
   context: { tokens: number; pages: number } | null;
   apiKind: ApiKind;
@@ -208,9 +239,8 @@ export async function levelModels(
   const typeRetenu = apiKind && apiKinds.includes(apiKind) ? apiKind : undefined;
   const byName = (a: LevelModel, b: LevelModel) => a.displayName.localeCompare(b.displayName, language);
   const comparators: Record<LevelSort, (a: LevelModel, b: LevelModel) => number> = {
-    recommended: (a, b) =>
-      Number(b.recommendedFor.length > 0) - Number(a.recommendedFor.length > 0) || modelBlendedPrice(a) - modelBlendedPrice(b) || byName(a, b),
-    price: (a, b) => modelBlendedPrice(a) - modelBlendedPrice(b) || byName(a, b),
+    recommended: (a, b) => Number(b.recommendedFor.length > 0) - Number(a.recommendedFor.length > 0) || byBlendedPrice(a, b) || byName(a, b),
+    price: (a, b) => byBlendedPrice(a, b) || byName(a, b),
     context: (a, b) => (b.context?.tokens ?? -1) - (a.context?.tokens ?? -1) || byName(a, b),
     name: byName,
   };
@@ -258,27 +288,31 @@ function modelsOfLevel(visible: VisibleModel[], level: DataLevel, language: Lang
   const text = inLanguage(language);
   return visible
     .filter(({ entry }) => modelAcceptsLevel(entry.dataLevel, level))
-    .map(({ entry, model, inputPricePerMillion, outputPricePerMillion }) => ({
-      modelName: entry.modelName,
-      displayName: text(entry.displayNameFr, entry.displayNameEn),
-      shortDescription: text(entry.shortDescriptionFr, entry.shortDescriptionEn),
-      publisher: model.publisher,
-      executionRegion: model.executionRegion,
-      capabilities: model.capabilities,
-      inputPricePerMillion,
-      outputPricePerMillion,
-      useCases: entry.useCases,
-      acceptsUpTo: entry.dataLevel === level ? null : entry.dataLevel,
-      recommendedFor: entry.dataLevel === level ? entry.recommendedFor : [],
-      priceTier: priceTier(modelBlendedPrice({ apiKind: model.apiKind, inputPricePerMillion, outputPricePerMillion })),
-      pricePerImage: model.apiKind === "image" ? model.imagePrice : null,
-      context: model.apiKind === "image" ? null : context(model.maxInputTokens),
-      apiKind: model.apiKind,
-      dimensions: model.apiKind === "embeddings" ? model.dimensions : null,
-      longDescription: text(entry.longDescriptionFr, entry.longDescriptionEn),
-      limitations: text(entry.limitationsFr, entry.limitationsEn),
-      hosts: model.hosts,
-    }));
+    .map(({ entry, model, inputPricePerMillion, outputPricePerMillion, pricePerMinute }) => {
+      const blended = modelBlendedPrice({ apiKind: model.apiKind, inputPricePerMillion, outputPricePerMillion });
+      return {
+        modelName: entry.modelName,
+        displayName: text(entry.displayNameFr, entry.displayNameEn),
+        shortDescription: text(entry.shortDescriptionFr, entry.shortDescriptionEn),
+        publisher: model.publisher,
+        executionRegion: model.executionRegion,
+        capabilities: model.capabilities,
+        inputPricePerMillion,
+        outputPricePerMillion,
+        useCases: entry.useCases,
+        acceptsUpTo: entry.dataLevel === level ? null : entry.dataLevel,
+        recommendedFor: entry.dataLevel === level ? entry.recommendedFor : [],
+        priceTier: blended === null ? null : priceTier(blended),
+        pricePerImage: model.apiKind === "image" ? model.imagePrice : null,
+        pricePerMinute,
+        context: model.apiKind === "image" || model.apiKind === "transcription" ? null : context(model.maxInputTokens),
+        apiKind: model.apiKind,
+        dimensions: model.apiKind === "embeddings" ? model.dimensions : null,
+        longDescription: text(entry.longDescriptionFr, entry.longDescriptionEn),
+        limitations: text(entry.limitationsFr, entry.limitationsEn),
+        hosts: model.hosts,
+      };
+    });
 }
 
 /** Texte comparable : en minuscules et sans accents. */
@@ -296,9 +330,10 @@ export interface LevelOverview {
   modelCount: number;
   /**
    * Plus petit prix mixte des modèles de conversation et d'images du niveau, en euros par million de jetons ; null
-   * sans tel modèle. Ni le prix d'entrée seul d'un modèle d'embeddings ni celui d'une API de décision ne se comparent
-   * au prix d'un modèle qui produit du texte ou des images : une API de décision gratuite ferait tomber à zéro le prix
-   * de départ de tous les niveaux qu'elle accepte.
+   * sans tel modèle. Ni le prix d'entrée seul d'un modèle d'embeddings, ni celui d'une API de décision ou d'un modèle
+   * d'OCR, ni le prix par minute d'un modèle de transcription ne se comparent au prix d'un modèle qui converse ou
+   * produit des images : une API de décision gratuite ferait tomber à zéro le prix de départ de tous les niveaux
+   * qu'elle accepte.
    */
   startingPricePerMillion: number | null;
 }
@@ -312,7 +347,10 @@ export async function levelOverview(deps: CatalogDeps): Promise<LevelOverview[]>
   return DATA_LEVELS.map((level) => {
     // La langue est sans effet sur le nombre de modèles et les prix.
     const modeles = modelsOfLevel(visible, level, "fr");
-    const prix = modeles.filter((m) => m.apiKind === "conversation" || m.apiKind === "image").map(modelBlendedPrice);
+    const prix = modeles
+      .filter((m) => m.apiKind === "conversation" || m.apiKind === "image")
+      .map(modelBlendedPrice)
+      .filter((p) => p !== null);
     return { level, modelCount: modeles.length, startingPricePerMillion: prix.length > 0 ? Math.min(...prix) : null };
   });
 }
@@ -322,8 +360,19 @@ export function blendedPricePerMillion(entree: number, sortie: number): number {
   return Number(((3 * entree + sortie) / 4).toFixed(6));
 }
 
-/** Prix mixte d'un modèle ; celui d'un modèle d'embeddings, qui ne produit pas de jetons de sortie, est son prix d'entrée. */
-function modelBlendedPrice(m: Pick<LevelModel, "apiKind" | "inputPricePerMillion" | "outputPricePerMillion">): number {
+/** Prix mixte croissant ; un modèle qui n'en a pas (transcription) suit ceux qui en ont un. */
+function byBlendedPrice(a: LevelModel, b: LevelModel): number {
+  const [prixA, prixB] = [modelBlendedPrice(a), modelBlendedPrice(b)];
+  if (prixA === null || prixB === null) return Number(prixA === null) - Number(prixB === null);
+  return prixA - prixB;
+}
+
+/**
+ * Prix mixte d'un modèle ; celui d'un modèle d'embeddings, qui ne produit pas de jetons de sortie, est son prix d'entrée.
+ * Un modèle de transcription, sans prix par jeton, n'en a pas (null).
+ */
+function modelBlendedPrice(m: Pick<LevelModel, "apiKind" | "inputPricePerMillion" | "outputPricePerMillion">): number | null {
+  if (!hasTokenPrices(m)) return null;
   return m.apiKind === "embeddings" ? m.inputPricePerMillion : blendedPricePerMillion(m.inputPricePerMillion, m.outputPricePerMillion);
 }
 
@@ -341,6 +390,8 @@ export interface AdminCatalogItem {
   hasEuroPricing: boolean;
   inputPricePerMillion: number | null;
   outputPricePerMillion: number | null;
+  /** Prix d'une minute d'audio d'un modèle de transcription ; null pour les autres modèles, ou s'il n'est pas déclaré. */
+  pricePerMinute: number | null;
   maxInputTokens: number | null;
   entry: CatalogEntryInput | null;
 }
@@ -362,6 +413,7 @@ export async function listCatalogForAdmin(deps: CatalogDeps, actor: SessionUser)
         hasEuroPricing: hasEuroPricing(model),
         inputPricePerMillion: model.inputCostPerToken === null ? null : perMillion(model.inputCostPerToken),
         outputPricePerMillion: model.outputCostPerToken === null ? null : perMillion(model.outputCostPerToken),
+        pricePerMinute: model.apiKind === "transcription" ? model.minutePrice : null,
         maxInputTokens: model.maxInputTokens,
         entry: entry
           ? {
@@ -402,9 +454,12 @@ export async function saveCatalogEntry(deps: CatalogDeps, actor: SessionUser, in
   await deps.db.catalogEntry.upsert({ where: { modelName: entry.modelName }, create: data, update: data });
 }
 
-/** F-10 : tarif explicite en euros (pricing_currency = EUR + coûts d'entrée et de sortie). */
+/**
+ * F-10 : tarif explicite en euros (pricing_currency = EUR, avec les prix du modèle au catalogue : coûts d'entrée et de
+ * sortie, ou prix par minute d'audio d'un modèle de transcription).
+ */
 function hasEuroPricing(model: LiteLLMModel | undefined): boolean {
-  return model?.pricingCurrency === "EUR" && model.inputCostPerToken !== null && model.outputCostPerToken !== null;
+  return model?.pricingCurrency === "EUR" && catalogPrices(model) !== null;
 }
 
 /** Prix par jeton → prix par million de jetons, arrondi pour éviter les artefacts flottants. */

@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, test } from "vitest";
+import type { Traducteur } from "@/lib/integrations/api";
+import { vueCatalogue } from "@/lib/integrations/vues";
 import type { Langue } from "@/lib/langue";
 import { DATA_LEVELS, type DataLevel } from "@/lib/policy";
 import { resetDb, testDb } from "@/test/db";
@@ -234,6 +236,90 @@ describe("API de décision au prix de départ", () => {
   });
 });
 
+// Facturé à la minute d'audio, un modèle de transcription n'a pas de prix par jeton ; un modèle d'OCR a une sortie à 0 €.
+const whisper = { modelName: "whisper-large-v3", apiKind: "transcription" as const, capabilities: ["audio_video" as const], inputCostPerToken: null, outputCostPerToken: null, minutePrice: 0.003 };
+const lightonocr = { modelName: "lightonocr-3", apiKind: "ocr" as const, inputCostPerToken: 0.0000022, outputCostPerToken: 0, toolCalling: false, maxInputTokens: 16_384 };
+
+describe("modèles de transcription et d'OCR (ticket #214)", () => {
+  test("la carte d'un modèle de transcription annonce son prix par minute d'audio, sans prix par jeton, repère de prix ni contexte : le modèle reste au catalogue", async () => {
+    const litellm = new FakeLiteLLM().withModel(whisper);
+    await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName: "whisper-large-v3", dataLevel: "EXP" });
+    expect((await levelModels({ db: testDb, litellm }, { level: "EXP", language: "fr" })).models).toMatchObject([
+      {
+        modelName: "whisper-large-v3",
+        apiKind: "transcription",
+        capabilities: ["audio_video"],
+        pricePerMinute: 0.003,
+        inputPricePerMillion: null,
+        outputPricePerMillion: null,
+        priceTier: null,
+        context: null,
+        pricePerImage: null,
+      },
+    ]);
+  });
+
+  test("l'admin voit le prix par minute d'un modèle de transcription, qui suffit à le rendre visible ; sans ce prix, le modèle ne peut pas l'être", async () => {
+    const litellm = new FakeLiteLLM().withModel(whisper).withModel({ ...whisper, modelName: "whisper-sans-prix", minutePrice: null });
+    expect(await listCatalogForAdmin({ db: testDb, litellm }, admin)).toMatchObject([
+      { modelName: "whisper-large-v3", hasEuroPricing: true, pricePerMinute: 0.003, inputPricePerMillion: null, outputPricePerMillion: null },
+      { modelName: "whisper-sans-prix", hasEuroPricing: false, pricePerMinute: null },
+    ]);
+    await expect(saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName: "whisper-sans-prix", dataLevel: "EXP" })).rejects.toMatchObject({
+      code: "tarif_eur_manquant",
+    });
+  });
+
+  test("le catalogue des collaborateurs garde un modèle de transcription, sans prix par jeton ; l'API d'intégration, qui ne connaît ni les types d'API ni le prix par minute, ne le donne pas", async () => {
+    const litellm = new FakeLiteLLM().withModel(whisper).withModel({ modelName: "qwen3.8" });
+    await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName: "whisper-large-v3", displayNameFr: "Whisper Large v3", dataLevel: "EXP" });
+    await saveCatalogEntry({ db: testDb, litellm }, admin, qwen);
+    const catalogue = await listCatalog({ db: testDb, litellm });
+    expect(catalogue.find((m) => m.modelName === "whisper-large-v3")).toMatchObject({ dataLevel: "EXP", inputPricePerMillion: null, outputPricePerMillion: null });
+
+    const vue = vueCatalogue(catalogue, ((texte: string) => texte) as unknown as Traducteur);
+    expect(vue.models.map((m) => m.modelName)).toEqual(["qwen3.8"]);
+    expect(vue.levels.flatMap((n) => n.models)).not.toContain("whisper-large-v3");
+  });
+
+  test("la carte d'un modèle d'OCR suit les règles d'un modèle à prix par jeton : prix d'entrée, sortie à 0 €, repère de prix et contexte", async () => {
+    const litellm = new FakeLiteLLM().withModel(lightonocr);
+    await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName: "lightonocr-3", dataLevel: "EXP" });
+    // Prix mixte : 3 × 2,20 € / 4 = 1,65 €, soit €€€ ; 16 384 jetons, soit environ 22 pages.
+    expect((await levelModels({ db: testDb, litellm }, { level: "EXP", language: "fr" })).models).toMatchObject([
+      { modelName: "lightonocr-3", apiKind: "ocr", inputPricePerMillion: 2.2, outputPricePerMillion: 0, priceTier: "€€€", pricePerMinute: null, context: { tokens: 16_000, pages: 22 } },
+    ]);
+  });
+
+  test("au tri par prix comme au tri par défaut, un modèle de transcription, sans prix mixte, suit les modèles qui en ont un", async () => {
+    const litellm = new FakeLiteLLM()
+      .withModel({ ...whisper, modelName: "a-transcription" })
+      .withModel({ modelName: "cher", inputCostPerToken: 0.000003, outputCostPerToken: 0.000015 }) // mixte 6 €
+      .withModel(lightonocr) // mixte 1,65 €
+      .withModel({ modelName: "economique", inputCostPerToken: 0.0000001, outputCostPerToken: 0.0000004 }); // mixte 0,175 €
+    for (const { modelName } of litellm.models) {
+      await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName, displayNameFr: modelName, dataLevel: "N1", recommendedFor: [] });
+    }
+    const ordre = async (sort: LevelSort) => (await levelModels({ db: testDb, litellm }, { level: "N1", language: "fr", criteria: { sort } })).models.map((m) => m.modelName);
+    expect(await ordre("price")).toEqual(["economique", "lightonocr-3", "cher", "a-transcription"]);
+    expect(await ordre("recommended")).toEqual(["economique", "lightonocr-3", "cher", "a-transcription"]);
+  });
+
+  test("le prix de départ d'un niveau ne compte ni la transcription ni l'OCR, que le nombre de modèles compte ; un niveau qui n'a que la transcription n'a pas de prix de départ", async () => {
+    // Le modèle bêta (EXP, 0,15 €) est masqué : le niveau Expérimental n'a plus que whisper. Le modèle d'OCR, de niveau N1,
+    // coûte moins que le modèle public (0,175 €) : mixte 3 × 0,10 € / 4 = 0,075 €.
+    const litellm = (await catalogueDeDemonstration(["public", "interne", "confidentiel"])).withModel(whisper).withModel({ ...lightonocr, inputCostPerToken: 0.0000001 });
+    await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName: "whisper-large-v3", dataLevel: "EXP" });
+    await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName: "lightonocr-3", dataLevel: "N1" });
+    expect((await levelOverview({ db: testDb, litellm })).map((n) => [n.level, n.modelCount, n.startingPricePerMillion])).toEqual([
+      ["N1", 4, 0.175],
+      ["N2", 2, 0.3],
+      ["N3", 1, 0.975],
+      ["EXP", 1, null],
+    ]);
+  });
+});
+
 describe("filtre par type d'API (ticket #128)", () => {
   /** Modèles de niveau maximal N1 de chaque type, insérés dans le désordre. */
   async function catalogueDeTypes(modeles: Parameters<FakeLiteLLM["withModel"]>[0][]) {
@@ -246,19 +332,29 @@ describe("filtre par type d'API (ticket #128)", () => {
   const vecteursMonde = { ...vecteursUe, modelName: "vecteurs-monde", executionRegion: "HORS_UE" as const };
 
   test("le filtre par type d'API ne garde que les modèles de ce type, seul ou combiné à un autre critère", async () => {
-    const litellm = await catalogueDeTypes([vecteursMonde, { modelName: "conversation" }, vecteursUe, { modelName: "image", apiKind: "image" }]);
+    const litellm = await catalogueDeTypes([vecteursMonde, whisper, { modelName: "conversation" }, lightonocr, vecteursUe, { modelName: "image", apiKind: "image" }]);
     const noms = async (criteria: LevelCriteria) =>
       (await levelModels({ db: testDb, litellm }, { level: "N1", language: "fr", criteria })).models.map((m) => m.modelName).sort();
     expect(await noms({ apiKind: "embeddings" })).toEqual(["vecteurs-monde", "vecteurs-ue"]);
     expect(await noms({ apiKind: "embeddings", euOnly: true })).toEqual(["vecteurs-ue"]);
     expect(await noms({ apiKind: "image" })).toEqual(["image"]);
+    expect(await noms({ apiKind: "transcription" })).toEqual(["whisper-large-v3"]);
+    expect(await noms({ apiKind: "ocr" })).toEqual(["lightonocr-3"]);
   });
 
-  test("la page d'un niveau reçoit les types d'API présents parmi ses modèles, dans l'ordre conversation, images, embeddings, décision, quels que soient les critères", async () => {
-    const litellm = await catalogueDeTypes([{ modelName: "decision", apiKind: "decision" }, vecteursUe, { modelName: "image", apiKind: "image" }, { modelName: "conversation" }]);
+  test("la page d'un niveau reçoit les types d'API présents parmi ses modèles, dans l'ordre conversation, images, embeddings, transcription, OCR, décision, quels que soient les critères", async () => {
+    const litellm = await catalogueDeTypes([
+      lightonocr,
+      { modelName: "decision", apiKind: "decision" },
+      vecteursUe,
+      whisper,
+      { modelName: "image", apiKind: "image" },
+      { modelName: "conversation" },
+    ]);
     const types = async (level: DataLevel, criteria: LevelCriteria = {}) => (await levelModels({ db: testDb, litellm }, { level, language: "fr", criteria })).apiKinds;
-    expect(await types("N1")).toEqual(["conversation", "image", "embeddings", "decision"]);
-    expect(await types("N1", { apiKind: "image", search: "introuvable" })).toEqual(["conversation", "image", "embeddings", "decision"]);
+    const typesDansLOrdre = ["conversation", "image", "embeddings", "transcription", "ocr", "decision"];
+    expect(await types("N1")).toEqual(typesDansLOrdre);
+    expect(await types("N1", { apiKind: "image", search: "introuvable" })).toEqual(typesDansLOrdre);
     expect(await types("N2")).toEqual([]);
   });
 

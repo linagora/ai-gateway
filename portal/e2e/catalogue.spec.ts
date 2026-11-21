@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { ADMIN, ajouterAEquipe, connecter, enrichirModele } from "./outils";
+import { ADMIN, ajouterAEquipe, connecter, enrichirModele, masquerModele } from "./outils";
 
 /* Catalogue des salariés (spécification #1). */
 const suffixe = Date.now().toString(36);
@@ -212,11 +212,7 @@ test.describe("vue d'ensemble des niveaux (ticket #5)", () => {
   test("un niveau sans modèle visible affiche un message qui indique à qui s'adresser, sur sa carte et sur sa page (tickets #5 et #7)", async ({ browser }) => {
     const admin = await connecter(browser, ADMIN);
     const pageAdmin = await admin.newPage();
-    await pageAdmin.goto("/gestion/catalogue");
-    const fiche = pageAdmin.locator("section").filter({ has: pageAdmin.locator("code", { hasText: /^dev-experimental$/ }) });
-    await fiche.getByLabel("Visible des collaborateurs").uncheck();
-    await fiche.getByRole("button", { name: "Enregistrer" }).click();
-    await expect(pageAdmin.getByRole("status")).toHaveText("Catalogue mis à jour.");
+    await masquerModele(pageAdmin, "dev-experimental");
     const context = await connecter(browser, salarie);
     const page = await context.newPage();
     await page.goto("/catalogue");
@@ -674,5 +670,73 @@ test.describe("sélection de modèles et demande préremplie (ticket #10)", () =
     await page.getByRole("button", { name: "Envoyer la demande" }).click();
     await expect(page.getByRole("main").getByRole("alert")).toContainText("Les modèles acceptent le niveau de confidentialité déclaré (dev-public)");
     await context.close();
+  });
+});
+
+test.describe("modèles de transcription et d'OCR (ticket #214)", () => {
+  // Visibles le temps de ces parcours seulement : partout ailleurs, le niveau Expérimental n'a que le modèle expérimental.
+  test.beforeAll(async ({ browser }) => {
+    const context = await connecter(browser, ADMIN);
+    const page = await context.newPage();
+    await enrichirModele(page, { nom: "dev-transcription", nomAffiche: "Modèle de transcription", niveau: "EXP" });
+    await enrichirModele(page, { nom: "dev-ocr", nomAffiche: "Modèle d'OCR", niveau: "EXP" });
+    await context.close();
+  });
+
+  test.afterAll(async ({ browser }) => {
+    const context = await connecter(browser, ADMIN);
+    const page = await context.newPage();
+    for (const nom of ["dev-transcription", "dev-ocr"]) await masquerModele(page, nom);
+    await context.close();
+  });
+
+  test("la carte d'un modèle de transcription annonce son prix par minute d'audio, sans repère de prix ni contexte ; celle d'un modèle d'OCR, son prix d'entrée et sa sortie gratuite, en français et en anglais", async ({ browser }) => {
+    for (const [langue, textes] of [
+      ["fr-FR", { minute: /0,006\s€ par\sminute\sd'audio/, ocr: /0,10\s€ en entrée, sortie gratuite, par\smillion\sde\sjetons/, repere: /Prix (bas|moyen|élevé)/, contexte: /jetons|contexte/i }],
+      ["en-US", { minute: /€0\.006 per\sminute\sof\saudio/, ocr: /€0\.10 input, free output, per\smillion\stokens/, repere: /(Low|Medium|High) price/, contexte: /tokens|context/i }],
+    ] as const) {
+      const context = await connecter(browser, salarie, langue);
+      const page = await context.newPage();
+      await page.goto("/catalogue/experimental");
+      const transcription = page.getByRole("article", { name: "Modèle de transcription" });
+      await expect(transcription).toContainText(textes.minute);
+      await expect(transcription).not.toContainText(textes.repere);
+      await expect(transcription).not.toContainText(textes.contexte);
+      const ocr = page.getByRole("article", { name: "Modèle d'OCR" });
+      await expect(ocr).toContainText(textes.ocr);
+      await expect(ocr).toContainText(textes.repere);
+      await context.close();
+    }
+  });
+
+  test("au tri par prix, le modèle de transcription vient après les modèles à prix mixte ; le niveau compte ces modèles, toujours sans prix de départ", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    await page.goto("/catalogue/experimental?tri=prix");
+    // Prix mixtes : 0,075 € pour l'OCR, dont la sortie est gratuite, et 0,175 € pour l'API de décision ; la transcription n'en a pas.
+    await expect(page.getByRole("article").getByRole("heading", { level: 2 })).toHaveText(["Modèle d'OCR", "Modèle expérimental", "Modèle de transcription"]);
+    await page.goto("/catalogue");
+    const carte = page.getByRole("region", { name: "Expérimental (bêta)" });
+    await expect(carte).toContainText("3 modèles");
+    await expect(carte).not.toContainText("à partir de");
+    await context.close();
+  });
+
+  test("le filtre propose la transcription et l'OCR à leur place parmi les types, en français et en anglais, et garde les seuls modèles du type choisi", async ({ browser }) => {
+    for (const [langue, libelle, options, type, modele] of [
+      ["fr-FR", "Type d'API", ["Tous les types", "Transcription", "OCR", "Décision"], "transcription", "Modèle de transcription"],
+      ["en-US", "API type", ["All types", "Transcription", "OCR", "Decision"], "ocr", "Modèle d'OCR"],
+    ] as const) {
+      const context = await connecter(browser, salarie, langue);
+      const page = await context.newPage();
+      await page.goto("/catalogue/experimental");
+      const filtre = page.getByRole("combobox", { name: libelle });
+      await expect(filtre.getByRole("option")).toHaveText([...options]);
+      await filtre.selectOption(type);
+      await expect(page).toHaveURL(new RegExp(`type=${type}`));
+      await expect(page.getByRole("article")).toHaveCount(1);
+      await expect(page.getByRole("article", { name: modele })).toBeVisible();
+      await context.close();
+    }
   });
 });

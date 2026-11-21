@@ -48,6 +48,15 @@ export async function enrichirModele(
   await expect(page.getByRole("status")).toHaveText("Catalogue mis à jour.");
 }
 
+/** Retire un modèle de démonstration du catalogue des collaborateurs, depuis la gestion du catalogue (session admin). */
+export async function masquerModele(page: Page, nom: string): Promise<void> {
+  await page.goto("/gestion/catalogue");
+  const section = page.locator("section").filter({ has: page.locator("code", { hasText: new RegExp(`^${nom}$`) }) });
+  await section.getByLabel("Visible des collaborateurs").uncheck();
+  await section.getByRole("button", { name: "Enregistrer" }).click();
+  await expect(page.getByRole("status")).toHaveText("Catalogue mis à jour.");
+}
+
 /** Mise en place (LiteLLM de développement) : rend une personne, déjà connectée une fois, membre d'une équipe. */
 export async function ajouterAEquipe(uid: string, equipe: string): Promise<void> {
   const base = "http://127.0.0.1:54400/admin";

@@ -5,7 +5,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 import { type ApiKind, CAPABILITIES, type Capability, type ExecutionRegion } from "@/lib/litellm/client";
 import type { Langue } from "@/lib/langue";
 import { levelCriteria, levelFromSegment, levelPageHref, levelSegment, sortParam } from "@/lib/level-routes";
-import { LEVEL_SORTS, levelModels, modelDetail, type PriceTier, RECHERCHE_MINIMUM } from "@/lib/services/catalog";
+import { hasTokenPrices, LEVEL_SORTS, levelModels, modelDetail, type PriceTier, RECHERCHE_MINIMUM } from "@/lib/services/catalog";
 import { getDeps, requireUser } from "@/lib/session";
 import { espacesInsecables } from "@/lib/typographie";
 import { USE_CASES } from "@/lib/use-cases";
@@ -23,6 +23,7 @@ const ICONES: Record<Capability, LucideIcon> = { images: ImageIcon, generation_i
 /** Pastille d'un fait sur un modèle (recommandation, niveau maximal, cas d'usage), arrondie comme les pastilles de classification. */
 const PASTILLE = "self-start rounded-xl px-2.5 text-sm";
 const REPERES: Record<PriceTier, "bas" | "moyen" | "eleve"> = { "€": "bas", "€€": "moyen", "€€€": "eleve" };
+
 /** Section de la fiche qui présente un type d'API autre que la conversation : titre et explication. */
 const SECTIONS_TYPE_API: Partial<Record<ApiKind, "apiDecision" | "apiImage" | "apiEmbeddings">> = {
   decision: "apiDecision",
@@ -193,7 +194,8 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
                 {m.pricePerImage !== null ? (
                   // Modèle d'images : un prix par image, plus parlant qu'un prix par million de jetons ; pas de contexte.
                   <p className="text-sm">{t("prixImage", { prix: euros(m.pricePerImage) })}</p>
-                ) : (
+                ) : hasTokenPrices(m) && m.priceTier !== null ? (
+                  // Modèle facturé au jeton : son repère de prix et ses prix par million de jetons.
                   <>
                     <p className="leading-snug">
                       <span className="sr-only">{t(`repere.${REPERES[m.priceTier]}`)} : </span>
@@ -205,7 +207,10 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
                         {m.apiKind === "embeddings"
                           ? // Un modèle d'embeddings ne produit pas de jetons de sortie : seul son prix d'entrée compte.
                             t("prixEntree", { entree: euros(m.inputPricePerMillion) })
-                          : t("prix", { entree: euros(m.inputPricePerMillion), sortie: euros(m.outputPricePerMillion) })}
+                          : m.apiKind === "ocr" && m.outputPricePerMillion === 0
+                            ? // Un modèle d'OCR rend le texte du document sans en facturer la sortie.
+                              t("prixSortieGratuite", { entree: euros(m.inputPricePerMillion) })
+                            : t("prix", { entree: euros(m.inputPricePerMillion), sortie: euros(m.outputPricePerMillion) })}
                       </span>
                     </p>
                     {m.dimensions !== null && <p className="text-sm">{t("dimensions", { dimensions: nombre(m.dimensions) })}</p>}
@@ -220,6 +225,9 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
                       )}
                     </p>
                   </>
+                ) : (
+                  // Modèle de transcription : facturé à la minute d'audio, sans jetons ; ni repère de prix, ni contexte.
+                  m.pricePerMinute !== null && <p className="text-sm">{t("prixMinute", { prix: euros(m.pricePerMinute) })}</p>
                 )}
                 {m.useCases.length > 0 && (
                   <ul aria-label={t("casUsage")} className="flex flex-wrap gap-2 text-sm">

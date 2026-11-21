@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Données de démonstration pour le LiteLLM de dev : 6 modèles à réponses simulées (aucun appel externe),
+# Données de démonstration pour le LiteLLM de dev : 8 modèles à réponses simulées (aucun appel externe),
 # tarifés en euros, et une équipe « R&D » sans membre. Idempotent. Valeurs FACTICES.
 #   ./dev/seed-litellm.sh
 set -euo pipefail
@@ -50,8 +50,18 @@ model dev-image N1 HORS_UE 0 0.00001 OpenRouter "Black Forest Labs" '["images","
 model dev-embeddings N3 INTERNE 0.00000001 0 OVHcloud BAAI '[]' '["OVHcloud"]' UE 8192 embeddings null \
   '{"output_vector_size": 1024, "mode": "embedding"}' \
   '{"model": "hosted_vllm/dev-embeddings", "api_base": "http://127.0.0.1:9/v1"}'
+# Comme whisper-large-v3 : un modèle de transcription, sans prix par jeton. LiteLLM le facture à la seconde d'audio ; le
+# portail annonce le prix par minute que déclare la passerelle. Route propre, inconnue de la table de LiteLLM, et
+# contexte non déclaré. Jamais appelé en dev.
+model dev-transcription EXP UE null null Scaleway OpenAI '["audio_video"]' '["Scaleway"]' UE null transcription null \
+  '{"mode": "audio_transcription", "prix_minute_eur": 0.006}' \
+  '{"model": "hosted_vllm/dev-transcription", "api_base": "http://127.0.0.1:9/v1", "input_cost_per_second": 0.0001}'
+# Comme lightonocr-3 : un modèle d'OCR, qui rend le texte d'un document joint à un message, facturé à l'entrée seule et
+# sans appel d'outils. Route propre, inconnue de la table de LiteLLM. Jamais appelé en dev.
+model dev-ocr EXP UE 0.0000001 0 Scaleway LightOn '[]' '["Scaleway"]' UE 16384 ocr null '{"appel_outils": false}' \
+  '{"model": "hosted_vllm/dev-ocr", "api_base": "http://127.0.0.1:9/v1"}'
 
-MODELS='["dev-public", "dev-interne", "dev-confidentiel", "dev-experimental", "dev-image", "dev-embeddings"]'
+MODELS='["dev-public", "dev-interne", "dev-confidentiel", "dev-experimental", "dev-image", "dev-embeddings", "dev-transcription", "dev-ocr"]'
 
 TEAM_ID=$(curl -fsS "${H[@]}" "$B/team/list" | jq -r 'first(.[] | select(.team_alias == "R&D") | .team_id) // empty')
 if [[ -n "$TEAM_ID" ]]; then

@@ -336,6 +336,30 @@ describe("configuration de Claude Code", () => {
     expect(lanceur).not.toMatch(/moderation|flux-pro|bge-m3|ancien/);
   });
 
+  test("un modèle de transcription et un modèle d'OCR sont écartés, avec leur type d'API pour raison, même quand le modèle ne prend pas d'outils (ticket #214)", async () => {
+    litellm
+      .withModel({ modelName: "whisper-large-v3", apiKind: "transcription", inputCostPerToken: null, outputCostPerToken: null, minutePrice: 0.003 })
+      .withModel({ modelName: "lightonocr-3", apiKind: "ocr", outputCostPerToken: 0, toolCalling: false });
+    await fiche("whisper-large-v3", "Whisper Large v3", "N2");
+    await fiche("lightonocr-3", "LightOnOCR 3", "N2");
+    // Premiers modèles de la clé : écartés, ils ne peuvent pas devenir le modèle par défaut.
+    await cleEmise({ models: ["whisper-large-v3", "lightonocr-3", "mistral-small"] });
+
+    const resultat = await configurationClaudeCode(deps, titulaire, OPTIONS);
+
+    expect(resultat.cles).toEqual([
+      expect.objectContaining({
+        modeles: [{ modelName: "mistral-small", displayName: "Mistral Small", reference: "linagora-n2-r-d-compte-rendu-hebdo/mistral-small" }],
+        modelesEcartes: [
+          { modelName: "whisper-large-v3", raison: "transcription" },
+          { modelName: "lightonocr-3", raison: "ocr" },
+        ],
+        modeleParDefaut: "linagora-n2-r-d-compte-rendu-hebdo/mistral-small",
+      }),
+    ]);
+    expect(lanceurDe(resultat.lanceurs, "linagora-n2-r-d-compte-rendu-hebdo")).not.toMatch(/whisper|lightonocr/);
+  });
+
   test("une clé bloquée, ou sans aucun modèle de conversation, n'a pas de lanceur, avec la raison", async () => {
     litellm.withModel({ modelName: "jev", apiKind: "decision" });
     await fiche("jev", "JEV", "EXP");

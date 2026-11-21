@@ -67,6 +67,8 @@
       "conversation": "Chat",
       "image": "Images",
       "embeddings": "Embeddings",
+      "transcription": "Transcription",
+      "ocr": "OCR",
       "decision": "Decision"
     },
     "categoriesNouveaute": {
@@ -263,6 +265,7 @@
     "hebergeurs": "Hosts",
     "zone": "Execution region",
     "prix": "Input / output price (per million tokens)",
+    "prixMinute": "Price per minute of audio",
     "contexte": "Context",
     "jetons": "{nombre} tokens",
     "capacites": "Capabilities",
@@ -435,8 +438,10 @@
     },
     "prix": "{entree} input, {sortie} output, per million tokens",
     "prixEntree": "{entree} input, per million tokens",
+    "prixSortieGratuite": "{entree} input, free output, per million tokens",
     "dimensions": "{dimensions}-dimension vectors",
     "prixImage": "About {prix} per image",
+    "prixMinute": "{prix} per minute of audio",
     "contexte": "{jetons} tokens, or about {pages} pages",
     "hypothesePages": "Assumption: a page of text in French is about 750 tokens.",
     "contexteInconnu": "Context size not disclosed",
@@ -1057,12 +1062,15 @@
       },
       "nonSupervise": {
         "image": "Image model: each probe would generate a paid image.",
-        "recherche_web": "Model that searches the web on every request: each probe would run a paid search."
+        "recherche_web": "Model that searches the web on every request: each probe would run a paid search.",
+        "type_sans_sonde": "This API type has no probe yet."
       },
       "typesApi": {
         "conversation": "chat",
         "image": "images",
         "embeddings": "embeddings",
+        "transcription": "transcription",
+        "ocr": "OCR",
         "decision": "decision"
       },
       "erreurHttp": "HTTP {statut}: {erreur}",
@@ -1163,6 +1171,8 @@
       "image": "image model",
       "decision": "decision API",
       "embeddings": "embedding model",
+      "transcription": "transcription model",
+      "ocr": "OCR model",
       "sans_outils": "no tool calling",
       "non_declare": "no longer declared by the gateway"
     },
