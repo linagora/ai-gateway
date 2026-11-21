@@ -10,7 +10,8 @@ Un modèle de la liste sans point d'accès retenu (aucun dans sa zone, ou aucun 
 publie un autre prix de recherche que la liste, est un écart : signalé, sa déclaration laissée en l'état, sans arrêter
 le passage pour les autres modèles.
 
-Pour chaque modèle : points d'accès OpenRouter de sa zone (API publique /models/<id>/endpoints), prix
+Pour chaque modèle : points d'accès OpenRouter de sa zone (API publique /models/<id>/endpoints), hors paliers de
+service (flex, priority), que le routage par provider.only n'atteint pas ; prix
 en € = prix le plus élevé de ces points d'accès × (1 + frais) × taux, routage limité à ces points
 d'accès, avec repli de l'un à l'autre quand le premier choisi par OpenRouter est saturé ou en panne : le repli
 ne sort pas de provider.only (vérifié le 2026-10-31). Jetons lus depuis le cache (et écrits) : même calcul sur les
@@ -99,7 +100,10 @@ def declaration(entree, cfg, modeles_openrouter):
     """Déclaration LiteLLM d'un modèle de la liste blanche ; `modeles_openrouter` : liste publique d'OpenRouter, par identifiant."""
     zone = [z for z in cfg["zones"][entree["zone"]] if z not in entree.get("exclus", [])]
     donnees = http("GET", f"{OPENROUTER}/models/{entree['openrouter']}/endpoints", auth=False)["data"]
-    tous = donnees["endpoints"]
+    # Paliers de service d'OpenRouter (service_tier « flex » ou « priority ») : points d'accès à part, que provider.only
+    # n'atteint pas (vérifié le 2026-11-21 : deepseek-v4-pro, réduit à deepinfra/fp8/flex, refusé « permits only:
+    # deepinfra »). Ni retenus, ni comptés dans le prix.
+    tous = [e for e in donnees["endpoints"] if not e.get("service_tier")]
     plafond = entree.get("prix_max_usd")
     retenus = [e for e in tous if dans_zone(e["tag"], zone) and (
         plafond is None or (float(e["pricing"]["prompt"]) * 1e6 <= plafond[0] and float(e["pricing"]["completion"]) * 1e6 <= plafond[1]))]
