@@ -85,6 +85,8 @@ services:
       NOX_API_BASE: ${NOX_API_BASE}
       NOX_API_KEY: ${NOX_API_KEY}
       VLLM_SR_API_KEY: ${VLLM_SR_API_KEY}
+      SCALEWAY_API_BASE: ${SCALEWAY_API_BASE}
+      SCALEWAY_API_KEY: ${SCALEWAY_API_KEY}
     volumes:
       # config.yaml, garde.py (chargée depuis le dossier de la configuration) et liste blanche OpenRouter
       - ./litellm:/app/passerelle:ro
