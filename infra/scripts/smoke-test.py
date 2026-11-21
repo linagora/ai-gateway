@@ -33,6 +33,9 @@ de quelques secondes (voix de synthèse) : texte attendu, dépense enregistrée 
 multipliée par le prix par seconde, prix par minute déclaré au portail cohérent ; puis un M4A, dont la durée est illisible,
 que la garde doit refuser (400) en listant les formats acceptés.
 
+Un modèle d'OCR (type d'API « ocr ») reçoit à la place un PDF d'une ligne : texte de la ligne, coût calculé et dépense
+enregistrée sur la clé au prix des jetons d'entrée.
+
 Un modèle qui cherche sur le web à chaque requête (prix de recherche déclaré : Perplexity Sonar) reçoit en plus une
 question sans profondeur de recherche, puis avec des options sans profondeur (la garde applique celle de la déclaration),
 puis à la profondeur « high » : coût calculé et dépense enregistrée sur la clé au prix déclaré, coût facturé par
@@ -46,6 +49,7 @@ Exécuté DANS le conteneur litellm (la clé maître y est déjà en variable d'
 import base64
 import json
 import os
+import re
 import sys
 import time
 import urllib.error
@@ -410,6 +414,8 @@ FICHIERS_RECETTE = "/app/passerelle/recette"
 # lit soundfile dans l'image de LiteLLM 1.102.1 : 65 386 échantillons à 16 kHz.
 DUREE_EXTRAIT = 65386 / 16000
 MOTS_EXTRAIT = ("transcription", "passerelle")
+# PDF d'une ligne, en image (1 bit, 480 × 96 points) : Scaleway rend blanc un PDF en texte dont la police n'est pas incorporée.
+TEXTE_DU_PDF = "Recette de la passerelle LINAGORA"
 
 
 def fichier_recette(nom):
@@ -463,6 +469,28 @@ def controle_transcription(test_key, token_id, echecs):
     step(f"transcription d'un M4A (durée illisible) → HTTP {st} ; {message[:300]} → {'conforme' if conforme else 'échec'}")
     if not conforme:
         echecs.append("transcription (format illisible)")
+
+
+def controle_ocr(test_key, token_id, echecs):
+    """PDF d'une ligne, seul dans le message et sans consigne : texte de la ligne ; coût calculé et dépense enregistrée sur
+    la clé au prix des jetons d'entrée."""
+    avant = depense(token_id)
+    pdf = base64.b64encode(fichier_recette("ligne.pdf")).decode()
+    corps = {"model": MODEL, "messages": [{"role": "user", "content": [
+        {"type": "file", "file": {"file_data": f"data:application/pdf;base64,{pdf}"}}]}]}
+    st, rep, hdr = call("POST", "/v1/chat/completions", corps, key=test_key)
+    texte = ((rep.get("choices") or [{}])[0].get("message") or {}).get("content") if st == 200 and isinstance(rep, dict) else None
+    # Texte rendu en Markdown (« 1. **Recette … ** ») : comparé sans ses marques, ni ses retours à la ligne.
+    sans_marques = " ".join(re.sub(r"[*_`#]", "", texte or "").split()).lower()
+    conforme = TEXTE_DU_PDF.lower() in sans_marques
+    step(f"OCR d'un PDF d'une ligne → HTTP {st} ; texte : {texte!r} ; attendu : {TEXTE_DU_PDF!r} → "
+         f"{'conforme' if conforme else 'échec'}")
+    if st != 200:
+        print(json.dumps(rep, ensure_ascii=False)[:500])
+    if not conforme:
+        echecs.append("OCR (texte)")
+    if st == 200:
+        controle_cout("OCR", rep, hdr, avant, token_id, echecs)
 
 
 def controle_flux(test_key, token_id, echecs):
@@ -571,6 +599,8 @@ try:
         controle_decision(test_key, token_id, echecs)
     elif mi.get("type_api") == "transcription":
         controle_transcription(test_key, token_id, echecs)
+    elif mi.get("type_api") == "ocr":
+        controle_ocr(test_key, token_id, echecs)
     else:
         t0 = time.time()
         st, comp, hdr = call(

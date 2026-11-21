@@ -1,3 +1,5 @@
 # Fichiers de la recette, à garder octet pour octet.
 *.ogg binary
 *.m4a binary
+# Le flux compressé d'un PDF contient des retours chariot et pas d'octet nul : git le prendrait pour du texte.
+*.pdf binary
