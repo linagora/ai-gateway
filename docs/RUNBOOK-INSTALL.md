@@ -330,7 +330,7 @@ Scaleway promet un préavis de trois mois pour un modèle Active et d'un mois po
 **Sortie de l'essai d'un modèle** :
 - **Critères** :
   - recette `smoke-test.py <nom>` en code 0 ;
-  - pour un modèle d'embeddings, vecteurs comparés à ceux d'OVH (mesure du ticket #212) ;
+  - pour `qwen3-embedding-8b-scaleway`, seul modèle d'embeddings de l'essai, vecteurs comparés à ceux de `qwen3-embedding-8b` chez OVHcloud (ticket #212) : `ssh ia-host 'cd /opt/linagora-ia && docker compose exec -T litellm python3 - < scripts/mesurer-vecteurs.py'` rend l'hôte appelé pour chacun, la similarité cosinus de chaque texte, leur minimum et leur moyenne, à comparer au bruit de chaque hébergeur entre deux passages ;
   - quatre semaines d'essai au moins depuis la publication de sa fiche (date du journal d'installation) : la supervision ne sonde que les fiches visibles ;
   - 🧑 le bilan des pannes et des rétablissements que la supervision a signalés sur cette période est présenté à l'utilisateur, qui décide. Il se tire des courriels reçus par les admins (`ADMIN_NOTIFICATION_EMAILS` : panne après deux échecs consécutifs, puis rétablissement), de l'état du modèle dans Gestion › Supervision (« Depuis » : début de l'état actuel) et des journaux du portail, qui ne remontent pas forcément à quatre semaines (cinq fichiers de 20 Mo) :
     ```bash

@@ -7,6 +7,13 @@ All notable changes to LINAGORA AI Gateway, newest first. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- Operations: `mesurer-vecteurs.py` measures how far the vectors of `qwen3-embedding-8b` at OVHcloud are from those
+  of `qwen3-embedding-8b-scaleway` on the same French and English texts, short, long and very long, against each
+  host's own noise between two runs, so that administrators can decide whether moving the model to Scaleway changes
+  the index (#241).
+
 ## [1.4.2] - 2026-11-21
 
 ### Changed
