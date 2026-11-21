@@ -7,6 +7,28 @@ All notable changes to LINAGORA AI Gateway, newest first. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- Models at the Experimental level, through Scaleway, for a trial before the N3 models move from OVHcloud to
+  Scaleway: `qwen3.8-scaleway` and `qwen3-embedding-8b-scaleway`, twins of the N3 `qwen3.8` and
+  `qwen3-embedding-8b`; `gpt-oss-120b`, `llama-3.3-70b`, `gemma-4-26b`, `qwen3-235b`, `qwen3.5-397b` and
+  `qwen3.6-35b`, new to the gateway; and Scaleway versions of `mistral-small-3.2`, `mistral-medium-3.5`, `glm-5.3`,
+  `deepseek-v4-flash` and `deepseek-v4.1-flash-1017`, which OpenRouter also serves, under the same names followed by
+  `-scaleway` (#227, #228, #229).
+- Models: Whisper Large v3 (transcription, priced per minute of audio) and LightOnOCR 3 (OCR, free output) at the
+  Experimental level, through Scaleway; the catalog shows both API types and their prices (#225, #230).
+- Transcription takes WAV, FLAC, MP3 and OGG Opus files of 25 MB at most; the gateway refuses an audio file whose
+  duration it cannot read, such as M4A, MP4 or WebM, before it reaches the provider (#230).
+- Model pages and "How to use it" explain transcription and OCR, with call examples in curl, Python and JavaScript;
+  the model monitoring probes both API types (#226, #232).
+- Operations: `supprimer-modele-direct.py` removes a directly declared model from LiteLLM, and
+  `lire-quotas-scaleway.py` reads the rate limits of a Scaleway model; the runbook covers the trial, the end of life
+  of a Scaleway model and its quotas (#231).
+
+### Fixed
+
+- Reporting writes LINAGORA in capitals, as the label of its own hosting (#227).
+
 ## [1.3.3] - 2026-11-11
 
 ### Fixed
