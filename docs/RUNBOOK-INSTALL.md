@@ -54,7 +54,7 @@ L'utilisateur crée des enregistrements **A** (et AAAA si IPv6) vers l'IP de l'i
 rsync -av --exclude '.env' infra/ ia-host:/opt/linagora-ia/
 ssh ia-host 'chmod +x /opt/linagora-ia/scripts/*.sh /opt/linagora-ia/postgres/init/*.sh && /opt/linagora-ia/scripts/gen-secrets.sh'
 ```
-Le script liste les variables `__ASK__` restantes. L'agent renseigne celles qui ne sont pas secrètes (domaines, IP, uid, SMTP_HOST…) avec `sed -i` sur le serveur. Pour les **secrets fournis par l'utilisateur** (clé OpenRouter, `OVH_QWEN_API_BASE` / `OVH_QWEN_API_KEY`, `NOX_API_BASE` / `NOX_API_KEY`, secrets des clients OIDC, mot de passe SMTP) : 🧑 l'utilisateur les saisit lui-même, une variable à la fois, en saisie masquée (la valeur n'apparaît ni à l'écran, ni dans `ps`, ni dans l'historique) :
+Le script liste les variables `__ASK__` restantes. L'agent renseigne celles qui ne sont pas secrètes (domaines, IP, uid, SMTP_HOST…) avec `sed -i` sur le serveur. Pour les **secrets fournis par l'utilisateur** (clé OpenRouter, `OVH_QWEN_API_BASE` / `OVH_QWEN_API_KEY`, `NOX_API_BASE` / `NOX_API_KEY`, `SCALEWAY_API_BASE` / `SCALEWAY_API_KEY`, secrets des clients OIDC, mot de passe SMTP) : 🧑 l'utilisateur les saisit lui-même, une variable à la fois, en saisie masquée (la valeur n'apparaît ni à l'écran, ni dans `ps`, ni dans l'historique) :
 ```bash
 ssh -t ia-host '/opt/linagora-ia/scripts/set-env-var.sh OPENROUTER_API_KEY'
 ```
@@ -254,6 +254,103 @@ Les fichiers de données d'une version majeure ne servent pas à la suivante : l
 3. Mettre à jour `LITELLM_IMAGE`, `docker compose up -d litellm`, contrôler les logs de migration Prisma.
 4. Rejouer `reporting_views.sql` et vérifier les colonnes utilisées ; puis `scripts/installer-lien-portail.sh`, qui recrée les vues des abonnements.
 5. Contrôles de la phase 5.
+
+## Modèles de Scaleway
+Modèles de Scaleway Generative APIs, en serverless (spécification #204). Ils sont appelés dans le projet dédié à la passerelle, avec la clé d'une application IAM limitée aux Generative APIs de ce projet. `declare-modeles-directs.py` les déclare (phase 5), au niveau Expérimental pendant l'essai. L'identifiant du projet et la clé ne sont que dans le `.env` du serveur.
+
+Les nouveautés de cette section se publient dans Gestion › Nouveautés, catégorie « Modèles », en français et en anglais. 🧑 L'agent les rédige, l'utilisateur les valide avant publication. « Publier » montre aussitôt la nouveauté à tous les collaborateurs, sans date programmée ; publiée, elle se corrige (sans redevenir non lue) ou se supprime. Chaque opération de cette section se consigne dans `docs/INSTALL-LOG.md`.
+
+**Variables** : `SCALEWAY_API_BASE`, l'adresse du projet (`https://api.scaleway.ai/<identifiant du projet>/v1`), et `SCALEWAY_API_KEY`, la clé secrète de l'application IAM.
+1. `set-env-var.sh` ne renseigne qu'une variable déjà présente dans `.env`. Un `.env` plus ancien que ces variables les reçoit d'abord, à `__ASK__` comme dans `.env.example` :
+   ```bash
+   ssh ia-host 'cd /opt/linagora-ia && for v in SCALEWAY_API_BASE SCALEWAY_API_KEY; do grep -q "^$v=" .env || echo "$v=__ASK__" >> .env; done'
+   ```
+2. 🧑 L'utilisateur les saisit en masqué :
+   ```bash
+   ssh -t ia-host '/opt/linagora-ia/scripts/set-env-var.sh SCALEWAY_API_BASE'
+   ssh -t ia-host '/opt/linagora-ia/scripts/set-env-var.sh SCALEWAY_API_KEY'
+   ```
+   Une clé créée par la CLI de Scaleway passe au serveur sans s'afficher : `scw iam api-key create application-id=<application> description=<usage> -o json | jq -r .secret_key | ssh ia-host '/opt/linagora-ia/scripts/set-env-var.sh SCALEWAY_API_KEY'`. Scaleway ne montre la partie secrète qu'à la création : si le flux échoue, supprimer cette clé (`scw iam api-key list bearer-id=<application>`, puis `scw iam api-key delete <clé d'accès>`) et recommencer.
+3. LiteLLM ne lit ces variables qu'à sa recréation : `docker compose up -d litellm`, une quarantaine de secondes d'indisponibilité (`restart` ne relit pas `.env`).
+
+**Contrôle**, sans afficher de valeur : `ssh ia-host "grep -cE '^SCALEWAY_API_(BASE|KEY)=.' /opt/linagora-ia/.env; grep -c '^SCALEWAY_API_.*__ASK__' /opt/linagora-ia/.env"` répond `2`, puis `0`. Après la recréation, `lire-quotas-scaleway.py` (« Quotas », plus bas) répond « • <nom> : HTTP 200 ».
+
+**Journal des modifications et fins de vie** : Scaleway annonce ses nouveaux modèles et ses changements dans son journal des modifications. Le flux RSS est commun à tous ses produits : `https://www.scaleway.com/en/docs/changelog/rss.xml`. Le titre des entrées des Generative APIs commence par « Generative-apis | ». 🧑 L'administrateur s'abonne au flux, filtré sur ces titres. Relevé depuis le poste, dix dernières entrées :
+```bash
+curl -s https://www.scaleway.com/en/docs/changelog/rss.xml | python3 -I -c '
+import sys, xml.etree.ElementTree as ET
+from email.utils import parsedate_to_datetime as date
+entrees = [i for i in ET.parse(sys.stdin).getroot().iter("item") if i.findtext("title", "").startswith("Generative-apis")]
+for i in sorted(entrees, key=lambda i: date(i.findtext("pubDate")), reverse=True)[:10]:
+    print(date(i.findtext("pubDate")).date(), i.findtext("title"))'
+```
+Une fin de vie y paraît sous « Deprecation » ou « … is now deprecated », mais le flux ne les annonce pas toutes : au 2026-11-21, ni celle de `holo2-30b-a3b` (dépréciation le 9 juillet 2026, fin de vie le 9 août) ni celle de `glm-5.2` (16 octobre, 16 novembre) n'y figurent. Le tableau « End of Life (EOL) models » de la page « Supported models » de Scaleway fait foi : date de dépréciation, date de fin de vie (« EOL date ») et modèle qui reçoit ensuite les requêtes. 🧑 L'administrateur le relit chaque semaine, depuis le poste, par la source de la page, publique sur GitHub :
+```bash
+curl -s https://raw.githubusercontent.com/scaleway/docs-content/main/pages/generative-apis/reference-content/supported-models.mdx | \
+  awk '/End of Life/ && !fin {f = 1} f && /^\|/ {print; t = 1; next} t {f = 0; fin = 1}' | grep -v '^|[-|: ]*$'
+```
+Scaleway promet un préavis de trois mois pour un modèle Active et d'un mois pour un modèle en Preview : un relevé par semaine laisse au moins trois semaines. Exemple : `gemma-3-27b-it`, déprécié le 1er juillet 2026, a pris fin le 1er août ; ses requêtes vont depuis à `gemma-4-26b-a4b-it`. Après la fin de vie, la passerelle servirait donc un autre modèle sous le même nom, ou des erreurs pour un modèle sans successeur : d'où le retrait la veille.
+
+**Fin de service d'un modèle annoncée par Scaleway**, même avec moins d'un mois de préavis. La date qui compte est la fin de vie (« EOL date ») : le modèle est retiré la veille.
+1. Le jour de l'annonce, ou du relevé qui la découvre quand le flux l'omet, 🧑 une nouveauté : modèle retiré, date du retrait et remplaçant, s'il y en a un.
+2. Un remplaçant entre sous son propre nom, comme tout nouveau modèle : déclaration, recette, fiche, niveau Expérimental puis sortie de l'essai. Les clés existantes ne l'incluent pas, car les modèles d'une clé sont fixés à sa création.
+3. Avant la veille, une version publiée retire le modèle de `declare-modeles-directs.py`, sinon le script le redéclarerait. Elle est mise en production (phase 9, `infra/` compris).
+4. La veille de la fin de vie :
+   1. 🧑 l'admin masque d'abord la fiche : Gestion › Catalogue, décocher « Visible des collaborateurs », Enregistrer. Après la suppression, Gestion › Catalogue ne montre plus le modèle, et la supervision compterait en panne un modèle absent dont la fiche est visible (courriel aux admins, incident sur l'état des services) ;
+   2. le script liste ce qu'il supprimerait (« • <nom> : route …, source …, niveau …, id … », puis « Rien n'est supprimé… ») :
+      ```bash
+      ssh ia-host 'cd /opt/linagora-ia && docker compose exec -T litellm python3 - <nom> < scripts/supprimer-modele-direct.py'
+      ```
+   3. 🧑 confirmation explicite de l'utilisateur ;
+   4. suppression (« ✔ <nom> : supprimé de LiteLLM… ») ; le second processus de LiteLLM sert encore le modèle 30 s au plus :
+      ```bash
+      ssh ia-host 'cd /opt/linagora-ia && docker compose exec -T litellm python3 - <nom> --supprimer < scripts/supprimer-modele-direct.py'
+      ```
+
+   Le script refuse un modèle de la liste blanche OpenRouter : celui-ci se supprime par `sync-openrouter.py --supprimer-hors-liste`, une fois retiré de la liste. **Contrôle** : la commande du 2, rejouée, répond « ✘ <nom> : absent de LiteLLM… » ; Gestion › Catalogue ne montre plus le modèle.
+
+**Reprise d'un nom par la version de Scaleway** : le cas se présente quand la version OpenRouter d'un modèle n'a plus de point d'accès dans sa zone (`sync-openrouter.py` : « ✘ <nom> : … ; déclaration laissée en l'état ») et que son double `<nom>-scaleway` est servi.
+1. 🧑 Une nouveauté, avec un préavis dont l'utilisateur fixe la durée : date de la reprise, hébergeur et prix de `<nom>` chez Scaleway, et date de fin de service de `<nom>-scaleway`, que les clés gardent jusque-là.
+2. Une version publiée retire `<nom>` de la liste blanche OpenRouter. Dans `declare-modeles-directs.py`, elle ajoute une entrée `<nom>` aux faits de `<nom>-scaleway`, qui reste déclaré jusqu'à sa fin de service.
+3. Le jour dit, cette version est mise en production (phase 9, `infra/` compris). La version de Scaleway doit être créée, pas mise à jour : `declare-modeles-directs.py` met à jour la route, l'adresse et la clé d'un modèle présent sous le même nom, sans toucher à ses tarifs, et `<nom>` garderait ceux d'OpenRouter. D'où la mise en production le jour même : entre elle et la suppression, ce script ne doit pas tourner. Sur le serveur :
+   1. le plan de la liste blanche montre `<nom>` comme seul modèle hors liste (« ✘ <nom> : modèle OpenRouter hors liste blanche ») :
+      ```bash
+      ssh ia-host 'cd /opt/linagora-ia && docker compose exec -T litellm python3 - < scripts/sync-openrouter.py'
+      ```
+   2. 🧑 confirmation explicite de l'utilisateur ;
+   3. suppression de la version OpenRouter (« supprimé »), puis aussitôt déclaration de la version de Scaleway (« • <nom> : déclaré », pas « informations complétées ») ; `<nom>` manque quelques secondes entre les deux :
+      ```bash
+      ssh ia-host 'cd /opt/linagora-ia && docker compose exec -T litellm python3 - --supprimer-hors-liste < scripts/sync-openrouter.py'
+      ssh ia-host 'cd /opt/linagora-ia && docker compose exec -T litellm python3 - < scripts/declare-modeles-directs.py'
+      ```
+
+   Puis, 🧑 dans la fiche de `<nom>`, mettre à jour les textes (hébergeur, zone, prix) et régler « Niveau maximal » au niveau de la version de Scaleway, puis Enregistrer. **Contrôle** : recette `smoke-test.py <nom>` (phase 5) en code 0.
+4. À sa date, `<nom>-scaleway` suit la fin de service ci-dessus.
+
+**Sortie de l'essai d'un modèle** :
+- **Critères** :
+  - recette `smoke-test.py <nom>` en code 0 ;
+  - pour un modèle d'embeddings, vecteurs comparés à ceux d'OVH (mesure du ticket #212) ;
+  - quatre semaines d'essai au moins depuis la publication de sa fiche (date du journal d'installation) : la supervision ne sonde que les fiches visibles ;
+  - 🧑 le bilan des pannes et des rétablissements que la supervision a signalés sur cette période est présenté à l'utilisateur, qui décide. Il se tire des courriels reçus par les admins (`ADMIN_NOTIFICATION_EMAILS` : panne après deux échecs consécutifs, puis rétablissement), de l'état du modèle dans Gestion › Supervision (« Depuis » : début de l'état actuel) et des journaux du portail, qui ne remontent pas forcément à quatre semaines (cinq fichiers de 20 Mo) :
+    ```bash
+    ssh ia-host 'cd /opt/linagora-ia && docker compose logs portal | grep -F "Supervision des modèles" | grep -F "<nom> ("'
+    ```
+- **Condition** : 🧑 l'accord du juridique (ticket #220). D'ici là, aucun modèle de Scaleway ne reçoit de données N3.
+- **Étapes**, pour chaque modèle retenu :
+  1. le niveau déclaré, celui du reporting, passe à N3 pour ce modèle dans `declare-modeles-directs.py`, par une version publiée. Le script, rejoué sur le serveur, répond « informations complétées » : le niveau est réécrit, les tarifs ne changent pas ;
+  2. 🧑 le niveau de la fiche passe à N3 : Gestion › Catalogue, « Niveau maximal » N3, Enregistrer. C'est ce niveau que le portail applique, au catalogue comme aux demandes de clé ;
+  3. 🧑 une nouveauté, le même jour : modèles disponibles en N3. À la sortie de l'essai du lot (#221), elle annonce aussi la date de la bascule, un mois plus tard ; les nouveaux prix de qwen3.8 et le plafond de sa sortie, avec la demande de régénérer les configurations d'OpenCode et de Claude Code ; le changement d'index, si les vecteurs diffèrent ; la fin de service de `qwen3.8-scaleway` et de `qwen3-embedding-8b-scaleway` le jour de la bascule.
+
+**Quotas** : Scaleway les fixe pour l'organisation, en requêtes et en jetons par minute et par modèle, avec 100 requêtes simultanées tous modèles confondus.
+- Ils sont partagés par tous les projets de l'organisation : la passerelle, qui n'a qu'une clé, consomme les mêmes quotas que les autres projets.
+- Ils augmentent quand l'identité du titulaire est vérifiée, en plus du moyen de paiement. Au-delà, il faut passer par le support ou le service commercial de Scaleway.
+- 🧑 Ils se lisent dans la console, page Rate Limits des Generative APIs (`https://console.scaleway.com/generative-api/rate-limits`). Sous AI › Generative APIs, onglet « Rate limit », une limite par projet est possible, sous le quota de l'organisation.
+- Le tableau public des quotas omet plusieurs modèles servis, dont `qwen3.8-27b`, `glm-5.3`, les DeepSeek et `lightonocr-3-0.8b`. Pour un modèle de conversation, `lire-quotas-scaleway.py` les lit dans les en-têtes `x-ratelimit-*` d'une réponse de Scaleway, au prix d'un jeton ; l'adresse et la clé restent dans le conteneur de LiteLLM. Pour les autres modèles, la console. Le 2026-11-21, pour `qwen3.8-27b` : 600 requêtes et 7 000 000 jetons par minute.
+  ```bash
+  ssh ia-host 'cd /opt/linagora-ia && docker compose exec -T litellm python3 - <nom chez Scaleway> < scripts/lire-quotas-scaleway.py'
+  ```
+  Réponse attendue : « • <nom> : HTTP 200 », puis une ligne par en-tête (`x-ratelimit-limit-requests : 600`…). Un nom inconnu de Scaleway ou une clé refusée donne « ✘ <nom> : HTTP <code> … », code de sortie 1.
 
 ## Dépannage rapide
 - `docker compose logs -f <service>` ; `docker stats --no-stream` (mémoire : la B2-15 est juste).
