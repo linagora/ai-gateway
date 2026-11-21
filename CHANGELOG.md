@@ -7,6 +7,13 @@ All notable changes to LINAGORA AI Gateway, newest first. The format is based on
 
 ## [Unreleased]
 
+### Security
+
+- The gateway refuses `/v1/messages` and `/v1/responses` for OpenRouter models: LiteLLM sent both to OpenRouter's
+  Responses API without the provider preferences declared for the model, so OpenRouter could pick a provider outside
+  its execution zone. `/v1/chat/completions`, used by OpenCode and the portal, keeps them; Claude Code and Codex keep
+  the directly declared models (#236).
+
 ## [1.4.0] - 2026-11-21
 
 ### Added

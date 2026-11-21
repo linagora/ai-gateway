@@ -7,6 +7,13 @@ préférences de fournisseur (provider), greffons (plugins), préréglages (pres
 ainsi atteindre un modèle hors liste ou un fournisseur hors zone. Ces paramètres sont refusés, comme
 les replis de LiteLLM (fallbacks…), qui contourneraient les modèles de la clé.
 
+Modèles d'OpenRouter par /v1/messages (format Anthropic) et /v1/responses : LiteLLM les envoie à l'API Responses
+d'OpenRouter sans les préférences de fournisseur déclarées pour le modèle (provider : zone d'exécution, plafond de prix),
+qu'il ne transmet que par /v1/chat/completions ; OpenRouter y choisit alors un fournisseur hors de ces préférences
+(1.102.1, vérifié le 2026-11-21 par l'API /generation d'OpenRouter). Le réglage use_chat_completions_url_for_anthropic_messages
+de LiteLLM n'y suffit pas : une requête /v1/messages avec raisonnement (thinking) repasse par l'API Responses. Ces deux API
+sont donc refusées pour un modèle qui déclare des préférences de fournisseur.
+
 API d'images et de vidéos de LiteLLM : il n'y compte pas le coût des modèles déclarés par la passerelle
 (dépense enregistrée à 0 €, vérifié sur la 1.102.1), ce qui contournerait les budgets des clés. Elles sont
 refusées : un modèle d'images s'appelle par la conversation, en demandant une image en sortie (modalities),
@@ -58,6 +65,12 @@ MOTIFS_APPELS_REFUSES = ("image", "video")
 
 PROFONDEURS_RECHERCHE = ("low", "medium", "high")
 
+# Refus de /v1/messages et de /v1/responses pour un modèle qui déclare des préférences de fournisseur (voir plus haut).
+REFUS_API_RESPONSES = (
+    "API refusée par la passerelle LINAGORA pour ce modèle d'OpenRouter : /v1/messages et /v1/responses n'y transmettent "
+    "pas la zone d'exécution. Appelez /v1/chat/completions."
+)
+
 # Refus d'un fichier audio dont la durée est illisible, en français et en anglais : formats lus par soundfile dans l'image
 # de LiteLLM de la production et transcrits par Scaleway (voir plus haut).
 REFUS_FORMAT_AUDIO = (
@@ -97,6 +110,14 @@ def appliquer_tarif_declare_en_flux():
 
 
 appliquer_tarif_declare_en_flux()
+
+
+def preferences_fournisseur_declarees(modele):
+    """Vrai si un déploiement du modèle déclare des préférences de fournisseur d'OpenRouter (litellm_params.provider)."""
+    from litellm.proxy.proxy_server import llm_router
+
+    deploiements = (llm_router.get_model_list(model_name=modele) if llm_router is not None and modele else None) or []
+    return any((deploiement.get("litellm_params") or {}).get("provider") for deploiement in deploiements)
 
 
 def systeme_en_tete(modele):
@@ -141,6 +162,8 @@ class GardePasserelle(CustomLogger):
         if interdits:
             raise HTTPException(status_code=400, detail={"error": f"Paramètre refusé par la passerelle LINAGORA : {', '.join(interdits)}. "
                                                                   "Le modèle et le fournisseur sont fixés par la passerelle."})
+        if any(motif in str(call_type) for motif in ("anthropic_messages", "responses")) and preferences_fournisseur_declarees(data.get("model")):
+            raise HTTPException(status_code=400, detail={"error": REFUS_API_RESPONSES})
         if "transcription" in str(call_type):
             # Le fichier, lu en entier par LiteLLM, est dans la requête (io.BytesIO) avant l'appel des crochets.
             if calculate_request_duration(data.get("file")) is None:
