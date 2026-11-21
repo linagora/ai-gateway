@@ -85,6 +85,12 @@ def arrondi(x):
     return float(f"{x:.6g}")
 
 
+def usd_par_mtoken(point, cle):
+    """Prix d'un point d'accès en $ par million de jetons, arrondi : sans arrondi, 0,00000396 × 1e6 donne
+    3,9600000000000004, et un point d'accès facturé au plafond de 3,96 $ en serait exclu."""
+    return arrondi(float(point["pricing"][cle]) * 1e6)
+
+
 # Efforts de raisonnement, du plus faible au plus fort : OpenRouter les publie dans le désordre.
 ORDRE_EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"]
 # Modalités d'OpenRouter dans le vocabulaire du portail (« file » : documents PDF), dans un ordre fixe.
@@ -106,12 +112,12 @@ def declaration(entree, cfg, modeles_openrouter):
     tous = [e for e in donnees["endpoints"] if not e.get("service_tier")]
     plafond = entree.get("prix_max_usd")
     retenus = [e for e in tous if dans_zone(e["tag"], zone) and (
-        plafond is None or (float(e["pricing"]["prompt"]) * 1e6 <= plafond[0] and float(e["pricing"]["completion"]) * 1e6 <= plafond[1]))]
+        plafond is None or (usd_par_mtoken(e, "prompt") <= plafond[0] and usd_par_mtoken(e, "completion") <= plafond[1]))]
     if not retenus:
         # Des points d'accès de la zone, tous au-dessus du plafond : leurs prix disent de combien.
         if hors_plafond := [e for e in tous if dans_zone(e["tag"], zone)]:
             raise SansPointDAcces(f"plafond de {plafond[0]} $ / {plafond[1]} $ dépassé dans la zone {entree['zone']} (" + ", ".join(
-                f"{e['tag']} : {float(e['pricing']['prompt']) * 1e6:g} $ / {float(e['pricing']['completion']) * 1e6:g} $" for e in hors_plafond) + ")")
+                f"{e['tag']} : {usd_par_mtoken(e, 'prompt'):g} $ / {usd_par_mtoken(e, 'completion'):g} $" for e in hors_plafond) + ")")
         raise SansPointDAcces(f"aucun point d'accès OpenRouter dans la zone {entree['zone']} (disponibles : {', '.join(e['tag'] for e in tous)})")
     usd_in = max(float(e["pricing"]["prompt"]) for e in retenus)
     usd_out = max(float(e["pricing"]["completion"]) for e in retenus)
