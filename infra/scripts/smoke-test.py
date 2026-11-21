@@ -170,6 +170,24 @@ def attendre_depense(token_id, attendue):
     return enregistree
 
 
+def controle_cout(libelle, rep, hdr, avant, token_id, echecs):
+    """Réponse rendue (HTTP 200) : coût calculé par LiteLLM et dépense enregistrée sur la clé, au tarif déclaré."""
+    if in_cost is None or out_cost is None:
+        echecs.append(f"{libelle} (tarifs absents)")
+        step(f"{libelle} — coût non vérifié : tarifs du modèle absents")
+        return
+    usage = rep.get("usage") or {}
+    attendu = cout_attendu(usage, cache_cost)
+    calcule = float(hdr.get("x-litellm-response-cost") or 0)
+    enregistree = attendre_depense(token_id, avant + attendu)
+    conforme = proche(calcule, attendu) and proche(enregistree, avant + attendu)
+    step(f"{libelle} — jetons : {usage.get('prompt_tokens')} entrée + {usage.get('completion_tokens')} sortie ; coût calculé : "
+         f"{calcule:.10f}, dépense enregistrée : {enregistree:.10f} ; attendus : {attendu:.10f}, {avant + attendu:.10f} "
+         f"→ {'conforme' if conforme else 'échec'}")
+    if not conforme:
+        echecs.append(f"{libelle} (coût)")
+
+
 # Requête de Claude Code 2.1.312 (capturée) : en-têtes, puis corps (système en blocs, outil, identifiant de session, réflexion).
 # Depuis la 2.1.314 au moins, l'environnement suit la question dans une entrée « system » (ticket #159).
 EN_TETES_CLAUDE_CODE = {
@@ -367,20 +385,8 @@ def controle_decision(test_key, token_id, echecs):
          f"→ {'conforme' if conforme else 'échec'}")
     if not conforme:
         echecs.append("décision (réponses)")
-    if st == 200 and (in_cost is None or out_cost is None):
-        echecs.append("décision (tarifs absents)")
-        step("décision — coût non vérifié : tarifs du modèle absents")
-    elif st == 200:
-        usage = rep.get("usage") or {}
-        attendu = cout_attendu(usage, cache_cost)
-        calcule = float(hdr.get("x-litellm-response-cost") or 0)
-        enregistree = attendre_depense(token_id, avant + attendu)
-        conforme = proche(calcule, attendu) and proche(enregistree, avant + attendu)
-        step(f"décision — jetons : {usage.get('prompt_tokens')} entrée + {usage.get('completion_tokens')} sortie ; coût calculé : "
-             f"{calcule:.10f}, dépense enregistrée : {enregistree:.10f} ; attendus : {attendu:.10f}, {avant + attendu:.10f} "
-             f"→ {'conforme' if conforme else 'échec'}")
-        if not conforme:
-            echecs.append("décision (coût)")
+    if st == 200:
+        controle_cout("décision", rep, hdr, avant, token_id, echecs)
     # Message hors format : un refus explicite, qui rappelle le format attendu.
     st, rep, _ = call("POST", "/v1/chat/completions", {"model": MODEL, "messages": [{"role": "user", "content": "Bonjour"}]}, key=test_key)
     conforme = st == 400 and "System One" in json.dumps(rep, ensure_ascii=False)
