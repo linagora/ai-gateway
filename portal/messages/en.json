@@ -489,6 +489,10 @@
       "titre": "Transcription model",
       "explication": "This model does not chat: it returns the text of a recording. Call it through /v1/audio/transcriptions, with the audio file sent as multipart form data: WAV, FLAC, MP3 or OGG Opus, up to 25 MB; M4A, MP4 and WebM files are rejected. It is billed by the duration of the audio."
     },
+    "apiOcr": {
+      "titre": "OCR model",
+      "explication": "This model does not chat: it returns the text of a PDF. Call it through /v1/chat/completions, with a single message that holds the base64-encoded PDF and nothing else: one PDF per request, and no tool calls."
+    },
     "exempleAppel": "Example call",
     "exemple": {
       "message": "Hello! Summarize the benefits of free software in three points.",

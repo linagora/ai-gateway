@@ -46,6 +46,7 @@ export function exemplesAppel(modelName: string, apiKind: ApiKind, textes: Texte
   if (apiKind === "image") return exemplesImage(modelName, textes.image);
   if (apiKind === "embeddings") return exemplesEmbeddings(modelName, textes.aVectoriser);
   if (apiKind === "transcription") return exemplesTranscription(modelName);
+  if (apiKind === "ocr") return exemplesOcr(modelName);
   const adresse = adresseApi();
   const contenu =
     apiKind === "decision"
@@ -208,6 +209,54 @@ function exemplesTranscription(modelName: string): Record<Langage, string> {
       '  file: createReadStream("audio.mp3"),',
       "});",
       "console.log(transcription.text);",
+    ].join("\n"),
+  };
+}
+
+/**
+ * Modèle d'OCR : /v1/chat/completions avec un seul message, qui contient le PDF encodé en base64 et rien d'autre.
+ * L'exemple affiche le texte que rend le modèle. En curl, le corps passe par l'entrée standard, où le shell remplace
+ * la commande $(…) par le PDF en base64, sur une ligne : en argument, un PDF en base64 dépasserait vite la taille
+ * maximale d'un argument de commande.
+ */
+function exemplesOcr(modelName: string): Record<Langage, string> {
+  const adresse = adresseApi();
+  const pdf = "data:application/pdf;base64,$(base64 < document.pdf | tr -d '[:space:]')";
+  const corps = JSON.stringify({ model: modelName, messages: [{ role: "user", content: [{ type: "file", file: { file_data: pdf } }] }] }, null, 2);
+  return {
+    curl: [
+      `curl ${adresse}/chat/completions \\`,
+      `  -H "Authorization: Bearer $LINAGORA_API_KEY" \\`,
+      `  -H "Content-Type: application/json" \\`,
+      "  -d @- <<EOF | jq -r '.choices[0].message.content'",
+      corps,
+      "EOF",
+    ].join("\n"),
+    python: [
+      "import base64",
+      "import os",
+      "from openai import OpenAI",
+      "",
+      `client = OpenAI(base_url="${adresse}", api_key=os.environ["LINAGORA_API_KEY"])`,
+      'with open("document.pdf", "rb") as f:',
+      "    pdf = base64.b64encode(f.read()).decode()",
+      "response = client.chat.completions.create(",
+      `    model="${modelName}",`,
+      '    messages=[{"role": "user", "content": [{"type": "file", "file": {"file_data": f"data:application/pdf;base64,{pdf}"}}]}],',
+      ")",
+      "print(response.choices[0].message.content)",
+    ].join("\n"),
+    javascript: [
+      'import { readFileSync } from "node:fs";',
+      'import OpenAI from "openai";',
+      "",
+      `const client = new OpenAI({ baseURL: "${adresse}", apiKey: process.env.LINAGORA_API_KEY });`,
+      'const pdf = readFileSync("document.pdf").toString("base64");',
+      "const response = await client.chat.completions.create({",
+      `  model: "${modelName}",`,
+      '  messages: [{ role: "user", content: [{ type: "file", file: { file_data: `data:application/pdf;base64,${pdf}` } }] }],',
+      "});",
+      "console.log(response.choices[0].message.content);",
     ].join("\n"),
   };
 }

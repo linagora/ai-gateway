@@ -489,6 +489,10 @@
       "titre": "Modèle de transcription",
       "explication": "Ce modèle ne converse pas : il rend le texte d'un enregistrement. Il s'appelle par /v1/audio/transcriptions, avec le fichier audio envoyé en multipart : WAV, FLAC, MP3 ou OGG Opus, de 25 Mo au plus ; les fichiers M4A, MP4 et WebM sont refusés. Il est facturé à la durée de l'audio."
     },
+    "apiOcr": {
+      "titre": "Modèle d'OCR",
+      "explication": "Ce modèle ne converse pas : il rend le texte d'un PDF. Il s'appelle par /v1/chat/completions, avec un seul message qui contient le PDF encodé en base64 et rien d'autre : un seul PDF par requête, et pas d'appel d'outils."
+    },
     "exempleAppel": "Exemple d'appel",
     "exemple": {
       "message": "Bonjour ! Résume en trois points les avantages du logiciel libre.",
