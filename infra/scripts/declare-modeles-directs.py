@@ -92,6 +92,11 @@ def par_jeton(prix):
     return float(f"{prix / 1e6:.6g}")
 
 
+def par_seconde(prix_minute):
+    """Prix par seconde, d'après un prix par minute."""
+    return float(f"{prix_minute / 60:.6g}")
+
+
 def modele_conversation_scaleway(nom, nom_scaleway, editeur, *, prix_entree, prix_sortie, contexte, sortie_max, capacites,
                                  prix_cache=None, appel_outils=True, efforts_raisonnement=(), effort_par_defaut=None,
                                  systeme_en_tete=False, parametres_ecartes=()):
@@ -179,6 +184,33 @@ def modele_embeddings_scaleway(nom, nom_scaleway, editeur, *, prix_entree, conte
             "type_api": "embeddings",  # lu par le portail : appelé par /v1/embeddings, et non par la conversation
             "output_vector_size": taille,  # champ standard de LiteLLM pour la taille des vecteurs, lu par le portail
             "mode": "embedding",  # pour que les contrôles de santé de LiteLLM l'interrogent par /embeddings
+        },
+    }
+
+
+def modele_transcription_scaleway(nom, nom_scaleway, editeur, *, prix_minute):
+    """Modèle de transcription de Scaleway, au niveau Expérimental pendant l'essai, facturé à la durée de l'audio. Prix en
+    € HT par minute, relevé le RELEVE_PRIX_SCALEWAY : déclaré à LiteLLM par seconde, au portail par minute."""
+    prix = f"{prix_minute:g}".replace(".", ",")  # 0,003 : montant() arrondirait au centime
+    return {
+        "model_name": nom,
+        "litellm_params": {
+            # Configuration de transcription du fournisseur scaleway de LiteLLM : le fichier part vers /audio/transcriptions.
+            "model": f"scaleway/{nom_scaleway}",
+            **ACCES_SCALEWAY,
+            # LiteLLM 1.102.1 compte une transcription à la durée de l'audio, qu'il lit avec soundfile, et à 0 € s'il ne la
+            # lit pas : la garde refuse alors l'appel (litellm/garde.py).
+            "input_cost_per_second": par_seconde(prix_minute),
+        },
+        "model_info": {
+            **FAITS_SCALEWAY,
+            "editeur": editeur,
+            "capacites": ["audio_video"],
+            "pricing_source": f"Tarif public de Scaleway Generative APIs : {prix} € HT par minute d'audio, relevé le "
+                              f"{RELEVE_PRIX_SCALEWAY}",
+            "type_api": "transcription",  # lu par le portail : appelé par /v1/audio/transcriptions avec un fichier audio
+            "prix_minute_eur": prix_minute,  # lu par le portail, qui affiche le prix d'une minute d'audio
+            "mode": "audio_transcription",  # pour que les contrôles de santé de LiteLLM l'interrogent par la transcription
         },
     }
 
@@ -318,7 +350,7 @@ MODELES = [
     modele_embeddings("bge-m3", "bge-m3", "BAAI", 0.01, 8192, 1024),
     modele_embeddings("bge-multilingual-gemma2", "bge-multilingual-gemma2", "BAAI", 0.01, 8192, 3584),
     modele_embeddings("qwen3-embedding-8b", "Qwen3-Embedding-8B", "Alibaba (Qwen)", 0.10, 32768, 4096),
-    # --- Scaleway (appels directs du 2026-11-21, tickets #206, #207 et #208) ---
+    # --- Scaleway (appels directs du 2026-11-21, tickets #206, #207, #208 et #216) ---
     # Contexte : d'après le refus d'une entrée plus longue ; sortie maximale : « max_completion_tokens is limited to … » ;
     # efforts : ceux que publie Scaleway (« Supported reasoning efforts »), l'effort par défaut quand une requête sans effort
     # se comporte comme l'un d'eux. Les modèles de conversation appellent tous des outils (tool_choice auto, required et
@@ -405,6 +437,11 @@ MODELES = [
     # texte (32k publiés), refus au-delà.
     modele_embeddings_scaleway("qwen3-embedding-8b-scaleway", "qwen3-embedding-8b", "Alibaba (Qwen)", prix_entree=0.10,
                                contexte=40960, taille=4096),
+    # Transcription (ticket #216) : Scaleway accepte WAV, FLAC, OGG Opus, MP3, M4A et WebM ; la garde ne laisse
+    # passer que les formats dont LiteLLM lit la durée (en production : ni M4A, ni MP4, ni WebM). Réponse en text, json ou
+    # verbose_json (langue, segments, mots horodatés ; text rend aussi du JSON), srt refusé ; durée comptée par Scaleway en
+    # secondes entières (5 pour 4,09 s).
+    modele_transcription_scaleway("whisper-large-v3", "whisper-large-v3", "OpenAI", prix_minute=0.003),
 ]
 
 
