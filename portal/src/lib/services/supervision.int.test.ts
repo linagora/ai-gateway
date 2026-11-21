@@ -203,20 +203,48 @@ describe("supervision des modèles", () => {
     });
   });
 
-  test("un modèle de transcription ou d'OCR n'est pas sondé : son type d'API n'a pas encore de sonde (ticket #214)", async () => {
-    litellm
-      .withModel({ modelName: "whisper-large-v3", apiKind: "transcription", inputCostPerToken: null, outputCostPerToken: null, minutePrice: 0.003 })
-      .withModel({ modelName: "lightonocr-3", apiKind: "ocr", outputCostPerToken: 0, toolCalling: false });
-    await fiche("whisper-large-v3", "Whisper Large v3");
-    await fiche("lightonocr-3", "LightOnOCR 3");
+  describe("modèles de transcription et d'OCR", () => {
+    beforeEach(async () => {
+      litellm
+        .withModel({ modelName: "whisper-large-v3", apiKind: "transcription", inputCostPerToken: null, outputCostPerToken: null, minutePrice: 0.003 })
+        .withModel({ modelName: "lightonocr-3", apiKind: "ocr", outputCostPerToken: 0, toolCalling: false });
+      await fiche("whisper-large-v3", "Whisper Large v3");
+      await fiche("lightonocr-3", "LightOnOCR 3");
+    });
 
-    const rapport = await superviserModeles(deps());
-    expect(litellm.sondes.map((s) => s.modelName).sort()).toEqual(["bge-m3", "jev-latest", "qwen3.8"]);
-    expect(rapport).toMatchObject({ sondes: 3, nonSupervises: ["flux-2-pro", "lightonocr-3", "whisper-large-v3"] });
-    const etats = await etatDesModeles(deps(), admin, "fr");
-    for (const [modelName, apiKind] of [["whisper-large-v3", "transcription"], ["lightonocr-3", "ocr"]]) {
-      expect(etats.find((e) => e.modelName === modelName)).toMatchObject({ apiKind, statut: "non_supervise", raisonNonSupervise: "type_sans_sonde", checkedAt: null });
-    }
+    test("chacun est sondé selon son type d'API, comme les autres modèles visibles", async () => {
+      const rapport = await superviserModeles(deps());
+      expect(litellm.sondes.filter((s) => s.apiKind === "transcription" || s.apiKind === "ocr").sort((a, b) => a.modelName.localeCompare(b.modelName))).toEqual([
+        { modelName: "lightonocr-3", apiKind: "ocr" },
+        { modelName: "whisper-large-v3", apiKind: "transcription" },
+      ]);
+      expect(rapport).toEqual({ sondes: 5, enPanne: [], degrades: [], nonSupervises: ["flux-2-pro"], alertesPanne: [], retablissements: [] });
+      const etats = await etatDesModeles(deps(), admin, "fr");
+      for (const [modelName, apiKind] of [["whisper-large-v3", "transcription"], ["lightonocr-3", "ocr"]]) {
+        expect(etats.find((e) => e.modelName === modelName)).toMatchObject({ apiKind, statut: "ok", raisonNonSupervise: null, checkedAt: maintenant });
+      }
+    });
+
+    test("en panne, chacun entre dans le courriel des modèles tombés, puis dans celui des rétablis", async () => {
+      litellm.modelesEnPanne.set("whisper-large-v3", "Provider returned error");
+      litellm.modelesSansReponse.add("lightonocr-3");
+      expect((await superviserModeles(deps())).degrades.map((m) => m.modelName)).toEqual(["lightonocr-3", "whisper-large-v3"]);
+      expect(mailer.outbox).toEqual([]);
+
+      expect((await passageSuivant()).alertesPanne).toEqual(["lightonocr-3", "whisper-large-v3"]);
+      expect(mailer.outbox).toHaveLength(1);
+      expect(mailer.outbox[0].subject).toBe("[AI GATEWAY] 2 modèles en panne / 2 models down");
+      expect(mailer.outbox[0].text).toContain("- Whisper Large v3 (whisper-large-v3) : Provider returned error");
+      expect(mailer.outbox[0].text).toContain("- LightOnOCR 3 (lightonocr-3) : aucune réponse en 30 s");
+      const etats = await etatDesModeles(deps(), admin, "fr");
+      expect(etats.find((e) => e.modelName === "whisper-large-v3")).toMatchObject({ statut: "en_panne", error: "Provider returned error" });
+
+      litellm.modelesEnPanne.clear();
+      litellm.modelesSansReponse.clear();
+      expect((await passageSuivant()).retablissements).toEqual(["lightonocr-3", "whisper-large-v3"]);
+      expect(mailer.outbox).toHaveLength(2);
+      expect(mailer.outbox[1].subject).toBe("[AI GATEWAY] 2 modèles rétablis / 2 models restored");
+    });
   });
 
   test("l'onglet « Supervision » montre les modèles en panne, puis les dégradés ; il est réservé aux admins, comme la sonde immédiate", async () => {

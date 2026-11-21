@@ -1062,8 +1062,7 @@
       },
       "nonSupervise": {
         "image": "Modèle d'images : chaque sonde générerait une image payante.",
-        "recherche_web": "Modèle qui cherche sur le web à chaque requête : chaque sonde lancerait une recherche payante.",
-        "type_sans_sonde": "Ce type d'API n'a pas encore de sonde."
+        "recherche_web": "Modèle qui cherche sur le web à chaque requête : chaque sonde lancerait une recherche payante."
       },
       "typesApi": {
         "conversation": "conversation",

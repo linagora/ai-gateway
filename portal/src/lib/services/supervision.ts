@@ -161,14 +161,12 @@ async function modelesDeLaPasserelle(litellm: LiteLLMClient): Promise<Map<string
 
 /**
  * Raison pour laquelle un modèle n'est pas sondé : chaque sonde serait payante (un modèle d'images générerait une image, un
- * modèle qui cherche sur le web à chaque requête lancerait une recherche, facturée en plus des jetons), ou son type d'API
- * (transcription, OCR) n'a pas encore de sonde.
+ * modèle qui cherche sur le web à chaque requête lancerait une recherche, facturée en plus des jetons).
  */
-export type RaisonNonSupervise = "image" | "recherche_web" | "type_sans_sonde";
+export type RaisonNonSupervise = "image" | "recherche_web";
 
 export function raisonNonSupervise(modele: Pick<LiteLLMModel, "apiKind" | "webSearchPerRequest">): RaisonNonSupervise | null {
   if (modele.apiKind === "image") return "image";
-  if (modele.apiKind === "transcription" || modele.apiKind === "ocr") return "type_sans_sonde";
   return modele.webSearchPerRequest ? "recherche_web" : null;
 }
 

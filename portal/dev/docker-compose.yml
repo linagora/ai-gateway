@@ -17,7 +17,8 @@ services:
       - "127.0.0.1:54525:1025"
       - "127.0.0.1:54825:8025"
 
-  # Point de contrôle /admin et /stats, avec le même fragment que la production
+  # Point de contrôle /admin et /stats, avec le même fragment que la production ; fournisseur factice de transcription
+  # pour le LiteLLM de dev (Caddyfile)
   caddy:
     image: caddy:2.11.4@sha256:0c994536bddb66445885237f1a5dcc1916bccea922661c76b4e9fc24061f9b52
     volumes:
