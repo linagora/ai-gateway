@@ -199,6 +199,22 @@ describe("dépense, budget et exemple d'appel dans « Mes clés » (ticket #16)"
       { model: "bge-m3", apiKind: "embeddings" },
     ]);
   });
+
+  test("une clé qui contient un modèle de transcription et un modèle d'OCR reçoit un exemple d'appel de chacun de ces types, à côté de celui de ses modèles de conversation (ticket #217)", async () => {
+    litellm.withModel({ modelName: "whisper-large-v3", apiKind: "transcription", minutePrice: 0.003 }).withModel({ modelName: "lightonocr-3", apiKind: "ocr" });
+    const fiche = { shortDescriptionFr: "…", longDescriptionFr: "…", useCases: [], recommendedFor: [], visible: true };
+    await saveCatalogEntry(deps, admin, { ...fiche, modelName: "whisper-large-v3", displayNameFr: "Whisper Large v3", dataLevel: "N3" });
+    await saveCatalogEntry(deps, admin, { ...fiche, modelName: "lightonocr-3", displayNameFr: "LightOnOCR 3", dataLevel: "N3" });
+    const modeles = ["whisper-large-v3", "mistral-small", "lightonocr-3"];
+    const { id } = await createKeyRequest(deps, titulaire, { ...demande, models: modeles });
+    await approveKeyRequest(deps, admin, id, { models: modeles, budget: 5, budgetDuration: "30d", days: 30, rpmLimit: null, tpmLimit: null });
+    await pickUpKey(deps, titulaire, id);
+    expect((await listMyKeys(deps, titulaire)).keys[0].examples).toEqual([
+      { model: "whisper-large-v3", apiKind: "transcription" },
+      { model: "mistral-small", apiKind: "conversation" },
+      { model: "lightonocr-3", apiKind: "ocr" },
+    ]);
+  });
 });
 
 describe("révocation par le titulaire (ticket #17)", () => {
