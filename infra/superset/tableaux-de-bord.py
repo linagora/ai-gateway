@@ -182,7 +182,7 @@ def definitions():
              ("Modèles les plus utilisés", u, tableau(u, ["model_name", "provider"], ["cout", "requetes", "jetons"], limite=10), 6, 50,
               "Classés par coût sur la période")],
             [("Coût par fournisseur", u, camembert(u, "provider", "cout", EUROS), 6, 50, None),
-             ("Coût par hébergement", u, camembert(u, "hosting", "cout", EUROS), 6, 50, "UE, hors UE, OVHcloud")],
+             ("Coût par hébergement", u, camembert(u, "hosting", "cout", EUROS), 6, 50, "LINAGORA, OVHcloud, Scaleway, UE, hors UE")],
         ]),
         ("Par équipe", [
             [("Consommation par équipe", u, tableau(u, ["team"], ["cout", "requetes", "jetons"], limite=50), 6, 50, None),
