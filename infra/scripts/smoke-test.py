@@ -19,9 +19,10 @@ La même question est aussi posée en flux (stream), comme le font les assistant
 la dépense enregistrée sur la clé doit suivre le tarif déclaré, comme hors flux. La recette sort en erreur sinon.
 
 Un modèle d'embeddings (type d'API « embeddings ») passe à la place par /v1/embeddings : deux vecteurs de la
-taille déclarée, au format base64 des SDK OpenAI puis sans format ; avec une taille réduite (dimensions), des
-vecteurs de cette taille pour un modèle qui l'accepte, un refus explicite (400) pour les autres ; la dépense
-enregistrée sur la clé, au prix d'entrée déclaré. La recette sort en erreur si l'un de ces contrôles échoue.
+taille déclarée, en chaînes au format base64 des SDK OpenAI, puis en nombres sans format ; avec une taille réduite
+(dimensions), demandée en base64 comme le font les SDK, des chaînes de cette taille pour un modèle qui l'accepte, un
+refus explicite (400) pour les autres ; la dépense enregistrée sur la clé, au prix d'entrée déclaré. La recette sort en
+erreur si l'un de ces contrôles échoue.
 
 Une API de décision (type d'API « decision » : JEV, Nox-4B, d3-ultra) reçoit à la place une requête System One : une réponse par
 question, sans erreur ; le coût calculé et la dépense enregistrée sur la clé, au tarif déclaré ; un message hors format
@@ -136,9 +137,19 @@ TEXTES = ["La passerelle compte chaque jeton au tarif déclaré.", "Un modèle d
 TAILLE_REGLABLE = {"qwen3-embedding-8b", "qwen3-embedding-8b-scaleway"}
 
 
+def vecteurs_recus(reponse):
+    """Vecteurs de la réponse, dans son ordre : listes de nombres, ou chaînes en base64."""
+    return [d.get("embedding") for d in (reponse or {}).get("data", [])]
+
+
 def tailles(reponse):
     """Taille de chaque vecteur reçu, en nombres ou en base64 (nombres flottants sur 4 octets, comme les SDK OpenAI)."""
-    return [len(base64.b64decode(v)) // 4 if isinstance(v, str) else len(v or []) for v in (d.get("embedding") for d in (reponse or {}).get("data", []))]
+    return [len(base64.b64decode(v)) // 4 if isinstance(v, str) else len(v or []) for v in vecteurs_recus(reponse)]
+
+
+def formats(reponse):
+    """Format de chaque vecteur reçu : « base64 » pour une chaîne, « nombres » pour une liste."""
+    return ["base64" if isinstance(v, str) else "nombres" for v in vecteurs_recus(reponse)]
 
 
 def vectoriser(parametres, test_key):
@@ -284,24 +295,35 @@ def controle_outil_openai(test_key, echecs):
 
 
 def controle_embeddings(test_key, token_id, echecs):
-    """Vecteurs de la taille déclarée, quel que soit le format ; taille réduite tenue ou refusée ; dépense au prix d'entrée."""
+    """Vecteurs de la taille déclarée, au format demandé (base64 : des chaînes ; sans format : des nombres) ; taille réduite
+    tenue ou refusée ; dépense au prix d'entrée."""
     taille, avant, jetons = mi.get("output_vector_size"), depense(token_id), 0
-    for nom, parametres in (("format base64 des SDK", {"encoding_format": "base64"}), ("sans format", {})):
-        st, rep, recues, comptes = vectoriser(parametres, test_key)
+    for nom, parametres, format_attendu in (("format base64 des SDK", {"encoding_format": "base64"}, "base64"),
+                                            ("sans format", {}, "nombres")):
+        st, rep, tailles_recues, comptes = vectoriser(parametres, test_key)
         jetons += comptes
-        conforme = st == 200 and recues == [taille] * len(TEXTES)
-        step(f"embeddings, {nom} → HTTP {st} ; tailles des vecteurs : {recues} ; attendues : {[taille] * len(TEXTES)} → {'conforme' if conforme else 'échec'}")
+        formats_recus = formats(rep) if st == 200 else []
+        conforme = (st == 200 and tailles_recues == [taille] * len(TEXTES)
+                    and formats_recus == [format_attendu] * len(TEXTES))
+        step(f"embeddings, {nom} → HTTP {st} ; tailles des vecteurs : {tailles_recues} ; "
+             f"attendues : {[taille] * len(TEXTES)} ; formats : {formats_recus} ; attendu : {format_attendu} → "
+             f"{'conforme' if conforme else 'échec'}")
         if st != 200:
             print(json.dumps(rep, ensure_ascii=False)[:500])
         if not conforme:
             echecs.append(f"embeddings ({nom})")
-    # Taille réduite : tenue par un modèle qui l'accepte, refusée explicitement par les autres ; jamais d'autre taille.
+    # Taille réduite, demandée en base64 comme le font les SDK OpenAI : des chaînes de cette taille pour un modèle qui
+    # l'accepte, un refus explicite pour les autres ; jamais d'autre taille.
     reglable = MODEL in TAILLE_REGLABLE
-    st, rep, recues, comptes = vectoriser({"dimensions": 256}, test_key)
+    st, rep, tailles_recues, comptes = vectoriser({"dimensions": 256, "encoding_format": "base64"}, test_key)
     jetons += comptes
-    conforme = (st == 200 and recues == [256] * len(TEXTES)) if reglable else st == 400
-    detail = f"tailles des vecteurs : {recues}" if st == 200 else f"refus : {json.dumps(rep, ensure_ascii=False)[:200]}"
-    step(f"embeddings, dimensions 256 ({'à tenir' if reglable else 'à refuser'}) → HTTP {st} ; {detail} → {'conforme' if conforme else 'échec'}")
+    formats_recus = formats(rep) if st == 200 else []
+    conforme = (st == 200 and tailles_recues == [256] * len(TEXTES) and formats_recus == ["base64"] * len(TEXTES)
+                if reglable else st == 400)
+    detail = (f"tailles des vecteurs : {tailles_recues} ; formats : {formats_recus}" if st == 200
+              else f"refus : {json.dumps(rep, ensure_ascii=False)[:200]}")
+    step(f"embeddings, dimensions 256 en base64 ({'à tenir' if reglable else 'à refuser'}) → HTTP {st} ; {detail} → "
+         f"{'conforme' if conforme else 'échec'}")
     if not conforme:
         echecs.append("embeddings (dimensions)")
     # LiteLLM 1.102.1 ne renvoie pas le coût d'une réponse d'embeddings dans ses en-têtes : seule la dépense enregistrée
