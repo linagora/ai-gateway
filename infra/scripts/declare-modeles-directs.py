@@ -76,6 +76,20 @@ PARAMETRES_HORS_OPENAI_SCALEWAY = ["top_k", "min_p", "repetition_penalty", "top_
 PARAMETRES_REFUSES_DECODAGE_SPECULATIF = ["logit_bias"]
 RELEVE_PRIX_SCALEWAY = "2026-11-21"  # date du relevé des prix publics de Scaleway
 ORDRE_EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"]  # du plus faible au plus fort, comme sync-openrouter.py
+# Faits communs aux modèles de Scaleway, appelés dans le projet dédié à la passerelle, au niveau Expérimental pendant l'essai.
+ACCES_SCALEWAY = {"api_base": "os.environ/SCALEWAY_API_BASE", "api_key": "os.environ/SCALEWAY_API_KEY"}
+FAITS_SCALEWAY = {"source": "scaleway", "fournisseur": "Scaleway", "hebergeurs": ["Scaleway"], "zone": "UE", "data_level": "EXP",
+                  "hosting": "SCALEWAY", "pricing_currency": "EUR", "fx_rate_usd_eur": TAUX_USD_EUR}
+
+
+def montant(prix):
+    """Prix en euros, écrit à la française (0,60)."""
+    return f"{prix:.2f}".replace(".", ",")
+
+
+def par_jeton(prix):
+    """Prix par jeton, d'après un prix par million de jetons."""
+    return float(f"{prix / 1e6:.6g}")
 
 
 def modele_conversation_scaleway(nom, nom_scaleway, editeur, *, prix_entree, prix_sortie, contexte, sortie_max, capacites,
@@ -91,13 +105,6 @@ def modele_conversation_scaleway(nom, nom_scaleway, editeur, *, prix_entree, pri
             or efforts != sorted(efforts, key=ORDRE_EFFORTS.index) or effort_par_defaut not in (None, *efforts):
         raise SystemExit(f"✘ {nom} : efforts de raisonnement à déclarer pour un modèle qui raisonne, dans l'ordre "
                          f"{ORDRE_EFFORTS}, avec l'effort par défaut parmi eux")
-
-    def montant(prix):
-        return f"{prix:.2f}".replace(".", ",")
-
-    def par_jeton(prix):
-        return float(f"{prix / 1e6:.6g}")
-
     if prix_cache is None:
         # Jetons lus en cache sans prix publié : au prix d'entrée, comme pour la liste blanche OpenRouter. Sans prix
         # déclaré, LiteLLM les compte à 0 € (ticket #112).
@@ -110,24 +117,16 @@ def modele_conversation_scaleway(nom, nom_scaleway, editeur, *, prix_entree, pri
             # Fournisseur scaleway de LiteLLM : avec lui, la 1.102.1 fait passer /v1/messages (format Anthropic, utilisé par
             # des assistants de code) par les chat completions ; avec « openai/… », par l'API Responses (spécification #204).
             "model": f"scaleway/{nom_scaleway}",
-            "api_base": "os.environ/SCALEWAY_API_BASE",
-            "api_key": "os.environ/SCALEWAY_API_KEY",
+            **ACCES_SCALEWAY,
             "additional_drop_params": PARAMETRES_HORS_OPENAI_SCALEWAY + list(parametres_ecartes),
             "input_cost_per_token": par_jeton(prix_entree),
             "output_cost_per_token": par_jeton(prix_sortie),
             "cache_read_input_token_cost": par_jeton(prix_cache),
         },
         "model_info": {
-            "source": "scaleway",
-            "fournisseur": "Scaleway",
+            **FAITS_SCALEWAY,
             "editeur": editeur,
             "capacites": capacites,
-            "hebergeurs": ["Scaleway"],
-            "zone": "UE",
-            "data_level": "EXP",
-            "hosting": "SCALEWAY",
-            "pricing_currency": "EUR",
-            "fx_rate_usd_eur": TAUX_USD_EUR,
             "pricing_source": f"Tarif public de Scaleway Generative APIs : {montant(prix_entree)} € / {montant(prix_sortie)} € HT "
                               f"par million de jetons (entrée / sortie){mention_cache}, relevé le {RELEVE_PRIX_SCALEWAY}",
             "max_input_tokens": contexte,
@@ -154,7 +153,6 @@ def modele_conversation_scaleway(nom, nom_scaleway, editeur, *, prix_entree, pri
             "supports_reasoning": "raisonnement" in capacites,
         },
     }
-
 
 MODELES = [
     {
