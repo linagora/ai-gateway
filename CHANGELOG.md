@@ -7,6 +7,8 @@ All notable changes to LINAGORA AI Gateway, newest first. The format is based on
 
 ## [Unreleased]
 
+## [1.4.2] - 2026-11-21
+
 ### Changed
 
 - `deepseek-v4-pro`: price cap raised to $1.32 / $3.96 per million tokens. Its previous providers no longer serve it
@@ -197,7 +199,8 @@ First release of the gateway and its portal.
 - Development: translations left by the screenshots in the development catalog (#91); JEV no longer counted
   in the allowlist acceptance test (#106).
 
-[Unreleased]: https://github.com/linagora/ai-gateway/compare/v1.4.1...HEAD
+[Unreleased]: https://github.com/linagora/ai-gateway/compare/v1.4.2...HEAD
+[1.4.2]: https://github.com/linagora/ai-gateway/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/linagora/ai-gateway/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/linagora/ai-gateway/compare/v1.3.3...v1.4.0
 [1.3.3]: https://github.com/linagora/ai-gateway/compare/v1.3.2...v1.3.3
