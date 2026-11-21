@@ -228,6 +228,8 @@ def ecarts(voulu, existant):
     return diff + [f"model_info.{k}" for k, v in voulu["model_info"].items() if mi.get(k) != v]
 
 
+# Règle reprise par supprimer-modele-direct.py et, en variante, par test-liste-blanche.py, faute d'import possible
+# (scripts lus sur l'entrée standard) : les changer ensemble.
 def est_openrouter(m):
     lp = m.get("litellm_params") or {}
     # JEV passe par l'API System One d'OpenRouter : ce n'est pas un modèle de conversation de la liste blanche, mais
