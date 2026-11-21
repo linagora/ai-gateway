@@ -739,4 +739,24 @@ test.describe("modèles de transcription et d'OCR (ticket #214)", () => {
       await context.close();
     }
   });
+
+  test("la fiche d'un modèle de transcription donne les formats acceptés, la taille maximale et la facturation, et son exemple envoie un fichier à /v1/audio/transcriptions, en français et en anglais (ticket #217)", async ({ browser }) => {
+    for (const [langue, titre, textes] of [
+      ["fr-FR", "Modèle de transcription", ["WAV, FLAC, MP3 ou OGG Opus", /25\sMo au plus/, "facturé à la durée de l'audio"]],
+      ["en-US", "Transcription model", ["WAV, FLAC, MP3 or OGG Opus", /up to 25\sMB/, "billed by the duration of the audio"]],
+    ] as const) {
+      const context = await connecter(browser, salarie, langue);
+      const page = await context.newPage();
+      await page.goto("/catalogue/experimental?modele=dev-transcription");
+      const fiche = page.getByRole("dialog");
+      await expect(fiche.getByRole("heading", { level: 3, name: titre })).toBeVisible();
+      for (const texte of textes) await expect(fiche).toContainText(texte);
+      const exemple = fiche.locator("pre");
+      await expect(exemple).toContainText("/v1/audio/transcriptions");
+      await expect(exemple).toContainText("-F model=dev-transcription");
+      await expect(exemple).toContainText("-F file=@audio.mp3");
+      await expect(exemple).not.toContainText("chat/completions");
+      await context.close();
+    }
+  });
 });

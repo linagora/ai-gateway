@@ -45,6 +45,7 @@ export type Langage = (typeof LANGAGES)[number];
 export function exemplesAppel(modelName: string, apiKind: ApiKind, textes: TextesExemple): Record<Langage, string> {
   if (apiKind === "image") return exemplesImage(modelName, textes.image);
   if (apiKind === "embeddings") return exemplesEmbeddings(modelName, textes.aVectoriser);
+  if (apiKind === "transcription") return exemplesTranscription(modelName);
   const adresse = adresseApi();
   const contenu =
     apiKind === "decision"
@@ -167,6 +168,46 @@ function exemplesEmbeddings(modelName: string, aVectoriser: readonly [string, st
       `  input: [${litteraux}],`,
       "});",
       "console.log(response.data.map((d) => d.embedding.length));",
+    ].join("\n"),
+  };
+}
+
+/**
+ * Modèle de transcription : /v1/audio/transcriptions avec le fichier audio en multipart, comme le demandent les SDK
+ * OpenAI. La réponse est un JSON dont « text » porte le texte de l'enregistrement ; l'exemple l'affiche.
+ */
+function exemplesTranscription(modelName: string): Record<Langage, string> {
+  const adresse = adresseApi();
+  return {
+    curl: [
+      `curl ${adresse}/audio/transcriptions \\`,
+      `  -H "Authorization: Bearer $LINAGORA_API_KEY" \\`,
+      `  -F model=${modelName} \\`,
+      "  -F file=@audio.mp3 \\",
+      "  | jq -r '.text'",
+    ].join("\n"),
+    python: [
+      "import os",
+      "from openai import OpenAI",
+      "",
+      `client = OpenAI(base_url="${adresse}", api_key=os.environ["LINAGORA_API_KEY"])`,
+      'with open("audio.mp3", "rb") as f:',
+      "    transcription = client.audio.transcriptions.create(",
+      `        model="${modelName}",`,
+      "        file=f,",
+      "    )",
+      "print(transcription.text)",
+    ].join("\n"),
+    javascript: [
+      'import { createReadStream } from "node:fs";',
+      'import OpenAI from "openai";',
+      "",
+      `const client = new OpenAI({ baseURL: "${adresse}", apiKey: process.env.LINAGORA_API_KEY });`,
+      "const transcription = await client.audio.transcriptions.create({",
+      `  model: "${modelName}",`,
+      '  file: createReadStream("audio.mp3"),',
+      "});",
+      "console.log(transcription.text);",
     ].join("\n"),
   };
 }

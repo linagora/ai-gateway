@@ -25,10 +25,11 @@ const PASTILLE = "self-start rounded-xl px-2.5 text-sm";
 const REPERES: Record<PriceTier, "bas" | "moyen" | "eleve"> = { "€": "bas", "€€": "moyen", "€€€": "eleve" };
 
 /** Section de la fiche qui présente un type d'API autre que la conversation : titre et explication. */
-const SECTIONS_TYPE_API: Partial<Record<ApiKind, "apiDecision" | "apiImage" | "apiEmbeddings">> = {
+const SECTIONS_TYPE_API: Partial<Record<ApiKind, "apiDecision" | "apiImage" | "apiEmbeddings" | "apiTranscription">> = {
   decision: "apiDecision",
   image: "apiImage",
   embeddings: "apiEmbeddings",
+  transcription: "apiTranscription",
 };
 
 /**
