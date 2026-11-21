@@ -76,6 +76,20 @@ PARAMETRES_HORS_OPENAI_SCALEWAY = ["top_k", "min_p", "repetition_penalty", "top_
 PARAMETRES_REFUSES_DECODAGE_SPECULATIF = ["logit_bias"]
 RELEVE_PRIX_SCALEWAY = "2026-11-21"  # date du relevé des prix publics de Scaleway
 ORDRE_EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"]  # du plus faible au plus fort, comme sync-openrouter.py
+# Faits communs aux modèles de Scaleway, appelés dans le projet dédié à la passerelle, au niveau Expérimental pendant l'essai.
+ACCES_SCALEWAY = {"api_base": "os.environ/SCALEWAY_API_BASE", "api_key": "os.environ/SCALEWAY_API_KEY"}
+FAITS_SCALEWAY = {"source": "scaleway", "fournisseur": "Scaleway", "hebergeurs": ["Scaleway"], "zone": "UE", "data_level": "EXP",
+                  "hosting": "SCALEWAY", "pricing_currency": "EUR", "fx_rate_usd_eur": TAUX_USD_EUR}
+
+
+def montant(prix):
+    """Prix en euros, écrit à la française (0,60)."""
+    return f"{prix:.2f}".replace(".", ",")
+
+
+def par_jeton(prix):
+    """Prix par jeton, d'après un prix par million de jetons."""
+    return float(f"{prix / 1e6:.6g}")
 
 
 def modele_conversation_scaleway(nom, nom_scaleway, editeur, *, prix_entree, prix_sortie, contexte, sortie_max, capacites,
@@ -91,13 +105,6 @@ def modele_conversation_scaleway(nom, nom_scaleway, editeur, *, prix_entree, pri
             or efforts != sorted(efforts, key=ORDRE_EFFORTS.index) or effort_par_defaut not in (None, *efforts):
         raise SystemExit(f"✘ {nom} : efforts de raisonnement à déclarer pour un modèle qui raisonne, dans l'ordre "
                          f"{ORDRE_EFFORTS}, avec l'effort par défaut parmi eux")
-
-    def montant(prix):
-        return f"{prix:.2f}".replace(".", ",")
-
-    def par_jeton(prix):
-        return float(f"{prix / 1e6:.6g}")
-
     if prix_cache is None:
         # Jetons lus en cache sans prix publié : au prix d'entrée, comme pour la liste blanche OpenRouter. Sans prix
         # déclaré, LiteLLM les compte à 0 € (ticket #112).
@@ -110,24 +117,16 @@ def modele_conversation_scaleway(nom, nom_scaleway, editeur, *, prix_entree, pri
             # Fournisseur scaleway de LiteLLM : avec lui, la 1.102.1 fait passer /v1/messages (format Anthropic, utilisé par
             # des assistants de code) par les chat completions ; avec « openai/… », par l'API Responses (spécification #204).
             "model": f"scaleway/{nom_scaleway}",
-            "api_base": "os.environ/SCALEWAY_API_BASE",
-            "api_key": "os.environ/SCALEWAY_API_KEY",
+            **ACCES_SCALEWAY,
             "additional_drop_params": PARAMETRES_HORS_OPENAI_SCALEWAY + list(parametres_ecartes),
             "input_cost_per_token": par_jeton(prix_entree),
             "output_cost_per_token": par_jeton(prix_sortie),
             "cache_read_input_token_cost": par_jeton(prix_cache),
         },
         "model_info": {
-            "source": "scaleway",
-            "fournisseur": "Scaleway",
+            **FAITS_SCALEWAY,
             "editeur": editeur,
             "capacites": capacites,
-            "hebergeurs": ["Scaleway"],
-            "zone": "UE",
-            "data_level": "EXP",
-            "hosting": "SCALEWAY",
-            "pricing_currency": "EUR",
-            "fx_rate_usd_eur": TAUX_USD_EUR,
             "pricing_source": f"Tarif public de Scaleway Generative APIs : {montant(prix_entree)} € / {montant(prix_sortie)} € HT "
                               f"par million de jetons (entrée / sortie){mention_cache}, relevé le {RELEVE_PRIX_SCALEWAY}",
             "max_input_tokens": contexte,
@@ -152,6 +151,34 @@ def modele_conversation_scaleway(nom, nom_scaleway, editeur, *, prix_entree, pri
             # vérifié le 2026-11-21 : sans ces champs, une requête de Claude Code arrivait chez Scaleway sans ses outils).
             "supports_function_calling": appel_outils,
             "supports_reasoning": "raisonnement" in capacites,
+        },
+    }
+
+
+def modele_embeddings_scaleway(nom, nom_scaleway, editeur, *, prix_entree, contexte, taille):
+    """Modèle d'embeddings de Scaleway, au niveau Expérimental pendant l'essai, facturé à l'entrée seule. Prix en € HT par
+    million de jetons d'entrée, relevé le RELEVE_PRIX_SCALEWAY ; contexte en jetons par texte ; taille des vecteurs."""
+    return {
+        "model_name": nom,
+        "litellm_params": {
+            # Route compatible OpenAI de vLLM, comme pour les embeddings d'OVH : la route scaleway/ de LiteLLM 1.102.1
+            # ne fait pas d'embeddings (« Unmapped LLM provider »). Scaleway rend le format demandé, base64 des SDK
+            # OpenAI compris : aucun format n'est imposé, et la garde n'a rien à convertir (vérifié le 2026-11-21).
+            "model": f"hosted_vllm/{nom_scaleway}",
+            **ACCES_SCALEWAY,
+            "input_cost_per_token": par_jeton(prix_entree),
+            "output_cost_per_token": 0.0,  # un modèle d'embeddings ne produit pas de jetons de sortie
+        },
+        "model_info": {
+            **FAITS_SCALEWAY,
+            "editeur": editeur,
+            "capacites": [],
+            "pricing_source": f"Tarif public de Scaleway Generative APIs : {montant(prix_entree)} € HT par million de jetons "
+                              f"d'entrée, relevé le {RELEVE_PRIX_SCALEWAY}",
+            "max_input_tokens": contexte,
+            "type_api": "embeddings",  # lu par le portail : appelé par /v1/embeddings, et non par la conversation
+            "output_vector_size": taille,  # champ standard de LiteLLM pour la taille des vecteurs, lu par le portail
+            "mode": "embedding",  # pour que les contrôles de santé de LiteLLM l'interrogent par /embeddings
         },
     }
 
@@ -291,12 +318,12 @@ MODELES = [
     modele_embeddings("bge-m3", "bge-m3", "BAAI", 0.01, 8192, 1024),
     modele_embeddings("bge-multilingual-gemma2", "bge-multilingual-gemma2", "BAAI", 0.01, 8192, 3584),
     modele_embeddings("qwen3-embedding-8b", "Qwen3-Embedding-8B", "Alibaba (Qwen)", 0.10, 32768, 4096),
-    # --- Scaleway (appels directs du 2026-11-21, tickets #206 et #207) ---
+    # --- Scaleway (appels directs du 2026-11-21, tickets #206, #207 et #208) ---
     # Contexte : d'après le refus d'une entrée plus longue ; sortie maximale : « max_completion_tokens is limited to … » ;
     # efforts : ceux que publie Scaleway (« Supported reasoning efforts »), l'effort par défaut quand une requête sans effort
-    # se comporte comme l'un d'eux. Tous appellent des outils (tool_choice auto, required et nommé, résultat renvoyé, flux).
-    # Ceux que la documentation dit non pris en charge (frequency_penalty, n, top_logprobs, user) passent, comme
-    # prompt_cache_key.
+    # se comporte comme l'un d'eux. Les modèles de conversation appellent tous des outils (tool_choice auto, required et
+    # nommé, résultat renvoyé, flux). Les paramètres que la documentation dit non pris en charge (frequency_penalty, n,
+    # top_logprobs, user) passent, comme prompt_cache_key.
     modele_conversation_scaleway(
         "qwen3.8-scaleway", "qwen3.8-27b", "Alibaba (Qwen)", prix_entree=0.60, prix_sortie=3.30, prix_cache=0.12,
         # Contexte de 262 144 jetons (« 256k » publiés).
@@ -374,6 +401,10 @@ MODELES = [
         efforts_raisonnement=["none", "low", "high", "max"],
         parametres_ecartes=PARAMETRES_REFUSES_DECODAGE_SPECULATIF,
     ),
+    # Base64 et nombres rendus comme demandé ; taille réglable de 32 à 4 096 (dimensions). Contexte de 40 960 jetons par
+    # texte (32k publiés), refus au-delà.
+    modele_embeddings_scaleway("qwen3-embedding-8b-scaleway", "qwen3-embedding-8b", "Alibaba (Qwen)", prix_entree=0.10,
+                               contexte=40960, taille=4096),
 ]
 
 
