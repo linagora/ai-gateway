@@ -29,12 +29,22 @@ OVHcloud, dont le gabarit refuse les autres, et des modèles de Scaleway) : Clau
 entrées « system » au milieu de la conversation (son environnement, après la première question ; 2.1.314), que LiteLLM
 transmet à leur place (1.102.1). La garde les rattache au message de l'utilisateur qui les précède, entre balises
 <system-reminder>, comme Claude Code le fait de ses rappels.
+
+Transcriptions (/v1/audio/transcriptions) : LiteLLM les compte à la durée de l'audio, qu'il lit avec la bibliothèque
+soundfile, et à 0 € sans erreur s'il ne la lit pas (1.102.1). La garde lit la durée avant l'appel, avec la fonction de
+LiteLLM, puis remet le fichier à son début ; si elle ne la lit pas, elle refuse l'appel. Dans l'image amd64 de la 1.102.1,
+celle de la production (libsndfile 1.2.0 livrée avec soundfile, compilée avec MP3), soundfile lit WAV, FLAC, MP3, OGG
+(Vorbis, Opus) et AIFF, mais ni M4A, ni MP4, ni WebM (essayés le 2026-11-21), que Scaleway accepte pourtant. Le refus
+n'annonce que les formats que Scaleway a aussi transcrits : ni OGG Vorbis, pas essayé, ni AIFF, absent de sa liste.
+L'image arm64, sous le même digest (postes Mac), prend la libsndfile 1.2.2 du système, compilée sans MP3 : le MP3 y est
+refusé.
 """
 import sys
 
 import litellm
 from fastapi import HTTPException
 from litellm.integrations.custom_logger import CustomLogger
+from litellm.litellm_core_utils.audio_utils.utils import calculate_request_duration
 from litellm.litellm_core_utils.litellm_logging import use_custom_pricing_for_model
 
 PARAMETRES_INTERDITS = frozenset({
@@ -47,6 +57,15 @@ PARAMETRES_INTERDITS = frozenset({
 MOTIFS_APPELS_REFUSES = ("image", "video")
 
 PROFONDEURS_RECHERCHE = ("low", "medium", "high")
+
+# Refus d'un fichier audio dont la durée est illisible, en français et en anglais : formats lus par soundfile dans l'image
+# de LiteLLM de la production et transcrits par Scaleway (voir plus haut).
+REFUS_FORMAT_AUDIO = (
+    "Fichier audio refusé par la passerelle LINAGORA : sa durée, qui fixe le prix de la transcription, est illisible. "
+    "Formats acceptés : WAV, FLAC, MP3 et OGG Opus ; M4A, MP4 et WebM ne le sont pas. "
+    "/ Audio file refused by the LINAGORA gateway: its duration, which sets the transcription price, cannot be read. "
+    "Accepted formats: WAV, FLAC, MP3 and OGG Opus; M4A, MP4 and WebM are not."
+)
 
 
 def declaration_recherche(modele):
@@ -122,6 +141,11 @@ class GardePasserelle(CustomLogger):
         if interdits:
             raise HTTPException(status_code=400, detail={"error": f"Paramètre refusé par la passerelle LINAGORA : {', '.join(interdits)}. "
                                                                   "Le modèle et le fournisseur sont fixés par la passerelle."})
+        if "transcription" in str(call_type):
+            # Le fichier, lu en entier par LiteLLM, est dans la requête (io.BytesIO) avant l'appel des crochets.
+            if calculate_request_duration(data.get("file")) is None:
+                raise HTTPException(status_code=400, detail={"error": REFUS_FORMAT_AUDIO})
+            data["file"].seek(0)
         if call_type == "anthropic_messages" and systeme_en_tete(data.get("model")):
             data["messages"] = rappels_systeme(data.get("messages") or [])
         declaration = declaration_recherche(data.get("model"))
