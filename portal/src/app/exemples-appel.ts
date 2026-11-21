@@ -39,19 +39,32 @@ export type Langage = (typeof LANGAGES)[number];
 
 /**
  * Exemples d'appel prêts à copier, avec l'adresse publique de la passerelle et le nom du modèle. La clé n'y
- * figure jamais : elle est lue dans la variable d'environnement LINAGORA_API_KEY. Une API de décision comme
- * JEV reçoit dans le dernier message sa requête « System One » en JSON : un état et des questions typées.
+ * figure jamais : elle est lue dans la variable d'environnement LINAGORA_API_KEY.
  */
 export function exemplesAppel(modelName: string, apiKind: ApiKind, textes: TextesExemple): Record<Langage, string> {
-  if (apiKind === "image") return exemplesImage(modelName, textes.image);
-  if (apiKind === "embeddings") return exemplesEmbeddings(modelName, textes.aVectoriser);
-  if (apiKind === "transcription") return exemplesTranscription(modelName);
-  if (apiKind === "ocr") return exemplesOcr(modelName);
+  switch (apiKind) {
+    case "conversation":
+      return exemplesConversation(modelName, textes.message);
+    case "decision": {
+      // Une API de décision comme JEV reçoit dans le dernier message sa requête « System One » en JSON : un état et
+      // des questions typées.
+      const requete = { state: textes.etat, questions: { urgent: { type: "noul", instructions: textes.question } } };
+      return exemplesConversation(modelName, JSON.stringify(requete));
+    }
+    case "image":
+      return exemplesImage(modelName, textes.image);
+    case "embeddings":
+      return exemplesEmbeddings(modelName, textes.aVectoriser);
+    case "transcription":
+      return exemplesTranscription(modelName);
+    case "ocr":
+      return exemplesOcr(modelName);
+  }
+}
+
+/** Modèle de conversation ou API de décision : /v1/chat/completions avec un message de l'utilisateur. */
+function exemplesConversation(modelName: string, contenu: string): Record<Langage, string> {
   const adresse = adresseApi();
-  const contenu =
-    apiKind === "decision"
-      ? JSON.stringify({ state: textes.etat, questions: { urgent: { type: "noul", instructions: textes.question } } })
-      : textes.message;
   const corps = JSON.stringify({ model: modelName, messages: [{ role: "user", content: contenu }] }, null, 2);
   const litteral = JSON.stringify(contenu);
   return {
