@@ -88,7 +88,8 @@ services:
       SCALEWAY_API_BASE: ${SCALEWAY_API_BASE}
       SCALEWAY_API_KEY: ${SCALEWAY_API_KEY}
     volumes:
-      # config.yaml, garde.py (chargée depuis le dossier de la configuration) et liste blanche OpenRouter
+      # config.yaml, garde.py (chargée depuis le dossier de la configuration), liste blanche OpenRouter et fichiers de
+      # la recette (recette/, lus par scripts/smoke-test.py, qui s'exécute dans ce conteneur)
       - ./litellm:/app/passerelle:ro
     depends_on:
       postgres:
