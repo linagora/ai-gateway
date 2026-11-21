@@ -71,15 +71,39 @@ def modele_embeddings(nom, nom_ovh, editeur, prix_eur_par_million, contexte, tai
 # qui les refuse (erreur 500 « unexpected keyword argument », vérifié le 2026-11-21 pour top_k, repetition_penalty et
 # top_a ; top_k passe pourtant chez Scaleway). Écartés pour tous les modèles de Scaleway.
 PARAMETRES_HORS_OPENAI_SCALEWAY = ["top_k", "min_p", "repetition_penalty", "top_a"]
+# Paramètre que refusent les modèles servis avec décodage spéculatif : « The min_p and logit_bias sampling parameters are
+# not yet supported with speculative decoding » (min_p, refusé au-delà de 0, est écarté pour toute la famille).
+PARAMETRES_REFUSES_DECODAGE_SPECULATIF = ["logit_bias"]
+RELEVE_PRIX_SCALEWAY = "2026-11-21"  # date du relevé des prix publics de Scaleway
+ORDRE_EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"]  # du plus faible au plus fort, comme sync-openrouter.py
 
 
-def modele_scaleway(nom, nom_scaleway, editeur, *, prix_entree, prix_sortie, prix_cache, date_releve, contexte, sortie_max,
-                    capacites, contenus_entree, efforts_raisonnement, effort_par_defaut, parametres_ecartes):
+def modele_conversation_scaleway(nom, nom_scaleway, editeur, *, prix_entree, prix_sortie, contexte, sortie_max, capacites,
+                                 prix_cache=None, appel_outils=True, efforts_raisonnement=(), effort_par_defaut=None,
+                                 systeme_en_tete=False, parametres_ecartes=()):
     """Modèle de conversation de Scaleway, au niveau Expérimental pendant l'essai. Prix en € HT par million de jetons
-    (entrée, sortie, jetons lus en cache), relevés à la date donnée ; contexte et sortie maximale en jetons."""
+    (entrée, sortie, et jetons lus en cache quand Scaleway leur publie un prix), relevés le RELEVE_PRIX_SCALEWAY ; contexte
+    et sortie maximale en jetons ; texte accepté en entrée, images et vidéos si les capacités en comptent. Les autres faits
+    viennent des appels directs : appel d'outils, efforts de raisonnement (dans l'ordre d'ORDRE_EFFORTS), message système
+    accepté seulement en tête, paramètres refusés."""
+    efforts = list(efforts_raisonnement)
+    if (efforts and "raisonnement" not in capacites) or not set(efforts) <= set(ORDRE_EFFORTS) \
+            or efforts != sorted(efforts, key=ORDRE_EFFORTS.index) or effort_par_defaut not in (None, *efforts):
+        raise SystemExit(f"✘ {nom} : efforts de raisonnement à déclarer pour un modèle qui raisonne, dans l'ordre "
+                         f"{ORDRE_EFFORTS}, avec l'effort par défaut parmi eux")
+
     def montant(prix):
         return f"{prix:.2f}".replace(".", ",")
 
+    def par_jeton(prix):
+        return float(f"{prix / 1e6:.6g}")
+
+    if prix_cache is None:
+        # Jetons lus en cache sans prix publié : au prix d'entrée, comme pour la liste blanche OpenRouter. Sans prix
+        # déclaré, LiteLLM les compte à 0 € (ticket #112).
+        prix_cache, mention_cache = prix_entree, ""
+    else:
+        mention_cache = f", {montant(prix_cache)} € pour les jetons lus en cache"
     return {
         "model_name": nom,
         "litellm_params": {
@@ -88,11 +112,10 @@ def modele_scaleway(nom, nom_scaleway, editeur, *, prix_entree, prix_sortie, pri
             "model": f"scaleway/{nom_scaleway}",
             "api_base": "os.environ/SCALEWAY_API_BASE",
             "api_key": "os.environ/SCALEWAY_API_KEY",
-            "additional_drop_params": PARAMETRES_HORS_OPENAI_SCALEWAY + parametres_ecartes,
-            "input_cost_per_token": float(f"{prix_entree / 1e6:.6g}"),
-            "output_cost_per_token": float(f"{prix_sortie / 1e6:.6g}"),
-            # Sans prix déclaré, LiteLLM compte à 0 € les jetons lus en cache (ticket #112).
-            "cache_read_input_token_cost": float(f"{prix_cache / 1e6:.6g}"),
+            "additional_drop_params": PARAMETRES_HORS_OPENAI_SCALEWAY + list(parametres_ecartes),
+            "input_cost_per_token": par_jeton(prix_entree),
+            "output_cost_per_token": par_jeton(prix_sortie),
+            "cache_read_input_token_cost": par_jeton(prix_cache),
         },
         "model_info": {
             "source": "scaleway",
@@ -105,19 +128,29 @@ def modele_scaleway(nom, nom_scaleway, editeur, *, prix_entree, prix_sortie, pri
             "hosting": "SCALEWAY",
             "pricing_currency": "EUR",
             "fx_rate_usd_eur": TAUX_USD_EUR,
-            "pricing_source": f"Tarif public de Scaleway Generative APIs : {montant(prix_entree)} € / {montant(prix_sortie)} € HT par million de jetons (entrée / sortie), {montant(prix_cache)} € pour les jetons lus en cache, relevé le {date_releve}",
+            "pricing_source": f"Tarif public de Scaleway Generative APIs : {montant(prix_entree)} € / {montant(prix_sortie)} € HT "
+                              f"par million de jetons (entrée / sortie){mention_cache}, relevé le {RELEVE_PRIX_SCALEWAY}",
             "max_input_tokens": contexte,
             "max_output_tokens": sortie_max,
-            # Contenus acceptés et produits, lus par le portail pour la configuration d'OpenCode.
-            "contenus_entree": contenus_entree,
+            # Contenus acceptés et produits, lus par le portail pour la configuration d'OpenCode. Parmi les modèles de
+            # conversation de Scaleway, la capacité audio_video ne vaut que pour des vidéos : aucun n'y prend l'audio.
+            "contenus_entree": ["text", *(["image"] if "images" in capacites else []), *(["video"] if "audio_video" in capacites else [])],
             "contenus_sortie": ["text"],
-            # Efforts de raisonnement, lus par le portail : les variantes d'effort du modèle dans OpenCode.
-            "efforts_raisonnement": efforts_raisonnement,
-            "effort_par_defaut": effort_par_defaut,
+            # Appel d'outils, lu par le portail : les assistants de code écartent un modèle qui n'en appelle pas. Message
+            # système accepté seulement en tête de la conversation, lu par la garde (litellm/garde.py) : elle rattache ceux
+            # qu'envoie Claude Code au message de l'utilisateur qui les précède. Déclarés vrais ou faux, comme l'appel
+            # d'outils dans la liste blanche OpenRouter : la mise à jour d'un modèle complète sa déclaration sans en retirer
+            # de champ.
+            "appel_outils": appel_outils,
+            "systeme_en_tete": systeme_en_tete,
+            # Efforts de raisonnement, lus par le portail : les variantes d'effort du modèle dans OpenCode. Déclarés pour un
+            # modèle qui en publie, comme dans la liste blanche OpenRouter.
+            **({"efforts_raisonnement": efforts} if efforts else {}),
+            **({"effort_par_defaut": effort_par_defaut} if effort_par_defaut else {}),
             # Champs de LiteLLM : son fournisseur scaleway retire les outils (tools, tool_choice…) de la requête d'un modèle
             # qui ne déclare pas les appeler, et n'y laisse reasoning_effort que pour un modèle qui déclare raisonner (1.102.1 ;
             # vérifié le 2026-11-21 : sans ces champs, une requête de Claude Code arrivait chez Scaleway sans ses outils).
-            "supports_function_calling": True,
+            "supports_function_calling": appel_outils,
             "supports_reasoning": "raisonnement" in capacites,
         },
     }
@@ -258,22 +291,88 @@ MODELES = [
     modele_embeddings("bge-m3", "bge-m3", "BAAI", 0.01, 8192, 1024),
     modele_embeddings("bge-multilingual-gemma2", "bge-multilingual-gemma2", "BAAI", 0.01, 8192, 3584),
     modele_embeddings("qwen3-embedding-8b", "Qwen3-Embedding-8B", "Alibaba (Qwen)", 0.10, 32768, 4096),
-    # --- Scaleway (appels directs du 2026-11-21, ticket #206) ---
-    modele_scaleway(
+    # --- Scaleway (appels directs du 2026-11-21, tickets #206 et #207) ---
+    # Contexte : d'après le refus d'une entrée plus longue ; sortie maximale : « max_completion_tokens is limited to … » ;
+    # efforts : ceux que publie Scaleway (« Supported reasoning efforts »), l'effort par défaut quand une requête sans effort
+    # se comporte comme l'un d'eux. Tous appellent des outils (tool_choice auto, required et nommé, résultat renvoyé, flux).
+    # Ceux que la documentation dit non pris en charge (frequency_penalty, n, top_logprobs, user) passent, comme
+    # prompt_cache_key.
+    modele_conversation_scaleway(
         "qwen3.8-scaleway", "qwen3.8-27b", "Alibaba (Qwen)", prix_entree=0.60, prix_sortie=3.30, prix_cache=0.12,
-        date_releve="2026-11-21",
-        # Contexte de 262 144 jetons (« 256k » publiés), d'après le refus d'une requête plus longue ; sortie bornée par
-        # Scaleway : « max_completion_tokens is limited to 32768 ».
-        contexte=262144, sortie_max=32768,
-        capacites=["images", "raisonnement"], contenus_entree=["text", "image"],
-        # Efforts publiés par Scaleway (« Supported reasoning efforts ») ; minimal et high passent aussi, avec les jetons
-        # d'entrée de low et de xhigh. Une requête sans effort compte ceux de medium.
+        # Contexte de 262 144 jetons (« 256k » publiés).
+        contexte=262144, sortie_max=32768, capacites=["images", "raisonnement"],
+        # minimal et high passent aussi, avec les jetons d'entrée de low et de xhigh. Une requête sans effort compte ceux
+        # de medium.
         efforts_raisonnement=["none", "low", "medium", "xhigh"], effort_par_defaut="medium",
-        # Paramètre refusé : « The min_p and logit_bias sampling parameters are not yet supported with speculative
-        # decoding » (min_p, refusé au-delà de 0, est écarté pour tous les modèles de Scaleway). Ceux que la documentation
-        # dit non pris en charge (frequency_penalty, n, top_logprobs, user) passent, comme prompt_cache_key et un message
-        # système au milieu de la conversation (pas de systeme_en_tete).
-        parametres_ecartes=["logit_bias"],
+        parametres_ecartes=PARAMETRES_REFUSES_DECODAGE_SPECULATIF,
+    ),
+    modele_conversation_scaleway(
+        "gpt-oss-120b", "gpt-oss-120b", "OpenAI", prix_entree=0.15, prix_sortie=0.60, contexte=131072, sortie_max=32768,
+        # Une image est ignorée, sans refus. none, minimal, xhigh et max refusés.
+        capacites=["raisonnement"], efforts_raisonnement=["low", "medium", "high"],
+    ),
+    modele_conversation_scaleway(
+        "llama-3.3-70b", "llama-3.3-70b-instruct", "Meta", prix_entree=0.90, prix_sortie=0.90,
+        # Contexte de 131 072 jetons (100k publiés pour l'offre serverless).
+        contexte=131072, sortie_max=16384, capacites=[],
+    ),
+    modele_conversation_scaleway(
+        "gemma-4-26b", "gemma-4-26b-a4b-it", "Google", prix_entree=0.25, prix_sortie=0.50, contexte=262144, sortie_max=32768,
+        capacites=["images", "raisonnement"], efforts_raisonnement=["none", "low", "medium", "high"],
+    ),
+    modele_conversation_scaleway(
+        "qwen3-235b", "qwen3-235b-a22b-instruct-2507", "Alibaba (Qwen)", prix_entree=0.75, prix_sortie=2.25,
+        # Contexte de 262 144 jetons (250k publiés).
+        contexte=262144, sortie_max=16384, capacites=[],
+    ),
+    modele_conversation_scaleway(
+        "qwen3.5-397b", "qwen3.5-397b-a17b", "Alibaba (Qwen)", prix_entree=0.60, prix_sortie=3.60,
+        # Contexte de 262 144 jetons (250k publiés). Vidéos acceptées en entrée (MP4 essayé ; MPEG, MOV, OGG et WEBM publiés).
+        contexte=262144, sortie_max=16384, capacites=["images", "audio_video", "raisonnement"],
+        efforts_raisonnement=["none", "low", "medium", "high"],
+    ),
+    modele_conversation_scaleway(
+        "qwen3.6-35b", "qwen3.6-35b-a3b", "Alibaba (Qwen)", prix_entree=0.25, prix_sortie=1.50, contexte=262144,
+        sortie_max=32768, capacites=["images", "raisonnement"], efforts_raisonnement=["none", "low", "medium", "high"],
+        # « System message must be at the beginning. », même juste après la question.
+        systeme_en_tete=True,
+    ),
+    # Modèles que la passerelle sert aussi par OpenRouter : suffixe -scaleway, versions OpenRouter inchangées.
+    modele_conversation_scaleway(
+        "mistral-small-3.2-scaleway", "mistral-small-3.2-24b-instruct-2506", "Mistral AI", prix_entree=0.15, prix_sortie=0.35,
+        contexte=131072, sortie_max=32768, capacites=["images"],
+        # « Unexpected role 'system' after role 'assistant' » ; un système juste après la question passe.
+        systeme_en_tete=True,
+    ),
+    modele_conversation_scaleway(
+        "mistral-medium-3.5-scaleway", "mistral-medium-3.5-128b", "Mistral AI", prix_entree=1.50, prix_sortie=7.50,
+        # Contexte limité à 180 000 jetons pendant la Preview.
+        contexte=180000, sortie_max=16384, capacites=["images", "raisonnement"],
+        # « Supported values are: ['none', 'high'] » ; sans effort, pas de raisonnement, comme avec none.
+        efforts_raisonnement=["none", "high"], effort_par_defaut="none",
+        # « Unexpected role 'system' after role 'assistant' ».
+        systeme_en_tete=True,
+    ),
+    modele_conversation_scaleway(
+        "glm-5.3-scaleway", "glm-5.3", "Z.ai (Zhipu)", prix_entree=1.80, prix_sortie=5.50, contexte=262144, sortie_max=24576,
+        capacites=["raisonnement"], efforts_raisonnement=["none", "low", "high", "max"],
+        parametres_ecartes=PARAMETRES_REFUSES_DECODAGE_SPECULATIF,
+    ),
+    modele_conversation_scaleway(
+        "deepseek-v4-flash-scaleway", "deepseek-v4-flash-0731", "DeepSeek", prix_entree=0.40, prix_sortie=0.80, prix_cache=0.08,
+        contexte=262144, sortie_max=32768, capacites=["raisonnement"],
+        # Une requête sans effort compte les jetons d'entrée de high.
+        efforts_raisonnement=["none", "low", "high", "max"], effort_par_defaut="high",
+        parametres_ecartes=PARAMETRES_REFUSES_DECODAGE_SPECULATIF,
+    ),
+    modele_conversation_scaleway(
+        "deepseek-v4.1-flash-1017-scaleway", "deepseek-v4.1-flash-1017", "DeepSeek", prix_entree=0.60, prix_sortie=1.80,
+        prix_cache=0.12,
+        # Sortie bornée à 32 768 jetons (131K publiés).
+        contexte=262144, sortie_max=32768, capacites=["images", "raisonnement"],
+        # minimal et medium refusés : « reasoning_effort must be low, high, xhigh, max » ; xhigh passe.
+        efforts_raisonnement=["none", "low", "high", "max"],
+        parametres_ecartes=PARAMETRES_REFUSES_DECODAGE_SPECULATIF,
     ),
 ]
 
