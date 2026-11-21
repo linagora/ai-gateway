@@ -13,7 +13,7 @@ $$;
 
 -- Libellés des hébergements (model_info.hosting)
 CREATE OR REPLACE FUNCTION reporting.libelle_hebergement(hebergement text) RETURNS text LANGUAGE sql IMMUTABLE AS $$
-  SELECT CASE hebergement WHEN 'INTERNE' THEN 'Linagora' WHEN 'INTERNE_OVH' THEN 'OVHcloud' WHEN 'SCALEWAY' THEN 'Scaleway'
+  SELECT CASE hebergement WHEN 'INTERNE' THEN 'LINAGORA' WHEN 'INTERNE_OVH' THEN 'OVHcloud' WHEN 'SCALEWAY' THEN 'Scaleway'
                           WHEN 'UE' THEN 'Union européenne' WHEN 'HORS_UE' THEN 'Hors UE' ELSE 'Non renseigné' END
 $$;
 
