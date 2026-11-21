@@ -10,7 +10,8 @@ Un modèle de la liste sans point d'accès retenu (aucun dans sa zone, ou aucun 
 publie un autre prix de recherche que la liste, est un écart : signalé, sa déclaration laissée en l'état, sans arrêter
 le passage pour les autres modèles.
 
-Pour chaque modèle : points d'accès OpenRouter de sa zone (API publique /models/<id>/endpoints), prix
+Pour chaque modèle : points d'accès OpenRouter de sa zone (API publique /models/<id>/endpoints), hors paliers de
+service (flex, priority), que le routage par provider.only n'atteint pas ; prix
 en € = prix le plus élevé de ces points d'accès × (1 + frais) × taux, routage limité à ces points
 d'accès, avec repli de l'un à l'autre quand le premier choisi par OpenRouter est saturé ou en panne : le repli
 ne sort pas de provider.only (vérifié le 2026-10-31). Jetons lus depuis le cache (et écrits) : même calcul sur les
@@ -84,6 +85,12 @@ def arrondi(x):
     return float(f"{x:.6g}")
 
 
+def usd_par_mtoken(point, cle):
+    """Prix d'un point d'accès en $ par million de jetons, arrondi : sans arrondi, 0,00000396 × 1e6 donne
+    3,9600000000000004, et un point d'accès facturé au plafond de 3,96 $ en serait exclu."""
+    return arrondi(float(point["pricing"][cle]) * 1e6)
+
+
 # Efforts de raisonnement, du plus faible au plus fort : OpenRouter les publie dans le désordre.
 ORDRE_EFFORTS = ["none", "minimal", "low", "medium", "high", "xhigh", "max"]
 # Modalités d'OpenRouter dans le vocabulaire du portail (« file » : documents PDF), dans un ordre fixe.
@@ -99,15 +106,18 @@ def declaration(entree, cfg, modeles_openrouter):
     """Déclaration LiteLLM d'un modèle de la liste blanche ; `modeles_openrouter` : liste publique d'OpenRouter, par identifiant."""
     zone = [z for z in cfg["zones"][entree["zone"]] if z not in entree.get("exclus", [])]
     donnees = http("GET", f"{OPENROUTER}/models/{entree['openrouter']}/endpoints", auth=False)["data"]
-    tous = donnees["endpoints"]
+    # Paliers de service d'OpenRouter (service_tier « flex » ou « priority ») : points d'accès à part, que provider.only
+    # n'atteint pas (vérifié le 2026-11-21 : deepseek-v4-pro, réduit à deepinfra/fp8/flex, refusé « permits only:
+    # deepinfra »). Ni retenus, ni comptés dans le prix.
+    tous = [e for e in donnees["endpoints"] if not e.get("service_tier")]
     plafond = entree.get("prix_max_usd")
     retenus = [e for e in tous if dans_zone(e["tag"], zone) and (
-        plafond is None or (float(e["pricing"]["prompt"]) * 1e6 <= plafond[0] and float(e["pricing"]["completion"]) * 1e6 <= plafond[1]))]
+        plafond is None or (usd_par_mtoken(e, "prompt") <= plafond[0] and usd_par_mtoken(e, "completion") <= plafond[1]))]
     if not retenus:
         # Des points d'accès de la zone, tous au-dessus du plafond : leurs prix disent de combien.
         if hors_plafond := [e for e in tous if dans_zone(e["tag"], zone)]:
             raise SansPointDAcces(f"plafond de {plafond[0]} $ / {plafond[1]} $ dépassé dans la zone {entree['zone']} (" + ", ".join(
-                f"{e['tag']} : {float(e['pricing']['prompt']) * 1e6:g} $ / {float(e['pricing']['completion']) * 1e6:g} $" for e in hors_plafond) + ")")
+                f"{e['tag']} : {usd_par_mtoken(e, 'prompt'):g} $ / {usd_par_mtoken(e, 'completion'):g} $" for e in hors_plafond) + ")")
         raise SansPointDAcces(f"aucun point d'accès OpenRouter dans la zone {entree['zone']} (disponibles : {', '.join(e['tag'] for e in tous)})")
     usd_in = max(float(e["pricing"]["prompt"]) for e in retenus)
     usd_out = max(float(e["pricing"]["completion"]) for e in retenus)
