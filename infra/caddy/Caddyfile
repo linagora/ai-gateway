@@ -20,6 +20,12 @@
 	import securite
 	@inference path /v1/* /chat/completions /completions /embeddings /models /responses /health/liveliness
 	handle @inference {
+		# Fichiers audio (transcription) : 25 Mo au plus, 413 au-delà. LiteLLM lit le fichier entier en mémoire, et sa
+		# propre limite de taille (max_file_size_mb) est réservée à l'édition Enterprise. Chemin d'origine : request_body
+		# passe avant rewrite.
+		request_body /v1/audio/* {
+			max_size 25MB
+		}
 		rewrite * /admin{uri}
 		reverse_proxy litellm:4000 {
 			flush_interval -1
@@ -28,6 +34,11 @@
 	# Toute route d'administration (/key/*, /user/*, /team/*, /model/*, /ui…) est invisible ici
 	handle {
 		respond "Not Found" 404
+	}
+	# Refus de request_body (fichier audio de plus de 25 Mo), au format des erreurs de l'API.
+	handle_errors 413 {
+		header Content-Type application/json
+		respond `{"error": {"message": "Fichier refusé par la passerelle LINAGORA : 25 Mo au plus. / File refused by the LINAGORA gateway: 25 MB at most.", "type": "invalid_request_error", "code": "413"}}` 413
 	}
 }
 

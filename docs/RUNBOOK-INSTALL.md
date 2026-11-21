@@ -91,6 +91,10 @@ ssh ia-host 'cd /opt/linagora-ia && docker compose ps && docker compose logs --t
 curl -s https://ai-api.linagora.com/health/liveliness                                   # → "I'm alive!" (ou équivalent)
 curl -s -o /dev/null -w '%{http_code}\n' https://ai-api.linagora.com/key/list            # → 404
 curl -s -o /dev/null -w '%{http_code}\n' https://ai-api.linagora.com/admin/ui/           # → 404
+# Fichiers audio de plus de 25 Mo (25 000 000 octets) refusés par Caddy. Corps en octet-stream : dans le type par défaut de
+# curl (x-www-form-urlencoded), LiteLLM refuse un champ de plus de 1 Mo (400) avant que Caddy ne compte les 25 Mo.
+head -c 25000001 /dev/zero | curl -s -o /dev/null -w '%{http_code}\n' -H 'Content-Type: application/octet-stream' \
+  --data-binary @- https://ai-api.linagora.com/v1/audio/transcriptions                 # → 413
 curl -s -o /dev/null -w '%{http_code}\n' https://ai-gateway.linagora.com/admin/ui/       # → 200 depuis une IP autorisée, 403 sinon
 ```
 Vérifier dans les logs LiteLLM l'absence du message « Cannot apply server_root_path replacements to UI » (sinon l'UI sous `/admin` ne chargera pas ses assets : il faudra une image dérivée pré-traitée). Vérifier aussi qu'aucun port autre que 22/80/443 n'écoute publiquement : `ssh ia-host 'sudo ss -tlnp'` (Postgres ne doit **pas** être sur 0.0.0.0).
