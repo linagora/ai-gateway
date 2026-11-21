@@ -25,10 +25,10 @@ le 2026-10-15 : 7,7 % de plus ; même code sur la branche principale de LiteLLM)
 pour suivre en flux la même règle que hors flux : le coût renvoyé par le fournisseur est écarté pour un modèle à tarif déclaré.
 
 Modèles qui n'acceptent de message système qu'en tête de la conversation (model_info.systeme_en_tete : Qwen3.8 chez
-OVHcloud, dont le gabarit refuse les autres) : Claude Code envoie par /v1/messages des entrées « system » au milieu de la
-conversation (son environnement, après la première question ; 2.1.314), que LiteLLM transmet à leur place (1.102.1). La
-garde les rattache au message de l'utilisateur qui les précède, entre balises <system-reminder>, comme Claude Code le
-fait de ses rappels.
+OVHcloud, dont le gabarit refuse les autres, et des modèles de Scaleway) : Claude Code envoie par /v1/messages des
+entrées « system » au milieu de la conversation (son environnement, après la première question ; 2.1.314), que LiteLLM
+transmet à leur place (1.102.1). La garde les rattache au message de l'utilisateur qui les précède, entre balises
+<system-reminder>, comme Claude Code le fait de ses rappels.
 """
 import sys
 
