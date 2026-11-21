@@ -215,6 +215,34 @@ def modele_transcription_scaleway(nom, nom_scaleway, editeur, *, prix_minute):
     }
 
 
+def modele_ocr_scaleway(nom, nom_scaleway, editeur, *, prix_entree):
+    """Modèle d'OCR de Scaleway, au niveau Expérimental pendant l'essai, appelé par les chat completions avec un seul PDF
+    dans le message. Facturé à l'entrée seule : prix en € HT par million de jetons d'entrée, relevé le RELEVE_PRIX_SCALEWAY."""
+    return {
+        "model_name": nom,
+        "litellm_params": {
+            "model": f"scaleway/{nom_scaleway}",
+            **ACCES_SCALEWAY,
+            "additional_drop_params": PARAMETRES_HORS_OPENAI_SCALEWAY,
+            "input_cost_per_token": par_jeton(prix_entree),
+            "output_cost_per_token": 0.0,  # sortie gratuite chez Scaleway
+        },
+        "model_info": {
+            **FAITS_SCALEWAY,
+            "editeur": editeur,
+            "capacites": [],
+            "pricing_source": f"Tarif public de Scaleway Generative APIs : {montant(prix_entree)} € HT par million de jetons "
+                              f"d'entrée, sortie gratuite, relevé le {RELEVE_PRIX_SCALEWAY}",
+            "type_api": "ocr",  # lu par le portail : un PDF par message, et non une conversation
+            # Sans appel d'outils : le portail ne le propose pas aux assistants de code, et la route scaleway/ retire les
+            # outils de la requête (Scaleway les ignore, mais refuse tool_choice « required »).
+            "appel_outils": False,
+            "supports_function_calling": False,
+            "supports_reasoning": False,
+        },
+    }
+
+
 MODELES = [
     {
         "model_name": "qwen3.8",
@@ -442,6 +470,12 @@ MODELES = [
     # verbose_json (langue, segments, mots horodatés ; text rend aussi du JSON), srt refusé ; durée comptée par Scaleway en
     # secondes entières (5 pour 4,09 s).
     modele_transcription_scaleway("whisper-large-v3", "whisper-large-v3", "OpenAI", prix_minute=0.003),
+    # OCR (ticket #216) : un seul message, avec un seul PDF et sans consigne (seul le texte « grounding » est admis : il
+    # ajoute la position des lignes) ; images, flux et max_tokens refusés (LiteLLM le transmet en max_completion_tokens) ;
+    # 1 000 jetons d'entrée par page, quelle que soit sa taille.
+    # Un PDF en texte dont la police n'est pas incorporée (Helvetica standard) arrive blanc au modèle ; une page en image
+    # est lue.
+    modele_ocr_scaleway("lightonocr-3", "lightonocr-3-0.8b", "LightOn", prix_entree=2.20),
 ]
 
 
