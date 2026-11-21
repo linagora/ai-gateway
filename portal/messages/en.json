@@ -1062,8 +1062,7 @@
       },
       "nonSupervise": {
         "image": "Image model: each probe would generate a paid image.",
-        "recherche_web": "Model that searches the web on every request: each probe would run a paid search.",
-        "type_sans_sonde": "This API type has no probe yet."
+        "recherche_web": "Model that searches the web on every request: each probe would run a paid search."
       },
       "typesApi": {
         "conversation": "chat",

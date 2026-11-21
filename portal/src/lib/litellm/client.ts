@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { audioDeSonde, pdfDeSonde } from "./fichiers-de-sonde";
 
 /**
  * Client typé de l'API d'administration LiteLLM (brief §3). SERVEUR UNIQUEMENT : il porte la clé
@@ -175,11 +176,8 @@ export interface KeyInfo {
   blocked: boolean;
 }
 
-/**
- * Types d'API sondés par la supervision : un modèle d'images n'est pas sondé, chaque appel générant une image payante ;
- * la transcription et l'OCR n'ont pas encore de sonde.
- */
-export type ProbedApiKind = Exclude<ApiKind, "image" | "transcription" | "ocr">;
+/** Types d'API sondés par la supervision : un modèle d'images n'est pas sondé, chaque appel générant une image payante. */
+export type ProbedApiKind = Exclude<ApiKind, "image">;
 
 /** Erreur propre à la sonde, enregistrée par son code et traduite à l'affichage (onglet « Supervision », courriels). */
 export type CodeErreurSonde = "delai_depasse" | "passerelle_injoignable" | "absent_de_la_passerelle";
@@ -247,18 +245,38 @@ const SONDE_DECISION = {
   questions: { repond: { type: "noul", instructions: "La passerelle répond-elle ?" } },
 };
 
+interface AppelDeSonde {
+  path: string;
+  headers: Record<string, string>;
+  body: BodyInit;
+}
+
+function appelJson(path: string, corps: unknown): AppelDeSonde {
+  return { path, headers: { "Content-Type": "application/json" }, body: JSON.stringify(corps) };
+}
+
 /** Appel de sonde de chaque type d'API : le plus petit appel qui passe par la même route que les collaborateurs. */
-function appelDeSonde(modelName: string, apiKind: ProbedApiKind): { path: string; body: unknown } {
+function appelDeSonde(modelName: string, apiKind: ProbedApiKind): AppelDeSonde {
   switch (apiKind) {
     case "embeddings":
-      return { path: "/v1/embeddings", body: { model: modelName, input: "OK" } };
+      return appelJson("/v1/embeddings", { model: modelName, input: "OK" });
     case "decision":
-      return { path: "/v1/chat/completions", body: { model: modelName, messages: [{ role: "user", content: JSON.stringify(SONDE_DECISION) }] } };
+      return appelJson("/v1/chat/completions", { model: modelName, messages: [{ role: "user", content: JSON.stringify(SONDE_DECISION) }] });
     case "conversation":
-      return {
-        path: "/v1/chat/completions",
-        body: { model: modelName, messages: [{ role: "user", content: "Réponds uniquement par le mot OK." }], max_tokens: 16 },
-      };
+      return appelJson("/v1/chat/completions", { model: modelName, messages: [{ role: "user", content: "Réponds uniquement par le mot OK." }], max_tokens: 16 });
+    case "transcription": {
+      const formulaire = new FormData();
+      formulaire.append("model", modelName);
+      formulaire.append("file", audioDeSonde(), "sonde.wav");
+      // En multipart, fetch pose lui-même l'en-tête Content-Type, avec la frontière des parties.
+      return { path: "/v1/audio/transcriptions", headers: {}, body: formulaire };
+    }
+    case "ocr":
+      // Comme dans la documentation de Scaleway : un seul PDF dans le message, sans consigne.
+      return appelJson("/v1/chat/completions", {
+        model: modelName,
+        messages: [{ role: "user", content: [{ type: "file", file: { file_data: `data:application/pdf;base64,${pdfDeSonde()}` } }] }],
+      });
   }
 }
 
@@ -580,13 +598,13 @@ export function createLiteLLMClient(config: LiteLLMConfig): LiteLLMClient {
     },
 
     async probeModel(modelName, apiKind) {
-      const { path, body } = appelDeSonde(modelName, apiKind);
+      const { path, headers, body } = appelDeSonde(modelName, apiKind);
       const debut = Date.now();
       try {
         const response = await fetch(`${config.baseUrl}${path}`, {
           method: "POST",
-          headers: { Authorization: `Bearer ${config.masterKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify(body),
+          headers: { Authorization: `Bearer ${config.masterKey}`, ...headers },
+          body,
           cache: "no-store",
           signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
         });

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, describe, expect, test } from "vitest";
-import { TEST_LITELLM_BASE_URL, TEST_LITELLM_MASTER_KEY } from "@/test/config";
+import { TEST_LITELLM_BASE_URL, TEST_LITELLM_MASTER_KEY, TEST_TRANSCRIPTION_API_BASE } from "@/test/config";
 import { createLiteLLMClient } from "./client";
 
 // Contrat vérifié contre le LiteLLM de dev (même version que la production) : npm run test:int
@@ -528,6 +528,33 @@ describe("sonde de supervision", () => {
     const inconnu = await client.probeModel(uniqueId("inconnu"), "conversation");
     expect(inconnu.status).toBeGreaterThanOrEqual(400);
     expect(inconnu).toMatchObject({ error: expect.any(String), errorCode: null });
+  });
+
+  test("un modèle de transcription est sondé en multipart sur /v1/audio/transcriptions, par la route de Scaleway", async () => {
+    const modelName = uniqueId("sonde-transcription");
+    // Vers le fournisseur factice du Caddy de dev : LiteLLM ne simule pas les transcriptions.
+    const created = await admin<{ model_info: { id: string } }>("POST", "/model/new", {
+      model_name: modelName,
+      litellm_params: { model: `scaleway/${modelName}`, api_key: "sk-factice", api_base: TEST_TRANSCRIPTION_API_BASE },
+      model_info: { mode: "audio_transcription", type_api: "transcription" },
+    });
+    createdModels.push(created.model_info.id);
+
+    expect(await client.probeModel(modelName, "transcription")).toMatchObject({ status: 200, error: null, errorCode: null });
+  });
+
+  test("un modèle d'OCR est sondé par un PDF en base64 dans le message, sur /v1/chat/completions", async () => {
+    const modelName = uniqueId("sonde-ocr");
+    // La réponse simulée ne dispense pas LiteLLM de lire le message : un type de contenu inconnu, ou un fichier sans
+    // son objet `file`, y est refusé.
+    const created = await admin<{ model_info: { id: string } }>("POST", "/model/new", {
+      model_name: modelName,
+      litellm_params: { model: `openai/essai/${modelName}`, api_key: "sk-factice", mock_response: "Sonde de supervision LINAGORA" },
+      model_info: { type_api: "ocr" },
+    });
+    createdModels.push(created.model_info.id);
+
+    expect(await client.probeModel(modelName, "ocr")).toMatchObject({ status: 200, error: null, errorCode: null });
   });
 
   test("une passerelle injoignable est une panne, sans exception", async () => {

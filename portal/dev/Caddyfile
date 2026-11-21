@@ -1,6 +1,7 @@
 # Caddy de développement : reproduit le point de contrôle de la production (fragment partagé
 # infra/caddy/portal-gate.caddy) devant un service factice qui affiche l'identité reçue, et le proxy
-# de l'API d'intégration du portail (fragment partagé infra/caddy/portail.caddy).
+# de l'API d'intégration du portail (fragment partagé infra/caddy/portail.caddy). Sert aussi de
+# fournisseur factice de transcription au LiteLLM de dev (:8082, réseau Docker seulement).
 #   http://localhost:54600/admin/…, http://localhost:54600/stats/… et http://localhost:54600/api/v1/…
 {
 	auto_https off
@@ -32,4 +33,20 @@
 # Service factice : renvoie l'identité transmise par le point de contrôle.
 :8081 {
 	respond "service={path} utilisateur={header.X-Portal-User} role={header.X-Portal-Role} email={header.X-Portal-Email} nom={header.X-Portal-Name}"
+}
+
+# Fournisseur factice de transcription, joint par le LiteLLM de dev sur http://caddy:8082/v1 : LiteLLM ne simule pas
+# les transcriptions (mock_response n'y est pas lu). Port non publié sur l'hôte.
+:8082 {
+	@transcription {
+		method POST
+		path /v1/audio/transcriptions
+	}
+	handle @transcription {
+		header Content-Type application/json
+		respond `{"text": "OK"}` 200
+	}
+	handle {
+		respond 404
+	}
 }
