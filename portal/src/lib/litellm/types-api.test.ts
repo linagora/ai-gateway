@@ -15,3 +15,14 @@ test.each([
   // Seuls les modèles de conversation entrent dans les configurations d'OpenCode et de Claude Code.
   expect(sansTexte(messages.assistants.raisonsModele, API_KINDS.filter((type) => type !== "conversation")), "assistants de code").toEqual([]);
 });
+
+/** Types d'API sans section dans la fiche d'un modèle : un titre et une explication. */
+const sansSection = (sections: Record<string, { titre: string; explication: string }>, types: readonly string[]) =>
+  types.filter((type) => !sections[type]?.titre?.trim() || !sections[type]?.explication?.trim());
+
+test.each([
+  ["français", fr],
+  ["anglais", en],
+])("en %s, la fiche d'un modèle présente chaque type d'API autre que la conversation, avec un titre et une explication (ticket #217)", (_, messages) => {
+  expect(sansSection(messages.detail.typesApi, API_KINDS.filter((type) => type !== "conversation"))).toEqual([]);
+});

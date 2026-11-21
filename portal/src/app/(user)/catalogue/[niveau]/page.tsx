@@ -2,7 +2,7 @@ import { ArrowLeft, ArrowRight, Brain, Headphones, ImageIcon, Info, type LucideI
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getLocale, getTranslations } from "next-intl/server";
-import { type ApiKind, CAPABILITIES, type Capability, type ExecutionRegion } from "@/lib/litellm/client";
+import { CAPABILITIES, type Capability, type ExecutionRegion } from "@/lib/litellm/client";
 import type { Langue } from "@/lib/langue";
 import { levelCriteria, levelFromSegment, levelPageHref, levelSegment, sortParam } from "@/lib/level-routes";
 import { hasTokenPrices, LEVEL_SORTS, levelModels, modelDetail, type PriceTier, RECHERCHE_MINIMUM } from "@/lib/services/catalog";
@@ -23,13 +23,6 @@ const ICONES: Record<Capability, LucideIcon> = { images: ImageIcon, generation_i
 /** Pastille d'un fait sur un modèle (recommandation, niveau maximal, cas d'usage), arrondie comme les pastilles de classification. */
 const PASTILLE = "self-start rounded-xl px-2.5 text-sm";
 const REPERES: Record<PriceTier, "bas" | "moyen" | "eleve"> = { "€": "bas", "€€": "moyen", "€€€": "eleve" };
-
-/** Section de la fiche qui présente un type d'API autre que la conversation : titre et explication. */
-const SECTIONS_TYPE_API: Partial<Record<ApiKind, "apiDecision" | "apiImage" | "apiEmbeddings">> = {
-  decision: "apiDecision",
-  image: "apiImage",
-  embeddings: "apiEmbeddings",
-};
 
 /**
  * Tickets #7 à #10 : les modèles d'un niveau, en cartes (lecture cumulative, niveau Expérimental à part),
@@ -56,7 +49,6 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
     modeleOuvert ? modelDetail(getDeps(), { level, modelName: modeleOuvert, language }) : null,
   ]);
   const pageSansCritere = `/catalogue/${levelSegment(level)}`;
-  const sectionTypeApi = detail && SECTIONS_TYPE_API[detail.apiKind];
   /** « Éditeur · zone d'exécution », sans la partie inconnue. */
   const editeurEtZone = (m: { publisher: string | null; executionRegion: ExecutionRegion | null }) =>
     [m.publisher, m.executionRegion && domaine(`zones.${m.executionRegion}`)].filter(Boolean).join(" · ");
@@ -281,10 +273,11 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
           <p>{detail.hosts.join(", ") || domaine("nonRenseigne")}</p>
           <h3 className="mt-3 font-medium">{detailT("limites")}</h3>
           <p className="whitespace-pre-line">{detail.limitations ? espacesInsecables(detail.limitations) : detailT("aucuneLimite")}</p>
-          {sectionTypeApi && (
+          {/* Un type d'API autre que la conversation a sa section : un titre et une explication. */}
+          {detail.apiKind !== "conversation" && (
             <>
-              <h3 className="mt-3 font-medium">{detailT(`${sectionTypeApi}.titre`)}</h3>
-              <p>{detailT(`${sectionTypeApi}.explication`)}</p>
+              <h3 className="mt-3 font-medium">{detailT(`typesApi.${detail.apiKind}.titre`)}</h3>
+              <p>{detailT(`typesApi.${detail.apiKind}.explication`)}</p>
             </>
           )}
           <h3 className="mt-3 font-medium">{detailT("exempleAppel")}</h3>
