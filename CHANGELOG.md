@@ -7,6 +7,17 @@ All notable changes to LINAGORA AI Gateway, newest first. The format is based on
 
 ## [Unreleased]
 
+### Changed
+
+- `deepseek-v4-pro`: price cap raised to $1.32 / $3.96 per million tokens. Its previous providers no longer serve it
+  below the old cap; six providers fall under the new one (#239).
+
+### Fixed
+
+- The OpenRouter sync skips OpenRouter's service tiers (flex, priority), which provider preferences do not reach, and
+  keeps the endpoints priced exactly at a model's price cap. `deepseek-v4-pro` had been declared on a flex endpoint
+  only and refused every request since November 20 (#239).
+
 ## [1.4.1] - 2026-11-21
 
 ### Security
