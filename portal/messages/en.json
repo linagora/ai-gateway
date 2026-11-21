@@ -473,25 +473,27 @@
     "hebergeurs": "Hosts",
     "limites": "Known limitations",
     "aucuneLimite": "No limitation has been reported for this model.",
-    "apiDecision": {
-      "titre": "A decision API, not a chat model",
-      "explication": "This model is a decision API (“System One”): it does not chat. The last message holds a JSON request: “state” describes the situation, “questions” lists the expected decisions, each with its type and instructions. The response is an “answers” JSON object, with one answer per question."
-    },
-    "apiImage": {
-      "titre": "Image model",
-      "explication": "This model creates an image from your description. Call it like a chat model, asking for an image as output (\"modalities\"): the image comes back base64-encoded in the response, ready to save."
-    },
-    "apiEmbeddings": {
-      "titre": "Embedding model",
-      "explication": "This model does not chat: it turns each text into a vector of numbers, for semantic search, RAG, document clustering or duplicate detection. Call it through /v1/embeddings, with one or more texts. Vectors from two different models cannot be compared: switching models means recomputing every vector."
-    },
-    "apiTranscription": {
-      "titre": "Transcription model",
-      "explication": "This model does not chat: it returns the text of a recording. Call it through /v1/audio/transcriptions, with the audio file sent as multipart form data: WAV, FLAC, MP3 or OGG Opus, up to 25 MB; M4A, MP4 and WebM files are rejected. It is billed by the duration of the audio."
-    },
-    "apiOcr": {
-      "titre": "OCR model",
-      "explication": "This model does not chat: it returns the text of a PDF. Call it through /v1/chat/completions, with a single message that holds the base64-encoded PDF and nothing else: one PDF per request, and no tool calls."
+    "typesApi": {
+      "decision": {
+        "titre": "A decision API, not a chat model",
+        "explication": "This model is a decision API (“System One”): it does not chat. The last message holds a JSON request: “state” describes the situation, “questions” lists the expected decisions, each with its type and instructions. The response is an “answers” JSON object, with one answer per question."
+      },
+      "image": {
+        "titre": "Image model",
+        "explication": "This model creates an image from your description. Call it like a chat model, asking for an image as output (\"modalities\"): the image comes back base64-encoded in the response, ready to save."
+      },
+      "embeddings": {
+        "titre": "Embedding model",
+        "explication": "This model does not chat: it turns each text into a vector of numbers, for semantic search, RAG, document clustering or duplicate detection. Call it through /v1/embeddings, with one or more texts. Vectors from two different models cannot be compared: switching models means recomputing every vector."
+      },
+      "transcription": {
+        "titre": "Transcription model",
+        "explication": "This model does not chat: it returns the text of a recording. Call it through /v1/audio/transcriptions, with the audio file sent as multipart form data: WAV, FLAC, MP3 or OGG Opus, up to 25 MB; M4A, MP4 and WebM files are rejected. It is billed by the duration of the audio."
+      },
+      "ocr": {
+        "titre": "OCR model",
+        "explication": "This model does not chat: it returns the text of a PDF. Call it through /v1/chat/completions, with a single message that holds the base64-encoded PDF and nothing else: one PDF per request, and no tool calls."
+      }
     },
     "exempleAppel": "Example call",
     "exemple": {

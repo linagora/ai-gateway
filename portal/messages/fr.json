@@ -473,25 +473,27 @@
     "hebergeurs": "Hébergeurs",
     "limites": "Limites connues",
     "aucuneLimite": "Aucune limite n'est signalée pour ce modèle.",
-    "apiDecision": {
-      "titre": "Une API de décision, pas un modèle de conversation",
-      "explication": "Ce modèle est une API de décision (« System One ») : il ne converse pas. Le dernier message contient une requête JSON : « state » décrit la situation, « questions » liste les décisions attendues, chacune avec son type et ses instructions. La réponse est un JSON « answers », avec une réponse par question."
-    },
-    "apiImage": {
-      "titre": "Modèle d'images",
-      "explication": "Ce modèle crée une image à partir de votre description. Appelez-le comme un modèle de conversation, en demandant une image en sortie (« modalities ») : l'image revient encodée en base64 dans la réponse, prête à enregistrer."
-    },
-    "apiEmbeddings": {
-      "titre": "Modèle d'embeddings",
-      "explication": "Ce modèle ne converse pas : il transforme chaque texte en un vecteur de nombres, pour la recherche sémantique, le RAG, le regroupement de documents ou la détection de doublons. Il s'appelle par /v1/embeddings, avec un ou plusieurs textes. Les vecteurs de deux modèles différents ne se comparent pas : changer de modèle impose de recalculer tous les vecteurs."
-    },
-    "apiTranscription": {
-      "titre": "Modèle de transcription",
-      "explication": "Ce modèle ne converse pas : il rend le texte d'un enregistrement. Il s'appelle par /v1/audio/transcriptions, avec le fichier audio envoyé en multipart : WAV, FLAC, MP3 ou OGG Opus, de 25 Mo au plus ; les fichiers M4A, MP4 et WebM sont refusés. Il est facturé à la durée de l'audio."
-    },
-    "apiOcr": {
-      "titre": "Modèle d'OCR",
-      "explication": "Ce modèle ne converse pas : il rend le texte d'un PDF. Il s'appelle par /v1/chat/completions, avec un seul message qui contient le PDF encodé en base64 et rien d'autre : un seul PDF par requête, et pas d'appel d'outils."
+    "typesApi": {
+      "decision": {
+        "titre": "Une API de décision, pas un modèle de conversation",
+        "explication": "Ce modèle est une API de décision (« System One ») : il ne converse pas. Le dernier message contient une requête JSON : « state » décrit la situation, « questions » liste les décisions attendues, chacune avec son type et ses instructions. La réponse est un JSON « answers », avec une réponse par question."
+      },
+      "image": {
+        "titre": "Modèle d'images",
+        "explication": "Ce modèle crée une image à partir de votre description. Appelez-le comme un modèle de conversation, en demandant une image en sortie (« modalities ») : l'image revient encodée en base64 dans la réponse, prête à enregistrer."
+      },
+      "embeddings": {
+        "titre": "Modèle d'embeddings",
+        "explication": "Ce modèle ne converse pas : il transforme chaque texte en un vecteur de nombres, pour la recherche sémantique, le RAG, le regroupement de documents ou la détection de doublons. Il s'appelle par /v1/embeddings, avec un ou plusieurs textes. Les vecteurs de deux modèles différents ne se comparent pas : changer de modèle impose de recalculer tous les vecteurs."
+      },
+      "transcription": {
+        "titre": "Modèle de transcription",
+        "explication": "Ce modèle ne converse pas : il rend le texte d'un enregistrement. Il s'appelle par /v1/audio/transcriptions, avec le fichier audio envoyé en multipart : WAV, FLAC, MP3 ou OGG Opus, de 25 Mo au plus ; les fichiers M4A, MP4 et WebM sont refusés. Il est facturé à la durée de l'audio."
+      },
+      "ocr": {
+        "titre": "Modèle d'OCR",
+        "explication": "Ce modèle ne converse pas : il rend le texte d'un PDF. Il s'appelle par /v1/chat/completions, avec un seul message qui contient le PDF encodé en base64 et rien d'autre : un seul PDF par requête, et pas d'appel d'outils."
+      }
     },
     "exempleAppel": "Exemple d'appel",
     "exemple": {
