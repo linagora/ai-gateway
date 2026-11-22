@@ -7,6 +7,8 @@ All notable changes to LINAGORA AI Gateway, newest first. The format is based on
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-22
+
 ### Added
 
 - Catalog: a level page whose models run at two hosts or more offers a Host filter, which keeps only the models a
@@ -214,7 +216,8 @@ First release of the gateway and its portal.
 - Development: translations left by the screenshots in the development catalog (#91); JEV no longer counted
   in the allowlist acceptance test (#106).
 
-[Unreleased]: https://github.com/linagora/ai-gateway/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/linagora/ai-gateway/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/linagora/ai-gateway/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/linagora/ai-gateway/compare/v1.4.2...v1.5.0
 [1.4.2]: https://github.com/linagora/ai-gateway/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/linagora/ai-gateway/compare/v1.4.0...v1.4.1
