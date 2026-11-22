@@ -301,16 +301,29 @@ def controle_claude_code(test_key, token_id, echecs):
         echecs.append("Claude Code (outil)")
 
 
+# Requête d'OpenCode 2.0.22 (capturée le 2026-11-22) : toujours un message système, dont voici le début, et un outil read
+# dont le chemin s'appelle « path ». Sans système, mistral-small-3.2-scaleway répondait en texte (ticket #235).
+DEBUT_SYSTEME_OPENCODE = ("You are an AI agent running in OpenCode, a coding agent harness. "
+                          "Help the user accomplish their goals using the tools you have available.")
+
+
 def controle_outil_openai(test_key, echecs):
     """/v1/chat/completions avec un outil, comme l'appelle OpenCode : le modèle doit répondre par un appel d'outil."""
     corps = {
         "model": MODEL,
         "max_tokens": 300,
-        "messages": [{"role": "user", "content": "Appelle l'outil read sur /etc/hostname."}],
+        "messages": [
+            {"role": "system", "content": DEBUT_SYSTEME_OPENCODE},
+            {"role": "user", "content": "Appelle l'outil read sur /etc/hostname."},
+        ],
         "tools": [{"type": "function", "function": {
             "name": "read",
-            "description": "Reads a file from the local filesystem.",
-            "parameters": {"type": "object", "properties": {"filePath": {"type": "string"}}, "required": ["filePath"]},
+            "description": "Read the contents of a file or directory.",
+            "parameters": {
+                "type": "object",
+                "properties": {"path": {"type": "string", "description": "File or directory to read"}},
+                "required": ["path"],
+            },
         }}],
     }
     st, rep, _ = call("POST", "/v1/chat/completions", corps, key=test_key)
@@ -648,6 +661,9 @@ try:
             if st != 200:
                 break
             couts.append(float(hdr.get("x-litellm-response-cost") or 0))
+        # Leur dépense s'écrit en différé, par l'un ou l'autre worker : l'attendre, même quand le contrôle n'est pas concluant,
+        # sinon elle peut arriver pendant un contrôle suivant, après sa dépense « avant » (ticket #235).
+        enregistree = attendre_depense(token_id, avant + sum(couts))
         usage = (comp or {}).get("usage") or {}
         lus = (usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0
         step(f"cache — requête longue rejouée → HTTP {st} ; jetons : {usage.get('prompt_tokens')} entrée, dont {lus} lus depuis le cache, + {usage.get('completion_tokens')} sortie")
@@ -665,9 +681,8 @@ try:
             attendu = cout_attendu(usage, cache_cost)
             calcule = proche(couts[1], attendu)
             step(f"cache — coût calculé par LiteLLM : {couts[1]:.10f} ; attendu, jetons lus au prix de lecture du cache ({cache_cost} par jeton) : {attendu:.10f} → {'conforme' if calcule else 'échec'}")
-            # La dépense enregistrée sur la clé doit compter ces jetons au même prix ; LiteLLM l'écrit en différé.
+            # La dépense enregistrée sur la clé, attendue plus haut, doit compter ces jetons au même prix.
             total = avant + couts[0] + attendu
-            enregistree = attendre_depense(token_id, total)
             enregistre = proche(enregistree, total)
             step(f"cache — dépense enregistrée sur la clé : {enregistree:.10f} ; attendue : {total:.10f} → {'conforme' if enregistre else 'échec'}")
             if not (calcule and enregistre):
