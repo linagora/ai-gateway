@@ -7,6 +7,8 @@ All notable changes to LINAGORA AI Gateway, newest first. The format is based on
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-22
+
 ### Added
 
 - Operations: `mesurer-vecteurs.py` measures how far the vectors of `qwen3-embedding-8b` at OVHcloud are from those
@@ -206,7 +208,8 @@ First release of the gateway and its portal.
 - Development: translations left by the screenshots in the development catalog (#91); JEV no longer counted
   in the allowlist acceptance test (#106).
 
-[Unreleased]: https://github.com/linagora/ai-gateway/compare/v1.4.2...HEAD
+[Unreleased]: https://github.com/linagora/ai-gateway/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/linagora/ai-gateway/compare/v1.4.2...v1.5.0
 [1.4.2]: https://github.com/linagora/ai-gateway/compare/v1.4.1...v1.4.2
 [1.4.1]: https://github.com/linagora/ai-gateway/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/linagora/ai-gateway/compare/v1.3.3...v1.4.0
