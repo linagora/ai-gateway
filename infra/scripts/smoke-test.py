@@ -661,6 +661,9 @@ try:
             if st != 200:
                 break
             couts.append(float(hdr.get("x-litellm-response-cost") or 0))
+        # Leur dépense s'écrit en différé, par l'un ou l'autre worker : l'attendre, même quand le contrôle n'est pas concluant,
+        # sinon elle peut arriver pendant un contrôle suivant, après sa dépense « avant » (ticket #235).
+        enregistree = attendre_depense(token_id, avant + sum(couts))
         usage = (comp or {}).get("usage") or {}
         lus = (usage.get("prompt_tokens_details") or {}).get("cached_tokens") or 0
         step(f"cache — requête longue rejouée → HTTP {st} ; jetons : {usage.get('prompt_tokens')} entrée, dont {lus} lus depuis le cache, + {usage.get('completion_tokens')} sortie")
@@ -678,9 +681,8 @@ try:
             attendu = cout_attendu(usage, cache_cost)
             calcule = proche(couts[1], attendu)
             step(f"cache — coût calculé par LiteLLM : {couts[1]:.10f} ; attendu, jetons lus au prix de lecture du cache ({cache_cost} par jeton) : {attendu:.10f} → {'conforme' if calcule else 'échec'}")
-            # La dépense enregistrée sur la clé doit compter ces jetons au même prix ; LiteLLM l'écrit en différé.
+            # La dépense enregistrée sur la clé, attendue plus haut, doit compter ces jetons au même prix.
             total = avant + couts[0] + attendu
-            enregistree = attendre_depense(token_id, total)
             enregistre = proche(enregistree, total)
             step(f"cache — dépense enregistrée sur la clé : {enregistree:.10f} ; attendue : {total:.10f} → {'conforme' if enregistre else 'échec'}")
             if not (calcule and enregistre):
