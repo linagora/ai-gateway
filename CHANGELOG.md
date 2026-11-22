@@ -7,6 +7,12 @@ All notable changes to LINAGORA AI Gateway, newest first. The format is based on
 
 ## [Unreleased]
 
+### Fixed
+
+- Operations: the acceptance test no longer reports two false failures. Its OpenCode check sends a system message,
+  as OpenCode does, without which `mistral-small-3.2-scaleway` answered in text instead of calling the tool; its
+  cache check waits for the spend of its requests, which the next check could otherwise count as its own (#246).
+
 ## [1.6.0] - 2026-11-22
 
 ### Added
