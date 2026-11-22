@@ -7,6 +7,8 @@ All notable changes to LINAGORA AI Gateway, newest first. The format is based on
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-11-22
+
 ### Fixed
 
 - Operations: the acceptance test no longer reports two false failures. Its OpenCode check sends a system message,
@@ -227,7 +229,8 @@ First release of the gateway and its portal.
 - Development: translations left by the screenshots in the development catalog (#91); JEV no longer counted
   in the allowlist acceptance test (#106).
 
-[Unreleased]: https://github.com/linagora/ai-gateway/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/linagora/ai-gateway/compare/v1.6.1...HEAD
+[1.6.1]: https://github.com/linagora/ai-gateway/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/linagora/ai-gateway/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/linagora/ai-gateway/compare/v1.4.2...v1.5.0
 [1.4.2]: https://github.com/linagora/ai-gateway/compare/v1.4.1...v1.4.2
