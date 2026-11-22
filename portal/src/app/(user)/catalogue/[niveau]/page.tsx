@@ -44,7 +44,7 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
   ]);
   const criteria = levelCriteria(searchParams);
   const modeleOuvert = typeof searchParams.modele === "string" ? searchParams.modele : null;
-  const [{ modelCount, apiKinds, models }, detail] = await Promise.all([
+  const [{ modelCount, apiKinds, hosts, models }, detail] = await Promise.all([
     levelModels(getDeps(), { level, language, criteria }),
     modeleOuvert ? modelDetail(getDeps(), { level, modelName: modeleOuvert, language }) : null,
   ]);
@@ -74,7 +74,7 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
         <p className="mt-6 italic">{catalogue("aucunModele")}</p>
       ) : (
         <form method="get" role="search" aria-label={t("filtres")} className="mt-6">
-          {/* Critères alignés sur leur libellé ; tri et réinitialisation en dessous. */}
+          {/* Critères alignés sur leur libellé ; hébergeur, tri et réinitialisation en dessous. */}
           <div className="flex flex-wrap items-start gap-x-6 gap-y-2">
             <label>
               {t("recherche")}
@@ -122,7 +122,21 @@ export default async function LevelPage(props: PageProps<"/catalogue/[niveau]">)
               <input type="checkbox" name="ue" value="1" defaultChecked={criteria.euOnly} /> {t("ueUniquement")}
             </label>
           </div>
+          {/* L'hébergeur en tête de cette rangée : la première est pleine. Comme le type d'API, seulement à partir de deux. */}
           <div className="flex flex-wrap items-end gap-x-6 gap-y-2">
+            {hosts.length > 1 && (
+              <label>
+                {t("hebergeur")}
+                <select name="hebergeur" defaultValue={criteria.host ?? ""}>
+                  <option value="">{t("tousHebergeurs")}</option>
+                  {hosts.map((hebergeur) => (
+                    <option key={hebergeur} value={hebergeur}>
+                      {hebergeur}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <label>
               {t("tri")}
               <select name="tri" defaultValue={sortParam(criteria.sort ?? "recommended")}>

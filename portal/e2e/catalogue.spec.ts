@@ -467,6 +467,82 @@ test.describe("filtre par type d'API (ticket #128)", () => {
   });
 });
 
+/**
+ * Rend visibles au niveau Expérimental, le temps des parcours du groupe, les modèles de transcription et d'OCR de
+ * démonstration, servis par Scaleway : partout ailleurs, ce niveau n'a que le modèle expérimental, servi par Typesafe.
+ */
+function avecTranscriptionEtOcrExperimentaux(): void {
+  test.beforeAll(async ({ browser }) => {
+    const context = await connecter(browser, ADMIN);
+    const page = await context.newPage();
+    await enrichirModele(page, { nom: "dev-transcription", nomAffiche: "Modèle de transcription", niveau: "EXP" });
+    await enrichirModele(page, { nom: "dev-ocr", nomAffiche: "Modèle d'OCR", niveau: "EXP" });
+    await context.close();
+  });
+
+  test.afterAll(async ({ browser }) => {
+    const context = await connecter(browser, ADMIN);
+    const page = await context.newPage();
+    for (const nom of ["dev-transcription", "dev-ocr"]) await masquerModele(page, nom);
+    await context.close();
+  });
+}
+
+test.describe("filtre par hébergeur (ticket #243)", () => {
+  avecTranscriptionEtOcrExperimentaux();
+
+  test("au niveau Expérimental, choisir Scaleway ne laisse que ses modèles ; le choix se combine aux autres critères, se garde dans l'adresse et se réinitialise ; un hébergeur absent de la page est ignoré", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    await page.goto("/catalogue/experimental");
+    const filtre = page.getByRole("combobox", { name: "Hébergeur" });
+    await expect(filtre.getByRole("option")).toHaveText(["Tous les hébergeurs", "Scaleway", "Typesafe"]);
+    await filtre.selectOption({ label: "Scaleway" });
+    await expect(page).toHaveURL(/hebergeur=Scaleway/);
+    await expect(page.getByRole("article")).toHaveCount(2);
+    await expect(page.getByRole("article", { name: "Modèle de transcription" })).toBeVisible();
+    await expect(page.getByRole("article", { name: "Modèle d'OCR" })).toBeVisible();
+    await page.getByRole("combobox", { name: "Type d'API" }).selectOption({ label: "OCR" });
+    await expect(page).toHaveURL((adresse) => adresse.searchParams.get("type") === "ocr" && adresse.searchParams.get("hebergeur") === "Scaleway");
+    await expect(page.getByRole("article")).toHaveCount(1);
+    await expect(page.getByRole("article", { name: "Modèle d'OCR" })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("combobox", { name: "Hébergeur" })).toHaveValue("Scaleway");
+    await page.getByRole("link", { name: "Réinitialiser les filtres" }).click();
+    await expect(page.getByRole("article")).toHaveCount(3);
+    await expect(page.getByRole("combobox", { name: "Hébergeur" })).toHaveValue("");
+
+    // OVHcloud héberge des modèles des autres niveaux, aucun de celui-ci.
+    await page.goto("/catalogue/experimental?hebergeur=OVHcloud");
+    await expect(page.getByRole("article")).toHaveCount(3);
+    await expect(page.getByRole("combobox", { name: "Hébergeur" })).toHaveValue("");
+    await context.close();
+  });
+
+  test("la page N1 propose les hébergeurs de ses modèles par ordre alphabétique, en français et en anglais ; une page d'un seul hébergeur n'a pas ce filtre", async ({ browser }) => {
+    const context = await connecter(browser, salarie);
+    const page = await context.newPage();
+    await page.goto("/catalogue/n1");
+    const filtre = page.getByRole("combobox", { name: "Hébergeur" });
+    await expect(filtre.getByRole("option")).toHaveText(["Tous les hébergeurs", "Black Forest Labs", "Fireworks", "Mistral", "OVHcloud"]);
+    await filtre.selectOption({ label: "OVHcloud" });
+    await expect(page).toHaveURL(/hebergeur=OVHcloud/);
+    await expect(page.getByRole("article")).toHaveCount(2);
+    await expect(page.getByRole("article", { name: "Modèle confidentiel" })).toBeVisible();
+    await expect(page.getByRole("article", { name: "Modèle vectoriel" })).toBeVisible();
+    await page.goto("/catalogue/n3");
+    await expect(page.getByRole("article")).toHaveCount(2);
+    await expect(page.getByRole("combobox", { name: "Hébergeur" })).toHaveCount(0);
+    await context.close();
+
+    const anglais = await connecter(browser, salarie, "en-US");
+    const pageEn = await anglais.newPage();
+    await pageEn.goto("/catalogue/n1");
+    await expect(pageEn.getByRole("combobox", { name: "Host" }).getByRole("option").first()).toHaveText("All hosts");
+    await anglais.close();
+  });
+});
+
 test.describe("détail d'un modèle (ticket #9)", () => {
   const panneau = (page: Page) => page.getByRole("dialog");
 
@@ -674,21 +750,7 @@ test.describe("sélection de modèles et demande préremplie (ticket #10)", () =
 });
 
 test.describe("modèles de transcription et d'OCR (ticket #214)", () => {
-  // Visibles le temps de ces parcours seulement : partout ailleurs, le niveau Expérimental n'a que le modèle expérimental.
-  test.beforeAll(async ({ browser }) => {
-    const context = await connecter(browser, ADMIN);
-    const page = await context.newPage();
-    await enrichirModele(page, { nom: "dev-transcription", nomAffiche: "Modèle de transcription", niveau: "EXP" });
-    await enrichirModele(page, { nom: "dev-ocr", nomAffiche: "Modèle d'OCR", niveau: "EXP" });
-    await context.close();
-  });
-
-  test.afterAll(async ({ browser }) => {
-    const context = await connecter(browser, ADMIN);
-    const page = await context.newPage();
-    for (const nom of ["dev-transcription", "dev-ocr"]) await masquerModele(page, nom);
-    await context.close();
-  });
+  avecTranscriptionEtOcrExperimentaux();
 
   test("la carte d'un modèle de transcription annonce son prix par minute d'audio, sans repère de prix ni contexte ; celle d'un modèle d'OCR, son prix d'entrée et sa sortie gratuite, en français et en anglais", async ({ browser }) => {
     for (const [langue, textes] of [

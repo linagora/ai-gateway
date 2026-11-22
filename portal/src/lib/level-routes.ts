@@ -23,7 +23,8 @@ export function sortParam(sort: LevelSort): string {
 
 /**
  * Critères de la page d'un niveau lus dans son adresse, pour qu'une recherche puisse être partagée :
- * ?q=<texte>&cas=<cas d'usage>&capacite=<capacité>…&ue=1&type=<type d'API>&tri=<tri>. Une valeur inconnue est ignorée.
+ * ?q=<texte>&cas=<cas d'usage>&capacite=<capacité>…&ue=1&type=<type d'API>&hebergeur=<hébergeur>&tri=<tri>. Une valeur
+ * inconnue est ignorée ; pour l'hébergeur, par le service du catalogue, qui connaît ceux des modèles de la page.
  */
 export function levelCriteria(searchParams: Record<string, string | string[] | undefined>): LevelCriteria {
   const valeurs = (nom: string) => [searchParams[nom]].flat().filter((v): v is string => typeof v === "string");
@@ -34,6 +35,7 @@ export function levelCriteria(searchParams: Record<string, string | string[] | u
     capabilities: CAPABILITIES.filter((c) => valeurs("capacite").includes(c)),
     euOnly: premiere("ue") === "1",
     apiKind: API_KINDS.find((type) => type === premiere("type")),
+    host: premiere("hebergeur") || undefined,
     sort: LEVEL_SORTS.find((s) => TRIS[s] === premiere("tri")) ?? "recommended",
   };
 }
