@@ -206,6 +206,8 @@ export interface LevelCriteria {
   euOnly?: boolean;
   /** Seulement les modèles de ce type d'API. */
   apiKind?: ApiKind;
+  /** Seulement les modèles qu'exécute cet hébergeur (ticket #243). */
+  host?: string;
   sort?: LevelSort;
 }
 
@@ -214,12 +216,14 @@ export const LEVEL_SORTS = ["recommended", "price", "context", "name"] as const;
 export type LevelSort = (typeof LEVEL_SORTS)[number];
 
 /**
- * Page d'un niveau : les modèles qui répondent aux critères, et, avant tout critère, le nombre de modèles du niveau et
- * leurs types d'API, dans l'ordre où le catalogue les présente (ce que propose le filtre par type d'API).
+ * Page d'un niveau : les modèles qui répondent aux critères, et, avant tout critère, le nombre de modèles du niveau,
+ * leurs types d'API, dans l'ordre où le catalogue les présente (ce que propose le filtre par type d'API), et leurs
+ * hébergeurs, une fois chacun et par ordre alphabétique (ce que propose le filtre par hébergeur).
  */
 export interface LevelModels {
   modelCount: number;
   apiKinds: ApiKind[];
+  hosts: string[];
   models: LevelModel[];
 }
 
@@ -231,12 +235,14 @@ export async function levelModels(
   deps: CatalogDeps,
   { level, language, criteria = {} }: { level: DataLevel; language: Langue; criteria?: LevelCriteria },
 ): Promise<LevelModels> {
-  const models: LevelModel[] = modelsOfLevel(await visibleModels(deps), level, language);
-  const { search: saisie = "", useCase, capabilities = [], euOnly = false, apiKind, sort = "recommended" } = criteria;
+  const models = modelsOfLevel(await visibleModels(deps), level, language);
+  const { search: saisie = "", useCase, capabilities = [], euOnly = false, apiKind, host, sort = "recommended" } = criteria;
   const search = saisie.trim().length >= RECHERCHE_MINIMUM ? saisie.trim() : "";
   const apiKinds = API_KINDS.filter((type) => models.some((m) => m.apiKind === type));
-  // Un type absent de la page (adresse ancienne ou modifiée) est ignoré, comme le filtre qui ne le propose pas.
+  const hosts = [...new Set(models.flatMap((m) => m.hosts))].sort((a, b) => a.localeCompare(b, language));
+  // Un type ou un hébergeur absent de la page (adresse ancienne ou modifiée) est ignoré, comme le filtre qui ne le propose pas.
   const typeRetenu = apiKind && apiKinds.includes(apiKind) ? apiKind : undefined;
+  const hebergeurRetenu = host && hosts.includes(host) ? host : undefined;
   const byName = (a: LevelModel, b: LevelModel) => a.displayName.localeCompare(b.displayName, language);
   const comparators: Record<LevelSort, (a: LevelModel, b: LevelModel) => number> = {
     recommended: (a, b) => Number(b.recommendedFor.length > 0) - Number(a.recommendedFor.length > 0) || byBlendedPrice(a, b) || byName(a, b),
@@ -247,6 +253,7 @@ export async function levelModels(
   return {
     modelCount: models.length,
     apiKinds,
+    hosts,
     models: models
       .filter(
         (m) =>
@@ -254,7 +261,8 @@ export async function levelModels(
           (!useCase || m.useCases.includes(useCase)) &&
           capabilities.every((c) => m.capabilities.includes(c)) &&
           (!euOnly || m.executionRegion === "UE") &&
-          (!typeRetenu || m.apiKind === typeRetenu),
+          (!typeRetenu || m.apiKind === typeRetenu) &&
+          (!hebergeurRetenu || m.hosts.includes(hebergeurRetenu)),
       )
       .sort(comparators[sort]),
   };

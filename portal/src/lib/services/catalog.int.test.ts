@@ -320,19 +320,26 @@ describe("modèles de transcription et d'OCR (ticket #214)", () => {
   });
 });
 
-describe("filtre par type d'API (ticket #128)", () => {
-  /** Modèles de niveau maximal N1 de chaque type, insérés dans le désordre. */
-  async function catalogueDeTypes(modeles: Parameters<FakeLiteLLM["withModel"]>[0][]) {
-    const litellm = new FakeLiteLLM();
-    for (const m of modeles) litellm.withModel(m);
-    for (const { modelName } of modeles) await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, modelName, dataLevel: "N1" });
-    return litellm;
+/** Modèle déclaré à la passerelle, avec le niveau maximal (N1 par défaut) et les cas d'usage de sa fiche au catalogue. */
+type ModeleACataloguer = Parameters<FakeLiteLLM["withModel"]>[0] & { niveau?: DataLevel; casUsage?: UseCase[] };
+
+/** Déclare les modèles à la passerelle, puis les décrit au catalogue, visibles et sans recommandation. */
+async function catalogueDe(modeles: ModeleACataloguer[]): Promise<FakeLiteLLM> {
+  const litellm = new FakeLiteLLM();
+  for (const { niveau, casUsage, ...modele } of modeles) {
+    litellm.withModel(modele);
+    const fiche = { modelName: modele.modelName, dataLevel: niveau ?? "N1", useCases: casUsage ?? ["WRITING_ANALYSIS" as const], recommendedFor: [] };
+    await saveCatalogEntry({ db: testDb, litellm }, admin, { ...qwen, ...fiche });
   }
+  return litellm;
+}
+
+describe("filtre par type d'API (ticket #128)", () => {
   const vecteursUe = { modelName: "vecteurs-ue", apiKind: "embeddings" as const, dimensions: 1024, executionRegion: "UE" as const, outputCostPerToken: 0 };
   const vecteursMonde = { ...vecteursUe, modelName: "vecteurs-monde", executionRegion: "HORS_UE" as const };
 
   test("le filtre par type d'API ne garde que les modèles de ce type, seul ou combiné à un autre critère", async () => {
-    const litellm = await catalogueDeTypes([vecteursMonde, whisper, { modelName: "conversation" }, lightonocr, vecteursUe, { modelName: "image", apiKind: "image" }]);
+    const litellm = await catalogueDe([vecteursMonde, whisper, { modelName: "conversation" }, lightonocr, vecteursUe, { modelName: "image", apiKind: "image" }]);
     const noms = async (criteria: LevelCriteria) =>
       (await levelModels({ db: testDb, litellm }, { level: "N1", language: "fr", criteria })).models.map((m) => m.modelName).sort();
     expect(await noms({ apiKind: "embeddings" })).toEqual(["vecteurs-monde", "vecteurs-ue"]);
@@ -343,7 +350,8 @@ describe("filtre par type d'API (ticket #128)", () => {
   });
 
   test("la page d'un niveau reçoit les types d'API présents parmi ses modèles, dans l'ordre conversation, images, embeddings, transcription, OCR, décision, quels que soient les critères", async () => {
-    const litellm = await catalogueDeTypes([
+    // Modèles insérés dans le désordre.
+    const litellm = await catalogueDe([
       lightonocr,
       { modelName: "decision", apiKind: "decision" },
       vecteursUe,
@@ -359,9 +367,69 @@ describe("filtre par type d'API (ticket #128)", () => {
   });
 
   test("un type d'API absent de la page, venu d'une adresse ancienne ou modifiée, est ignoré : la page montre tous ses modèles", async () => {
-    const litellm = await catalogueDeTypes([{ modelName: "conversation" }, vecteursUe]);
+    const litellm = await catalogueDe([{ modelName: "conversation" }, vecteursUe]);
     const { models } = await levelModels({ db: testDb, litellm }, { level: "N1", language: "fr", criteria: { apiKind: "decision" } });
     expect(models.map((m) => m.modelName).sort()).toEqual(["conversation", "vecteurs-ue"]);
+  });
+});
+
+describe("filtre par hébergeur (ticket #243)", () => {
+  const noms = async (litellm: FakeLiteLLM, level: DataLevel, criteria: LevelCriteria) =>
+    (await levelModels({ db: testDb, litellm }, { level, language: "fr", criteria })).models.map((m) => m.modelName).sort();
+
+  test("au niveau Expérimental, choisir Scaleway ne laisse que les modèles servis par Scaleway, seul ou combiné aux autres critères", async () => {
+    // Chaque modèle de Scaleway a un jumeau chez un autre hébergeur, qui répond aux mêmes critères : seul l'hébergeur l'écarte.
+    const litellm = await catalogueDe([
+      { modelName: "mistral-small-3.2-scaleway", hosts: ["Scaleway"], executionRegion: "UE", niveau: "EXP", casUsage: ["CODING"] },
+      { modelName: "mistral-small-3.2", hosts: ["Mistral"], executionRegion: "UE", niveau: "EXP", casUsage: ["CODING"] },
+      { modelName: "gemma-3-27b-scaleway", hosts: ["Scaleway"], executionRegion: "UE", capabilities: ["images"], niveau: "EXP" },
+      { modelName: "gemma-3-27b", hosts: ["DeepInfra"], executionRegion: "UE", capabilities: ["images"], niveau: "EXP" },
+      { ...lightonocr, modelName: "lightonocr-scaleway", hosts: ["Scaleway"], executionRegion: "UE", niveau: "EXP" },
+      { ...lightonocr, hosts: ["LightOn"], executionRegion: "UE", niveau: "EXP" },
+      { modelName: "jev", hosts: ["Typesafe"], executionRegion: "HORS_UE", niveau: "EXP" },
+    ]);
+    const deScaleway = ["gemma-3-27b-scaleway", "lightonocr-scaleway", "mistral-small-3.2-scaleway"];
+    expect(await noms(litellm, "EXP", { host: "Scaleway" })).toEqual(deScaleway);
+    expect(await noms(litellm, "EXP", { host: "Scaleway", search: "mistral" })).toEqual(["mistral-small-3.2-scaleway"]);
+    expect(await noms(litellm, "EXP", { host: "Scaleway", useCase: "CODING" })).toEqual(["mistral-small-3.2-scaleway"]);
+    expect(await noms(litellm, "EXP", { host: "Scaleway", apiKind: "ocr" })).toEqual(["lightonocr-scaleway"]);
+    expect(await noms(litellm, "EXP", { host: "Scaleway", capabilities: ["images"] })).toEqual(["gemma-3-27b-scaleway"]);
+    expect(await noms(litellm, "EXP", { host: "Scaleway", euOnly: true })).toEqual(deScaleway);
+    expect(await noms(litellm, "EXP", { host: "Typesafe", euOnly: true })).toEqual([]);
+  });
+
+  test("un modèle exécuté par plusieurs hébergeurs apparaît sous chacun d'eux", async () => {
+    const litellm = await catalogueDe([
+      { modelName: "glm-5.3", hosts: ["DeepInfra", "Novita"], niveau: "N1" },
+      { modelName: "kimi-k3", hosts: ["Novita"], niveau: "N1" },
+      { modelName: "qwen3.8", hosts: ["OVHcloud"], niveau: "N3" },
+    ]);
+    expect(await noms(litellm, "N1", { host: "Novita" })).toEqual(["glm-5.3", "kimi-k3"]);
+    expect(await noms(litellm, "N1", { host: "DeepInfra" })).toEqual(["glm-5.3"]);
+    expect(await noms(litellm, "N1", { host: "OVHcloud" })).toEqual(["qwen3.8"]);
+  });
+
+  test("la page d'un niveau reçoit les hébergeurs de ses modèles, une fois chacun, par ordre alphabétique, quels que soient les critères", async () => {
+    const litellm = await catalogueDe([
+      { modelName: "d3-ultra", hosts: ["vLLM Semantic Router"], niveau: "EXP" },
+      { modelName: "mistral-small-3.2-scaleway", hosts: ["Scaleway"], niveau: "EXP" },
+      { modelName: "jev", hosts: ["Typesafe"], niveau: "EXP" },
+      { modelName: "gemma-3-27b-scaleway", hosts: ["Scaleway"], niveau: "EXP" },
+      { modelName: "glm-5.3", hosts: ["Novita", "DeepInfra"], niveau: "N1" },
+    ]);
+    const hebergeurs = async (level: DataLevel, criteria: LevelCriteria = {}) => (await levelModels({ db: testDb, litellm }, { level, language: "fr", criteria })).hosts;
+    expect(await hebergeurs("EXP")).toEqual(["Scaleway", "Typesafe", "vLLM Semantic Router"]);
+    expect(await hebergeurs("EXP", { host: "Typesafe", search: "introuvable" })).toEqual(["Scaleway", "Typesafe", "vLLM Semantic Router"]);
+    expect(await hebergeurs("N1")).toEqual(["DeepInfra", "Novita"]);
+    expect(await hebergeurs("N2")).toEqual([]);
+  });
+
+  test("un hébergeur absent de la page, venu d'une adresse ancienne ou modifiée, est ignoré : la page montre tous ses modèles", async () => {
+    const litellm = await catalogueDe([
+      { modelName: "mistral-small-3.2-scaleway", hosts: ["Scaleway"], niveau: "EXP" },
+      { modelName: "jev", hosts: ["Typesafe"], niveau: "EXP" },
+    ]);
+    expect(await noms(litellm, "EXP", { host: "OVHcloud" })).toEqual(["jev", "mistral-small-3.2-scaleway"]);
   });
 });
 
@@ -437,7 +505,7 @@ describe("filtres, tri et recommandations (ticket #8)", () => {
     expect(await noms(litellm, { euOnly: true })).toEqual(["Ministral 8B", "Mistral Medium 3.5"]);
     expect(await noms(litellm, { useCase: "CODING", capabilities: ["images"], euOnly: true })).toEqual(["Mistral Medium 3.5"]);
     const aucun = await levelModels({ db: testDb, litellm }, { level: "N1", language: "fr", criteria: { useCase: "CODING", capabilities: ["raisonnement"], euOnly: true } });
-    expect(aucun).toEqual({ modelCount: 3, apiKinds: ["conversation"], models: [] });
+    expect(aucun).toEqual({ modelCount: 3, apiKinds: ["conversation"], hosts: [], models: [] });
   });
 
   test("une recommandation ne vaut que sur la page du niveau maximal du modèle", async () => {

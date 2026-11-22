@@ -7,6 +7,12 @@ All notable changes to LINAGORA AI Gateway, newest first. The format is based on
 
 ## [Unreleased]
 
+### Added
+
+- Catalog: a level page whose models run at two hosts or more offers a Host filter, which keeps only the models a
+  given host runs, for instance the models Scaleway serves at the Experimental level. It combines with the other
+  filters and stays in the page address (#244).
+
 ## [1.5.0] - 2026-11-22
 
 ### Added
