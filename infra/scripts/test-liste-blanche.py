@@ -43,6 +43,14 @@ def controle(libelle, ok, detail=""):
         echecs.append(libelle)
 
 
+def message_erreur(rep):
+    """Message de l'erreur d'une réponse (error.message, aux formats d'OpenAI et d'Anthropic), "" sans erreur. Celui d'un
+    refus de la garde est le texte du refus, ni dictionnaire, ni « 400: » devant (ticket #247)."""
+    erreur = rep.get("error") if isinstance(rep, dict) else None
+    message = erreur.get("message") if isinstance(erreur, dict) else None
+    return message if isinstance(message, str) else ""
+
+
 def conversation(cle, modele=MODELE, contenu="Réponds : bonjour", **extra):
     return http("POST", "/v1/chat/completions", {"model": modele, "max_tokens": 8, "messages": [{"role": "user", "content": contenu}], **extra}, cle)
 
@@ -125,19 +133,22 @@ try:
                           "preset": "essai", "usage": {"include": True}, "extra_body": {"models": ["openai/gpt-4o-mini"]},
                           "fallbacks": [JEV], "additional_drop_params": ["provider"]}.items():
         s, rep = conversation(cle["key"], **{param: valeur})
-        controle(f"paramètre « {param} » refusé", s == 400 and "Paramètre refusé" in json.dumps(rep, ensure_ascii=False), f"HTTP {s} {json.dumps(rep, ensure_ascii=False)[:200]}")
+        controle(f"paramètre « {param} » refusé", s == 400 and message_erreur(rep).startswith("Paramètre refusé par la passerelle LINAGORA"),
+                 f"HTTP {s} {json.dumps(rep, ensure_ascii=False)[:200]}")
 
     # 5 bis. API d'images et de vidéos de LiteLLM, qui n'y compte pas le coût de nos modèles : refusées par la garde
     for chemin, corps in [("/v1/images/generations", {"model": MODELE, "prompt": "essai"}), ("/v1/videos", {"model": MODELE, "prompt": "essai"})]:
         s, rep = http("POST", chemin, corps, cle["key"])
-        controle(f"API refusée : {chemin}", s == 400 and "API refusée" in json.dumps(rep, ensure_ascii=False), f"HTTP {s} {json.dumps(rep, ensure_ascii=False)[:200]}")
+        controle(f"API refusée : {chemin}", s == 400 and message_erreur(rep).startswith("API refusée par la passerelle LINAGORA"),
+                 f"HTTP {s} {json.dumps(rep, ensure_ascii=False)[:200]}")
     # Modèles qui cherchent sur le web à chaque requête : /v1/messages et /v1/responses, où LiteLLM ne compte pas leur
     # recherche, refusés par la garde avant tout appel payant.
     for nom in sorted(n for n, e in liste.items() if "recherche_usd" in e):
         for chemin, corps in [("/v1/messages", {"model": nom, "max_tokens": 8, "messages": [{"role": "user", "content": "Réponds : bonjour"}]}),
                               ("/v1/responses", {"model": nom, "input": "Réponds : bonjour"})]:
             s, rep = http("POST", chemin, corps, cle["key"])
-            controle(f"{nom} : API refusée : {chemin}", s == 400 and "API refusée" in json.dumps(rep, ensure_ascii=False), f"HTTP {s} {json.dumps(rep, ensure_ascii=False)[:200]}")
+            controle(f"{nom} : API refusée : {chemin}", s == 400 and message_erreur(rep).startswith("API refusée par la passerelle LINAGORA"),
+                     f"HTTP {s} {json.dumps(rep, ensure_ascii=False)[:200]}")
 
     # 6. JEV : modèle de la passerelle, réservé aux clés qui le portent
     question = json.dumps({"state": "Mes virements échouent depuis trois jours, c'est bloquant.",

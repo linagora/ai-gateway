@@ -81,6 +81,23 @@ REFUS_FORMAT_AUDIO = (
 )
 
 
+class RefusDeLaGarde(HTTPException):
+    """Refus de la garde (400), dont le message d'erreur est le texte seul. LiteLLM 1.102.1 (lu et essayé le 2026-11-22) le
+    prend dans l'attribut message de l'exception, s'il existe, sur les transcriptions, les images, /v1/completions et
+    d'autres API : à défaut, il y met detail converti en texte, précédé de « 400: » sur les images et /v1/completions. Sur
+    la conversation, les embeddings, /v1/messages et /v1/responses, il le prend dans detail, qu'il recopie dans
+    provider_specific_fields s'il est un dictionnaire. type et param suivent le format d'OpenAI : les transcriptions et
+    /v1/completions les rendraient sinon en texte (« None »). Sur /v1/audio/speech, où la passerelle ne déclare aucun
+    modèle, LiteLLM laisse l'exception à FastAPI, qui répond {"detail": texte}."""
+
+    type = "invalid_request_error"
+    param = None
+
+    def __init__(self, texte):
+        super().__init__(status_code=400, detail=texte)
+        self.message = texte
+
+
 def declaration_recherche(modele):
     """Paramètres déclarés d'un modèle qui cherche sur le web à chaque requête (prix de recherche déclaré), None sinon."""
     from litellm.proxy.proxy_server import llm_router
@@ -155,27 +172,27 @@ def rappels_systeme(messages):
 class GardePasserelle(CustomLogger):
     async def async_pre_call_hook(self, user_api_key_dict, cache, data, call_type):
         if any(motif in str(call_type) for motif in MOTIFS_APPELS_REFUSES):
-            raise HTTPException(status_code=400, detail={"error": "API refusée par la passerelle LINAGORA. Pour créer une image, appelez "
-                                                                  "/v1/chat/completions en demandant une image en sortie : \"modalities\": [\"image\"]. "
-                                                                  "La génération de vidéos n'est pas proposée."})
+            raise RefusDeLaGarde("API refusée par la passerelle LINAGORA. Pour créer une image, appelez "
+                                 "/v1/chat/completions en demandant une image en sortie : \"modalities\": [\"image\"]. "
+                                 "La génération de vidéos n'est pas proposée.")
         interdits = sorted(PARAMETRES_INTERDITS.intersection(data))
         if interdits:
-            raise HTTPException(status_code=400, detail={"error": f"Paramètre refusé par la passerelle LINAGORA : {', '.join(interdits)}. "
-                                                                  "Le modèle et le fournisseur sont fixés par la passerelle."})
+            raise RefusDeLaGarde(f"Paramètre refusé par la passerelle LINAGORA : {', '.join(interdits)}. "
+                                 "Le modèle et le fournisseur sont fixés par la passerelle.")
         if any(motif in str(call_type) for motif in ("anthropic_messages", "responses")) and preferences_fournisseur_declarees(data.get("model")):
-            raise HTTPException(status_code=400, detail={"error": REFUS_API_RESPONSES})
+            raise RefusDeLaGarde(REFUS_API_RESPONSES)
         if "transcription" in str(call_type):
             # Le fichier, lu en entier par LiteLLM, est dans la requête (io.BytesIO) avant l'appel des crochets.
             if calculate_request_duration(data.get("file")) is None:
-                raise HTTPException(status_code=400, detail={"error": REFUS_FORMAT_AUDIO})
+                raise RefusDeLaGarde(REFUS_FORMAT_AUDIO)
             data["file"].seek(0)
         if call_type == "anthropic_messages" and systeme_en_tete(data.get("model")):
             data["messages"] = rappels_systeme(data.get("messages") or [])
         declaration = declaration_recherche(data.get("model"))
         if declaration is not None:
             if call_type != "acompletion":
-                raise HTTPException(status_code=400, detail={"error": "API refusée par la passerelle LINAGORA pour ce modèle, qui cherche sur le web à "
-                                                                      "chaque requête : appelez /v1/chat/completions, où sa recherche est comptée."})
+                raise RefusDeLaGarde("API refusée par la passerelle LINAGORA pour ce modèle, qui cherche sur le web à "
+                                     "chaque requête : appelez /v1/chat/completions, où sa recherche est comptée.")
             options = dict(data.get("web_search_options") or {})
             if options.get("search_context_size") not in PROFONDEURS_RECHERCHE:
                 options["search_context_size"] = (declaration.get("web_search_options") or {}).get("search_context_size", "medium")

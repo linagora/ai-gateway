@@ -12,6 +12,11 @@ All notable changes to LINAGORA AI Gateway, newest first. The format is based on
 - Operations: the acceptance test no longer reports two false failures. Its OpenCode check sends a system message,
   as OpenCode does, without which `mistral-small-3.2-scaleway` answered in text instead of calling the tool; its
   cache check waits for the spend of its requests, which the next check could otherwise count as its own (#246).
+- A request the gateway refuses gets the refusal text alone as its error message, with the `invalid_request_error`
+  type. Transcriptions returned the text inside a Python dictionary, with the type `None`; the image API and
+  `/v1/completions` put `400:` and the dictionary before it; the chat, embeddings, video, Anthropic Messages and
+  Responses APIs also copied it into `provider_specific_fields`. The acceptance tests now check the text of each
+  refusal (#248).
 
 ## [1.6.0] - 2026-11-22
 

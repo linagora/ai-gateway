@@ -31,7 +31,7 @@ refusé explicitement (400). La recette sort en erreur si l'un de ces contrôles
 Un modèle de transcription (type d'API « transcription ») reçoit à la place, par /v1/audio/transcriptions, un extrait parlé
 de quelques secondes (voix de synthèse) : texte attendu, dépense enregistrée sur la clé égale à la durée de l'extrait
 multipliée par le prix par seconde, prix par minute déclaré au portail cohérent ; puis un M4A, dont la durée est illisible,
-que la garde doit refuser (400) en listant les formats acceptés.
+que la garde doit refuser (400), le message de l'erreur étant le texte du refus, qui liste les formats acceptés.
 
 Un modèle d'OCR (type d'API « ocr ») reçoit à la place un PDF d'une ligne : texte de la ligne, coût calculé et dépense
 enregistrée sur la clé au prix des jetons d'entrée.
@@ -129,6 +129,14 @@ def citations(reponse):
     """Sources du web citées par une réponse de conversation (annotations url_citation) : signe d'une recherche."""
     message = (((reponse or {}).get("choices") or [{}])[0].get("message") or {})
     return [a for a in message.get("annotations") or [] if a.get("type") == "url_citation"]
+
+
+def message_erreur(reponse):
+    """Message de l'erreur d'une réponse (error.message, aux formats d'OpenAI et d'Anthropic), "" sans erreur. Celui d'un
+    refus de la garde est le texte du refus, ni dictionnaire, ni « 400: » devant (ticket #247)."""
+    erreur = reponse.get("error") if isinstance(reponse, dict) else None
+    message = erreur.get("message") if isinstance(erreur, dict) else None
+    return message if isinstance(message, str) else ""
 
 
 def proche(valeur, attendue):
@@ -447,7 +455,7 @@ def transcrire(nom, type_contenu, test_key):
 
 def controle_transcription(test_key, token_id, echecs):
     """Extrait parlé transcrit ; dépense égale à sa durée multipliée par le prix par seconde, prix par minute du portail
-    cohérent ; M4A refusé par la garde (400), avec la liste des formats acceptés."""
+    cohérent ; M4A refusé par la garde (400), par le texte du refus, qui liste les formats acceptés."""
     # Prix par seconde : dans litellm_params seulement, /model/info ne le recopie pas dans model_info (1.102.1).
     prix_seconde, prix_minute = lp.get("input_cost_per_second"), mi.get("prix_minute_eur")
     conforme = prix_seconde is not None and prix_minute is not None and proche(prix_minute / 60, prix_seconde)
@@ -477,9 +485,11 @@ def controle_transcription(test_key, token_id, echecs):
     # M4A (AAC, une demi-seconde de silence) : durée illisible par soundfile dans l'image de LiteLLM, sur amd64 comme sur
     # arm64 ; LiteLLM compterait la transcription à 0 €. Le MP3, lu sur amd64 seulement, ne convient pas.
     st, rep, _ = transcrire("silence.m4a", "audio/mp4", test_key)
-    message = json.dumps(rep, ensure_ascii=False)
-    conforme = st == 400 and all(extrait in message for extrait in ("Formats acceptés", "Accepted formats", "WAV", "FLAC", "OGG"))
-    step(f"transcription d'un M4A (durée illisible) → HTTP {st} ; {message[:300]} → {'conforme' if conforme else 'échec'}")
+    message = message_erreur(rep)
+    conforme = (st == 400 and message.startswith("Fichier audio refusé par la passerelle LINAGORA")
+                and all(extrait in message for extrait in ("Formats acceptés", "Accepted formats", "WAV", "FLAC", "OGG")))
+    step(f"transcription d'un M4A (durée illisible) → HTTP {st} ; {json.dumps(rep, ensure_ascii=False)[:300]} → "
+         f"{'conforme' if conforme else 'échec'}")
     if not conforme:
         echecs.append("transcription (format illisible)")
 
@@ -696,10 +706,10 @@ try:
             # refuse ces API pour lui, avant tout appel payant.
             for chemin, corps in (("/v1/messages", message), ("/v1/responses", {"model": MODEL, "input": "Réponds uniquement par le mot OK."})):
                 st, rep, _ = call("POST", chemin, corps, key=test_key)
-                refuse = st == 400 and "API refusée" in json.dumps(rep, ensure_ascii=False)
+                refuse = st == 400 and message_erreur(rep).startswith("API refusée par la passerelle LINAGORA")
                 step(f"{chemin} → HTTP {st} ; {'refusé par la garde' if refuse else json.dumps(rep, ensure_ascii=False)[:300]} → {'conforme' if refuse else 'échec'}")
                 if not refuse:
-                    echecs.append(f"recherche ({chemin} accepté)")
+                    echecs.append(f"recherche ({chemin} {'refusé hors format' if st == 400 else 'accepté'})")
         else:
             avant_message = depense(token_id)
             st, msg, hdr = call("POST", "/v1/messages", message, key=test_key)
