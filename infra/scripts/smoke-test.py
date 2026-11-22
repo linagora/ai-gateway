@@ -301,16 +301,29 @@ def controle_claude_code(test_key, token_id, echecs):
         echecs.append("Claude Code (outil)")
 
 
+# Requête d'OpenCode 2.0.22 (capturée le 2026-11-22) : toujours un message système, dont voici le début, et un outil read
+# dont le chemin s'appelle « path ». Sans système, mistral-small-3.2-scaleway répondait en texte (ticket #235).
+DEBUT_SYSTEME_OPENCODE = ("You are an AI agent running in OpenCode, a coding agent harness. "
+                          "Help the user accomplish their goals using the tools you have available.")
+
+
 def controle_outil_openai(test_key, echecs):
     """/v1/chat/completions avec un outil, comme l'appelle OpenCode : le modèle doit répondre par un appel d'outil."""
     corps = {
         "model": MODEL,
         "max_tokens": 300,
-        "messages": [{"role": "user", "content": "Appelle l'outil read sur /etc/hostname."}],
+        "messages": [
+            {"role": "system", "content": DEBUT_SYSTEME_OPENCODE},
+            {"role": "user", "content": "Appelle l'outil read sur /etc/hostname."},
+        ],
         "tools": [{"type": "function", "function": {
             "name": "read",
-            "description": "Reads a file from the local filesystem.",
-            "parameters": {"type": "object", "properties": {"filePath": {"type": "string"}}, "required": ["filePath"]},
+            "description": "Read the contents of a file or directory.",
+            "parameters": {
+                "type": "object",
+                "properties": {"path": {"type": "string", "description": "File or directory to read"}},
+                "required": ["path"],
+            },
         }}],
     }
     st, rep, _ = call("POST", "/v1/chat/completions", corps, key=test_key)
